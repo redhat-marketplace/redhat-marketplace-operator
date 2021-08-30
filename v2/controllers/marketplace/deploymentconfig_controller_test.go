@@ -3,6 +3,7 @@ package marketplace
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -32,15 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("DeploymentConfig Controller Test", func() {
+var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	var (
 		csvName      = "test-csv-1.v0.0.1"
-		// csvSplitName = "test-csv-1"
 		namespace    = "default"
-		// meterDef1    marketplacev1beta1.MeterDefinition
-		// meterDef2    marketplacev1beta1.MeterDefinition
-		// csvOnCluster olmv1alpha1.ClusterServiceVersion
 	)
 
 	meterDef1Key := types.NamespacedName{
@@ -53,103 +50,103 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		Namespace: namespace,
 	}
 
-	// meterDef1 := marketplacev1beta1.MeterDefinition{
-	// 	TypeMeta: metav1.TypeMeta{
-	// 		Kind:       "MeterDefinition",
-	// 		APIVersion: "marketplace.redhat.com/v1beta1",
-	// 	},
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      meterDef1Key.Name,
-	// 		Namespace: "default",
-	// 		Annotations: map[string]string{
-	// 			"versionRange": "<=0.0.1",
-	// 		},
-	// 		Labels: map[string]string{
-	// 			"marketplace.redhat.com/installedOperatorNameTag":  "test-csv-1",
-	// 			"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-	// 		},
-	// 	},
-	// 	Spec: marketplacev1beta1.MeterDefinitionSpec{
-	// 		Group: "apps.partner.metering.com",
-	// 		Kind:  "App",
-	// 		ResourceFilters: []marketplacev1beta1.ResourceFilter{
-	// 			{
-	// 				WorkloadType: marketplacev1beta1.WorkloadTypeService,
-	// 				OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-	// 					GroupVersionKind: common.GroupVersionKind{
-	// 						APIVersion: "test_package_1.com/v2",
-	// 						Kind:       "test_package_1Cluster",
-	// 					},
-	// 				},
-	// 				Namespace: &marketplacev1beta1.NamespaceFilter{
-	// 					UseOperatorGroup: true,
-	// 				},
-	// 			},
-	// 		},
-	// 		Meters: []marketplacev1beta1.MeterWorkload{
-	// 			{
-	// 				Aggregation: "sum",
-	// 				GroupBy:     []string{"namespace"},
-	// 				Period: &metav1.Duration{
-	// 					Duration: time.Duration(time.Hour * 1),
-	// 				},
-	// 				Query:        "kube_service_labels{}",
-	// 				Metric:       "test_package_1_cluster_count",
-	// 				WorkloadType: marketplacev1beta1.WorkloadTypeService,
-	// 				Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-	// 			},
-	// 		},
-	// 	},
-	// }
+	meterDef1 := marketplacev1beta1.MeterDefinition{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "MeterDefinition",
+			APIVersion: "marketplace.redhat.com/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      meterDef1Key.Name,
+			Namespace: "default",
+			Annotations: map[string]string{
+				"versionRange": "<=0.0.1",
+			},
+			Labels: map[string]string{
+				"marketplace.redhat.com/installedOperatorNameTag":  "test-csv-1",
+				"marketplace.redhat.com/isCommunityMeterdefintion": "1",
+			},
+		},
+		Spec: marketplacev1beta1.MeterDefinitionSpec{
+			Group: "apps.partner.metering.com",
+			Kind:  "App",
+			ResourceFilters: []marketplacev1beta1.ResourceFilter{
+				{
+					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
+						GroupVersionKind: common.GroupVersionKind{
+							APIVersion: "test_package_1.com/v2",
+							Kind:       "test_package_1Cluster",
+						},
+					},
+					Namespace: &marketplacev1beta1.NamespaceFilter{
+						UseOperatorGroup: true,
+					},
+				},
+			},
+			Meters: []marketplacev1beta1.MeterWorkload{
+				{
+					Aggregation: "sum",
+					GroupBy:     []string{"namespace"},
+					Period: &metav1.Duration{
+						Duration: time.Duration(time.Hour * 1),
+					},
+					Query:        "kube_service_labels{}",
+					Metric:       "test_package_1_cluster_count",
+					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
+				},
+			},
+		},
+	}
 
-	// meterDef2 := marketplacev1beta1.MeterDefinition{
-	// 	TypeMeta: metav1.TypeMeta{
-	// 		Kind:       "MeterDefinition",
-	// 		APIVersion: "marketplace.redhat.com/v1beta1",
-	// 	},
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      meterDef2Key.Name,
-	// 		Namespace: "default",
-	// 		Annotations: map[string]string{
-	// 			"versionRange": "<=0.0.1",
-	// 		},
-	// 		Labels: map[string]string{
-	// 			"marketplace.redhat.com/installedOperatorNameTag":  "test-csv-1",
-	// 			"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-	// 		},
-	// 	},
-	// 	Spec: marketplacev1beta1.MeterDefinitionSpec{
-	// 		Group: "apps.partner.metering.com",
-	// 		Kind:  "App",
-	// 		ResourceFilters: []marketplacev1beta1.ResourceFilter{
-	// 			{
-	// 				WorkloadType: marketplacev1beta1.WorkloadTypeService,
-	// 				OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-	// 					GroupVersionKind: common.GroupVersionKind{
-	// 						APIVersion: "test_package_1.com/v2",
-	// 						Kind:       "test_package_1Cluster",
-	// 					},
-	// 				},
-	// 				Namespace: &marketplacev1beta1.NamespaceFilter{
-	// 					UseOperatorGroup: true,
-	// 				},
-	// 			},
-	// 		},
-	// 		Meters: []marketplacev1beta1.MeterWorkload{
-	// 			{
-	// 				Aggregation: "sum",
-	// 				GroupBy:     []string{"namespace"},
-	// 				Period: &metav1.Duration{
-	// 					Duration: time.Duration(time.Hour * 1),
-	// 				},
-	// 				Query:        "kube_service_labels{}",
-	// 				Metric:       "test_package_1_cluster_count",
-	// 				WorkloadType: marketplacev1beta1.WorkloadTypeService,
-	// 				Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-	// 			},
-	// 		},
-	// 	},
-	// }
+	meterDef2 := marketplacev1beta1.MeterDefinition{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "MeterDefinition",
+			APIVersion: "marketplace.redhat.com/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      meterDef2Key.Name,
+			Namespace: "default",
+			Annotations: map[string]string{
+				"versionRange": "<=0.0.1",
+			},
+			Labels: map[string]string{
+				"marketplace.redhat.com/installedOperatorNameTag":  "test-csv-1",
+				"marketplace.redhat.com/isCommunityMeterdefintion": "1",
+			},
+		},
+		Spec: marketplacev1beta1.MeterDefinitionSpec{
+			Group: "apps.partner.metering.com",
+			Kind:  "App",
+			ResourceFilters: []marketplacev1beta1.ResourceFilter{
+				{
+					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
+						GroupVersionKind: common.GroupVersionKind{
+							APIVersion: "test_package_1.com/v2",
+							Kind:       "test_package_1Cluster",
+						},
+					},
+					Namespace: &marketplacev1beta1.NamespaceFilter{
+						UseOperatorGroup: true,
+					},
+				},
+			},
+			Meters: []marketplacev1beta1.MeterWorkload{
+				{
+					Aggregation: "sum",
+					GroupBy:     []string{"namespace"},
+					Period: &metav1.Duration{
+						Duration: time.Duration(time.Hour * 1),
+					},
+					Query:        "kube_service_labels{}",
+					Metric:       "test_package_1_cluster_count",
+					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
+				},
+			},
+		},
+	}
 
 	csvOnCluster := olmv1alpha1.ClusterServiceVersion{
 		ObjectMeta: metav1.ObjectMeta{
@@ -381,21 +378,22 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 			BeforeEach(func() {
 				_csvOnCluster := csvOnCluster.DeepCopy()
 				_csvOnCluster.Name = "test-create.v0.0.1"
+				_csvSplitName := "test-create"
 				Expect(k8sClient.Create(context.TODO(), _csvOnCluster)).Should(SucceedOrAlreadyExist, "create csv for create if not found test")
 
 				_dc := &osappsv1.DeploymentConfig{}
-				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: "default"}, _dc)).Should(Succeed(), "get deployment config")
+				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, _dc)).Should(Succeed(), "get deployment config")
 
 				_dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
 
 				Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
 
-				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + "test-create"
+				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + _csvSplitName
 
-				indexLabelsBody := []byte(`{
-						"marketplace.redhat.com/installedOperatorNameTag": "test-create",
+				indexLabelsBody := []byte(fmt.Sprintf(`{
+						"marketplace.redhat.com/installedOperatorNameTag":"%v",
 						"marketplace.redhat.com/isCommunityMeterdefintion": "1"
-					}`)
+					}`,_csvSplitName))
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", indexLabelsPath, ghttp.CombineHandlers(
@@ -403,63 +401,16 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 						ghttp.RespondWithPtr(&Status200, &indexLabelsBody),
 					))
 
-				returnedMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{
-					{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "MeterDefinition",
-							APIVersion: "marketplace.redhat.com/v1beta1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      meterDef1Key.Name,
-							Namespace: "default",
-							Annotations: map[string]string{
-								"versionRange": "<=0.0.1",
-							},
-							Labels: map[string]string{
-								"marketplace.redhat.com/installedOperatorNameTag":  "test-create",
-								"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-							},
-						},
-						Spec: marketplacev1beta1.MeterDefinitionSpec{
-							Group: "apps.partner.metering.com",
-							Kind:  "App",
-							ResourceFilters: []marketplacev1beta1.ResourceFilter{
-								{
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-										GroupVersionKind: common.GroupVersionKind{
-											APIVersion: "test_package_1.com/v2",
-											Kind:       "test_package_1Cluster",
-										},
-									},
-									Namespace: &marketplacev1beta1.NamespaceFilter{
-										UseOperatorGroup: true,
-									},
-								},
-							},
-							Meters: []marketplacev1beta1.MeterWorkload{
-								{
-									Aggregation: "sum",
-									GroupBy:     []string{"namespace"},
-									Period: &metav1.Duration{
-										Duration: time.Duration(time.Hour * 1),
-									},
-									Query:        "kube_service_labels{}",
-									Metric:       "test_package_1_cluster_count",
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-								},
-							},
-						},
-					},
-				}
+				createdMeterdef := meterDef1.DeepCopy()
+				createdMeterdef.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
+				returnedMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*createdMeterdef}
 
 				meterdefForCsvBody, err := json.Marshal(returnedMeterdefGoSlice)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + "test-create" + "/" + "0.0.1" + "/" + "default"
+				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + _csvSplitName + "/" + "0.0.1" + "/" + namespace
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
@@ -481,14 +432,15 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 			BeforeEach(func() {
 				_csvOnCluster := csvOnCluster.DeepCopy()
 				_csvOnCluster.Name = "test-update.v0.0.1"
+				_csvSplitName := "test-update"
 				Expect(k8sClient.Create(context.TODO(), _csvOnCluster)).Should(SucceedOrAlreadyExist, "create csv for update test")
 
-				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + "test-update"
+				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + _csvSplitName
 
-				indexLabelsBody := []byte(`{
-						"marketplace.redhat.com/installedOperatorNameTag": "test-update",
+				indexLabelsBody := []byte(fmt.Sprintf(`{
+						"marketplace.redhat.com/installedOperatorNameTag": "%v",
 						"marketplace.redhat.com/isCommunityMeterdefintion": "1"
-					}`)
+					}`,_csvSplitName))
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", indexLabelsPath, ghttp.CombineHandlers(
@@ -497,121 +449,27 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 					))
 
 				_dc := &osappsv1.DeploymentConfig{}
-				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: "default"}, _dc)).Should(Succeed(), "get deployment config")
+				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, _dc)).Should(Succeed(), "get deployment config")
 
 				_dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
 
 				Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
 
-				existingMeterdef := marketplacev1beta1.MeterDefinition{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "MeterDefinition",
-						APIVersion: "marketplace.redhat.com/v1beta1",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      meterDef1Key.Name,
-						Namespace: "default",
-						Annotations: map[string]string{
-							"versionRange": "<=0.0.1",
-						},
-						Labels: map[string]string{
-							"marketplace.redhat.com/installedOperatorNameTag":  "test-update",
-							"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-						},
-					},
-					Spec: marketplacev1beta1.MeterDefinitionSpec{
-						Group: "apps.partner.metering.com",
-						Kind:  "App",
-						ResourceFilters: []marketplacev1beta1.ResourceFilter{
-							{
-								WorkloadType: marketplacev1beta1.WorkloadTypeService,
-								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									GroupVersionKind: common.GroupVersionKind{
-										APIVersion: "test_package_1.com/v2",
-										Kind:       "test_package_1Cluster",
-									},
-								},
-								Namespace: &marketplacev1beta1.NamespaceFilter{
-									UseOperatorGroup: true,
-								},
-							},
-						},
-						Meters: []marketplacev1beta1.MeterWorkload{
-							{
-								Aggregation: "sum",
-								GroupBy:     []string{"namespace"},
-								Period: &metav1.Duration{
-									Duration: time.Duration(time.Hour * 1),
-								},
-								Query:        "kube_service_labels{}",
-								Metric:       "test_package_1_cluster_count",
-								WorkloadType: marketplacev1beta1.WorkloadTypeService,
-								Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-							},
-						},
-					},
-				}
+				existingMeterdef := meterDef1.DeepCopy()
+				existingMeterdef.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
+				Expect(k8sClient.Create(context.TODO(), existingMeterdef)).Should(SucceedOrAlreadyExist, "create existing meterdef")
 
-				Expect(k8sClient.Create(context.TODO(), &existingMeterdef)).Should(SucceedOrAlreadyExist, "create existing meterdef")
-
-				updateMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{
-					{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "MeterDefinition",
-							APIVersion: "marketplace.redhat.com/v1beta1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      meterDef1Key.Name,
-							Namespace: "default",
-							Annotations: map[string]string{
-								"versionRange": "<=0.0.1",
-							},
-							Labels: map[string]string{
-								"marketplace.redhat.com/installedOperatorNameTag":  "test-update",
-								"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-							},
-						},
-						Spec: marketplacev1beta1.MeterDefinitionSpec{
-							Group: "apps.partner.metering.com",
-							Kind:  "App",
-							ResourceFilters: []marketplacev1beta1.ResourceFilter{
-								{
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-										GroupVersionKind: common.GroupVersionKind{
-											APIVersion: "test_package_1.com/v2",
-											Kind:       "test_package_1Cluster",
-										},
-									},
-									Namespace: &marketplacev1beta1.NamespaceFilter{
-										UseOperatorGroup: true,
-									},
-								},
-							},
-							Meters: []marketplacev1beta1.MeterWorkload{
-								{
-									Name:        "updated",
-									Aggregation: "sum",
-									GroupBy:     []string{"namespace"},
-									Period: &metav1.Duration{
-										Duration: time.Duration(time.Hour * 1),
-									},
-									Query:        "kube_service_labels{}",
-									Metric:       "test_package_1_cluster_count",
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-								},
-							},
-						},
-					},
-				}
+				updatedMeterDef := meterDef1.DeepCopy()
+				updatedMeterDef.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
+				updatedMeterDef.Spec.Meters[0].Name = "updated"
+				updateMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*updatedMeterDef}
 
 				meterdefForCsvBody, err := json.Marshal(updateMeterdefGoSlice)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + "test-update" + "/" + "0.0.1" + "/" + "default"
+				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + _csvSplitName + "/" + "0.0.1" + "/" + namespace
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
@@ -637,14 +495,15 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 			BeforeEach(func() {
 				_csvOnCluster := csvOnCluster.DeepCopy()
 				_csvOnCluster.Name = "test-delete-meterdef.v0.0.1"
+				_csvSplitName := "test-delete-meterdef"
 				Expect(k8sClient.Create(context.TODO(), _csvOnCluster)).Should(SucceedOrAlreadyExist, "create csv for delete test")
 
-				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + "test-delete-meterdef"
-
-				indexLabelsBody := []byte(`{
-						"marketplace.redhat.com/installedOperatorNameTag": "test-delete-meterdef",
+				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + _csvSplitName
+				
+				indexLabelsBody := []byte(fmt.Sprintf(`{
+						"marketplace.redhat.com/installedOperatorNameTag":"%v",
 						"marketplace.redhat.com/isCommunityMeterdefintion": "1"
-					}`)
+					}`,_csvSplitName))
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", indexLabelsPath, ghttp.CombineHandlers(
@@ -659,163 +518,26 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 
 				Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
 
-				existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{
-					{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "MeterDefinition",
-							APIVersion: "marketplace.redhat.com/v1beta1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      meterDef1Key.Name,
-							Namespace: "default",
-							Annotations: map[string]string{
-								"versionRange": "<=0.0.1",
-							},
-							Labels: map[string]string{
-								"marketplace.redhat.com/installedOperatorNameTag":  "test-delete-meterdef",
-								"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-							},
-						},
-						Spec: marketplacev1beta1.MeterDefinitionSpec{
-							Group: "apps.partner.metering.com",
-							Kind:  "App",
-							ResourceFilters: []marketplacev1beta1.ResourceFilter{
-								{
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-										GroupVersionKind: common.GroupVersionKind{
-											APIVersion: "test_package_1.com/v2",
-											Kind:       "test_package_1Cluster",
-										},
-									},
-									Namespace: &marketplacev1beta1.NamespaceFilter{
-										UseOperatorGroup: true,
-									},
-								},
-							},
-							Meters: []marketplacev1beta1.MeterWorkload{
-								{
-									Aggregation: "sum",
-									GroupBy:     []string{"namespace"},
-									Period: &metav1.Duration{
-										Duration: time.Duration(time.Hour * 1),
-									},
-									Query:        "kube_service_labels{}",
-									Metric:       "test_package_1_cluster_count",
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-								},
-							},
-						},
-					}, {
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "MeterDefinition",
-							APIVersion: "marketplace.redhat.com/v1beta1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      meterDef2Key.Name,
-							Namespace: "default",
-							Annotations: map[string]string{
-								"versionRange": "<=0.0.1",
-							},
-							Labels: map[string]string{
-								"marketplace.redhat.com/installedOperatorNameTag":  "test-delete-meterdef",
-								"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-							},
-						},
-						Spec: marketplacev1beta1.MeterDefinitionSpec{
-							Group: "apps.partner.metering.com",
-							Kind:  "App",
-							ResourceFilters: []marketplacev1beta1.ResourceFilter{
-								{
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-										GroupVersionKind: common.GroupVersionKind{
-											APIVersion: "test_package_1.com/v2",
-											Kind:       "test_package_1Cluster",
-										},
-									},
-									Namespace: &marketplacev1beta1.NamespaceFilter{
-										UseOperatorGroup: true,
-									},
-								},
-							},
-							Meters: []marketplacev1beta1.MeterWorkload{
-								{
-									Aggregation: "sum",
-									GroupBy:     []string{"namespace"},
-									Period: &metav1.Duration{
-										Duration: time.Duration(time.Hour * 1),
-									},
-									Query:        "kube_service_labels{}",
-									Metric:       "test_package_1_cluster_count",
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-								},
-							},
-						},
-					},
-				}
+				_meterDef1 := meterDef1.DeepCopy()
+				_meterDef1.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
+
+				_meterDef2 := meterDef2.DeepCopy()
+				_meterDef2.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
+				
+				existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{*_meterDef1,*_meterDef2}
 
 				for _, existingMeterdef := range existingMeterdefSlice {
 					Expect(k8sClient.Create(context.TODO(), &existingMeterdef)).Should(SucceedOrAlreadyExist, "create existing meterdefs")
 				}
 
-				latestMeterdefsFromCatalog := []marketplacev1beta1.MeterDefinition{{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "MeterDefinition",
-						APIVersion: "marketplace.redhat.com/v1beta1",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      meterDef1Key.Name,
-						Namespace: "default",
-						Annotations: map[string]string{
-							"versionRange": "<=0.0.1",
-						},
-						Labels: map[string]string{
-							"marketplace.redhat.com/installedOperatorNameTag":  "test-delete-meterdef",
-							"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-						},
-					},
-					Spec: marketplacev1beta1.MeterDefinitionSpec{
-						Group: "apps.partner.metering.com",
-						Kind:  "App",
-						ResourceFilters: []marketplacev1beta1.ResourceFilter{
-							{
-								WorkloadType: marketplacev1beta1.WorkloadTypeService,
-								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									GroupVersionKind: common.GroupVersionKind{
-										APIVersion: "test_package_1.com/v2",
-										Kind:       "test_package_1Cluster",
-									},
-								},
-								Namespace: &marketplacev1beta1.NamespaceFilter{
-									UseOperatorGroup: true,
-								},
-							},
-						},
-						Meters: []marketplacev1beta1.MeterWorkload{
-							{
-								Aggregation: "sum",
-								GroupBy:     []string{"namespace"},
-								Period: &metav1.Duration{
-									Duration: time.Duration(time.Hour * 1),
-								},
-								Query:        "kube_service_labels{}",
-								Metric:       "test_package_1_cluster_count",
-								WorkloadType: marketplacev1beta1.WorkloadTypeService,
-								Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-							},
-						},
-					},
-				}}
+				latestMeterdefsFromCatalog := []marketplacev1beta1.MeterDefinition{*_meterDef1}
 
 				meterdefForCsvBody, err := json.Marshal(latestMeterdefsFromCatalog)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + "test-delete-meterdef" + "/" + "0.0.1" + "/" + "default"
+				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + _csvSplitName + "/" + "0.0.1" + "/" + namespace
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
@@ -849,14 +571,15 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 			BeforeEach(func() {
 				_csvOnCluster := csvOnCluster.DeepCopy()
 				_csvOnCluster.Name = "test-delete-all.v0.0.1"
+				_csvSplitName := "test-delete-all"
 				Expect(k8sClient.Create(context.TODO(), _csvOnCluster)).Should(SucceedOrAlreadyExist, "create csv for delete all meterdefs test")
 
-				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + "test-delete-all"
+				indexLabelsPath := "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + _csvSplitName
 
-				indexLabelsBody := []byte(`{
-						"marketplace.redhat.com/installedOperatorNameTag": "test-delete-all",
+				indexLabelsBody := []byte(fmt.Sprintf(`{
+						"marketplace.redhat.com/installedOperatorNameTag": "%v",
 						"marketplace.redhat.com/isCommunityMeterdefintion": "1"
-					}`)
+					}`,_csvSplitName))
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", indexLabelsPath, ghttp.CombineHandlers(
@@ -870,104 +593,13 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				_dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
 
 				Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
+				
+				_meterDef1 := meterDef1.DeepCopy()
+				_meterDef1.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
 
-				existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{
-					{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "MeterDefinition",
-							APIVersion: "marketplace.redhat.com/v1beta1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      meterDef1Key.Name,
-							Namespace: "default",
-							Annotations: map[string]string{
-								"versionRange": "<=0.0.1",
-							},
-							Labels: map[string]string{
-								"marketplace.redhat.com/installedOperatorNameTag":  "test-delete-all",
-								"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-							},
-						},
-						Spec: marketplacev1beta1.MeterDefinitionSpec{
-							Group: "apps.partner.metering.com",
-							Kind:  "App",
-							ResourceFilters: []marketplacev1beta1.ResourceFilter{
-								{
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-										GroupVersionKind: common.GroupVersionKind{
-											APIVersion: "test_package_1.com/v2",
-											Kind:       "test_package_1Cluster",
-										},
-									},
-									Namespace: &marketplacev1beta1.NamespaceFilter{
-										UseOperatorGroup: true,
-									},
-								},
-							},
-							Meters: []marketplacev1beta1.MeterWorkload{
-								{
-									Aggregation: "sum",
-									GroupBy:     []string{"namespace"},
-									Period: &metav1.Duration{
-										Duration: time.Duration(time.Hour * 1),
-									},
-									Query:        "kube_service_labels{}",
-									Metric:       "test_package_1_cluster_count",
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-								},
-							},
-						},
-					}, {
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "MeterDefinition",
-							APIVersion: "marketplace.redhat.com/v1beta1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      meterDef2Key.Name,
-							Namespace: "default",
-							Annotations: map[string]string{
-								"versionRange": "<=0.0.1",
-							},
-							Labels: map[string]string{
-								"marketplace.redhat.com/installedOperatorNameTag":  "test-delete-all",
-								"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-							},
-						},
-						Spec: marketplacev1beta1.MeterDefinitionSpec{
-							Group: "apps.partner.metering.com",
-							Kind:  "App",
-							ResourceFilters: []marketplacev1beta1.ResourceFilter{
-								{
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-										GroupVersionKind: common.GroupVersionKind{
-											APIVersion: "test_package_1.com/v2",
-											Kind:       "test_package_1Cluster",
-										},
-									},
-									Namespace: &marketplacev1beta1.NamespaceFilter{
-										UseOperatorGroup: true,
-									},
-								},
-							},
-							Meters: []marketplacev1beta1.MeterWorkload{
-								{
-									Aggregation: "sum",
-									GroupBy:     []string{"namespace"},
-									Period: &metav1.Duration{
-										Duration: time.Duration(time.Hour * 1),
-									},
-									Query:        "kube_service_labels{}",
-									Metric:       "test_package_1_cluster_count",
-									WorkloadType: marketplacev1beta1.WorkloadTypeService,
-									Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-								},
-							},
-						},
-					},
-				}
+				_meterDef2 := meterDef2.DeepCopy()
+				_meterDef2.Labels["marketplace.redhat.com/installedOperatorNameTag"] = _csvSplitName
+				existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{*_meterDef1,*_meterDef2}
 
 				for _, existingMeterdef := range existingMeterdefSlice {
 					Expect(k8sClient.Create(context.TODO(), &existingMeterdef)).Should(SucceedOrAlreadyExist, "create existing meterdefs")
@@ -975,7 +607,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 
 				notFoundBody := []byte(`no meterdefs found`)
 
-				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + "test-delete-all" + "/" + "0.0.1" + "/" + "default"
+				listMeterDefsForCsvPath := "/" + catalog.ListForVersionEndpoint + "/" + _csvSplitName + "/" + "0.0.1" + "/" + "default"
 
 				dcControllerMockServer.RouteToHandler(
 					"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
