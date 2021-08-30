@@ -871,7 +871,7 @@ _#installKubeBuilder: _#step & {
 
 		# move to a long-term location and put it on your path
 		# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-		sudo mv /tmp/kubebuilder_${os}_${arch} /usr/local/kubebuilder
+		sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
 		echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
 		"""
 }
