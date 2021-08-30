@@ -342,36 +342,36 @@ sync_branches: _#bashWorkflow & {
 	name: "Sync Next Release"
 	on: {
 		push: {
-			branches: [ "develop", _#nextRelease ]
+			branches: [ "develop", _#nextRelease]
 		}
 	}
 	jobs: {
 		sync: {
 			name:      "Sync next release"
 			"runs-on": _#linuxMachine
-      if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
-			steps:     [
-        _#checkoutCode,
+			if:        "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
+			steps: [
+				_#checkoutCode,
 				_#step & {
 					name: "pull-request-action"
-          if: "${{ github.ref == 'refs/heads/develop' }}"
+					if:   "${{ github.ref == 'refs/heads/develop' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": _#nextRelease
-            "PULL_REQUEST_TITLE" : "chore: develop to \(_#nextRelease)"
-            "PULL_REQUEST_UPDATE": "true"
+						"PULL_REQUEST_TITLE":  "chore: develop to \(_#nextRelease)"
+						"PULL_REQUEST_UPDATE": "true"
 					}
 				},
 				_#step & {
 					name: "pull-request-action"
-          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
+					if:   "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": "master"
 						"PULL_REQUEST_TITLE":  "Release ${{ github.ref }}"
-            "PULL_REQUEST_UPDATE": "true"
+						"PULL_REQUEST_UPDATE": "true"
 					}
 				},
 
@@ -439,9 +439,9 @@ branch_build: _#bashWorkflow & {
 			]
 		}
 		"base": _#job & {
-			name:      "Build Base"
-			"runs-on": _#linuxMachine
-      "continue-on-error": true
+			name:                "Build Base"
+			"runs-on":           _#linuxMachine
+			"continue-on-error": true
 			steps: [
 				_#checkoutCode,
 				_#installGo,
@@ -449,8 +449,8 @@ branch_build: _#bashWorkflow & {
 				_#setupBuildX,
 				_#quayLogin,
 				_#step & {
-					id:                  "build"
-					name:                "Build images"
+					id:   "build"
+					name: "Build images"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"PUSH":              "false"
@@ -460,8 +460,8 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-					id:                  "push"
-					name:                "Push images"
+					id:   "push"
+					name: "Push images"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"IMAGE_PUSH":        "true"
@@ -507,8 +507,8 @@ branch_build: _#bashWorkflow & {
 				_#installYQ,
 				_#quayLogin,
 				_#step & {
-					id:                  "build"
-					name:                "Build images"
+					id:   "build"
+					name: "Build images"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"IMAGE_PUSH":        "false"
@@ -518,8 +518,8 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-					id:                  "push"
-					name:                "Push images"
+					id:   "push"
+					name: "Push images"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"PUSH":              "true"
@@ -575,12 +575,12 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-          uses: "actions/upload-artifact@v2"
-          with: {
-            name: "release-bundle-${{ steps.bundle.outputs.tag }}"
-            path: "v2/bundle"
-          }
-        },
+					uses: "actions/upload-artifact@v2"
+					with: {
+						name: "release-bundle-${{ steps.bundle.outputs.tag }}"
+						path: "v2/bundle"
+					}
+				},
 				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
 					with: {
@@ -858,7 +858,10 @@ _#installKubeBuilder: _#step & {
 		version=\(_#kubeBuilderVersion)
 
 		# download kubebuilder and extract it to tmp
-		curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+		# https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
+		# https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_darwin_amd64.tar.gz
+		# 3.0 + versions will not be tar.gz
+		curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuilder_${version}_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 
 		# move to a long-term location and put it on your path
 		# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
@@ -918,7 +921,7 @@ _#registry:           "quay.io/rh-marketplace"
 _#goVersion:          "1.16.7"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
-_#kubeBuilderVersion: "2.3.1"
+_#kubeBuilderVersion: "2.3.2"
 
 _#image: {
 	name:  string
@@ -1012,12 +1015,12 @@ echo "::endgroup::"
 }
 
 _#scanImage: {
-  #args: {
-    ospid: string
+	#args: {
+		ospid: string
 		from:  string
 		tag:   string
-    arch:  string
-  }
+		arch:  string
+	}
 	res: """
 echo "::group::Scan \(#args.from)"
 id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/\(#args.ospid)" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
@@ -1031,9 +1034,9 @@ echo "::endgroup::"
 }
 
 _#scanCommand: {
-  #args: {
+	#args: {
 		fromTo: [ for k, v in _#images {
-      ospid: "\(v.ospid)"
+			ospid: "\(v.ospid)"
 			from:  "\(_#registry)/\(v.name)"
 			tag:   "$TAG"
 		}]
@@ -1043,10 +1046,10 @@ _#scanCommand: {
 		id:    "mirror"
 		name:  "Scan images"
 		shell: "bash {0}"
-    env: {
-      "REDHAT_TOKEN": "${{ secrets.redhat_api_key }}"
-    }
-		run:   strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
+		env: {
+			"REDHAT_TOKEN": "${{ secrets.redhat_api_key }}"
+		}
+		run: strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
 	}
 }
 
