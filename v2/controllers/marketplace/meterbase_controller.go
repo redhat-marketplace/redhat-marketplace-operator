@@ -33,6 +33,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	merrors "emperror.dev/errors"
@@ -45,7 +46,6 @@ import (
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -55,6 +55,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -90,6 +91,7 @@ type MeterBaseReconciler struct {
 	factory       *manifests.Factory
 	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
+	recorder      record.EventRecorder
 }
 
 func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -136,6 +138,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})
 
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
 
 	isOpenshiftMonitoringObj := func(name string, namespace string) bool {
 		return (name == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && namespace == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
@@ -216,6 +219,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -250,6 +254,8 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			),
 		),
 	)
+
+	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "test event")
 
 	if !result.Is(Continue) {
 		if result.Is(NotFound) {
@@ -309,7 +315,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
 	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
-		userWorkloadMonitoringEnabledSpec = true
+		userWorkloadMonitoringEnabledSpec = false // TODO: 2.3.0++ change back when downstream can support
 	} else {
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
@@ -637,6 +643,17 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
+func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.MeterDefinition) []string {
+	var categoryList []string
+	for _, meterDef := range meterDefinitions {
+		v := meterDef.GetLabels()["marketplace.redhat.com/category"]
+		if !containsString(categoryList, v) {
+			categoryList = append(categoryList, v)
+		}
+	}
+	return categoryList
+}
+
 func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase, userWorkloadMonitoringEnabled bool) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
@@ -657,6 +674,8 @@ func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []stri
 
 	return nil
 }
+
+const promServiceName = "rhm-prometheus-meterbase"
 
 func (r *MeterBaseReconciler) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
@@ -1579,6 +1598,8 @@ func (r *MeterBaseReconciler) createPrometheus(
 
 		if err != nil {
 			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
+
 				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 					Type:    marketplacev1alpha1.ConditionError,
 					Status:  corev1.ConditionFalse,
@@ -1586,7 +1607,6 @@ func (r *MeterBaseReconciler) createPrometheus(
 					Message: err.Error(),
 				}), nil
 			}
-
 			return nil, merrors.Wrap(err, "error creating prometheus")
 		}
 
@@ -1625,9 +1645,8 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 
 	r.factory.SetOwnerReference(cr, prom)
 
-	if cr.Spec.Prometheus.Storage.Class == nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
-
 		if err != nil {
 			return prom, err
 		}
@@ -1823,4 +1842,13 @@ func getWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+func containsString(slice []string, value string) bool {
+	for _, sv := range slice {
+		if sv == value {
+			return true
+		}
+	}
+	return false
 }

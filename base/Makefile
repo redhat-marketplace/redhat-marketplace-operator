@@ -15,7 +15,7 @@ docker-push:
 
 docker-build: docker-build-1-16
 
-16ARGS = --build-arg VERSION=1.16.6
+16ARGS = --build-arg VERSION=1.16.7
 16IMG = $(IMAGE_REGISTRY)/golang-base:1.16
 docker-build-1-16:
 	$(call docker-build,$(16IMG),$(16ARGS))

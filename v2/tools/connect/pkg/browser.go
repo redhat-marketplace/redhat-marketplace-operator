@@ -41,8 +41,9 @@ var (
 	username, password string
 	dryRun             bool
 	verbose            bool
+	timeoutStr         string
 
-	pageSize ListSize = ListSize20
+	pageSize ListSize = ListSize50
 )
 
 var GetPublishStatusCommand = &cobra.Command{
@@ -67,20 +68,12 @@ var GetPublishStatusCommand = &cobra.Command{
 		err = cmdFunction(cmd, args, urlToShas, func(_ context.Context, url string, _ *cdp.Node, img *ImagePublishStatus) error {
 			matched := matchAndMark(urlToShas, img)
 
-			log.Println(urlToShas)
-
 			if !matched {
 				return nil
 			}
 
 			statuses = append(statuses, img)
-
-			if allFoundForUrl(urlToShas, url) {
-				return Stop
-			}
-
 			return nil
-
 		})
 
 		if err != nil {
@@ -124,10 +117,6 @@ var PublishCommand = &cobra.Command{
 
 		err = cmdFunction(cmd, args, urlToShas,
 			func(ctx context.Context, url string, node *cdp.Node, result *ImagePublishStatus) error {
-				if allFoundForUrl(urlToShas, url) {
-					return Stop
-				}
-
 				matched := matchAndMark(urlToShas, result)
 
 				if !matched {
@@ -202,10 +191,15 @@ func cmdFunction(
 	webCtx, webCancel := web.Start()
 	defer webCancel()
 
-	overallCtx, cancel := context.WithTimeout(webCtx, 4*time.Minute)
+	timeoutDuration, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		return err
+	}
+
+	overallCtx, cancel := context.WithTimeout(webCtx, timeoutDuration)
 	defer cancel()
 
-	err := func() error {
+	err = func() error {
 		return web.Login(overallCtx, username, password)
 	}()
 
@@ -216,10 +210,7 @@ func cmdFunction(
 
 	for url, shas := range urlToShas {
 		log.Println("looking for", url, shas)
-		ctx, lcancel := context.WithTimeout(overallCtx, 1*time.Minute)
-		defer lcancel()
-
-		err := web.walkImages(ctx, url, work)
+		err := web.walkImages(overallCtx, url, false, work)
 
 		if errors.Is(err, Stop) {
 			continue
@@ -284,6 +275,7 @@ func (l ListSize) String() string {
 func BindCmd(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&username, "username", "", "username for PC")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "password for PC")
+	cmd.PersistentFlags().StringVar(&timeoutStr, "timeout", "10m", "timeout")
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "password for PC")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "print logs")
 
@@ -470,7 +462,7 @@ var (
 )
 
 func (c *ConnectWebsite) walkImages(
-	ctx context.Context, url string,
+	ctx context.Context, url string, walkAllPages bool,
 	imageAction func(context.Context, string, *cdp.Node, *ImagePublishStatus) error,
 ) error {
 	nodes := []*cdp.Node{}
@@ -492,14 +484,6 @@ func (c *ConnectWebsite) walkImages(
 		if err != nil {
 			return err
 		}
-	}
-
-	err = chromedp.Run(ctx,
-		chromedp.WaitReady(`table[aria-label="Images List"]`, chromedp.ByQuery),
-	)
-
-	if err != nil {
-		return err
 	}
 
 	var pid, name string
@@ -575,8 +559,11 @@ func (c *ConnectWebsite) walkImages(
 			}
 		}
 
-		log.Println("going to next page")
+		if !walkAllPages {
+			return nil
+		}
 
+		log.Println("going to next page")
 		// look for next page
 		err = c.nextPage(ctx)
 		if err != nil {
@@ -714,6 +701,8 @@ func publishImageByNode(ctx context.Context, localNode *cdp.Node) error {
 	toggleSel := `button[id*="expandable-toggle"]`
 	publishSel := `button.rhc-images__list-container__publish-btn`
 	publishFinalSel := `div[id*="pf-modal-part"] > footer > button[data-testid="publish-tag-modal-ok"]`
+	latestId := `latest-tag`
+	publishingSel := `span.rhc-images__list-container__publish-btn-action`
 
 	err := chromedp.Run(ctx,
 		chromedp.Click(toggleSel, chromedp.ByQuery, chromedp.FromNode(localNode)),
@@ -722,9 +711,11 @@ func publishImageByNode(ctx context.Context, localNode *cdp.Node) error {
 		chromedp.Click(publishSel, chromedp.ByQuery, chromedp.FromNode(localNode)),
 		chromedp.ActionFunc(logAction("publish")),
 		chromedp.WaitVisible(publishFinalSel),
+		chromedp.Click(latestId, chromedp.ByID),
 		chromedp.Click(publishFinalSel, chromedp.ByQuery),
 		chromedp.ActionFunc(logAction("publish final")),
 		chromedp.WaitNotPresent(publishFinalSel, chromedp.ByQuery),
+		chromedp.WaitNotPresent(publishingSel, chromedp.ByQuery),
 	)
 
 	if err != nil {

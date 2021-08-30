@@ -38,9 +38,11 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -128,21 +130,14 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	// Fetch the MeterDefinition instance
 	instance := &v1beta1.MeterDefinition{}
-	result, _ := cc.Do(context.TODO(),
-		GetAction(request.NamespacedName, instance),
-	)
-
-	if !result.Is(Continue) {
-		if result.Is(NotFound) {
-			reqLogger.Info("MeterDef resource not found. Ignoring since object must be deleted.")
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("MeterDefinition resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterDef.")
-		}
-
-		return result.Return()
+		reqLogger.Error(err, "Failed to get MeterDefinition.")
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
@@ -174,13 +169,9 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
 	}
 
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to update status.")
-	}
-
 	// Fetch the MeterBase instance
 	meterbase := &v1alpha1.MeterBase{}
-	result, _ = cc.Do(context.TODO(),
+	result, _ := cc.Do(context.TODO(),
 		GetAction(types.NamespacedName{
 			Name:      utils.METERBASE_NAME,
 			Namespace: r.cfg.DeployedNamespace,
@@ -257,10 +248,11 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	if update {
 		reqLogger.Info("update required")
-		result, _ = cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true)))
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to update status.")
-			return result.Return()
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Status().Update(context.TODO(), instance)
+		})
+		if err != nil {
+			reqLogger.Error(err, "Failed to update MeterDefinition status.")
 		}
 	}
 

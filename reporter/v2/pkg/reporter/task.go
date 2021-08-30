@@ -245,7 +245,38 @@ func getMeterDefinitionReferences(
 ) (MeterDefinitionReferences, error) {
 	defs := []marketplacev1beta1.MeterDefinitionReference{}
 
-	if len(report.Spec.MeterDefinitionReferences) > 0 {
+	if len(report.Spec.MeterDefinitionReferences) == 0 {
+		ref := marketplacev1beta1.MeterDefinitionReference{}
+		update := false
+
+		mdef := marketplacev1beta1.MeterDefinition{}
+		result, _ := cc.Exec(ctx, GetAction(types.NamespacedName{
+			Name: ref.Name, Namespace: ref.Namespace,
+		}, &mdef))
+
+		if result.Is(Error) {
+			return defs, result.Err
+		}
+
+		if result.Is(Continue) {
+			update = true
+			ref.UID = mdef.UID
+			ref.Spec = &mdef.Spec
+			// ref.Spec.LabelSelector = mdef.LabelFilter.LabelSelector
+		}
+
+		defs = append(defs, ref)
+
+		if update {
+			result, _ := cc.Exec(ctx, UpdateAction(report))
+			if result.Is(Error) {
+				return defs, result.Err
+			}
+		}
+
+		return defs, nil
+
+	} else if len(report.Spec.MeterDefinitionReferences) > 0 {
 		update := false
 
 		for _, ref := range report.Spec.MeterDefinitionReferences {
@@ -265,6 +296,7 @@ func getMeterDefinitionReferences(
 					update = true
 					ref.UID = mdef.UID
 					ref.Spec = &mdef.Spec
+					// report.Spec.labelSelector = mdef.NamespaceFilter.LabelSelector
 				}
 			}
 
