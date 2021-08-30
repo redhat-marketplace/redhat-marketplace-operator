@@ -17,16 +17,11 @@ limitations under the License.
 package marketplace
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -47,13 +42,14 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/onsi/gomega/types"
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"loo
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -147,75 +143,6 @@ var _ = BeforeSuite(func() {
 
 	catalogClient.UseInsecureClient()
 
-	dc := &osappsv1.DeploymentConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: utils.DEPLOYMENT_CONFIG_NAME,
-			Namespace: "default",
-		},
-		Spec: osappsv1.DeploymentConfigSpec{
-			Triggers: osappsv1.DeploymentTriggerPolicies{
-				{
-					Type: osappsv1.DeploymentTriggerOnConfigChange,	
-					ImageChangeParams: &osappsv1.DeploymentTriggerImageChangeParams{
-						Automatic: true,
-						ContainerNames: []string{"rhm-meterdefinition-file-server"},
-						From: corev1.ObjectReference{
-							Kind: "ImageStreamTag",
-							Name: "rhm-meterdefinition-file-server:v1",
-						},
-					},
-				},
-			},
-		},
-		Status: osappsv1.DeploymentConfigStatus{
-			LatestVersion: 1,
-			Conditions: []osappsv1.DeploymentCondition{
-				{
-					Type: osappsv1.DeploymentConditionType(osappsv1.DeploymentAvailable),
-					Reason: "NewReplicationControllerAvailable",
-					Status: corev1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-					LastUpdateTime: metav1.Now(),
-				},
-			},
-		},
-	}
-	
-	is := &osimagev1.ImageStream{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: utils.DEPLOYMENT_CONFIG_NAME,
-			Namespace: "default",
-		},
-		Spec:  osimagev1.ImageStreamSpec{
-			LookupPolicy: osimagev1.ImageLookupPolicy{
-				Local: false,
-			},
-			Tags: []osimagev1.TagReference{
-				{
-					Annotations: map[string]string{
-						"openshift.io/imported-from": "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
-					},
-					From: &corev1.ObjectReference{
-						Name: "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
-						Kind: "DockerImage",
-					},
-					ImportPolicy: osimagev1.TagImportPolicy{
-						Insecure: true,
-						Scheduled: true,
-					},
-					Name: "v1",
-					ReferencePolicy: osimagev1.TagReferencePolicy{
-						Type: osimagev1.SourceTagReferencePolicy,
-					},
-					Generation: ptr.Int64(1),
-				},
-			},
-		},
-	}
-	
-	Expect(k8sClient.Create(context.TODO(), dc)).Should(Succeed(),"create test deploymentconfig")
-	Expect(k8sClient.Create(context.TODO(), is)).Should(Succeed(),"create test image stream")
-
 	err = (&DeploymentConfigReconciler{
 		Client: k8sManager.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
@@ -256,4 +183,10 @@ func provideScheme() *runtime.Scheme {
 	return scheme
 }
 
+var SucceedOrAlreadyExist types.GomegaMatcher = SatisfyAny(
+	Succeed(),
+	WithTransform(errors.IsAlreadyExists, BeTrue()),
+)
+
+var IsNotFound types.GomegaMatcher = WithTransform(errors.IsNotFound, BeTrue())
 

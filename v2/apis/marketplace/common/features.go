@@ -33,4 +33,20 @@ type Features struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	// +optional
 	Registration *bool `json:"registration,omitempty"`
+
+	// MeterdefinitionCatalogServer represents the enablement of the Meterdefinition Catalog Server, defaults to true when not set
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Community Meterdefinition Catalog Server?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	// +optional
+	MeterdefinitionCatalogServer *bool `json:"meterdefinitionCatalogServer,omitempty"`
+
+	// LicenseUsageMetering represents the enablement of the usage metering for licensed products, defaults to true when not set
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable License Usage Metering?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	// +optional
+	LicenseUsageMetering *bool `json:"licenseUsageMetering,omitempty"`
 }

@@ -37,7 +37,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 
-	// k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -50,6 +49,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	osimagev1 "github.com/openshift/api/image/v1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -114,6 +114,34 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	nsPred := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
+
+	meterBaseSubSectionPred := []predicate.Predicate{
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				meterbaseOld, ok := e.ObjectOld.(*marketplacev1alpha1.MeterBase)
+				if !ok {
+					return false
+				}
+
+				meterbaseNew, ok := e.ObjectNew.(*marketplacev1alpha1.MeterBase)
+				if !ok {
+					return false
+				}
+
+				return meterbaseOld.Spec.MeterdefinitionCatalogServer != meterbaseNew.Spec.MeterdefinitionCatalogServer
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return true
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return true
+			},
+		},
+	}
+
 	deploymentConfigPred := []predicate.Predicate{
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
@@ -131,74 +159,22 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
-	dcScheduler := NewDeploymentConfigScheduleRunnable(r.Client, *r.cfg, r.Log)
-	mgr.Add(dcScheduler)
-
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(nsPred).
-		For(&osappsv1.DeploymentConfig{}, builder.WithPredicates(deploymentConfigPred...)).
-		Watches(dcScheduler.Source(), &handler.EnqueueRequestForObject{}).
+		For(&marketplacev1alpha1.MeterBase{}).
+		Watches(
+			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(meterBaseSubSectionPred...)).
+		Watches(
+			&source.Kind{Type: &osappsv1.DeploymentConfig{}},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(deploymentConfigPred...)).
 		Watches(
 			&source.Kind{Type: &osimagev1.ImageStream{}},
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(deploymentConfigPred...)).
 		Complete(r)
-}
-
-type DeploymentConfigScheduleRunnable struct {
-	client    client.Client
-	eventChan chan event.GenericEvent
-	cfg       config.OperatorConfig
-	log       logr.Logger
-}
-
-func NewDeploymentConfigScheduleRunnable(
-	c client.Client,
-	cfg config.OperatorConfig,
-	log logr.Logger,
-) *DeploymentConfigScheduleRunnable {
-	return &DeploymentConfigScheduleRunnable{
-		client:    c,
-		cfg:       cfg,
-		log:       log.WithName("deploymentconfig-schedule-runnable"),
-		eventChan: make(chan event.GenericEvent),
-	}
-}
-
-func (s *DeploymentConfigScheduleRunnable) send(evt event.GenericEvent) {
-	s.eventChan <- evt
-}
-
-func (s *DeploymentConfigScheduleRunnable) Source() *source.Channel {
-	return &source.Channel{
-		Source: s.eventChan,
-	}
-}
-
-func (s *DeploymentConfigScheduleRunnable) NeedLeaderElection() bool {
-	return true
-}
-
-func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
-
-	for {
-		func() {
-			s.log.Info("triggering deploymentconfig controller")
-			s.send(event.GenericEvent{
-				Meta: &metav1.ObjectMeta{
-					Name:      "deploymentconfig generic event",
-					Namespace: s.cfg.DeployedNamespace,
-				},
-				Object: &runtime.Unknown{},
-			})
-		}()
-
-		<-done
-		s.log.Info("closing")
-		close(s.eventChan)
-		return nil
-
-	}
 }
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch
@@ -214,9 +190,29 @@ func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	// dcNamespacedName := types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}
+	instance := &marketplacev1alpha1.MeterBase{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: request.Namespace}, instance)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
+			return reconcile.Result{}, nil
+		}
 
-	result := r.reconcileMeterdefCatalogServerResources(request, reqLogger)
+		reqLogger.Error(err, "Failed to get meterbase")
+		return reconcile.Result{}, err
+	}
+
+	if instance.Spec.MeterdefinitionCatalogServer == nil {
+		reqLogger.Info("meterbase doesn't have file server feature flags set")
+		return reconcile.Result{},nil
+	}
+
+	// catalog server not enabled, stop reconciling
+	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+		return reconcile.Result{},nil
+	}
+
+	result := r.reconcileMeterdefCatalogServerResources(instance, request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -228,7 +224,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	// get the latest deploymentconfig
 	dc := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, dc)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, dc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("deployment config not found, ignoring")
@@ -270,7 +266,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return result.Return()
 	}
 
-	result = r.sync(request, reqLogger)
+	result = r.sync(instance,request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -284,7 +280,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	return reconcile.Result{}, nil
 }
 
-func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	if r.CatalogClient.HttpClient == nil {
 		reqLogger.Info("settign transport on catalog client")
 
@@ -296,7 +292,6 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 				Err:             err,
 			}
 		}
-
 	}
 
 	csvList := &olmv1alpha1.ClusterServiceVersionList{}
@@ -385,28 +380,30 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			return result
 		}
 
-		// fetch system meter definitions and append
-		systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
+		if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+			systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+	
+			result = r.createOrUpdate(systemMeterDefs, csv, reqLogger)
+			if !result.Is(Continue) {
+				return result
 			}
 		}
 
-		result = r.createOrUpdate(systemMeterDefs, csv, reqLogger)
-		if !result.Is(Continue) {
-			return result
-		}
 
+		/*
+			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
+		*/
 		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		/*
-			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
-		*/
 		result = r.deleteOnDiff(catalogMdefsOnCluster.Items, latestMeterDefsFromCatalog, reqLogger)
 		if !result.Is(Continue) {
 			return result
@@ -458,9 +455,27 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 	}
 }
 
-func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+	gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	// create owner ref object
+	ref := metav1.OwnerReference{
+		APIVersion:         gvk.GroupVersion().String(),
+		Kind:               gvk.Kind,
+		Name:               instance.GetName(),
+		UID:                instance.GetUID(),
+		BlockOwnerDeletion: pointer.BoolPtr(false),
+		Controller:         pointer.BoolPtr(false),
+	}
+	
 	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("meterdef file server deployment config not found, creating")
@@ -472,6 +487,8 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 					Err:             err,
 				}
 			}
+
+			newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 
 			err = r.Client.Create(context.TODO(), newDeploymentConfig)
 			if err != nil {
@@ -531,6 +548,8 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 				}
 			}
 
+			newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+
 			err = r.Client.Create(context.TODO(), newService)
 			if err != nil {
 				reqLogger.Error(err, "failed to create file server service")
@@ -568,6 +587,8 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 					Err:             err,
 				}
 			}
+
+			newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 
 			err = r.Client.Create(context.TODO(), newImageStream)
 			if err != nil {

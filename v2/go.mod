@@ -7,16 +7,13 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/banzaicloud/k8s-objectmatcher v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/blang/semver/v4 v4.0.0
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
-	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/mock v1.4.4
-	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/google/wire v0.5.0
 	github.com/goph/emperror v0.17.2
@@ -27,8 +24,8 @@ require (
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
-	github.com/onsi/ginkgo v1.16.1
-	github.com/onsi/gomega v1.10.4
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.16.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20210130044457-b344b13b469f
 	github.com/operator-framework/api v0.3.25
@@ -43,8 +40,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/mod v0.4.0 // indirect
-	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
-	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750 // indirect
+	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect

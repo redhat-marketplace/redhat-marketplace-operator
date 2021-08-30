@@ -232,7 +232,7 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, featu
 }
 
 // BuildMeterBaseCr returns a MeterBase cr with default values
-func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
+func BuildMeterBaseCr(namespace string,features *common.Features) *marketplacev1alpha1.MeterBase {
 	cr := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      METERBASE_NAME,
@@ -245,7 +245,12 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 					Size: resource.MustParse("20Gi"),
 				},
 			},
+			MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
+				MeterdefinitionCatalogServerEnabled: *features.DeepCopy().MeterdefinitionCatalogServer,
+				LicenceUsageMeteringEnabled: *features.DeepCopy().LicenseUsageMetering,
+			},
 		},
+		
 	}
 	return cr
 }

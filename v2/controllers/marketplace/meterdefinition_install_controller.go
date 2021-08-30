@@ -24,10 +24,12 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,9 +79,31 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
+	instance := &marketplacev1alpha1.MeterBase{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: r.cfg.DeployedNamespace}, instance)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
+			return reconcile.Result{}, nil
+		}
+
+		reqLogger.Error(err, "Failed to get meterbase")
+		return reconcile.Result{}, err
+	}
+
+	if instance.Spec.MeterdefinitionCatalogServer == nil {
+		reqLogger.Info("meterbase doesn't have file server feature flags set")
+		return reconcile.Result{},nil
+	}
+
+	// catalog server not enabled, stop reconciling
+	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+		return reconcile.Result{},nil
+	}
+
 	// Fetch the ClusterServiceVersion instance
 	CSV := &olmv1alpha1.ClusterServiceVersion{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, CSV)
+	err = r.Client.Get(context.TODO(), request.NamespacedName, CSV)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result

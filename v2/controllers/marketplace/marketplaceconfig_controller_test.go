@@ -72,6 +72,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		features = &common.Features{
 			Deployment: ptr.Bool(true),
+			MeterdefinitionCatalogServer: ptr.Bool(true),
+			LicenseUsageMetering: ptr.Bool(true),
 		}
 
 		deployedNamespace = &corev1.Namespace{
@@ -93,7 +95,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 		marketplaceconfig.Spec.ClusterUUID = "test"
 		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-		meterbase = utils.BuildMeterBaseCr(namespace)
+		meterbase = utils.BuildMeterBaseCr(namespace,features)
 		tokenClaims := marketplace.MarketplaceClaims{
 			AccountID: "foo",
 			APIKey:    "test",
@@ -212,7 +214,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 			)
 		}
 
-		defaultFeatures := []string{"razee", "meterbase"}
+		defaultFeatures := []string{"razee", "meterbase","fileserver","systemMeterdefs"}
 		viper.Set("features", defaultFeatures)
 		viper.Set("IBMCatalogSource", true)
 		testCleanInstall(GinkgoT())

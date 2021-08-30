@@ -223,7 +223,7 @@ var (
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
 	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-	meterbase         = BuildMeterBaseCr(testNamespace1)
+	meterbase         = BuildMeterBaseCr(testNamespace1,features)
 
 	testNs1 = &corev1.Namespace{}
 	testNs2 = &corev1.Namespace{}
