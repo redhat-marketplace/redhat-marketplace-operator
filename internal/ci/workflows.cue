@@ -865,11 +865,13 @@ _#installKubeBuilder: _#step & {
 
 		# download kubebuilder and extract it to tmp
 		# https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
-		curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/${version}/kubebuidler_${os}_${arch} | tar -xz -C /tmp/
+		# https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_darwin_amd64.tar.gz
+		# 3.0 + versions will not be tar.gz
+		curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuidler_${version}_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 
 		# move to a long-term location and put it on your path
 		# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-		sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
+		sudo mv /tmp/kubebuilder_${os}_${arch} /usr/local/kubebuilder
 		echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
 		"""
 }
@@ -925,7 +927,7 @@ _#registry:           "quay.io/rh-marketplace"
 _#goVersion:          "1.16.7"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
-_#kubeBuilderVersion: "2.3.1"
+_#kubeBuilderVersion: "2.3.2"
 
 _#image: {
 	name:  string
