@@ -126,13 +126,16 @@ func CreateDeploymentListWatch(kubeClient clientset.Interface) func(string) cach
 	}
 }
 
+// Do not watch copied CSVs
 func CreateClusterServiceVersionListWatch(c *olmv1alpha1client.OperatorsV1alpha1Client) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				opts.LabelSelector = "!olm.copiedFrom"
 				return c.ClusterServiceVersions(ns).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.LabelSelector = "!olm.copiedFrom"
 				return c.ClusterServiceVersions(ns).Watch(context.TODO(), opts)
 			},
 		}
