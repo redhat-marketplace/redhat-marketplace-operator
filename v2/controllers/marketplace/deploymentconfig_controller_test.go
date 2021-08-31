@@ -232,6 +232,26 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Status: olmv1alpha1.ClusterServiceVersionStatus{},
 	}
 
+	subSectionMeterBase := &marketplacev1alpha1.MeterBase{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.METERBASE_NAME,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MeterBaseSpec{
+			Enabled: false,
+			Prometheus: &marketplacev1alpha1.PrometheusSpec{
+				Storage: marketplacev1alpha1.StorageSpec{
+					Size: resource.MustParse("30Gi"),
+				},
+				Replicas: ptr.Int32(2),
+			},
+			MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
+				MeterdefinitionCatalogServerEnabled: true,
+				LicenceUsageMeteringEnabled:         true,
+			},
+		},
+	}
+
 	Status200 := 200
 	systemMeterdefsPath := "/" + catalog.GetSystemMeterdefinitionTemplatesEndpoint
 
@@ -244,26 +264,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		dcControllerMockServer.HTTPTestServer.Listener = customListener
 		dcControllerMockServer.SetAllowUnhandledRequests(true)
 		dcControllerMockServer.Start()
-
-		// subSectionMeterBase := &marketplacev1alpha1.MeterBase{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      utils.METERBASE_NAME,
-		// 		Namespace: namespace,
-		// 	},
-		// 	Spec: marketplacev1alpha1.MeterBaseSpec{
-		// 		Enabled: false,
-		// 		Prometheus: &marketplacev1alpha1.PrometheusSpec{
-		// 			Storage: marketplacev1alpha1.StorageSpec{
-		// 				Size: resource.MustParse("30Gi"),
-		// 			},
-		// 			Replicas: ptr.Int32(2),
-		// 		},
-		// 		MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-		// 			MeterdefinitionCatalogServerEnabled: true,
-		// 			LicenceUsageMeteringEnabled:         true,
-		// 		},
-		// 	},
-		// }
 
 		dc := &osappsv1.DeploymentConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -396,37 +396,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("create a community meterdef if not found", func() {
 		BeforeEach(func() {
-			// _meterBase := &marketplacev1alpha1.MeterBase{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, _meterBase)).Should(Succeed(), "get meterbase")
-			// Expect(_meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled).Should(BeTrue())
-			subSectionMeterBase := &marketplacev1alpha1.MeterBase{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.METERBASE_NAME,
-					Namespace: namespace,
-				},
-				Spec: marketplacev1alpha1.MeterBaseSpec{
-					Enabled: false,
-					Prometheus: &marketplacev1alpha1.PrometheusSpec{
-						Storage: marketplacev1alpha1.StorageSpec{
-							Size: resource.MustParse("30Gi"),
-						},
-						Replicas: ptr.Int32(2),
-					},
-					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-						MeterdefinitionCatalogServerEnabled: true,
-						LicenceUsageMeteringEnabled:         true,
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
-
-			// _dc := &osappsv1.DeploymentConfig{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, _dc)).Should(Succeed(), "get deployment config")
-
-			// _dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
-
-			// Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			returnedMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*meterDef1.DeepCopy()}
 
@@ -453,38 +423,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Update a community meterdefinition on the cluster", func() {
 		BeforeEach(func() {
-			// _meterBase := &marketplacev1alpha1.MeterBase{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, _meterBase)).Should(Succeed(), "get deployment config")
-
-			// Expect(_meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled).Should(BeTrue())
-			subSectionMeterBase := &marketplacev1alpha1.MeterBase{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.METERBASE_NAME,
-					Namespace: namespace,
-				},
-				Spec: marketplacev1alpha1.MeterBaseSpec{
-					Enabled: false,
-					Prometheus: &marketplacev1alpha1.PrometheusSpec{
-						Storage: marketplacev1alpha1.StorageSpec{
-							Size: resource.MustParse("30Gi"),
-						},
-						Replicas: ptr.Int32(2),
-					},
-					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-						MeterdefinitionCatalogServerEnabled: true,
-						LicenceUsageMeteringEnabled:         true,
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
-
-			// _dc := &osappsv1.DeploymentConfig{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, _dc)).Should(Succeed(), "get deployment config")
-
-			// _dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
-
-			// Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			existingMeterDef := meterDef1.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingMeterDef)).Should(SucceedOrAlreadyExist, "create existing meterdef")
@@ -521,38 +460,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Remove a community meterdefinition if it is removed from the catalog", func() {
 		BeforeEach(func() {
-			// _meterBase := &marketplacev1alpha1.MeterBase{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, _meterBase)).Should(Succeed(), "get deployment config")
-
-			// Expect(_meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled).Should(BeTrue())
-			subSectionMeterBase := &marketplacev1alpha1.MeterBase{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.METERBASE_NAME,
-					Namespace: namespace,
-				},
-				Spec: marketplacev1alpha1.MeterBaseSpec{
-					Enabled: false,
-					Prometheus: &marketplacev1alpha1.PrometheusSpec{
-						Storage: marketplacev1alpha1.StorageSpec{
-							Size: resource.MustParse("30Gi"),
-						},
-						Replicas: ptr.Int32(2),
-					},
-					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-						MeterdefinitionCatalogServerEnabled: true,
-						LicenceUsageMeteringEnabled:         true,
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
-
-			_dc := &osappsv1.DeploymentConfig{}
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: "default"}, _dc)).Should(Succeed(), "get deployment config")
-
-			_dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
-
-			// Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			_meterDef1 := meterDef1.DeepCopy()
 			_meterDef2 := meterDef2.DeepCopy()
@@ -600,38 +508,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete all community meterdefs for a csv if that csv's dir is deleted in the catalog", func() {
 		BeforeEach(func() {
-			// _meterBase := &marketplacev1alpha1.MeterBase{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, _meterBase)).Should(Succeed(), "find meterbase")
-
-			// Expect(_meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled).Should(BeTrue())
-			subSectionMeterBase := &marketplacev1alpha1.MeterBase{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.METERBASE_NAME,
-					Namespace: namespace,
-				},
-				Spec: marketplacev1alpha1.MeterBaseSpec{
-					Enabled: false,
-					Prometheus: &marketplacev1alpha1.PrometheusSpec{
-						Storage: marketplacev1alpha1.StorageSpec{
-							Size: resource.MustParse("30Gi"),
-						},
-						Replicas: ptr.Int32(2),
-					},
-					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-						MeterdefinitionCatalogServerEnabled: true,
-						LicenceUsageMeteringEnabled:         true,
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
-
-			// _dc := &osappsv1.DeploymentConfig{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, _dc)).Should(Succeed(), "get deployment config")
-
-			// _dc.Status.LatestVersion = _dc.Status.LatestVersion + 1
-
-			// Expect(k8sClient.Update(context.TODO(), _dc)).Should(Succeed(), "update deploymentconfig")
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			_meterDef1 := meterDef1.DeepCopy()
 
@@ -673,35 +550,9 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete all system meterdefs on cluster if LicenceUsageMetering is disabled", func() {
 		BeforeEach(func() {
-			// _meterBase := &marketplacev1alpha1.MeterBase{}
-			// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, _meterBase)).Should(Succeed(), "get deployment config")
-
-			// Expect(_meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled).Should(BeFalse())
-
-			// _meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = false
-
-			// Expect(k8sClient.Update(context.TODO(), _meterBase)).Should(Succeed(), "update meterbase")
-			subSectionMeterBase := &marketplacev1alpha1.MeterBase{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.METERBASE_NAME,
-					Namespace: namespace,
-				},
-				Spec: marketplacev1alpha1.MeterBaseSpec{
-					Enabled: false,
-					Prometheus: &marketplacev1alpha1.PrometheusSpec{
-						Storage: marketplacev1alpha1.StorageSpec{
-							Size: resource.MustParse("30Gi"),
-						},
-						Replicas: ptr.Int32(2),
-					},
-					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-						MeterdefinitionCatalogServerEnabled: true,
-						LicenceUsageMeteringEnabled:         false,
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
+			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
+			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = false
+			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
 
 			existingSystemMeterDef := systemMeterDef.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingSystemMeterDef)).Should(SucceedOrAlreadyExist, "create existing system meterdef")
