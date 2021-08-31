@@ -37,6 +37,7 @@ const (
 	ListForVersionEndpoint                    = "list-for-version"
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
 	GetMeterdefinitionIndexLabelEndpoint      = "meterdef-index-label"
+	GetSystemMeterDefIndexLabelEndpoint 	  = "system-meterdef-index-label"
 )
 
 var (
@@ -252,6 +253,49 @@ func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName st
 	reqLogger.Info("retrieving meterdefinition index label")
 
 	url, err := concatPaths(c.Endpoint.String(), GetMeterdefinitionIndexLabelEndpoint, csvName)
+	if err != nil {
+		return nil, err
+	}
+
+	reqLogger.Info("calling file server for meterdef index labels", "url", url.String())
+
+	response, err := c.HttpClient.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != 200 {
+
+		if response.StatusCode == http.StatusUnauthorized {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
+		}
+
+		return nil,errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d",response.Status,response.StatusCode))
+	}
+
+	defer response.Body.Close()
+
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		reqLogger.Error(err, "error reading body")
+		return nil, err
+	}
+
+	reqLogger.Info("response data", "data", string(data))
+
+	labels := map[string]string{}
+	err = json.Unmarshal(data, &labels)
+	if err != nil {
+		return nil, err
+	}
+
+	return labels, nil
+}
+
+func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
+	reqLogger.Info("retrieving meterdefinition index label")
+
+	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterDefIndexLabelEndpoint, csvName)
 	if err != nil {
 		return nil, err
 	}

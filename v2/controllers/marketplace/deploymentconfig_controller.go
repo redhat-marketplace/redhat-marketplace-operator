@@ -207,6 +207,34 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{},nil
 	}
 
+	// if LicenceUsageMeteringEnabled gets set to false while the dc is up and running delete all system meterdefs
+	if !instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+		reqLogger.Info("license usage metering disabled, uninstalling system meterdefs")
+		// get the latest deploymentconfig
+		dc := &osappsv1.DeploymentConfig{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, dc)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				reqLogger.Info("deployment config not found, ignoring")
+				return reconcile.Result{}, nil
+			}
+
+			reqLogger.Error(err, "Failed to get deploymentconfig")
+			return reconcile.Result{}, err
+		}
+
+		for _, c := range dc.Status.Conditions {
+			if c.Type == osappsv1.DeploymentAvailable {
+				if c.Status == corev1.ConditionTrue {
+					result := r.deleteAllSystemMeterDefs(reqLogger)
+					if !result.Is(Continue){
+						result.Return()
+					}
+				}
+			}
+		}
+	}
+
 	// catalog server not enabled, stop reconciling
 	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
 		return reconcile.Result{},nil
@@ -324,7 +352,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			}
 
 		*/
-		indexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger, splitName)
+		communityIndexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger, splitName)
 		if err != nil {
 			if errors.Is(err, catalog.CatalogUnauthorizedErr) {
 				// refresh auth
@@ -355,12 +383,12 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			if no community meterdefs are found, skip to next csv
 			if community meterdefs are found an deleted, skip to next csv
 		*/
-		latestMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
+		latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
 		if err != nil {
 			if errors.Is(err, catalog.CatalogNoContentErr) {
 				reqLogger.Info("csv has no meterdefinitions in catalog", "csv", csv.Name)
 
-				result := r.deleteAllCommunityMeterdefsForCsv(indexLabels, reqLogger)
+				result := r.deleteAllCommunityMeterdefsForCsv(communityIndexLabels, reqLogger)
 				if result.Is(NotFound) || result.Is(Continue) {
 					reqLogger.Info("skipping sync for csv", "csv", csv.Name)
 					continue
@@ -375,7 +403,20 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			}
 		}
 
-		result := r.createOrUpdate(latestMeterDefsFromCatalog, csv, reqLogger)
+		result := r.createOrUpdate(latestCommunityMeterDefsFromCatalog, csv, reqLogger)
+		if !result.Is(Continue) {
+			return result
+		}
+
+		/*
+			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
+		*/
+		catalogMdefsOnCluster, result := listAllMeterDefsForCsv(r.Client, communityIndexLabels)
+		if !result.Is(Continue) {
+			return result
+		}
+
+		result = r.deleteOnDiff(catalogMdefsOnCluster.Items, latestCommunityMeterDefsFromCatalog, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
@@ -393,21 +434,26 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			if !result.Is(Continue) {
 				return result
 			}
+
+			systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, splitName)
+			if err != nil {	
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+			systemMeterDefsOnCluster, result := listAllMeterDefsForCsv(r.Client, systemMeterDefIndexLabels)
+			if !result.Is(Continue) {
+				return result
+			}
+
+			result = r.deleteOnDiff(systemMeterDefsOnCluster.Items, systemMeterDefs, reqLogger)
+			if !result.Is(Continue) {
+				return result
+			}
 		}
 
-
-		/*
-			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
-		*/
-		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
-		if !result.Is(Continue) {
-			return result
-		}
-
-		result = r.deleteOnDiff(catalogMdefsOnCluster.Items, latestMeterDefsFromCatalog, reqLogger)
-		if !result.Is(Continue) {
-			return result
-		}
 	}
 
 	return &ExecResult{
@@ -725,7 +771,7 @@ func (r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []market
 	}
 }
 
-func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client, indexLabels map[string]string) (*marketplacev1beta1.MeterDefinitionList, *ExecResult) {
+func listAllMeterDefsForCsv(runtimeClient client.Client, indexLabels map[string]string) (*marketplacev1beta1.MeterDefinitionList, *ExecResult) {
 	installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
 
 	// look for meterdefs that originated from the meterdefinition catalog
@@ -741,7 +787,58 @@ func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client, indexLabels
 		}
 	}
 
+	mdefNames := []string{}
+	for _, m := range installedMeterdefList.Items {
+		mdefNames = append(mdefNames, m.Name)
+	}
+
+	fmt.Println(mdefNames)
+
 	return installedMeterdefList, &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefs(reqLogger logr.Logger) *ExecResult {
+
+	csvList := &olmv1alpha1.ClusterServiceVersionList{}
+
+	err := r.Client.List(context.TODO(), csvList)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	for _, csv := range csvList.Items {
+
+		/*
+			csv.Name = memcached-operator.v0.0.1
+			splitName = memcached-operator
+		*/
+		splitName := strings.Split(csv.Name, ".")[0]
+		// csvVersion := csv.Spec.Version.Version.String()
+		// csvNamespace := csv.Namespace
+
+		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, splitName)
+			if err != nil {	
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+		result := r.deleteAllCommunityMeterdefsForCsv(systemMeterDefIndexLabels, reqLogger)
+		if result.Is(NotFound) || result.Is(Continue) {
+			reqLogger.Info("skipping deletion of system meterdefs", "csv", csv.Name)
+			continue
+		} else if !result.Is(Continue) {
+			return result
+		}
+	}
+
+	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }

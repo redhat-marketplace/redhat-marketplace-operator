@@ -24,7 +24,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -64,11 +63,12 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
-var dcControllerMockServer *ghttp.Server
+// var dcControllerMockServer *ghttp.Server
 
 const (
 	imageStreamID string = "rhm-meterdefinition-file-server:v1"
 	imageStreamTag string = "v1"
+	listenerAddress string = "127.0.0.1:2100"
 )
 
 
@@ -87,10 +87,12 @@ var _ = BeforeSuite(func() {
 	os.Setenv("IMAGE_STREAM_ID",imageStreamID)
 	os.Setenv("IMAGE_STREAM_TAG",imageStreamTag)
 
-	dcControllerMockServer = ghttp.NewServer()
-	dcControllerMockServer.SetAllowUnhandledRequests(true)
+	
+	var err error
+	// create a listener with the desired port.
 
-	dcControllerMockServerAddr := fmt.Sprintf("%s%s","http://",dcControllerMockServer.Addr())
+	dcControllerMockServerAddr := fmt.Sprintf("%s%s","http://",listenerAddress)
+	fmt.Println(dcControllerMockServerAddr)
 	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
 	By("bootstrapping test environment")
@@ -99,7 +101,7 @@ var _ = BeforeSuite(func() {
 		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
-	var err error
+	
 	k8sScheme = provideScheme()
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
@@ -163,7 +165,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	dcControllerMockServer.Close()
+	// dcControllerMockServer.Close()
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
