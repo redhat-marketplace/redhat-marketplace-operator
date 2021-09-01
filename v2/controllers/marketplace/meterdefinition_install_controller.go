@@ -25,12 +25,23 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+
+	// olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+
+	// operatorapi "github.com/operator-framework/operator-registry/pkg/api"
+	// resolver "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry/resolver/projection"
+
+	// operatorapi "github.com/operator-framework/operator-registry/pkg/api"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+
+	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+
+	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,7 +97,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
 	instance := &marketplacev1alpha1.MeterBase{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: r.cfg.DeployedNamespace}, instance)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: r.cfg.DeployedNamespace}, instance)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
@@ -99,12 +110,12 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 	if instance.Spec.MeterdefinitionCatalogServer == nil {
 		reqLogger.Info("meterbase doesn't have file server feature flags set")
-		return reconcile.Result{},nil
+		return reconcile.Result{}, nil
 	}
 
 	// catalog server not enabled, stop reconciling
 	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
-		return reconcile.Result{},nil
+		return reconcile.Result{}, nil
 	}
 
 	// Fetch the ClusterServiceVersion instance
@@ -121,9 +132,12 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
+	var packageName string
 	csvSplitName := strings.Split(CSV.Name, ".")[0]
-	reqLogger.Info("csv name", "name", csvSplitName)
 	csvVersion := CSV.Spec.Version.Version.String()
+	packageName = parsePackageName(CSV, request, reqLogger)
+	reqLogger.Info("csv name", "name", csvSplitName)
+
 	reqLogger.Info("csv version", "version", csvVersion)
 
 	sub := &olmv1alpha1.SubscriptionList{}
@@ -134,17 +148,30 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	var foundSub *olmv1alpha1.Subscription
 	if len(sub.Items) > 0 {
 		for _, s := range sub.Items {
-			if s.Status.CurrentCSV == CSV.Name && s.Spec.CatalogSource == r.cfg.ControllerValues.RhmCatalogName {
-				// wait for old meterdefs to get deleted if the subscription has been upgraded
-				if installPlanGeneration != s.Status.InstallPlanGeneration {
-					reqLogger.Info("subscription has been updated", "cached installplangen", installPlanGeneration, "installplangen on sub", s.Status.InstallPlanGeneration)
-					installPlanGeneration = s.Status.InstallPlanGeneration
+			if packageName == "" {
+				reqLogger.Info("could not determine package name")
+				if s.Status.InstalledCSV == CSV.Name && s.Spec.CatalogSource == r.cfg.ControllerValues.RhmCatalogName {
+
+					foundSub = &s
+					break
+
+				} else if strings.HasPrefix(s.Status.CurrentCSV, csvSplitName) && s.Status.InstalledCSV != CSV.Name {
+					reqLogger.Info("csv is updating")
 					return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 				}
+			}
+
+			reqLogger.Info("using package name to match csv with subscription", "packageName", packageName)
+			if packageName == s.Spec.Package && s.Status.InstalledCSV == CSV.Name && s.Spec.CatalogSource == r.cfg.ControllerValues.RhmCatalogName {
 
 				foundSub = &s
-				
+				break
+
+			} else if packageName == s.Spec.Package && strings.HasPrefix(s.Status.CurrentCSV, csvSplitName) && s.Status.InstalledCSV != CSV.Name {
+				reqLogger.Info("csv is updating")
+				return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 			}
+
 		}
 	}
 
@@ -252,7 +279,7 @@ func (r *MeterdefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1
 	}
 }
 
-func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef (csvSplitName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef(csvSplitName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
 	groupVersionKind, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {
 		return err
@@ -283,61 +310,55 @@ func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef (csvSplitN
 	return nil
 }
 
-func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) (packageName string, version string, result *ExecResult) {
-
-	v, ok := csv.GetAnnotations()[csvProp]
+func parsePackageName(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) string {
+	csvProps, ok := csv.GetAnnotations()[csvProp]
 	if !ok {
-		err := emperrors.New("could not find annotations for CSV properties")
-		reqLogger.Error(err, request.Name)
-		return "", "", &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		reqLogger.Info("could not find annotation for CSV properties")
+		return ""
 	}
 
-	csvProperties := fetchCSVInfo(v)
-
-	_packageName := csvProperties["packageName"]
-	packageName, ok = _packageName.(string)
-	if !ok {
-		err := emperrors.New("TYPE CONVERSION ERROR PACKAGE NAME")
-		reqLogger.Error(err, request.Name)
-		return "", "", &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	_version := csvProperties["version"]
-	version, ok = _version.(string)
-	if !ok {
-		err := emperrors.New("type conversion error on versions")
-		reqLogger.Error(err, request.Name)
-		return "", "", &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	if strings.Contains(version, "-") {
-		version = strings.Split(version, "-")[0]
-	}
-
-	return packageName, version, &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-}
-
-func fetchCSVInfo(csvProps string) map[string]interface{} {
 	var unmarshalledProps map[string]interface{}
-	json.Unmarshal([]byte(csvProps), &unmarshalledProps)
+	err := json.Unmarshal([]byte(csvProps), &unmarshalledProps)
+	if err != nil {
+		reqLogger.Info(err.Error())
+	}
 
 	properties := unmarshalledProps["properties"].([]interface{})
-	reqProperty := properties[len(properties)-1]
+	for _, _prop := range properties {
+		p, ok := _prop.(map[string]interface{})
+		if !ok {
+			reqLogger.Info("Type conversion error []Property")
+			return ""
+		}
 
-	csvProperty := reqProperty.(map[string]interface{})
+		if p["type"] == "olm.package" {
+			/*
+			{
+				"type":"olm.package",
+				"value":{
+					"packageName":"memcached-operator-rhmp",
+					"version":"0.0.1"
+				}
+			},
+			*/
 
-	return csvProperty["value"].(map[string]interface{})
+			value, ok := p["value"].(map[string]interface{})
+			if !ok {
+				reqLogger.Info("Type conversion error Property.Value")
+				return ""
+			}
+
+			packageName, ok := value["packageName"].(string)
+			if !ok {
+				reqLogger.Info("Type conversion error Property.Value.PackageName")
+				return ""
+			}
+
+			return packageName
+		}
+	}
+
+	return ""
 }
 
 func checkForCSVVersionChanges(e event.UpdateEvent) bool {

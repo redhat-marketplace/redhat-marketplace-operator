@@ -211,32 +211,13 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	// if LicenceUsageMeteringEnabled gets set to false while the dc is up and running delete all system meterdefs
 	if !instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
 		reqLogger.Info("license usage metering disabled, uninstalling system meterdefs")
-		// get the latest deploymentconfig
-		dc := &osappsv1.DeploymentConfig{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, dc)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("deployment config not found, ignoring")
-				return reconcile.Result{}, nil
-			}
-
-			reqLogger.Error(err, "Failed to get deploymentconfig")
-			return reconcile.Result{}, err
-		}
-
-		for _, c := range dc.Status.Conditions {
-			if c.Type == osappsv1.DeploymentAvailable {
-				if c.Status == corev1.ConditionTrue {
-					result := r.deleteAllSystemMeterDefs(reqLogger)
-					if !result.Is(Continue){
-						result.Return()
-					}
-				}
-			}
+		result := r.deleteAllSystemMeterDefs(reqLogger)
+		if !result.Is(Continue){
+			result.Return()
 		}
 	}
 
-	// catalog server not enabled, stop reconciling
+	// catalog server not enabled, stop reconciling and uninstall
 	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
 		result := r.uninstallFileServerResources(reqLogger)
 		if !result.Is(Continue){
@@ -293,21 +274,11 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	result = r.pruneDeployPods(latestVersion, request, reqLogger)
 	if !result.Is(Continue) {
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed during pruning operation")
-		}
-
 		return result.Return()
 	}
 
 	result = r.sync(instance,request, reqLogger)
 	if !result.Is(Continue) {
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed during sync operation")
-		}
-
 		return result.Return()
 	}
 
@@ -317,7 +288,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	if r.CatalogClient.HttpClient == nil {
-		reqLogger.Info("settign transport on catalog client")
+		reqLogger.Info("setting transport on catalog client")
 
 		err := r.CatalogClient.SetTransport(reqLogger)
 		if err != nil {
@@ -388,7 +359,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			if an isv removes their catalog listing, meterdefs could be orphaned on the cluster
 			delete all community meterdefs for that csv
 			if no community meterdefs are found, skip to next csv
-			if community meterdefs are found an deleted, skip to next csv
+			if community meterdefs are found and deleted, skip to next csv
 		*/
 		latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
 		if err != nil {
@@ -541,6 +512,29 @@ func(r *DeploymentConfigReconciler) uninstallDeploymentConfig(reqLogger logr.Log
 	}
 }
 
+/* 
+	seems like removing owner refs is enough to remove these resources, but doing a pass through with a deletion to be sure
+*/
+func(r *DeploymentConfigReconciler) uninstallFileServerResources(reqLogger logr.Logger) (result *ExecResult) {
+
+	result = r.uninstallDeploymentConfig(reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	result = r.uninstallService(reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	result = r.uninstallImageStream(reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	return result
+}
+
 func(r *DeploymentConfigReconciler) uninstallService(reqLogger logr.Logger) *ExecResult {
 	foundFileServerService := &corev1.Service{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundFileServerService)
@@ -605,29 +599,6 @@ func(r *DeploymentConfigReconciler) uninstallImageStream(reqLogger logr.Logger) 
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
-}
-
-/* 
-	seems like removing owner refs is enough to remove these resources, but doing a pass through with a deletion to be sure
-*/
-func(r *DeploymentConfigReconciler) uninstallFileServerResources(reqLogger logr.Logger) (result *ExecResult) {
-
-	result = r.uninstallDeploymentConfig(reqLogger)
-	if !result.Is(Continue) {
-		result.Return()
-	}
-
-	result = r.uninstallService(reqLogger)
-	if !result.Is(Continue) {
-		result.Return()
-	}
-
-	result = r.uninstallImageStream(reqLogger)
-	if !result.Is(Continue) {
-		result.Return()
-	}
-
-	return result
 }
 
 func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
@@ -873,6 +844,7 @@ func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition 
 			Err:             err,
 		}
 	}
+
 	reqLogger.Info("Created meterdefinition", "mdef", meterDefinition.Name, "CSV", csv.Name)
 
 	return &ExecResult{
@@ -901,6 +873,7 @@ func (r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []market
 }
 
 func listAllMeterDefsForCsv(runtimeClient client.Client, indexLabels map[string]string) (*marketplacev1beta1.MeterDefinitionList, *ExecResult) {
+	
 	installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
 
 	// look for meterdefs that originated from the meterdefinition catalog
@@ -914,11 +887,6 @@ func listAllMeterDefsForCsv(runtimeClient client.Client, indexLabels map[string]
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
-	}
-
-	mdefNames := []string{}
-	for _, m := range installedMeterdefList.Items {
-		mdefNames = append(mdefNames, m.Name)
 	}
 
 	return installedMeterdefList, &ExecResult{
@@ -945,8 +913,6 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefs(reqLogger logr.Log
 			splitName = memcached-operator
 		*/
 		splitName := strings.Split(csv.Name, ".")[0]
-		// csvVersion := csv.Spec.Version.Version.String()
-		// csvNamespace := csv.Namespace
 
 		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, splitName)
 			if err != nil {	
