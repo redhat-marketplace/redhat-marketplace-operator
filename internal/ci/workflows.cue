@@ -445,9 +445,6 @@ branch_build: _#bashWorkflow & {
 			steps: [
 				_#checkoutCode,
 				_#installGo,
-				(_#cacheDockerBuildx & {
-					#project: "base1"
-				}).res,
 				_#setupQemu,
 				_#setupBuildX,
 				_#quayLogin,
@@ -505,9 +502,6 @@ branch_build: _#bashWorkflow & {
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
-				(_#cacheDockerBuildx & {
-					#project: "${{ matrix.project }}"
-				}).res,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
 				_#installYQ,
