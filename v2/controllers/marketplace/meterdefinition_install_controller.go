@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -49,8 +50,13 @@ import (
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
-
 var installPlanGeneration int
+
+const (
+	csvProp      string = "operatorframework.io/properties"
+	versionRange string = "versionRange"
+	packageName  string = "packageName"
+)
 
 // MeterdefinitionInstallReconciler reconciles a ClusterServiceVersion object
 type MeterdefinitionInstallReconciler struct {
@@ -137,6 +143,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				}
 
 				foundSub = &s
+				
 			}
 		}
 	}
@@ -274,6 +281,63 @@ func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef (csvSplitN
 	reqLogger.Info("Created meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
 
 	return nil
+}
+
+func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) (packageName string, version string, result *ExecResult) {
+
+	v, ok := csv.GetAnnotations()[csvProp]
+	if !ok {
+		err := emperrors.New("could not find annotations for CSV properties")
+		reqLogger.Error(err, request.Name)
+		return "", "", &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	csvProperties := fetchCSVInfo(v)
+
+	_packageName := csvProperties["packageName"]
+	packageName, ok = _packageName.(string)
+	if !ok {
+		err := emperrors.New("TYPE CONVERSION ERROR PACKAGE NAME")
+		reqLogger.Error(err, request.Name)
+		return "", "", &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	_version := csvProperties["version"]
+	version, ok = _version.(string)
+	if !ok {
+		err := emperrors.New("type conversion error on versions")
+		reqLogger.Error(err, request.Name)
+		return "", "", &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	if strings.Contains(version, "-") {
+		version = strings.Split(version, "-")[0]
+	}
+
+	return packageName, version, &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func fetchCSVInfo(csvProps string) map[string]interface{} {
+	var unmarshalledProps map[string]interface{}
+	json.Unmarshal([]byte(csvProps), &unmarshalledProps)
+
+	properties := unmarshalledProps["properties"].([]interface{})
+	reqProperty := properties[len(properties)-1]
+
+	csvProperty := reqProperty.(map[string]interface{})
+
+	return csvProperty["value"].(map[string]interface{})
 }
 
 func checkForCSVVersionChanges(e event.UpdateEvent) bool {

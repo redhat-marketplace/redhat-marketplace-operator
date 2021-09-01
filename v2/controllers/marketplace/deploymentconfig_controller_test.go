@@ -18,8 +18,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/gotidy/ptr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
@@ -119,7 +121,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterDef1Key.Name,
-			Namespace: "default",
+			Namespace: namespace,
 			Annotations: map[string]string{
 				"versionRange": "<=0.0.1",
 			},
@@ -331,8 +333,25 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			},
 		}
 
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.DEPLOYMENT_CONFIG_NAME,
+				Namespace: namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "foo",
+						Port:       int32(8180),
+						TargetPort: intstr.FromString("foo"),
+					},
+				},
+			},
+		}
+
 		Expect(k8sClient.Create(context.TODO(), dc)).Should(SucceedOrAlreadyExist, "create test deploymentconfig")
 		Expect(k8sClient.Create(context.TODO(), is)).Should(SucceedOrAlreadyExist, "create test image stream")
+		Expect(k8sClient.Create(context.TODO(), service)).Should(SucceedOrAlreadyExist, "create file server service")
 		// Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
 		// _meterBase := &marketplacev1alpha1.MeterBase{}
 		// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, subSectionMeterBase)).Should(Succeed(), "get meterbase")
@@ -423,10 +442,12 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Update a community meterdefinition on the cluster", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
+			// Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			existingMeterDef := meterDef1.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingMeterDef)).Should(SucceedOrAlreadyExist, "create existing meterdef")
+
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			updatedMeterDef := meterDef1.DeepCopy()
 
@@ -460,7 +481,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Remove a community meterdefinition if it is removed from the catalog", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
+			// Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			_meterDef1 := meterDef1.DeepCopy()
 			_meterDef2 := meterDef2.DeepCopy()
@@ -470,6 +491,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			for _, existingMeterdef := range existingMeterdefSlice {
 				Expect(k8sClient.Create(context.TODO(), &existingMeterdef)).Should(Succeed(), "create existing meterdefs")
 			}
+
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			latestMeterdefsFromCatalog := []marketplacev1beta1.MeterDefinition{*_meterDef1}
 
@@ -508,8 +531,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete all community meterdefs for a csv if that csv's dir is deleted in the catalog", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
-
 			_meterDef1 := meterDef1.DeepCopy()
 
 			_meterDef2 := meterDef2.DeepCopy()
@@ -518,6 +539,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			for _, existingMeterdef := range existingMeterdefSlice {
 				Expect(k8sClient.Create(context.TODO(), &existingMeterdef)).Should(SucceedOrAlreadyExist, "create existing meterdefs")
 			}
+
+			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			notFoundBody := []byte(`no meterdefs found`)
 
@@ -550,13 +573,12 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete all system meterdefs on cluster if LicenceUsageMetering is disabled", func() {
 		BeforeEach(func() {
-			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
-			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = false
-			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
-
 			existingSystemMeterDef := systemMeterDef.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingSystemMeterDef)).Should(SucceedOrAlreadyExist, "create existing system meterdef")
 
+			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
+			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = false
+			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
 		})
 
 		It("all community meterdefinitions should be deleted", func() {
@@ -576,6 +598,45 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 				return mdefList.Items
 			}, timeout, interval).Should(HaveLen(0))
+		})
+	})
+
+	Context("Delete all file server resources if MeterdefinitionCatalogServerEnabled is set to false", func() {
+		BeforeEach(func() {
+			// existingSystemMeterDef := systemMeterDef.DeepCopy()
+			// Expect(k8sClient.Create(context.TODO(), existingSystemMeterDef)).Should(SucceedOrAlreadyExist, "create existing system meterdef")
+
+			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
+			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = false
+			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
+		})
+
+		It("all file server resources should be deleted", func() {
+			Eventually(func() bool {
+				var dcNotFound bool
+				var isNotFound bool
+				var serviceIsNotFound bool
+
+				dc := &osappsv1.DeploymentConfig{}
+            	err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, dc)
+				if k8serrors.IsNotFound(err){
+					dcNotFound = true
+				}
+
+				is := &osimagev1.ImageStreamImage{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, is)
+				if k8serrors.IsNotFound(err){
+					isNotFound = true
+				}
+
+				service := &corev1.Service{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, service)
+				if k8serrors.IsNotFound(err){
+					serviceIsNotFound = true
+				}
+
+				return dcNotFound && isNotFound && serviceIsNotFound
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })

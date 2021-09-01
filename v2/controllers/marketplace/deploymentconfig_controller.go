@@ -177,11 +177,12 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch
+// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch;delete
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch;delete
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
 // +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/meterdef-index-label/*,verbs=get;
+// +kubebuilder:rbac:urls=/system-meterdef-index-label/*,verbs=get;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
@@ -237,6 +238,12 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	// catalog server not enabled, stop reconciling
 	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+		result := r.uninstallFileServerResources(reqLogger)
+		if !result.Is(Continue){
+			result.Return()
+		}
+
+		reqLogger.Info("done uninstalling catalog server resources")
 		return reconcile.Result{},nil
 	}
 
@@ -499,6 +506,128 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
+}
+
+func(r *DeploymentConfigReconciler) uninstallDeploymentConfig(reqLogger logr.Logger) *ExecResult {
+	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)	
+	if err != nil {
+		if k8serrors.IsNotFound(err){
+			reqLogger.Info("deploymentconfig not found,skipping uninstall")
+			return &ExecResult{
+				Status: ActionResultStatus(Continue),
+			}
+		}
+
+		reqLogger.Error(err, "could not uninstall deploymentconfig")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	foundDeploymentConfig.OwnerReferences = []metav1.OwnerReference{}
+	err = r.Client.Delete(context.TODO(),foundDeploymentConfig)
+	if err != nil && !k8serrors.IsNotFound(err){
+		reqLogger.Error(err, "could not uninstall deploymentconfig")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func(r *DeploymentConfigReconciler) uninstallService(reqLogger logr.Logger) *ExecResult {
+	foundFileServerService := &corev1.Service{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundFileServerService)
+	if err != nil {
+		if k8serrors.IsNotFound(err){
+			reqLogger.Info("catalog server service not found,skipping uninstall")
+			return &ExecResult{
+				Status: ActionResultStatus(Continue),
+			}
+		}
+
+		reqLogger.Error(err, "could not uninstall catalog server service")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	foundFileServerService.OwnerReferences = []metav1.OwnerReference{}
+	err = r.Client.Delete(context.TODO(),foundFileServerService)
+	if err != nil && !k8serrors.IsNotFound(err){
+		reqLogger.Error(err, "could not uninstall catalog server service")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func(r *DeploymentConfigReconciler) uninstallImageStream(reqLogger logr.Logger) *ExecResult {
+	foundImageStream := &osimagev1.ImageStream{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
+	if err != nil {
+		if k8serrors.IsNotFound(err){
+			reqLogger.Info("image stream not found,skipping uninstall")
+			return &ExecResult{
+				Status: ActionResultStatus(Continue),
+			}
+		}
+
+		reqLogger.Error(err, "could not uninstall image stream")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	foundImageStream.OwnerReferences = []metav1.OwnerReference{}
+	err = r.Client.Delete(context.TODO(),foundImageStream)
+	if err != nil && !k8serrors.IsNotFound(err){
+		reqLogger.Error(err, "could not uninstall image stream")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+/* 
+	seems like removing owner refs is enough to remove these resources, but doing a pass through with a deletion to be sure
+*/
+func(r *DeploymentConfigReconciler) uninstallFileServerResources(reqLogger logr.Logger) (result *ExecResult) {
+
+	result = r.uninstallDeploymentConfig(reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	result = r.uninstallService(reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	result = r.uninstallImageStream(reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	return result
 }
 
 func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
@@ -791,8 +920,6 @@ func listAllMeterDefsForCsv(runtimeClient client.Client, indexLabels map[string]
 	for _, m := range installedMeterdefList.Items {
 		mdefNames = append(mdefNames, m.Name)
 	}
-
-	fmt.Println(mdefNames)
 
 	return installedMeterdefList, &ExecResult{
 		Status: ActionResultStatus(Continue),

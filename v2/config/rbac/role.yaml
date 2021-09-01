@@ -36,6 +36,10 @@ rules:
   - /metrics
   verbs:
   - get
+- nonResourceURLs:
+  - /system-meterdef-index-label/*
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -168,6 +172,7 @@ rules:
   - deploymentconfigs
   verbs:
   - create
+  - delete
   - get
   - list
   - update
@@ -236,6 +241,7 @@ rules:
   - imagestreams
   verbs:
   - create
+  - delete
   - get
   - list
   - update

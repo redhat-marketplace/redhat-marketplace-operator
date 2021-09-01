@@ -293,14 +293,14 @@ func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName st
 }
 
 func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
-	reqLogger.Info("retrieving meterdefinition index label")
+	reqLogger.Info("retrieving system meterdefinition index label")
 
 	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterDefIndexLabelEndpoint, csvName)
 	if err != nil {
 		return nil, err
 	}
 
-	reqLogger.Info("calling file server for meterdef index labels", "url", url.String())
+	reqLogger.Info("calling file server for system meterdef index labels", "url", url.String())
 
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
