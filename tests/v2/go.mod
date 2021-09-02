@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/go-logr/logr v0.3.0
+	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.1.2
 	github.com/google/wire v0.5.0
 	github.com/gotidy/ptr v1.3.0

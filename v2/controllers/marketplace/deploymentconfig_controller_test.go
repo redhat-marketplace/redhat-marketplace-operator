@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("DeploymentConfig Controller Test", func() {
+var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
 		csvSplitName                  = "test-csv-1"
@@ -46,9 +46,9 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		listMeterDefsForCsvPath       = "/" + catalog.ListForVersionEndpoint + "/" + csvSplitName + "/" + "0.0.1" + "/" + namespace
 		indexLabelsPath               = "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + csvSplitName
 		systemMeterDefIndexLabelsPath = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvSplitName
-		indexLabelsBody []byte
+		indexLabelsBody               []byte
 		systemMeterDefIndexLabelsBody []byte
-		dcControllerMockServer *ghttp.Server
+		dcControllerMockServer        *ghttp.Server
 	)
 
 	idFn := func(element interface{}) string {
@@ -77,8 +77,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				"versionRange": "<=0.0.1",
 			},
 			Labels: map[string]string{
-				"marketplace.redhat.com/installedOperatorNameTag":  "test-csv-1",
-				"marketplace.redhat.com/isSystemMeterDefinition": "1",
+				"marketplace.redhat.com/installedOperatorNameTag": "test-csv-1",
+				"marketplace.redhat.com/isSystemMeterDefinition":  "1",
 			},
 		},
 		Spec: marketplacev1beta1.MeterDefinitionSpec{
@@ -260,7 +260,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 	BeforeEach(func() {
 		customListener, err := net.Listen("tcp", listenerAddress)
 		Expect(err).ToNot(HaveOccurred())
-	
+
 		dcControllerMockServer = ghttp.NewUnstartedServer()
 		dcControllerMockServer.HTTPTestServer.Listener.Close()
 		dcControllerMockServer.HTTPTestServer.Listener = customListener
@@ -395,7 +395,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	AfterEach(func() {
 		dcControllerMockServer.Close()
-		
+
 		_meterDef1 := &marketplacev1beta1.MeterDefinition{}
 		k8sClient.Get(context.TODO(), types.NamespacedName{Name: meterDef1Key.Name, Namespace: namespace}, _meterDef1)
 		k8sClient.Delete(context.TODO(), _meterDef1)
@@ -522,7 +522,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}, timeout, interval).Should(And(
 				HaveLen(2),
 				MatchAllElements(idFn, Elements{
-					"meterdef-1": Equal("meterdef-1"),
+					"meterdef-1":             Equal("meterdef-1"),
 					"test-template-meterdef": Equal("test-template-meterdef"),
 				}),
 			))
@@ -553,18 +553,18 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		It("all community meterdefinitions should be deleted", func() {
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
-				
+
 				labelsMap := map[string]string{}
-				err := json.Unmarshal(indexLabelsBody,&labelsMap)
+				err := json.Unmarshal(indexLabelsBody, &labelsMap)
 				if err != nil {
 					log.Fatal(err)
 				}
 				listOts := []client.ListOption{
 					client.MatchingLabels(labelsMap),
 				}
-				
+
 				mdefList := &marketplacev1beta1.MeterDefinitionList{}
-				k8sClient.List(context.TODO(), mdefList,listOts...)
+				k8sClient.List(context.TODO(), mdefList, listOts...)
 
 				return mdefList.Items
 			}, timeout, interval).Should(HaveLen(0))
@@ -584,7 +584,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		It("all community meterdefinitions should be deleted", func() {
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
 				labelsMap := map[string]string{}
-				err := json.Unmarshal(systemMeterDefIndexLabelsBody,&labelsMap)
+				err := json.Unmarshal(systemMeterDefIndexLabelsBody, &labelsMap)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -592,9 +592,9 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				listOts := []client.ListOption{
 					client.MatchingLabels(labelsMap),
 				}
-				
+
 				mdefList := &marketplacev1beta1.MeterDefinitionList{}
-				k8sClient.List(context.TODO(), mdefList,listOts...)
+				k8sClient.List(context.TODO(), mdefList, listOts...)
 
 				return mdefList.Items
 			}, timeout, interval).Should(HaveLen(0))
@@ -618,20 +618,20 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				var serviceIsNotFound bool
 
 				dc := &osappsv1.DeploymentConfig{}
-            	err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, dc)
-				if k8serrors.IsNotFound(err){
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, dc)
+				if k8serrors.IsNotFound(err) {
 					dcNotFound = true
 				}
 
 				is := &osimagev1.ImageStreamImage{}
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, is)
-				if k8serrors.IsNotFound(err){
+				if k8serrors.IsNotFound(err) {
 					isNotFound = true
 				}
 
 				service := &corev1.Service{}
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, service)
-				if k8serrors.IsNotFound(err){
+				if k8serrors.IsNotFound(err) {
 					serviceIsNotFound = true
 				}
 
@@ -640,5 +640,3 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		})
 	})
 })
-
-

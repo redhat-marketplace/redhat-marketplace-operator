@@ -26,12 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
-	// olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-
-	// operatorapi "github.com/operator-framework/operator-registry/pkg/api"
-	// resolver "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry/resolver/projection"
-
-	// operatorapi "github.com/operator-framework/operator-registry/pkg/api"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
@@ -39,9 +33,6 @@ import (
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
-	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-
-	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,6 +106,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 	// catalog server not enabled, stop reconciling
 	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+		reqLogger.Info("catalog server isn't enabled, stopping reconcile")
 		return reconcile.Result{}, nil
 	}
 
@@ -220,14 +212,19 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					return result.Return()
 				}
 
-				systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
+				// catalog server not enabled, stop reconciling
+				if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+					reqLogger.Info("system meterdefs enabled")
+					
+					systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
 
-				result = r.createMeterDefs(systemMeterDefs, csvSplitName, csvVersion, CSV, reqLogger)
-				if !result.Is(Continue) {
-					return result.Return()
+					result = r.createMeterDefs(systemMeterDefs, csvSplitName, csvVersion, CSV, reqLogger)
+					if !result.Is(Continue) {
+						return result.Return()
+					}
 				}
 			}
 		}

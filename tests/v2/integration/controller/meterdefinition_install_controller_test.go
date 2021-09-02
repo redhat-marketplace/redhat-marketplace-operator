@@ -6,19 +6,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gotidy/ptr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	ks8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("MeterDefController reconcile", func() {
+var _ = FDescribe("MeterDefInstallController reconcile", func() {
 	Context("Meterdefinition reconcile", func() {
 
 		var memcachedSub *olmv1alpha1.Subscription
@@ -54,6 +57,52 @@ var _ = Describe("MeterDefController reconcile", func() {
 				},
 			}
 
+			subSectionMeterBase := &marketplacev1alpha1.MeterBase{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.METERBASE_NAME,
+					Namespace: Namespace,
+				},
+				Spec: marketplacev1alpha1.MeterBaseSpec{
+					Enabled: false,
+					Prometheus: &marketplacev1alpha1.PrometheusSpec{
+						Storage: marketplacev1alpha1.StorageSpec{
+							Size: resource.MustParse("30Gi"),
+						},
+						Replicas: ptr.Int32(2),
+					},
+					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
+						MeterdefinitionCatalogServerEnabled: true,
+						LicenceUsageMeteringEnabled:         true,
+					},
+				},
+			}
+
+			meterBase := &marketplacev1alpha1.MeterBase{}
+			err := testHarness.Get(context.TODO(),types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: Namespace},meterBase)
+			if ks8serrors.IsNotFound(err){
+				fmt.Println("meterbase not found")
+				Expect(testHarness.Create(context.TODO(),subSectionMeterBase))
+			}
+
+			if meterBase.Spec.MeterdefinitionCatalogServer == nil {
+				meterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = true
+				meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = true
+				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
+			}
+
+			if !meterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+				fmt.Println("updating MeterdefinitionCatalogServerEnabled")
+				meterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = true
+				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
+				time.Sleep(time.Second * 30)
+			}
+
+			if !meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+				fmt.Println("updating LicenceUsageMeteringEnabled")
+				meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = true
+				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
+			}
+			
 			Expect(testHarness.Create(context.TODO(), memcachedSub)).Should(SucceedOrAlreadyExist, "create the memcached subscription")
 			Expect(testHarness.Create(context.TODO(), catalogSource)).Should(SucceedOrAlreadyExist, "create the test catalog")
 		})
@@ -78,34 +127,34 @@ var _ = Describe("MeterDefController reconcile", func() {
 
 		Context("memcached 0.0.1", func() {
 			It("Should create a meterdefs for memcached 0.0.1", func() {
-				Eventually(func() bool {
+				Eventually(func() []string {
 					foundSub := &olmv1alpha1.Subscription{}
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-subscription", Namespace: "openshift-redhat-marketplace"}, foundSub)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					if foundSub.Status.InstallPlanRef == nil {
-						return false
+						return nil
 					}
 
 					installPlanName := foundSub.Status.InstallPlanRef.Name
 					foundInstallPlan := &olmv1alpha1.InstallPlan{}
 					err = testHarness.Get(context.TODO(), types.NamespacedName{Name: installPlanName, Namespace: "openshift-redhat-marketplace"}, foundInstallPlan)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					foundInstallPlan.Spec.Approved = true
 					err = testHarness.Update(context.TODO(), foundInstallPlan)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					mdefList := &marketplacev1beta1.MeterDefinitionList{}
 					err = testHarness.List(context.TODO(), mdefList)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					var mdefNames []string
@@ -113,43 +162,44 @@ var _ = Describe("MeterDefController reconcile", func() {
 						mdefNames = append(mdefNames, mdef.Name)
 					}
 
-					diff := utils.ContainsMultiple(mdefNames, []string{"memcached-meterdef-1", "test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"})
-					return len(diff) == 0 && len(mdefNames) == 3
-				}, timeout, interval).Should(BeTrue())
+					return mdefNames
+					// diff := utils.ContainsMultiple(mdefNames, []string{"memcached-meterdef-1", "test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"})
+					// return len(diff) == 0 && len(mdefNames) == 3
+				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1")
 			})
 		})
 
 		Context("update to memcached 0.0.2", func() {
 			It("Should install the appropriate meterdefinitions if an operator is upgraded to a new version", func() {
 				// install 0.0.1
-				Eventually(func() bool {
+				Eventually(func() []string {
 					foundSub := &olmv1alpha1.Subscription{}
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-subscription", Namespace: "openshift-redhat-marketplace"}, foundSub)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					if foundSub.Status.InstallPlanRef == nil {
-						return false
+						return nil
 					}
 
 					installPlanName := foundSub.Status.InstallPlanRef.Name
 					foundInstallPlan := &olmv1alpha1.InstallPlan{}
 					err = testHarness.Get(context.TODO(), types.NamespacedName{Name: installPlanName, Namespace: "openshift-redhat-marketplace"}, foundInstallPlan)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					foundInstallPlan.Spec.Approved = true
 					err = testHarness.Update(context.TODO(), foundInstallPlan)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					mdefList := &marketplacev1beta1.MeterDefinitionList{}
 					err = testHarness.List(context.TODO(), mdefList)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					var mdefNames []string
@@ -157,9 +207,8 @@ var _ = Describe("MeterDefController reconcile", func() {
 						mdefNames = append(mdefNames, mdef.Name)
 					}
 
-					diff := utils.ContainsMultiple(mdefNames, []string{"memcached-meterdef-1", "test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"})
-					return len(diff) == 0
-				}, timeout, interval).Should(BeTrue(), "install 0.0.1")
+					return mdefNames
+				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1")
 
 				fmt.Println("upgrading to v0.0.2")
 				Eventually(func() bool {
@@ -224,11 +273,11 @@ var _ = Describe("MeterDefController reconcile", func() {
 					return err == nil
 				}, timeout, interval).Should(BeTrue(), "get updated csv")
 
-				Eventually(func() bool {
+				Eventually(func() []string {
 					mdefList := &marketplacev1beta1.MeterDefinitionList{}
 					err := testHarness.List(context.TODO(), mdefList)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					var mdefNames []string
@@ -236,9 +285,8 @@ var _ = Describe("MeterDefController reconcile", func() {
 						mdefNames = append(mdefNames, mdef.Name)
 					}
 
-					diff := utils.ContainsMultiple(mdefNames, []string{"memcached-meterdef-2", "test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"})
-					return len(diff) == 0 && len(mdefNames) == 3
-				}, timeout, interval).Should(BeTrue(), "should have meterdefs for v0.0.2")
+					return mdefNames
+				}, timeout, interval).Should(ContainElements("memcached-meterdef-2","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.2")
 			})
 		})
 	})
