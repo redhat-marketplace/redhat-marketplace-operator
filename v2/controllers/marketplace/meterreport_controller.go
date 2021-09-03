@@ -18,6 +18,7 @@ import (
 	"context"
 	"math/rand"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,9 +65,8 @@ type MeterReportReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
 	CC      ClientCommandRunner
 	patcher patch.Patcher
 	cfg     *config.OperatorConfig
@@ -314,7 +314,26 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 
 	// Create associated job
 	if instance.Status.AssociatedJob == nil {
-		reporterJob, _ := r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
+		reporterJob, _ := r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "")
+		var buildForDataService bool
+		/*
+			--uploadTargets=data-service,redhat-insights
+			--nextArg=value
+		*/
+		for _, arg := range instance.Spec.ExtraArgs {
+			kv := strings.Split(arg, "=") // --uploadTargets=data-service,redhat-insights
+			k := kv[0]
+			v := strings.Split(kv[1], ",") //"data-service,redhat-insights"
+			if k == "--uploadTargets" && utils.Contains(v, "data-service") {
+				buildForDataService = true
+			}
+		}
+
+		if buildForDataService {
+			reqLogger.Info("meterreport", "data-service arg set", instance.Spec.ExtraArgs)
+			reporterJob, _ = r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "data-service")
+		}
+
 		r.factory.SetControllerReference(instance, reporterJob)
 		err := r.Create(context.TODO(), reporterJob)
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -330,28 +349,10 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				}
 			}
 		}
-
-		/*
-			result, _ := cc.Do(context.TODO(),
-				HandleResult(
-					manifests.CreateIfNotExistsFactoryItem(
-						job,
-						func() (runtime.Object, error) {
-							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
-						}, CreateWithAddController(instance),
-					),
-					OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
-				),
-			)
-
-			if !result.Is(Continue) {
-				if result.Is(Error) {
-					reqLogger.Error(result.GetError(), "Failed to on resolving job.")
-				}
-				return result.Return()
-			}
-		*/
 	}
+
+	// ???
+	CreateWithAddController(instance)
 
 	// Update associated job
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job)

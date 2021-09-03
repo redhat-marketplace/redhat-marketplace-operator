@@ -40,6 +40,7 @@ const (
 	WATCH_KEEPER_LIMITPOLL_NAME            = "watch-keeper-limit-poll"
 	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
+	DATA_SERVICE_NAME                      = "rhm-dqlite"
 	METERBASE_PROMETHEUS_NAME              = "rhm-prometheus-meterbase"
 	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
@@ -106,7 +107,11 @@ const (
 	METER_REPORT_PREFIX = "meter-report-"
 
 	/* Auth */
-	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	PrometheusAudience  = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	DataServiceAudience = "rhm-dqlite.openshift-redhat-marketplace.svc"
+
+	/* Certificate */
+	DQLITE_COMMONNAME_PREFIX = "*.rhm-dqlite" // wildcard.ServiceName
 )
 
 var (

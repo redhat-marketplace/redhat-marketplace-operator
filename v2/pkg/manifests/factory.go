@@ -20,9 +20,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"strings"
+	"time"
 
 	"github.com/gotidy/ptr"
+	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -32,6 +35,7 @@ import (
 	"golang.org/x/net/http/httpproxy"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,6 +67,7 @@ const (
 	PrometheusMeterDefinition        = "prometheus/meterdefinition.yaml"
 
 	ReporterJob                       = "reporter/job.yaml"
+	ReporterCronJob                   = "reporter/cronjob.yaml"
 	ReporterUserWorkloadMonitoringJob = "reporter/user-workload-monitoring-job.yaml"
 	ReporterMeterDefinition           = "reporter/meterdefinition.yaml"
 
@@ -83,6 +88,10 @@ const (
 
 	RRS3ControllerDeployment = "razee/rrs3-controller-deployment.yaml"
 	WatchKeeperDeployment    = "razee/watch-keeper-deployment.yaml"
+	DataServiceStatefulSet   = "dataservice/statefulset.yaml"
+	DataServiceService       = "dataservice/service.yaml"
+	DataServiceRoute         = "dataservice/route.yaml"
+	DataServiceTLSSecret     = "dataservice/secret.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -110,6 +119,15 @@ func NewFactory(
 	}
 }
 
+func find(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 func (f *Factory) ReplaceImages(container *corev1.Container) {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
@@ -118,7 +136,12 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = append(container.Args, "--namespace", f.namespace)
+
+		_, argFound := find(container.Args, "--namespace")
+		if !argFound {
+			container.Args = append(container.Args, "--namespace", f.namespace)
+		}
+
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -161,6 +184,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	case container.Name == "rhm-dqlite":
+		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
 		container.Image = f.config.RelatedImages.RemoteResourceS3
 	case container.Name == "watch-keeper":
@@ -227,6 +252,36 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	return d, nil
 }
 
+func (f *Factory) NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d, err := NewStatefulSet(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	return d, nil
+}
+
+func (f *Factory) UpdateStatefulSet(manifest io.Reader, d *appsv1.StatefulSet) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	d, err := NewService(manifest)
 	if err != nil {
@@ -238,6 +293,15 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	return d, nil
+}
+
+func (f *Factory) UpdateService(manifest io.Reader, s *v1.Service) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(s)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
@@ -277,6 +341,50 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	return j, nil
+}
+
+func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+	j, err := NewCronJob(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.GetNamespace() == "" {
+		j.SetNamespace(f.namespace)
+	}
+
+	return j, nil
+}
+
+func (f *Factory) UpdateCronJob(manifest io.Reader, j *batchv1beta1.CronJob) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(j)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *Factory) NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r, err := NewRoute(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.GetNamespace() == "" {
+		r.SetNamespace(f.namespace)
+	}
+
+	return r, nil
+}
+
+func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(r)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewPrometheus(
@@ -612,6 +720,7 @@ func (f *Factory) UserWorkloadMonitoringMeterDefinition() (*marketplacev1beta1.M
 func (f *Factory) ReporterJob(
 	report *marketplacev1alpha1.MeterReport,
 	backoffLimit *int32,
+	uploadTarget string,
 ) (*batchv1.Job, error) {
 	j, err := f.NewJob(MustAssetReader(ReporterJob))
 
@@ -662,6 +771,58 @@ func (f *Factory) ReporterJob(
 		container.Args = append(container.Args, report.Spec.ExtraArgs...)
 	}
 
+	if uploadTarget == "data-service" {
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+
+		container.Args = append(container.Args, dataServiceArgs...)
+
+		dataServiceVolumeMounts := []v1.VolumeMount{
+			{
+				Name:      "data-service-token-vol",
+				ReadOnly:  true,
+				MountPath: "/etc/data-service-sa",
+			},
+			{
+				Name:      "serving-certs-ca-bundle",
+				MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+				ReadOnly:  false,
+			},
+		}
+
+		container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
+
+		dataServiceTokenVols := []v1.Volume{
+			{
+				Name: "serving-certs-ca-bundle",
+				VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "serving-certs-ca-bundle",
+						},
+					},
+				},
+			},
+			{
+				Name: "data-service-token-vol",
+				VolumeSource: v1.VolumeSource{
+					Projected: &v1.ProjectedVolumeSource{
+						Sources: []v1.VolumeProjection{
+							{
+								ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+									Audience:          utils.DataServiceAudience,
+									ExpirationSeconds: ptr.Int64(3600),
+									Path:              "data-service-token",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
+	}
+
 	// Keep last 3 days of data
 	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
 	j.Spec.Template.Spec.Containers[0] = container
@@ -669,37 +830,90 @@ func (f *Factory) ReporterJob(
 	return j, nil
 }
 
-func (f *Factory) ReporterUserWorkloadMonitoringJob(
-	report *marketplacev1alpha1.MeterReport,
+func (f *Factory) UpdateReporterCronJob(
+	j *batchv1beta1.CronJob,
 	backoffLimit *int32,
-) (*batchv1.Job, error) {
-	j, err := f.NewJob(MustAssetReader(ReporterUserWorkloadMonitoringJob))
-
+) error {
+	err := f.UpdateCronJob(MustAssetReader(ReporterCronJob), j)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	j.Spec.BackoffLimit = backoffLimit
-	container := j.Spec.Template.Spec.Containers[0]
+	if j.GetNamespace() == "" {
+		j.SetNamespace(f.namespace)
+	}
+
+	mathrand.Seed(time.Now().UnixNano())
+
+	if j.Spec.Schedule == "" {
+		j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(59))
+	}
+
+	j.Spec.JobTemplate.Spec.BackoffLimit = backoffLimit
+	container := j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
 	container.Image = f.config.RelatedImages.Reporter
 
-	j.Name = report.GetName()
-	container.Args = append(container.Args,
-		"--name",
-		report.Name,
-		"--namespace",
-		report.Namespace,
-	)
+	dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
 
-	if len(report.Spec.ExtraArgs) > 0 {
-		container.Args = append(container.Args, report.Spec.ExtraArgs...)
+	container.Args = append(container.Args, dataServiceArgs...)
+
+	dataServiceVolumeMounts := []v1.VolumeMount{
+		{
+			Name:      "data-service-token-vol",
+			ReadOnly:  true,
+			MountPath: "/etc/data-service-sa",
+		},
+		{
+			Name:      "serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+			ReadOnly:  false,
+		},
 	}
 
-	// Keep last 3 days of data
-	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
-	j.Spec.Template.Spec.Containers[0] = container
+	container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
 
-	return j, nil
+	dataServiceTokenVols := []v1.Volume{
+		{
+			Name: "serving-certs-ca-bundle",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: "serving-certs-ca-bundle",
+					},
+				},
+			},
+		},
+		{
+			Name: "data-service-token-vol",
+			VolumeSource: v1.VolumeSource{
+				Projected: &v1.ProjectedVolumeSource{
+					Sources: []v1.VolumeProjection{
+						{
+							ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+								Audience:          utils.DataServiceAudience,
+								ExpirationSeconds: ptr.Int64(3600),
+								Path:              "data-service-token",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	j.Spec.JobTemplate.Spec.Template.Spec.Volumes = append(j.Spec.JobTemplate.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
+
+	// Keep last 3 days of data
+	j.Spec.JobTemplate.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
+	j.Spec.JobTemplate.Spec.Template.Spec.Containers[0] = container
+
+	return nil
+}
+
+func (f *Factory) NewReporterCronJob(backoffLimit *int32) (*batchv1beta1.CronJob, error) {
+	j := &batchv1beta1.CronJob{}
+	err := f.UpdateReporterCronJob(j, backoffLimit)
+	return j, err
 }
 
 func (f *Factory) ReporterMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
@@ -825,6 +1039,48 @@ func (f *Factory) MetricStateService() (*v1.Service, error) {
 	return s, nil
 }
 
+func (f *Factory) NewDataServiceService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(DataServiceService))
+}
+
+func (f *Factory) UpdateDataServiceService(s *corev1.Service) error {
+	return f.UpdateService(MustAssetReader(DataServiceService), s)
+}
+
+func (f *Factory) NewDataServiceStatefulSet() (*appsv1.StatefulSet, error) {
+	sts, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&sts.Spec.Template.Spec.Containers[i])
+	}
+
+	return sts, nil
+}
+
+func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
+	err := f.UpdateStatefulSet(MustAssetReader(DataServiceStatefulSet), sts)
+	if err != nil {
+		return err
+	}
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&sts.Spec.Template.Spec.Containers[i])
+	}
+
+	return nil
+}
+
+func (f *Factory) NewDataServiceRoute() (*routev1.Route, error) {
+	return f.NewRoute(MustAssetReader(DataServiceRoute))
+}
+
+func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
+	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
+}
+
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := NewServiceMonitor(manifest)
 	if err != nil {
@@ -850,6 +1106,16 @@ func NewMeterDefinition(manifest io.Reader) (*marketplacev1beta1.MeterDefinition
 
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d := appsv1.Deployment{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
+}
+
+func NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d := appsv1.StatefulSet{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
 	if err != nil {
 		return nil, err
@@ -904,6 +1170,24 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 		return nil, err
 	}
 	return &j, nil
+}
+
+func NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+	j := batchv1beta1.CronJob{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+	return &j, nil
+}
+
+func NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r := routev1.Route{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // GeneratePassword returns a base64 encoded securely random bytes.
@@ -1064,4 +1348,30 @@ func (f *Factory) UpdateDeployment(manifest io.Reader, d *appsv1.Deployment) err
 	}
 
 	return nil
+}
+
+func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(DataServiceTLSSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	nameParts := []string{commonNamePrefix, f.namespace, "svc", "cluster", "local"}
+	commonName := strings.Join(nameParts, ".")
+
+	caCertPEM, caKeyPEM, serverKeyPEM, serverCertPEM, err := newCertificateBundleSecret(commonName)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Data == nil {
+		s.Data = make(map[string][]byte)
+	}
+
+	s.Data["ca.crt"] = caCertPEM
+	s.Data["ca.key"] = caKeyPEM
+	s.Data["tls.crt"] = serverKeyPEM
+	s.Data["tls.key"] = serverCertPEM
+
+	return s, nil
 }

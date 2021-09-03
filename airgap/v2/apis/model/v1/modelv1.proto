@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1";
+option java_multiple_files = true;
+option java_package = "com.redhat.marketplace.airgap.model.v1";
+option java_outer_classname = "AirgapModels";
+
+package model.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// represents a queryable ID of the file either a generated ID from
+// this server or a unique file name
+message FileID {
+  oneof data {
+    string id = 1;
+    string name = 2;
+  };
+}
+
+
+// represents the file info
+message FileInfo {
+  FileID file_id = 1;
+  uint32 size = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp updated_at = 4;
+  google.protobuf.Timestamp deleted_tombstone = 5;
+
+  bool compression = 6;
+  string compressionType = 7;
+
+  string checksum = 8;
+
+  map<string,string> metadata = 10;
+}

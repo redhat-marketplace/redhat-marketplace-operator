@@ -7,6 +7,10 @@ metadata:
   name: manager-role
 rules:
 - nonResourceURLs:
+  - '*'
+  verbs:
+  - create
+- nonResourceURLs:
   - /api/v1/query
   - /api/v1/query_range
   verbs:
@@ -90,6 +94,14 @@ rules:
   - serviceaccounts
   verbs:
   - delete
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -370,6 +382,14 @@ rules:
   verbs:
   - delete
 - apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - storage.k8s.io
   resources:
   - storageclasses
@@ -495,6 +515,17 @@ rules:
   - patch
   - update
 - apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - batch
   - extensions
   resources:
@@ -507,6 +538,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -643,4 +681,15 @@ rules:
   - create
   - get
   - list
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch

@@ -23,32 +23,32 @@ import (
 	"strings"
 	"time"
 
-	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	merrors "emperror.dev/errors"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"emperror.dev/errors"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,8 +56,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -163,6 +167,12 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
+		Watches(
+			&source.Kind{Type: &batchv1beta1.CronJob{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestForOwner{
@@ -331,7 +341,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			userWorkloadMonitoringEnabledOnCluster,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
-				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+				return result.ReturnWithError(errors.Wrap(err, "error updating status"))
 			}
 			return result.Return()
 		}
@@ -346,7 +356,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 					Message: marketplacev1alpha1.MessageUserWorkloadMonitoringTransitioning,
 				})); result.Is(Error) || result.Is(Requeue) {
 					if err != nil {
-						return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+						return result.ReturnWithError(errors.Wrap(err, "error updating status"))
 					}
 					return result.Return()
 				}
@@ -359,7 +369,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				userWorkloadMonitoringEnabledOnCluster,
 			); result.Is(Error) || result.Is(Requeue) {
 				if err != nil {
-					return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+					return result.ReturnWithError(errors.Wrap(err, "error updating status"))
 				}
 				return result.Return()
 			}
@@ -388,7 +398,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			Message: message,
 		})); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
-				return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+				return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
 			}
 
 			return result.Return()
@@ -407,7 +417,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		); !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result, "error in reconcile")
-				return result.ReturnWithError(merrors.Wrap(result, "error uninstalling prometheus"))
+				return result.ReturnWithError(errors.Wrap(result, "error uninstalling prometheus"))
 			}
 
 			reqLogger.Info("returing result", "result", *result)
@@ -425,7 +435,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		); !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result, "error in reconcile")
-				return result.ReturnWithError(merrors.Wrap(result, "error creating metric-state"))
+				return result.ReturnWithError(errors.Wrap(result, "error creating metric-state"))
 			}
 
 			reqLogger.Info("returing result", "result", *result)
@@ -458,7 +468,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		); !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result, "error in reconcile")
-				return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
+				return result.ReturnWithError(errors.Wrap(result, "error creating prometheus"))
 			}
 
 			reqLogger.Info("returing result", "result", *result)
@@ -518,7 +528,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		),
 	); result.Is(Error) || result.Is(Requeue) {
 		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+			return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
 		}
 
 		return result.Return()
@@ -533,7 +543,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		Message: message,
 	})); result.Is(Error) || result.Is(Requeue) {
 		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+			return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
 		}
 
 		return result.Return()
@@ -547,7 +557,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			userWorkloadMonitoringEnabledOnCluster,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
-				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+				return result.ReturnWithError(errors.Wrap(err, "error updating status"))
 			}
 			return result.Return()
 		}
@@ -601,10 +611,29 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		),
 	); result.Is(Error) || result.Is(Requeue) {
 		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+			return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
 		}
 
 		return result.Return()
+	}
+
+	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
+	if instance.Spec.DataServiceEnabled {
+		result, err := r.createReporterCronJob(instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to createReporterCronJob")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
+		}
+	} else {
+		result, err := r.deleteReporterCronJob()
+		if err != nil {
+			reqLogger.Error(err, "Failed to deleteReporterCronJob")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
+		}
 	}
 
 	// Provide Status on Prometheus ActiveTargets
@@ -775,8 +804,16 @@ func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time
 	return expectedCreatedDates
 }
 
-func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, userWorkloadMonitoringEnabled bool) *marketplacev1alpha1.MeterReport {
+func (r *MeterBaseReconciler) newMeterReport(
+	namespace string,
+	startTime time.Time,
+	endTime time.Time,
+	meterReportName string,
+	instance *marketplacev1alpha1.MeterBase,
+	userWorkloadMonitoringEnabled bool,
+) *marketplacev1alpha1.MeterReport {
 	promService := &common.ServiceReference{}
+
 	if userWorkloadMonitoringEnabled {
 		promService = &common.ServiceReference{
 			Name:       utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
@@ -791,7 +828,7 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 		}
 	}
 
-	return &marketplacev1alpha1.MeterReport{
+	mreport := &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
 			Namespace: namespace,
@@ -805,6 +842,13 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 			PrometheusService: promService,
 		},
 	}
+
+	if instance.Spec.DataServiceEnabled {
+		mreport.Spec.ExtraArgs = append(mreport.Spec.ExtraArgs, "--uploadTargets=data-service")
+		return mreport
+	}
+
+	return mreport
 }
 
 func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
@@ -1226,7 +1270,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 				data, ok := dataSecret.Data["basicAuthSecret"]
 
 				if !ok {
-					return nil, merrors.New("basicAuthSecret not on data")
+					return nil, errors.New("basicAuthSecret not on data")
 				}
 
 				return r.factory.PrometheusHtpasswdSecret(string(data))
@@ -1239,7 +1283,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
-				return nil, merrors.New("require kubelet-serving configmap is not found")
+				return nil, errors.New("require kubelet-serving configmap is not found")
 			})),
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
@@ -1272,7 +1316,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 
 					patch, err := r.patcher.Calculate(prometheus, expectedPrometheus)
 					if err != nil {
-						return nil, merrors.Wrap(err, "error creating patch")
+						return nil, errors.Wrap(err, "error creating patch")
 					}
 
 					if patch.IsEmpty() {
@@ -1281,12 +1325,12 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 
 					err = r.patcher.SetLastAppliedAnnotation(expectedPrometheus)
 					if err != nil {
-						return nil, merrors.Wrap(err, "error creating patch")
+						return nil, errors.Wrap(err, "error creating patch")
 					}
 
 					patch, err = r.patcher.Calculate(prometheus, expectedPrometheus)
 					if err != nil {
-						return nil, merrors.Wrap(err, "error creating patch")
+						return nil, errors.Wrap(err, "error creating patch")
 					}
 
 					if patch.IsEmpty() {
@@ -1295,7 +1339,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 
 					jsonPatch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(patch.Original, patch.Modified, patch.Current)
 					if err != nil {
-						return nil, merrors.Wrap(err, "Failed to generate merge patch")
+						return nil, errors.Wrap(err, "Failed to generate merge patch")
 					}
 
 					updateResult := &ExecResult{}
@@ -1597,7 +1641,7 @@ func (r *MeterBaseReconciler) createPrometheus(
 		createResult := &ExecResult{}
 
 		if err != nil {
-			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+			if errors.Is(err, operrors.DefaultStorageClassNotFound) {
 				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
 
 				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
@@ -1607,7 +1651,7 @@ func (r *MeterBaseReconciler) createPrometheus(
 					Message: err.Error(),
 				}), nil
 			}
-			return nil, merrors.Wrap(err, "error creating prometheus")
+			return nil, errors.Wrap(err, "error creating prometheus")
 		}
 
 		return HandleResult(
@@ -1700,6 +1744,39 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase) (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(r.cfg.ReportController.RetryLimit)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, cronJob, func() error {
+			r.factory.SetControllerReference(instance, cronJob)
+			return r.factory.UpdateReporterCronJob(cronJob, r.cfg.ReportController.RetryLimit)
+		})
+		return err
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *MeterBaseReconciler) deleteReporterCronJob() (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(r.cfg.ReportController.RetryLimit)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.Client.Delete(context.TODO(), cronJob)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }
 
 func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (bool, error) {
