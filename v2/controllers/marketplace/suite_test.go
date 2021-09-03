@@ -87,12 +87,7 @@ var _ = BeforeSuite(func() {
 	os.Setenv("IMAGE_STREAM_ID",imageStreamID)
 	os.Setenv("IMAGE_STREAM_TAG",imageStreamTag)
 
-	
-	var err error
-	// create a listener with the desired port.
-
 	dcControllerMockServerAddr := fmt.Sprintf("%s%s","http://",listenerAddress)
-	fmt.Println(dcControllerMockServerAddr)
 	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
 	By("bootstrapping test environment")
@@ -101,7 +96,7 @@ var _ = BeforeSuite(func() {
 		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
-	
+	var err error
 	k8sScheme = provideScheme()
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())

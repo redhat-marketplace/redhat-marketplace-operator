@@ -52,7 +52,6 @@ import (
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
-var installPlanGeneration int
 
 const (
 	csvProp      string = "operatorframework.io/properties"
@@ -127,7 +126,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	var packageName string
 	csvSplitName := strings.Split(CSV.Name, ".")[0]
 	csvVersion := CSV.Spec.Version.Version.String()
-	packageName = parsePackageName(CSV, request, reqLogger)
+	packageName = r.parsePackageName(CSV, request, reqLogger)
 	reqLogger.Info("csv name", "name", csvSplitName)
 
 	reqLogger.Info("csv version", "version", csvVersion)
@@ -307,7 +306,7 @@ func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef(csvSplitNa
 	return nil
 }
 
-func parsePackageName(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) string {
+func (r *MeterdefinitionInstallReconciler)parsePackageName(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) string {
 	csvProps, ok := csv.GetAnnotations()[csvProp]
 	if !ok {
 		reqLogger.Info("could not find annotation for CSV properties")

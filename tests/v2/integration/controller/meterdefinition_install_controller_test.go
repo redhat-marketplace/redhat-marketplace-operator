@@ -163,8 +163,6 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 					}
 
 					return mdefNames
-					// diff := utils.ContainsMultiple(mdefNames, []string{"memcached-meterdef-1", "test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"})
-					// return len(diff) == 0 && len(mdefNames) == 3
 				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1")
 			})
 		})
@@ -208,7 +206,7 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 					}
 
 					return mdefNames
-				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1")
+				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1 during update")
 
 				fmt.Println("upgrading to v0.0.2")
 				Eventually(func() bool {
@@ -286,7 +284,10 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 					}
 
 					return mdefNames
-				}, timeout, interval).Should(ContainElements("memcached-meterdef-2","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.2")
+				}, timeout, interval).Should(And(
+					ContainElements("memcached-meterdef-2","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),
+					Not(ContainElement("memcached-meterdef-1")),
+				),"apply meterdefs for 0.0.2")
 			})
 		})
 	})
