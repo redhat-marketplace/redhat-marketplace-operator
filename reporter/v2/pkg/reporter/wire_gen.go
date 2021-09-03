@@ -91,3 +91,43 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 var (
 	_wireLogrLoggerValue = logger
 )
+
+func NewReporterV2(task *Task) (*MarketplaceReporterV2, error) {
+	reporterConfig := task.Config
+	contextContext := task.Ctx
+	simpleClient := task.K8SClient
+	scheme := task.K8SScheme
+	logrLogger := _wireLoggerValue2
+	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
+	reportName := task.ReportName
+	meterReport, err := getMarketplaceReport(contextContext, clientCommandRunner, reportName)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceConfig, err := getMarketplaceConfig(contextContext, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service)
+	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
+	if err != nil {
+		return nil, err
+	}
+	v, err := getMeterDefinitionReferences(contextContext, meterReport, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceReporterV2, err := NewMarketplaceReporterV2(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v)
+	if err != nil {
+		return nil, err
+	}
+	return marketplaceReporterV2, nil
+}
+
+var (
+	_wireLoggerValue2 = logger
+)

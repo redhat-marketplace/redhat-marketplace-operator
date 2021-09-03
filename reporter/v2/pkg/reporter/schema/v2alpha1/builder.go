@@ -30,7 +30,7 @@ type MarketplaceReportDataBuilder struct {
 	values                          []*marketplacecommon.MeterDefPrometheusLabelsTemplated
 	reportStart, reportEnd          common.Time
 	resourceName, resourceNamespace string
-	clusterID                       string
+	accountID, clusterID            string
 	kvMap                           map[string]interface{}
 }
 
@@ -38,6 +38,13 @@ func (d *MarketplaceReportDataBuilder) SetClusterID(
 	clusterID string,
 ) *MarketplaceReportDataBuilder {
 	d.clusterID = clusterID
+	return d
+}
+
+func (d *MarketplaceReportDataBuilder) SetAccountID(
+	accountID string,
+) *MarketplaceReportDataBuilder {
+	d.accountID = accountID
 	return d
 }
 
@@ -76,77 +83,50 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 	d.id = meterDef.Hash()
 
 	key := &MarketplaceReportData{
-		/*
-			ReportPeriodStart: d.reportStart,
-			ReportPeriodEnd:   d.reportEnd,
-			MeterDomain:       meterDef.MeterGroup,
-			MeterKind:         meterDef.MeterKind,
-			IntervalStart:     common.Time(meterDef.IntervalStart),
-			IntervalEnd:       common.Time(meterDef.IntervalEnd),
-			ResourceNamespace: meterDef.ResourceNamespace,
-			ResourceName:      meterDef.ResourceName,
-			Label:             meterDef.WorkloadName,
-			Unit:              meterDef.Unit,
-			AdditionalLabels:  make(map[string]interface{}),
-			Metrics:           make(map[string]interface{}),
-			MetricsExtended:   make([]MarketplaceMetric, 0, len(d.values)),
-			RecordSummary: &MarketplaceReportRecordSummary{
-				TotalMetricCount: len(d.values),
-			},
-		*/
-
-		//-----------------//
-
-		// Set by reporter.go
-		//EventID: "",
-
-		/* go 1.17
-		IntervalStart: meterDef.IntervalStart.UnixMilli(),
-		IntervalEnd:   meterDef.IntervalEnd.UnixMilli(),
-		*/
-		IntervalStart: meterDef.IntervalStart.Sub(time.Unix(0, 0)).Milliseconds(),
-		IntervalEnd:   meterDef.IntervalEnd.Sub(time.Unix(0, 0)).Milliseconds(),
-
-		// Set by reporter.go
-		//RhmAccountID: "",
-
+		IntervalStart:        meterDef.IntervalStart.Sub(time.Unix(0, 0)).Milliseconds(),
+		IntervalEnd:          meterDef.IntervalEnd.Sub(time.Unix(0, 0)).Milliseconds(),
+		AccountID:            d.accountID,
 		AdditionalAttributes: make(map[string]interface{}),
 		GroupName:            meterDef.MeterGroup,
 		MeasuredUsage:        make([]MeasuredUsage, 0, len(d.values)),
 	}
 
-	/*
-		if meterDef.MeterDescription != "" {
-			key.AdditionalLabels["display_description"] = meterDef.MeterDescription
-		}
-	*/
+	if d.clusterID != "" {
+		key.AdditionalAttributes["clusterId"] = d.clusterID
+	}
 
-	/*
-		if meterDef.DisplayName != "" {
-			key.AdditionalLabels["display_name"] = meterDef.DisplayName
-		}
-	*/
+	// key.AdditionalAttributes["hostname"]
 
-	// allLabels := []map[string]interface{}{}
+	if meterDef.MeterGroup != "" {
+		key.AdditionalAttributes["group"] = meterDef.MeterGroup
+	}
+
+	if meterDef.MeterKind != "" {
+		key.AdditionalAttributes["kind"] = meterDef.MeterKind
+	}
+
+	if d.resourceNamespace != "" {
+		key.AdditionalAttributes["namespace"] = d.resourceNamespace
+	}
+
+	// key.AdditionalAttributes["source"]
+	// key.AdditionalAttributes["metricType"]
+	// key.AdditionalAttributes["manual"]
+	// key.AdditionalAttributes["measuredValue"]
+	// key.AdditionalAttributes["measuredMetricId"]
+	// key.AdditionalAttributes["productId"]
+	// key.AdditionalAttributes["productName"]
+	// key.AdditionalAttributes["parentProductId"]
+	// key.AdditionalAttributes["productType"]
+	// key.AdditionalAttributes["parentProductName"]
+	// key.AdditionalAttributes["productConversionRatio"]
+
 	dupeKeys := map[string]interface{}{}
 
 	for _, meterDef := range d.values {
 		if meterDef.Hash() != d.id {
 			return nil, ErrValueHashAreDifferent
 		}
-
-		/*
-			if _, ok := key.Metrics[meterDef.Label]; !ok {
-				key.Metrics[meterDef.Label] = meterDef.Value
-			}
-
-			key.MetricsExtended = append(key.MetricsExtended,
-				MarketplaceMetric{
-					Label: meterDef.Label,
-					Value: meterDef.Value,
-				},
-			)
-		*/
 
 		value, err := strconv.ParseFloat(meterDef.Value, 64)
 		if err != nil {
@@ -177,23 +157,6 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 
 		key.MeasuredUsage = append(key.MeasuredUsage, measuredUsage)
 
-		/*
-			// Add the additional keys
-			for k, value := range meterDef.LabelMap {
-				if _, ok := dupeKeys[k]; ok {
-					continue
-				}
-
-				v, ok := key.AdditionalLabels[k]
-
-				if ok && v != value {
-					dupeKeys[k] = nil
-					delete(key.AdditionalLabels, k)
-				} else if !ok {
-					key.AdditionalLabels[k] = value
-				}
-			}
-		*/
 	}
 
 	/*
@@ -221,7 +184,6 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 	hash.Write([]byte(meterDef.ResourceName))
 	hash.Write([]byte(meterDef.Unit))
 
-	// key.MetricID = fmt.Sprintf("%x", hash.Sum64())
 	key.EventID = fmt.Sprintf("%x", hash.Sum64())
 
 	return key, nil

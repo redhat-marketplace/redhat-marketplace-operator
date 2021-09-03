@@ -15,16 +15,8 @@
 package v2alpha1
 
 import (
-	"github.com/google/uuid"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 )
-
-type ReportMetadata struct {
-	ReportID       uuid.UUID                                   `json:"report_id"`
-	Source         uuid.UUID                                   `json:"source"`
-	SourceMetadata SourceMetadata                              `json:"source_metadata"`
-	ReportSlices   map[common.ReportSliceKey]ReportSlicesValue `json:"report_slices"`
-}
 
 type SourceMetadata struct {
 	RhmClusterID   string                   `json:"rhmClusterId" mapstructure:"rhmClusterId"`
@@ -34,6 +26,9 @@ type SourceMetadata struct {
 	ReportVersion  string                   `json:"reportVersion,omitempty"`
 }
 
-type ReportSlicesValue struct {
-	NumberMetrics int `json:"number_metrics"`
+type Manifest struct {
+	Version string `json:"version"`
+	Type    string `json:"type"`
 }
+
+const AccountMetrics = "accountMetrics"

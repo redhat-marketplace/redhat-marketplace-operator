@@ -65,3 +65,22 @@ func NewReporter(
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }
+
+func NewReporterV2(
+	task *Task,
+) (*MarketplaceReporterV2, error) {
+	panic(wire.Build(
+		wire.FieldsOf(new(*Task),
+			"ReportName", "K8SClient", "Ctx", "Config", "K8SScheme"),
+		providePrometheusSetup,
+		prometheus.NewPrometheusAPIForReporter,
+		reconcileutils.CommandRunnerProviderSet,
+		wire.InterfaceValue(new(logr.Logger), logger),
+		getMarketplaceReport,
+		getPrometheusService,
+		getMarketplaceConfig,
+		getMeterDefinitionReferences,
+		ReporterSetV2,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+	))
+}

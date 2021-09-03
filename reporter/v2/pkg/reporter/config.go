@@ -36,6 +36,7 @@ type Config struct {
 	Local           bool
 	Upload          bool
 	UploaderTarget
+	ReporterSchema string
 }
 
 const (
@@ -63,5 +64,10 @@ func (c *Config) SetDefaults() {
 
 var ReporterSet = wire.NewSet(
 	NewMarketplaceReporter,
+	NewRedHatInsightsUploader,
+)
+
+var ReporterSetV2 = wire.NewSet(
+	NewMarketplaceReporterV2,
 	NewRedHatInsightsUploader,
 )

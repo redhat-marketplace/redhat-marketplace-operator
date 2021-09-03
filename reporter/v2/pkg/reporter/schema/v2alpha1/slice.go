@@ -17,7 +17,6 @@ package v2alpha1
 const Version = "v2alpha1"
 
 type MarketplaceReportSlice struct {
-	//	ReportSliceID common.ReportSliceKey    `json:"report_slice_id"`
 	/*
 		This is required only because RH Insights forces the metadata field.
 		It will exist only in the case where data is sent through the RH pipeline to the COS bucket directly.
@@ -30,25 +29,6 @@ type MarketplaceReportSlice struct {
 
 type MarketplaceReportData struct {
 	/*
-		MetricID          string                          `json:"metric_id"`
-		ReportPeriodStart common.Time                     `json:"report_period_start"`
-		ReportPeriodEnd   common.Time                     `json:"report_period_end"`
-		IntervalStart     common.Time                     `json:"interval_start"`
-		IntervalEnd       common.Time                     `json:"interval_end"`
-		MeterDomain       string                          `json:"domain"`
-		MeterKind         string                          `json:"kind"`
-		MeterVersion      string                          `json:"version,omitempty"`
-		Label             string                          `json:"workload,omitempty"`
-		ResourceNamespace string                          `json:"resource_namespace,omitempty"`
-		ResourceName      string                          `json:"resource_name,omitempty"`
-		Unit              string                          `json:"unit,omitempty"`
-		AdditionalLabels  map[string]interface{}          `json:"additionalLabels"`
-		Metrics           map[string]interface{}          `json:"rhmUsageMetrics"`
-		MetricsExtended   []MarketplaceMetric             `json:"rhmUsageMetricsDetailed"`
-		RecordSummary     *MarketplaceReportRecordSummary `json:"rhmUsageMetricsDetailedSummary,omitempty"`
-	*/
-
-	/*
 		A GUID uniquely identifying this event being sent.
 		A second event with the same eventId will be processed as an amendment.
 		Two events in the same uploaded archive MUST NOT have the same event id. This may be across all the files in the archive.
@@ -59,7 +39,7 @@ type MarketplaceReportData struct {
 	// Milliseconds from epoch UTC representing the end of the window for the usage data being reported
 	IntervalEnd int64 `json:"end"`
 	// The Id of the Red Hat Marketplace account that usage is being reported for.
-	RhmAccountID string `json:"accountId" mapstructure:"accountId"`
+	AccountID string `json:"accountId" mapstructure:"accountId"`
 	/*
 		An object allowing for additional attributes related to the usage data.
 		This object will be merged with measuredUsage.additionalAttributes for processing.
@@ -75,14 +55,6 @@ type MarketplaceReportData struct {
 	MeasuredUsage []MeasuredUsage `json:"measuredUsage"`
 }
 
-/*
-type MarketplaceMetric struct {
-	Label  string                 `json:"label"`
-	Value  string                 `json:"value"`
-	Labels map[string]interface{} `json:"labelSet,omitempty"`
-}
-*/
-
 type MeasuredUsage struct {
 	/*
 		The ID of the metric being reported.
@@ -97,9 +69,3 @@ type MeasuredUsage struct {
 	*/
 	AdditionalAttributes map[string]interface{} `json:"additionalAttributes"`
 }
-
-/*
-type MarketplaceReportRecordSummary struct {
-	TotalMetricCount int `json:"totalMetricCount"`
-}
-*/
