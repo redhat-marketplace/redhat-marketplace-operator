@@ -63,7 +63,6 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
-// var dcControllerMockServer *ghttp.Server
 
 const (
 	imageStreamID string = "rhm-meterdefinition-file-server:v1"
@@ -147,7 +146,6 @@ var _ = BeforeSuite(func() {
 		cfg: operatorConfig,
 		factory: factory,
 		CatalogClient: catalogClient,
-		// KubeInterface: clientset,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

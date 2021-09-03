@@ -352,9 +352,6 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		Expect(k8sClient.Create(context.TODO(), dc)).Should(SucceedOrAlreadyExist, "create test deploymentconfig")
 		Expect(k8sClient.Create(context.TODO(), is)).Should(SucceedOrAlreadyExist, "create test image stream")
 		Expect(k8sClient.Create(context.TODO(), service)).Should(SucceedOrAlreadyExist, "create file server service")
-		// Expect(k8sClient.Create(context.TODO(), subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
-		// _meterBase := &marketplacev1alpha1.MeterBase{}
-		// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, subSectionMeterBase)).Should(Succeed(), "get meterbase")
 		Expect(k8sClient.Create(context.TODO(), csvOnCluster.DeepCopy())).Should(SucceedOrAlreadyExist, "create csv on cluster")
 
 		indexLabelsBody = []byte(fmt.Sprintf(`{
@@ -442,7 +439,6 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	Context("Update a community meterdefinition on the cluster", func() {
 		BeforeEach(func() {
-			// Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			existingMeterDef := meterDef1.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingMeterDef)).Should(SucceedOrAlreadyExist, "create existing meterdef")
@@ -481,7 +477,6 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	Context("Remove a community meterdefinition if it is removed from the catalog", func() {
 		BeforeEach(func() {
-			// Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			_meterDef1 := meterDef1.DeepCopy()
 			_meterDef2 := meterDef2.DeepCopy()
@@ -603,9 +598,6 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete all file server resources if MeterdefinitionCatalogServerEnabled is set to false", func() {
 		BeforeEach(func() {
-			// existingSystemMeterDef := systemMeterDef.DeepCopy()
-			// Expect(k8sClient.Create(context.TODO(), existingSystemMeterDef)).Should(SucceedOrAlreadyExist, "create existing system meterdef")
-
 			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
 			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = false
 			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
