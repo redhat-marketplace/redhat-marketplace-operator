@@ -360,7 +360,7 @@ func provideProductionInsightsConfig(
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")
-	err = cloudAuthPath.Parse(``)
+	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
 
 	if err != nil {
 		return nil, errors.Wrap(ReportJobError{
