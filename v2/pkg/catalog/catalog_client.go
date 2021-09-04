@@ -38,6 +38,7 @@ const (
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
 	GetMeterdefinitionIndexLabelEndpoint      = "meterdef-index-label"
 	GetSystemMeterDefIndexLabelEndpoint 	  = "system-meterdef-index-label"
+	HealthEndpoint							  = "healthz" 
 )
 
 var (
@@ -135,6 +136,58 @@ func (c *CatalogClient) SetTransport(reqLogger logr.Logger) error {
 		}
 
 		c.HttpClient = catalogServerHttpClient
+	}
+
+	return nil
+}
+
+func (c *CatalogClient) CheckAuth (reqLogger logr.Logger) error {
+	reqLogger.Info("checking file server auth")
+
+	if c.HttpClient == nil {
+		reqLogger.Info("setting transport on catalog client")
+
+		err := c.SetTransport(reqLogger)
+		if err != nil {
+			err = errors.Wrap(err,"error setting transport on Catalog Client")
+			return err
+		}
+	}
+	 
+	err := c.Ping(reqLogger)
+	if err != nil {
+		if errors.Is(err, CatalogUnauthorizedErr) {
+			err := c.SetTransport(reqLogger)
+			if err != nil {
+				err = errors.Wrap(err,"error setting transport on Catalog Client")
+				return err
+			}
+		}
+
+		return err
+	}
+	
+
+	return nil
+}
+
+func (c *CatalogClient) Ping(reqLogger logr.Logger) error {
+	reqLogger.Info("pinging file server")
+
+	url, err := concatPaths(c.Endpoint.String(), HealthEndpoint)
+	if err != nil {
+		return err
+	}
+
+	reqLogger.Info("making call to", "url", url.String())
+
+	response, err := c.HttpClient.Get(url.String())
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
 	}
 
 	return nil
