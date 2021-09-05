@@ -36,7 +36,7 @@ func (r *MeterDefinition) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return bldr.Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.marketplace.redhat.com
+// +kubebuilder:webhook:path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.marketplace.redhat.com,admissionReviewVersions=v1beta1;v1alpha1
 
 var _ webhook.Defaulter = &MeterDefinition{}
 
@@ -46,7 +46,7 @@ func (r *MeterDefinition) Default() {
 }
 
 // Disabled for now
-// +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com
+// +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com,admissionReviewVersions=v1beta1;v1alpha1
 
 var _ webhook.Validator = &MeterDefinition{}
 

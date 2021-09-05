@@ -41,33 +41,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: remoteresources3deployment
-rules:
-  - apiGroups:
-      - operators.coreos.com
-      - marketplace.redhat.com
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - namespaces
-    verbs:
-      - update
-      - patch
----
-# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: prometheus-operator
 rules:
   - apiGroups:
@@ -325,7 +298,7 @@ rules:
   - apiGroups:
       - 'marketplace.redhat.com'
     resources:
-      - "meterreports"
+      - 'meterreports'
     verbs:
       - get
       - list
@@ -333,13 +306,10 @@ rules:
   - apiGroups:
       - 'marketplace.redhat.com'
     resources:
-<<<<<<< variant A
       - jobs
       - cronjobs
->>>>>>> variant B
-      - "meterdefinitions"
-      - "meterdefinitions/status"
-======= end
+      - 'meterdefinitions'
+      - 'meterdefinitions/status'
     verbs:
       - get
       - list
@@ -364,7 +334,6 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-<<<<<<< variant A
       - delete
       - get
       - list
@@ -383,5 +352,3 @@ rules:
       - patch
       - update
       - watch
->>>>>>> variant B
-======= end

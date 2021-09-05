@@ -20,18 +20,13 @@ import (
 	"io"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type FileSenderServer struct {
-	filesender.UnimplementedFileSenderServer
-	B BaseServer
-}
-
 // UploadFile allows a file to be uploaded and saved in the database
-func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileServer) error {
+func (frs *Server) UploadFile(stream filesender.FileSender_UploadFileServer) error {
 	var bs []byte
 	var finfo *v1.FileInfo
 	var fid *v1.FileID
@@ -40,9 +35,9 @@ func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileS
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
-			fss.B.Log.Info("Stream end", "total bytes received", len(bs))
+			frs.Log.Info("Stream end", "total bytes received", len(bs))
 			// Attempt to save file in database
-			err := fss.B.FileStore.SaveFile(finfo, bs)
+			err := frs.FileStore.SaveFile(finfo, bs)
 			if err != nil {
 				return status.Errorf(
 					codes.Unknown,
@@ -57,7 +52,7 @@ func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileS
 			}
 			return stream.SendAndClose(res)
 		} else if err != nil {
-			fss.B.Log.Error(err, "Oops, something went wrong!")
+			frs.Log.Error(err, "Oops, something went wrong!")
 			return status.Errorf(
 				codes.Unknown,
 				fmt.Sprintf("Error while processing stream, details: %v", err),
@@ -78,8 +73,8 @@ func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileS
 }
 
 // UpdateFileMetadata allows to update metadata of file saved in the databse
-func (fss *FileSenderServer) UpdateFileMetadata(ctx context.Context, in *filesender.UpdateFileMetadataRequest) (*filesender.UpdateFileMetadataResponse, error) {
-	err := fss.B.FileStore.UpdateFileMetadata(in.GetFileId(), in.GetMetadata())
+func (frs *Server) UpdateFileMetadata(ctx context.Context, in *filesender.UpdateFileMetadataRequest) (*filesender.UpdateFileMetadataResponse, error) {
+	err := frs.FileStore.UpdateFileMetadata(in.GetFileId(), in.GetMetadata())
 	if err != nil {
 		return nil, status.Errorf(
 			codes.Unknown,

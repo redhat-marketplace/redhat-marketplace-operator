@@ -158,6 +158,16 @@ rules:
   - batch
   - extensions
   resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resources:
   - jobs
   verbs:
   - get
@@ -519,6 +529,7 @@ rules:
   resources:
   - statefulsets
   verbs:
+  - create
   - delete
   - get
   - list
@@ -529,6 +540,7 @@ rules:
   - batch
   - extensions
   resources:
+  - cronjobs
   - jobs
   verbs:
   - create
@@ -687,6 +699,7 @@ rules:
   resources:
   - routes
   verbs:
+  - create
   - delete
   - get
   - list

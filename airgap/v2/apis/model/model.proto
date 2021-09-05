@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1";
+option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model";
 option java_multiple_files = true;
-option java_package = "com.redhat.marketplace.airgap.model.v1";
+option java_package = "com.redhat.marketplace.airgap.model";
 option java_outer_classname = "AirgapModels";
 
-package model.v1;
+package model;
 
 import "google/protobuf/timestamp.proto";
 

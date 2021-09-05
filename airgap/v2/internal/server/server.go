@@ -16,10 +16,23 @@ package server
 
 import (
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 )
 
-type BaseServer struct {
+type Server struct {
 	Log       logr.Logger
 	FileStore database.FileStore
+
+	filesender.UnimplementedFileSenderServer
+	fileretreiver.UnimplementedFileRetreiverServer
+	adminserver.UnimplementedAdminServerServer
 }
+
+var _ filesender.FileSenderServer = &Server{}
+
+var _ fileretreiver.FileRetreiverServer = &Server{}
+
+var _ adminserver.AdminServerServer = &Server{}

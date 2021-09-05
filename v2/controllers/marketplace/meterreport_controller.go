@@ -54,8 +54,8 @@ import (
 var _ reconcile.Reconciler = &MeterReportReconciler{}
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
-// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=cronjobs;jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs;jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range,verbs=get;create

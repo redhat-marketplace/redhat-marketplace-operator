@@ -39,7 +39,7 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"

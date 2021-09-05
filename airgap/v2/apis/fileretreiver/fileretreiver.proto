@@ -5,9 +5,9 @@ option java_multiple_files = true;
 option java_package = "com.redhat.marketplace.airgap.fileretreiver";
 option java_outer_classname = "FileRetreiver";
 
-package fileretreiver.v1;
+package fileretreiver;
 
-import "apis/model/v1/modelv1.proto";
+import "apis/model/model.proto";
 
 service FileRetreiver {
   rpc ListFileMetadata(ListFileMetadataRequest) returns (stream ListFileMetadataResponse) {};
@@ -46,25 +46,25 @@ message ListFileMetadataRequest {
 
 
 message ListFileMetadataResponse {
-  model.v1.FileInfo results = 1;
+  model.FileInfo results = 1;
 }
 
 message GetFileMetadataRequest {
-  model.v1.FileID file_id = 1;
+  model.FileID file_id = 1;
 }
 
 message GetFileMetadataResponse {
-  model.v1.FileInfo info = 1;
+  model.FileInfo info = 1;
 }
 
 message DownloadFileRequest {
-  model.v1.FileID file_id = 1;
+  model.FileID file_id = 1;
   bool delete_on_download = 2;
 }
 
 message DownloadFileResponse {
  oneof data {
-    model.v1.FileInfo info = 1;
+    model.FileInfo info = 1;
     bytes chunk_data = 2;
   };
 }

@@ -843,8 +843,6 @@ func (f *Factory) UpdateReporterCronJob(
 		j.SetNamespace(f.namespace)
 	}
 
-	mathrand.Seed(time.Now().UnixNano())
-
 	if j.Spec.Schedule == "" {
 		j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(59))
 	}
@@ -1374,4 +1372,8 @@ func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, 
 	s.Data["tls.key"] = serverCertPEM
 
 	return s, nil
+}
+
+func init() {
+	mathrand.Seed(time.Now().UnixNano())
 }

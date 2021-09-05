@@ -5,9 +5,9 @@ option java_multiple_files = true;
 option java_package = "com.redhat.marketplace.airgap.adminserver";
 option java_outer_classname = "AdminServer";
 
-package adminserver.v1;
+package adminserver;
 
-import "apis/model/v1/modelv1.proto";
+import "apis/model/model.proto";
 import "google/protobuf/timestamp.proto";
 
 service AdminServer {
@@ -17,11 +17,11 @@ service AdminServer {
 
 // sets the files tombstone with the current timestamp
 message DeleteFileRequest {
-    model.v1.FileID file_id = 1;
+    model.FileID file_id = 1;
   }
   
   message DeleteFileResponse {
-    model.v1.FileID file_id = 1;
+    model.FileID file_id = 1;
   }
   
   message CleanTombstonesRequest {
@@ -31,5 +31,5 @@ message DeleteFileRequest {
   
   message CleanTombstonesResponse {
     int32 tombstones_cleaned = 1;
-    repeated model.v1.FileID files = 2;
+    repeated model.FileID files = 2;
   }

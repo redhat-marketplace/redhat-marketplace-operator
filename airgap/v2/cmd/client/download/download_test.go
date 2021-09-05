@@ -27,9 +27,9 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
-	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
+	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/server"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
 	"go.uber.org/zap"
@@ -53,9 +53,7 @@ func runSetup() {
 	//Initialize the mock connection and server
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer()
-	bs := server.BaseServer{}
-	mockSenderServer := server.FileSenderServer{}
-	mockRetreiverServer := server.FileRetreiverServer{}
+	bs := server.Server{}
 
 	//Initialize logger
 	zapLog, err := zap.NewDevelopment()
@@ -79,8 +77,8 @@ func runSetup() {
 	}
 
 	bs.FileStore = &db
-	mockSenderServer.B = bs
-	mockRetreiverServer.B = bs
+	mockSenderServer := bs
+	mockRetreiverServer := bs
 	filesender.RegisterFileSenderServer(s, &mockSenderServer)
 	fileretreiver.RegisterFileRetreiverServer(s, &mockRetreiverServer)
 

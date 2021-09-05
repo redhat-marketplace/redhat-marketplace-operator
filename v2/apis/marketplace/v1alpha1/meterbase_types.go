@@ -106,7 +106,8 @@ type MeterBaseSpec struct {
 	// False will delete the DataServicecomponents.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	DataServiceEnabled bool `json:"dataServiceEnabled"`
+	// +optional
+	DataServiceEnabled bool `json:"dataServiceEnabled,omitempty"`
 
 	// UserWorkloadMonitoringEnabled controls whether to attempt to use
 	// Openshift user-defined workload monitoring as the Prometheus provider

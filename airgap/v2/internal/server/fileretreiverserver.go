@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -31,16 +31,11 @@ import (
 
 const chunkSize = 1024
 
-type FileRetreiverServer struct {
-	fileretreiver.UnimplementedFileRetreiverServer
-	B BaseServer
-}
-
 // DownloadFile fetches the file from database, provided the file specified in the request exists
-func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequest, stream fileretreiver.FileRetreiver_DownloadFileServer) error {
+func (frs *Server) DownloadFile(dfr *fileretreiver.DownloadFileRequest, stream fileretreiver.FileRetreiver_DownloadFileServer) error {
 
 	//Fetch file info from DB
-	metadata, err := frs.B.FileStore.DownloadFile(dfr.GetFileId())
+	metadata, err := frs.FileStore.DownloadFile(dfr.GetFileId())
 	if err != nil {
 		return status.Errorf(
 			codes.InvalidArgument,
@@ -81,7 +76,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			},
 		},
 	}
-	frs.B.Log.Info("Response:", "file information", res)
+	frs.Log.Info("Response:", "file information", res)
 	// Send file information
 	err = stream.Send(res)
 	if err != nil {
@@ -117,7 +112,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 		}
 	}
 	if dfr.GetDeleteOnDownload() {
-		err = frs.B.FileStore.TombstoneFile(dfr.GetFileId())
+		err = frs.FileStore.TombstoneFile(dfr.GetFileId())
 		if err != nil {
 			return status.Errorf(
 				codes.InvalidArgument,
@@ -129,7 +124,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 }
 
 // ListFileMetadata fetches list of files from database based on filters and sort conditions provided
-func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, stream fileretreiver.FileRetreiver_ListFileMetadataServer) error {
+func (frs *Server) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, stream fileretreiver.FileRetreiver_ListFileMetadataServer) error {
 
 	sortOrders := lis.GetSortBy()
 	filters := lis.GetFilterBy()
@@ -180,7 +175,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 	}
 
 	//Fetching metadata
-	metadataList, err := frs.B.FileStore.ListFileMetadata(conditionList, sortOrderList, lis.IncludeDeletedFiles)
+	metadataList, err := frs.FileStore.ListFileMetadata(conditionList, sortOrderList, lis.IncludeDeletedFiles)
 	if err != nil {
 		return status.Errorf(
 			codes.Unknown,
@@ -235,9 +230,9 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 }
 
 // GetFileMetadata fetches the file metadata from database, provided the file specified in the request exists
-func (frs *FileRetreiverServer) GetFileMetadata(ctx context.Context, in *fileretreiver.GetFileMetadataRequest) (*fileretreiver.GetFileMetadataResponse, error) {
+func (frs *Server) GetFileMetadata(ctx context.Context, in *fileretreiver.GetFileMetadataRequest) (*fileretreiver.GetFileMetadataResponse, error) {
 	//Fetch file info from DB
-	metadata, err := frs.B.FileStore.GetFileMetadata(in.GetFileId())
+	metadata, err := frs.FileStore.GetFileMetadata(in.GetFileId())
 	if err != nil {
 		return nil, status.Errorf(
 			codes.InvalidArgument,
@@ -270,7 +265,7 @@ func (frs *FileRetreiverServer) GetFileMetadata(ctx context.Context, in *fileret
 			Metadata:         fms,
 		},
 	}
-	frs.B.Log.Info("File Info Response", "res", res)
+	frs.Log.Info("File Info Response", "res", res)
 	// Send file information
 	return res, nil
 }

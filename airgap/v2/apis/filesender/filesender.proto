@@ -5,9 +5,9 @@ option java_multiple_files = true;
 option java_package = "com.redhat.marketplace.airgap.filesender";
 option java_outer_classname = "FileSender";
 
-package filesender.v1;
+package filesender;
 
-import "apis/model/v1/modelv1.proto";
+import "apis/model/model.proto";
 
 service FileSender {
   rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse) {};
@@ -17,22 +17,22 @@ service FileSender {
 // streams a file identified by
 message UploadFileRequest {
  oneof data {
-    model.v1.FileInfo info = 1;
+    model.FileInfo info = 1;
     bytes chunk_data = 2;
   };
 }
 
 message UploadFileResponse {
-  model.v1.FileID file_id = 1;
+  model.FileID file_id = 1;
   uint32 size = 2;
 }
 
 message UpdateFileMetadataRequest {
-  model.v1.FileID file_id = 1;
+  model.FileID file_id = 1;
   map<string,string> metadata = 2;
 }
 
 message UpdateFileMetadataResponse {
-  model.v1.FileID file_id = 1;
+  model.FileID file_id = 1;
 }
 

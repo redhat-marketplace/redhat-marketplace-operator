@@ -37,9 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -219,7 +221,22 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 	}()
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterReport{}).
+		For(&marketplacev1alpha1.MeterBase{},
+			builder.WithPredicates(
+				predicate.Funcs{
+					CreateFunc: func(e event.CreateEvent) bool {
+						return false
+					},
+					UpdateFunc: func(e event.UpdateEvent) bool {
+						return false
+					},
+					DeleteFunc: func(e event.DeleteEvent) bool {
+						return false
+					},
+					GenericFunc: func(e event.GenericEvent) bool {
+						return true
+					},
+				})).
 		Watches(
 			&source.Channel{Source: events},
 			&handler.EnqueueRequestForObject{}).

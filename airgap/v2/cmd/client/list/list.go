@@ -28,7 +28,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/olekukonko/tablewriter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
