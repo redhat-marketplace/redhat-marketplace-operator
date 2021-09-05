@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
@@ -46,6 +47,18 @@ func MatchCsvToSub (catalogName string,packageName string,subs []olmv1alpha1.Sub
 	}
 
 	return nil,nil
+}
+
+func CheckOperatorTag(foundSub *olmv1alpha1.Subscription) bool {
+	if foundSub != nil {
+		if value, ok := foundSub.GetLabels()[utils.OperatorTag]; ok {
+			if value == utils.OperatorTagValue {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func ParsePackageName(csv *olmv1alpha1.ClusterServiceVersion) (string,error) {

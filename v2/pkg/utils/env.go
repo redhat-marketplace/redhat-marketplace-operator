@@ -103,6 +103,8 @@ const (
 	CATALOG_SERVER_SERVICE_NAME			   = "rhm-meterdefinition-file-server"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
+	OperatorTag = "marketplace.redhat.com/operator"
+	OperatorTagValue = "true"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"

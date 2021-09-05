@@ -301,24 +301,39 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	}
 
 	for _, csv := range csvList.Items {
-
-		result := r.syncCommunityMeterDefs(csv,reqLogger)
-		if !result.Is(Continue){
-			if result.Is(NotFound){
-				//skip the current csv
-				continue
+	
+		subList := &olmv1alpha1.SubscriptionList{}
+		if err := r.Client.List(context.TODO(), subList, client.InNamespace(csv.Namespace)); err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err: err,
 			}
-
-			result.Return()
+		}
+	
+		packageName,err := matcher.ParsePackageName(&csv)
+		if err != nil {
+			reqLogger.Info(err.Error())
+		}
+	
+		foundSub,_ := matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName,packageName,subList.Items,&csv)
+	
+		isRhmCsv := matcher.CheckOperatorTag(foundSub)
+		if !isRhmCsv {
+			reqLogger.Info("csv is not an rhm resource", "csv", csv.Name)
+			continue
 		}
 
 		if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
-			result = r.syncSystemMeterDefs(csv,reqLogger)
+			result := r.syncSystemMeterDefs(csv,reqLogger)
 			if !result.Is(Continue){
 				result.Return()
 			}
 		}
 
+		result := r.syncCommunityMeterDefs(csv,reqLogger)
+		if !result.Is(Continue){
+			result.Return()
+		}
 	}
 
 	return &ExecResult{
@@ -327,68 +342,40 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 }
 
 func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.ClusterServiceVersion,reqLogger logr.Logger) *ExecResult {
-	/* 
-		only sync system meterdefs for csvs coming from rhm
-	*/
 	
 	splitName := strings.Split(csv.Name, ".")[0]
 	
-	subList := &olmv1alpha1.SubscriptionList{}
-	if err := r.Client.List(context.TODO(), subList, client.InNamespace(csv.Namespace)); err != nil {
+	systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
+	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
-	packageName,err := matcher.ParsePackageName(&csv)
-	if err != nil {
-		reqLogger.Info(err.Error())
+	result := r.createOrUpdate(systemMeterDefs, csv, reqLogger)
+	if !result.Is(Continue) {
+		return result
 	}
 
-	foundSub,_ := matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName,packageName,subList.Items,&csv)
-
-	if foundSub != nil {
-		reqLogger.Info("found matching Subscription", "name", foundSub.Name)
-
-		if value, ok := foundSub.GetLabels()[operatorTag]; ok {
-			if value == "true" {
-
-				systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
-				if err != nil {
-					return &ExecResult{
-						ReconcileResult: reconcile.Result{},
-						Err:             err,
-					}
-				}
-
-				result := r.createOrUpdate(systemMeterDefs, csv, reqLogger)
-				if !result.Is(Continue) {
-					return result
-				}
-
-				systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, splitName)
-				if err != nil {	
-					return &ExecResult{
-						ReconcileResult: reconcile.Result{},
-						Err:             err,
-					}
-				}
-
-				systemMeterDefsOnCluster, result := r.listAllMeterDefsForCsv(systemMeterDefIndexLabels)
-				if !result.Is(Continue) {
-					return result
-				}
-
-				result = r.deleteOnDiff(systemMeterDefsOnCluster.Items, systemMeterDefs, reqLogger)
-				if !result.Is(Continue) {
-					return result
-				}
-
-			}
+	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, splitName)
+	if err != nil {	
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
 		}
 	}
 
+	systemMeterDefsOnCluster, result := r.listAllMeterDefsForCsv(systemMeterDefIndexLabels)
+	if !result.Is(Continue) {
+		return result
+	}
+
+	result = r.deleteOnDiff(systemMeterDefsOnCluster.Items, systemMeterDefs, reqLogger)
+	if !result.Is(Continue) {
+		return result
+	}
+	
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
@@ -399,11 +386,9 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv olmv1alpha1.Clus
 		csv.Name = memcached-operator.v0.0.1
 		splitName = memcached-operator
 	*/
-	
 	splitName := strings.Split(csv.Name, ".")[0]
 	csvVersion := csv.Spec.Version.Version.String()
 	csvNamespace := csv.Namespace
-
 
 	/*
 		pings the file server for a map of labels we use to index meterdefintions that originated from the file server
@@ -440,7 +425,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv olmv1alpha1.Clus
 
 				reqLogger.Info("skipping sync for csv", "csv", csv.Name)
 				return &ExecResult{
-					Status: ActionResultStatus(NotFound),
+					Status: ActionResultStatus(Continue),
 				}
 
 			} else if !result.Is(Continue) {
