@@ -14,8 +14,6 @@
 package marketplace
 
 import (
-	// "bytes"
-
 	"context"
 	"errors"
 	"fmt"
@@ -302,11 +300,11 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 	for _, csv := range csvList.Items {
 	
-		subList := &olmv1alpha1.SubscriptionList{}
-		if err := r.Client.List(context.TODO(), subList, client.InNamespace(csv.Namespace)); err != nil {
+		subs, err := listSubs(r.Client,&csv)
+		if err != nil {
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
-				Err: err,
+				Err:             err,
 			}
 		}
 	
@@ -315,7 +313,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			reqLogger.Info(err.Error())
 		}
 	
-		foundSub,_ := matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName,packageName,subList.Items,&csv)
+		foundSub,_ := matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName,packageName,subs,&csv)
 	
 		isRhmCsv := matcher.CheckOperatorTag(foundSub)
 		if !isRhmCsv {
@@ -339,6 +337,15 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
+}
+
+var listSubs = func (k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
+	subList := &olmv1alpha1.SubscriptionList{}
+	if err := k8sclient.List(context.TODO(), subList, client.InNamespace(csv.Namespace)); err != nil {
+		return nil,err
+	}
+
+	return subList.Items,nil
 }
 
 func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.ClusterServiceVersion,reqLogger logr.Logger) *ExecResult {
@@ -933,19 +940,15 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefs(reqLogger logr.Log
 
 	for _, csv := range csvList.Items {
 
-		/*
-			csv.Name = memcached-operator.v0.0.1
-			splitName = memcached-operator
-		*/
 		splitName := strings.Split(csv.Name, ".")[0]
 
 		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, splitName)
-			if err != nil {	
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
+		if err != nil {	
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
 			}
+		}
 
 		result := r.deleteAllCommunityMeterdefsForCsv(systemMeterDefIndexLabels, reqLogger)
 		if result.Is(NotFound) || result.Is(Continue) {

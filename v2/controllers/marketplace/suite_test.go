@@ -149,6 +149,13 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	// dcCtrl := &DeploymentConfigReconciler{}
+	// listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
+		
+	// 	return nil,nil
+	// }
+
+
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		fmt.Println(err)
@@ -158,7 +165,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	// dcControllerMockServer.Close()
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
