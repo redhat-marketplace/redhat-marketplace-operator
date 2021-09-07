@@ -168,30 +168,47 @@ var _ = Describe("ReporterV2", func() {
 		})
 
 		rowMatcher := MatchAllKeys(Keys{
-			"additionalAttributes": MatchKeys(IgnoreExtras, Keys{}),
-			"start":                BeNumerically(">", 0),
-			"end":                  BeNumerically(">", 0),
-			"eventId":              BeAssignableToTypeOf(""),
-			"groupName":            Equal("app.partner.metering.com"),
-			"accountId":            BeAssignableToTypeOf(""),
+			"additionalAttributes": MatchAllKeys(Keys{
+				"clusterId": Equal("foo-id"),
+				"group":     Equal("app.partner.metering.com"),
+				"kind":      Equal("App"),
+			}),
+			"start":     BeNumerically(">", 0),
+			"end":       BeNumerically(">", 0),
+			"eventId":   BeAssignableToTypeOf(""),
+			"groupName": Equal("app.partner.metering.com"),
+			"accountId": BeAssignableToTypeOf(""),
 			"measuredUsage": MatchAllElements(func(element interface{}) string {
 				data := element.(map[string]interface{})
 				return data["metricId"].(string)
 			}, Elements{
-				"rpc_durations_seconds_sum": MatchKeys(IgnoreExtras, Keys{
+				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
 					"metricId": Equal("rpc_durations_seconds_sum"),
 					"value":    BeNumerically(">", 0),
 
-					"additionalAttributes": MatchKeys(IgnoreExtras, Keys{
-						"meter_def_name": Equal("foo"),
+					"additionalAttributes": MatchAllKeys(Keys{
+						"meter_def_name":      Equal("foo"),
+						"meter_def_namespace": Equal("bar"),
+						"meter_query":         Equal("rpc_durations_seconds_sum"),
+						"namespace":           Equal("metering-example-operator"),
+						"pod":                 Equal("example-app-pod"),
+						"meter_domain":        Equal("apps.partner.metering.com"),
+						"meter_version":       Equal("v1"),
+						"service":             Equal("example-app-service"),
 					}),
 				}),
-				"my_query": MatchKeys(IgnoreExtras, Keys{
+				"my_query": MatchAllKeys(Keys{
 					"metricId": Equal("my_query"),
 					"value":    BeNumerically(">", 0),
-
 					"additionalAttributes": MatchKeys(IgnoreExtras, Keys{
-						"meter_def_name": Equal("foo"),
+						"meter_def_name":      Equal("foo"),
+						"meter_def_namespace": Equal("bar"),
+						"meter_query":         Equal("my_query"),
+						"namespace":           Equal("metering-example-operator"),
+						"pod":                 Equal("example-app-pod"),
+						"meter_domain":        Equal("apps.partner.metering.com"),
+						"meter_version":       Equal("v1"),
+						"service":             Equal("example-app-service"),
 					}),
 				}),
 			}),
@@ -236,6 +253,9 @@ var _ = Describe("ReporterV2", func() {
 					id := func(element interface{}) string {
 						return "row"
 					}
+
+					eid := data["data"].([]interface{})[0].(map[string]interface{})["eventId"]
+					fmt.Println(fmt.Sprintf("dac debug eventid: %v", eid))
 
 					Expect(data["data"].([]interface{})[0]).To(rowMatcher)
 
@@ -374,12 +394,16 @@ var _ = Describe("ReporterV2", func() {
 		})
 
 		rowMatcher := MatchAllKeys(Keys{
-			"additionalAttributes": MatchKeys(IgnoreExtras, Keys{}),
-			"start":                BeNumerically(">", 0),
-			"end":                  BeNumerically(">", 0),
-			"eventId":              BeAssignableToTypeOf(""),
-			"groupName":            Equal("apps.partner.metering.com"),
-			"accountId":            BeAssignableToTypeOf(""),
+			"additionalAttributes": MatchAllKeys(Keys{
+				"clusterId": Equal("foo-id"),
+				"group":     Equal("apps.partner.metering.com"),
+				"kind":      Or(Equal("App"), Equal("App2")),
+			}),
+			"start":     BeNumerically(">", 0),
+			"end":       BeNumerically(">", 0),
+			"eventId":   BeAssignableToTypeOf(""),
+			"groupName": Equal("apps.partner.metering.com"),
+			"accountId": BeAssignableToTypeOf(""),
 
 			"measuredUsage": MatchAllElements(func(element interface{}) string {
 				data := element.(map[string]interface{})
@@ -388,15 +412,29 @@ var _ = Describe("ReporterV2", func() {
 				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
 					"metricId": Equal("rpc_durations_seconds_sum"),
 					"value":    BeNumerically(">", 0),
-					"additionalAttributes": MatchKeys(IgnoreExtras, Keys{
-						"meter_query": Equal("rpc_durations_seconds_sum"),
+					"additionalAttributes": MatchAllKeys(Keys{
+						"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
+						"meter_def_namespace": Equal("bar"),
+						"meter_query":         Equal("rpc_durations_seconds_sum"),
+						"namespace":           Equal("metering-example-operator"),
+						"pod":                 Equal("example-app-pod"),
+						"meter_domain":        Equal("apps.partner.metering.com"),
+						"meter_version":       Equal("v1"),
+						"service":             Equal("example-app-service"),
 					}),
 				}),
 				"rpc_durations_seconds_count": MatchAllKeys(Keys{
 					"metricId": Equal("rpc_durations_seconds_count"),
 					"value":    BeNumerically(">", 0),
-					"additionalAttributes": MatchKeys(IgnoreExtras, Keys{
-						"meter_query": Equal("my_query"),
+					"additionalAttributes": MatchAllKeys(Keys{
+						"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
+						"meter_def_namespace": Equal("bar"),
+						"meter_query":         Equal("my_query"),
+						"namespace":           Equal("metering-example-operator"),
+						"pod":                 Equal("example-app-pod"),
+						"meter_domain":        Equal("apps.partner.metering.com"),
+						"meter_version":       Equal("v1"),
+						"service":             Equal("example-app-service"),
 					}),
 				}),
 			}),
