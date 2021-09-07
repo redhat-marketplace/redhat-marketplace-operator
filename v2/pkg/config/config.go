@@ -15,6 +15,7 @@
 package config
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
@@ -157,26 +158,35 @@ func ProvideInfrastructureAwareConfig(
 			return nil, errors.Wrap(err, "failed to parse config")
 		}
 
-		// Use v4.8 images on Openshift 4.6+ instead of default v4.5 images
-		// But otherwise respect an override
+		// Use OCP version related images on Openshift 4.6+ instead of default v4.5 images
 		if inf.HasOpenshift() && inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+
+			// version 4.8 is latest one tested with RHMP operator, use it on newer releases than 4.8
+			ocpTag := "4.8"
+
+			if inf.OpenshiftParsedVersion().LT(utils.ParsedVersion480) {
+				// on version 4.6 and 4.7 use images for given OCP release
+				ocpVersion := inf.OpenshiftParsedVersion()
+				ocpTag = strconv.FormatUint(ocpVersion.Major, 10) + "." + strconv.FormatUint(ocpVersion.Minor, 10)
+			}
+
 			if cfg.RelatedImages.Prometheus == "registry.redhat.io/openshift4/ose-prometheus:v4.5" {
-				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v4.8"
+				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v" + ocpTag
 			}
 			if cfg.RelatedImages.PrometheusOperator == "registry.redhat.io/openshift4/ose-prometheus-operator:v4.5" {
-				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v4.8"
+				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v" + ocpTag
 			}
 			if cfg.RelatedImages.OAuthProxy == "registry.redhat.io/openshift4/ose-oauth-proxy:v4.5" {
-				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v4.8"
+				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v" + ocpTag
 			}
 			if cfg.RelatedImages.ConfigMapReloader == "registry.redhat.io/openshift4/ose-configmap-reloader:v4.5" {
-				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v4.8"
+				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v" + ocpTag
 			}
 			if cfg.RelatedImages.PrometheusConfigMapReloader == "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5" {
-				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.8"
+				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v" + ocpTag
 			}
 			if cfg.RelatedImages.KubeRbacProxy == "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5" {
-				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.8"
+				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v" + ocpTag
 			}
 		}
 
