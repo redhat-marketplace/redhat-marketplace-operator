@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rhm-dqlite
+spec:
+  selector:
+    matchLabels:
+      app: rhm-dqlite
+  serviceName: rhm-dqlite
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: rhm-dqlite
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - rhm-dqlite
+              namespaces:
+              - redhat-marketplace
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - image: redhat-marketplace-authcheck
+        imagePullPolicy: IfNotPresent
+        name: authcheck
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError      
+      - command: ['/bin/sh']
+        args: ['-c', 'if [ "$POD_NAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /opt/main --ca-cert /etc/tls/private/ca.crt --tls-cert /etc/tls/private/tls.crt --tls-key /etc/tls/private/tls.key --api 127.0.0.1:8001 --db $POD_NAME.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN']
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: redhat-marketplace-dqlite
+        imagePullPolicy: IfNotPresent
+        name: rhm-dqlite
+        ports:
+        - containerPort: 9001
+          name: db
+        resources:
+          requests:
+            cpu: 100m
+            memory: 25Mi
+        volumeMounts:
+        - name: rhm-dqlite
+          mountPath: /data
+        - mountPath: /etc/tls/private
+          name: rhm-dqlite-mtls
+          readOnly: false  
+      - args:
+          - --logtostderr
+          - --secure-listen-address=:8002
+          # insecure-listen-address must be set in order to enable upstream-force-h2c logic
+          - --insecure-listen-address=127.0.0.1:8003
+          - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+          - --upstream=http://127.0.0.1:8001/
+          - --upstream-force-h2c
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --auth-token-audiences=rhm-dqlite.openshift-redhat-marketplace.svc
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+        imagePullPolicy: Always
+        name: kube-rbac-proxy
+        ports:
+          - containerPort: 8002
+            name: https
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext: {}
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: rhm-dqlite-tls
+            readOnly: false  
+          - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            name: serving-certs-ca-bundle
+            readOnly: false
+      volumes:
+        - name: rhm-dqlite-tls
+          secret:
+            secretName: rhm-dqlite-tls
+        - name: rhm-dqlite-mtls
+          secret:
+            secretName: rhm-dqlite-mtls
+        - configMap:
+            name: serving-certs-ca-bundle
+          name: serving-certs-ca-bundle
+      serviceAccountName: redhat-marketplace-operator
+  volumeClaimTemplates:
+  - metadata:
+      name: rhm-dqlite
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

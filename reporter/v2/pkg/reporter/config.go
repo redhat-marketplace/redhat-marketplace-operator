@@ -33,6 +33,9 @@ type Config struct {
 	Retry           *int
 	CaFile          string
 	TokenFile       string
+	DataServiceTokenFile string
+	DataServiceCertFile string
+	DeployedNamespace string
 	Local           bool
 	Upload          bool
 	UploaderTarget
