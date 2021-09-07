@@ -59,7 +59,7 @@ metadata:
   name: rhm-marketplaceconfig-meterbase
 spec:
   enableAdminAPI: true
-  image: registry.redhat.io/openshift4/ose-prometheus:v4.8
+  image: registry.redhat.io/openshift4/ose-prometheus:v4.6
   listenLocal: true
   nodeSelector:
     kubernetes.io/os: linux
