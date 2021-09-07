@@ -4,7 +4,7 @@ metadata:
   labels:
     control-plane: controller-manager
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: openshift-redhat-marketplace
+  name: redhat-marketplace-system
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -616,6 +616,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
     service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: meterdefinitions.marketplace.redhat.com
@@ -1548,9 +1549,6 @@ spec:
         spec:
           description: MeterReportSpec defines the desired state of MeterReport
           properties:
-            category:
-              description: Category of job
-              type: string
             endTime:
               description: EndTime of the job
               format: date-time
@@ -1560,49 +1558,6 @@ spec:
               items:
                 type: string
               type: array
-            labelSelector:
-              description: LabelSelectors are used to filter to the correct workload.
-              properties:
-                matchExpressions:
-                  description: matchExpressions is a list of label selector requirements.
-                    The requirements are ANDed.
-                  items:
-                    description: A label selector requirement is a selector that contains
-                      values, a key, and an operator that relates the key and values.
-                    properties:
-                      key:
-                        description: key is the label key that the selector applies
-                          to.
-                        type: string
-                      operator:
-                        description: operator represents a key's relationship to a
-                          set of values. Valid operators are In, NotIn, Exists and
-                          DoesNotExist.
-                        type: string
-                      values:
-                        description: values is an array of string values. If the operator
-                          is In or NotIn, the values array must be non-empty. If the
-                          operator is Exists or DoesNotExist, the values array must
-                          be empty. This array is replaced during a strategic merge
-                          patch.
-                        items:
-                          type: string
-                        type: array
-                    required:
-                    - key
-                    - operator
-                    type: object
-                  type: array
-                matchLabels:
-                  additionalProperties:
-                    type: string
-                  description: matchLabels is a map of {key,value} pairs. A single
-                    {key,value} in the matchLabels map is equivalent to an element
-                    of matchExpressions, whose key field is "key", the operator is
-                    "In", and the values array contains only "value". The requirements
-                    are ANDed.
-                  type: object
-              type: object
             meterDefinitionReferences:
               description: MeterDefinitionReferences are used as the first meter definition
                 source. Prometheus data is used to supplement.
@@ -3181,6 +3136,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: remoteresources3s.marketplace.redhat.com
@@ -3452,6 +3408,37 @@ status:
   conditions: []
   storedVersions: []
 ---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: null
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: redhat-marketplace-controller-manager-service
+      namespace: openshift-redhat-marketplace
+      path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
+  failurePolicy: Fail
+  name: mmeterdefinition.marketplace.redhat.com
+  rules:
+  - apiGroups:
+    - marketplace.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - meterdefinitions
+  sideEffects: None
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -3666,13 +3653,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -4874,9 +4854,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    authcheckImage: quay.io/adambabol/redhat-marketplace-authcheck:2.4.0
-    metricStateImage: quay.io/adambabol/redhat-marketplace-metric-state:2.4.0
-    reporterImage: quay.io/adambabol/redhat-marketplace-reporter:2.4.0
+    authcheckImage: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
+    metricStateImage: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
+    reporterImage: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager
@@ -4918,7 +4898,7 @@ spec:
         - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
           value: quay.io/razee/watch-keeper:0.7.7
         - name: RELATED_IMAGE_PROMETHEUS
-          value: registry.redhat.io/openshift4/ose-prometheus:v4.6
+          value: registry.redhat.io/openshift4/ose-prometheus:v4.8
         - name: RELATED_IMAGE_OAUTH_PROXY
           value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
         - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
@@ -4946,11 +4926,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/adambabol/redhat-marketplace-reporter:2.4.0
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/adambabol/redhat-marketplace-metric-state:2.4.0
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/adambabol/redhat-marketplace-authcheck:2.4.0
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4979,7 +4959,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: quay.io/adambabol/redhat-marketplace-operator:2.4.0
+        image: quay.io/zach_source/redhat-marketplace-operator:2.3.0
         livenessProbe:
           httpGet:
             path: /healthz
@@ -5069,40 +5049,11 @@ spec:
       control-plane: controller-manager
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  annotations:
-    service.beta.openshift.io/inject-cabundle: "true"
-  labels:
-    redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-mutating-webhook-configuration
-webhooks:
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: redhat-marketplace-controller-manager-service
-      namespace: openshift-redhat-marketplace
-      path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
-      port: 9443
-  failurePolicy: Fail
-  name: mmeterdefinition.marketplace.redhat.com
-  rules:
-  - apiGroups:
-    - marketplace.redhat.com
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - meterdefinitions
-  sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-validating-webhook-configuration
