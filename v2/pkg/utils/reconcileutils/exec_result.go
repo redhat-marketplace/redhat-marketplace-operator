@@ -26,6 +26,7 @@ var (
 	NotFound ActionResultStatus = "not_found"
 	Requeue  ActionResultStatus = "requeue"
 	Error    ActionResultStatus = "error"
+	Noop     ActionResultStatus = "noop"
 )
 
 type ExecResult struct {
