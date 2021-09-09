@@ -14,4 +14,5 @@
 
 package workflows
 
-//go:generate gobin -run cuelang.org/go/cmd/cue@v0.3.0-beta.3 cmd genworkflows github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci
+//go:generate gobin -run cuelang.org/go/cmd/cue@v0.4.0 cmd genworkflows github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci
+//go:generate gobin -run cuelang.org/go/cmd/cue@v0.4.0 cmd genscripts github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci

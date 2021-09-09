@@ -15,6 +15,8 @@ namespace:
 
 varReference:
 - path: metadata/annotations
+- path: spec/relatedImages/image
+  kind: ClusterServiceVersion
 
 namePrefix:
 - path: spec/conversion/webhookClientConfig/service/name

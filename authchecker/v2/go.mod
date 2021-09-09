@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2
 
-go 1.15
+go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
@@ -44,3 +44,5 @@ replace (
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )
+
+replace github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible

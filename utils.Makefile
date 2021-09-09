@@ -11,6 +11,9 @@ DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 DOCKERBUILDXCACHE ?=
 
+clean-bin:
+	rm -rf $(PROJECT_DIR)/bin
+
 # --TOOLS--
 #
 # find or download controller-gen
@@ -27,7 +30,7 @@ code-generator:
 
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.5.4)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.1.3)
 
 export KUSTOMIZE
 
@@ -62,11 +65,7 @@ endif
 
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
-	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo)
-
-GOBINDATA=$(PROJECT_DIR)/bin/go-bindata
-go-bindata:
-	$(call go-get-tool,$(GOBINDATA),github.com/kevinburke/go-bindata/...)
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@v1.16.2)
 
 LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
@@ -78,11 +77,11 @@ golicense:
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:
-	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.6.1)
+	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.8.0)
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
-	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.3.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.7.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
@@ -110,6 +109,10 @@ pc-tool:
 # Run go mod tidy against code
 tidy:
 	go mod tidy
+
+# Run go mod tidy against code
+download:
+	go mod download
 
 # func(name)
 define multiarch-build
@@ -173,6 +176,7 @@ set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
+echo $(1) ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }

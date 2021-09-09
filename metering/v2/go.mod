@@ -17,8 +17,8 @@ require (
 	github.com/operator-framework/api v0.3.25
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/prometheus-operator/prometheus-operator v0.44.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.44.0
-	github.com/prometheus/client_golang v1.8.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.46.0
+	github.com/prometheus/client_golang v1.9.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-00010101000000-000000000000
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/spf13/cobra v1.1.1
@@ -26,8 +26,8 @@ require (
 	github.com/spf13/viper v1.7.1
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	k8s.io/api v0.19.4
-	k8s.io/apimachinery v0.19.4
+	k8s.io/api v0.20.1
+	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-state-metrics v1.9.7
@@ -35,6 +35,7 @@ require (
 )
 
 replace (
+	github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2

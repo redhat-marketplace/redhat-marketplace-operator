@@ -70,6 +70,8 @@ spec:
             enabled:
               description: Enabled is the flag that controls if the controller does work. Setting enabled to "true" will install metering components. False will suspend controller operations for metering components.
               type: boolean
+            externalPrometheus:
+              type: object
             prometheus:
               description: Prometheus deployment configuration.
               properties:
@@ -137,6 +139,9 @@ spec:
               required:
               - storage
               type: object
+            userWorkloadMonitoringEnabled:
+              description: UserWorkloadMonitoringEnabled controls whether to attempt to use Openshift user-defined workload monitoring as the Prometheus provider
+              type: boolean
           required:
           - enabled
           type: object

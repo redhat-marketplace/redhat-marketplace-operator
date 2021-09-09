@@ -172,7 +172,7 @@ metadata:
             "meters": [
               {
                 "aggregation": "sum",
-                "metric": "container_cpu_usage_core_avg",
+                "metricId": "container_cpu_usage_core_avg",
                 "period": "1h",
                 "query": "rate(container_cpu_usage_seconds_total{cpu=\"total\",container=\"db\"}[5m])*100",
                 "workloadType": "Pod"
@@ -193,31 +193,31 @@ metadata:
           }
         }
       ]
-    capabilities: Full Lifecycle
+    capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.2.0'
+    olm.skipRange: '>=1.0.0 <2.3.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
-    operators.operatorframework.io/builder: operator-sdk-v1.3.2
+    operators.operatorframework.io/builder: operator-sdk-v1.7.1+git
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-    containerImage: quay.io/zach_source/redhat-marketplace-operator:2.2.0-10
-    createdAt: "2021-05-05T00:41:57Z"
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-361
+    createdAt: "2021-08-03T17:39:07Z"
   labels:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: redhat-marketplace-operator.v2.2.0
+  name: redhat-marketplace-operator.v2.3.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-      - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+      - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
         displayName: Marketplace Config
         kind: MarketplaceConfig
         name: marketplaceconfigs.marketplace.redhat.com
@@ -311,6 +311,10 @@ spec:
                 - /api/v1/query_range
               verbs:
                 - create
+                - get
+            - nonResourceURLs:
+                - /metrics
+              verbs:
                 - get
             - apiGroups:
                 - ""
@@ -596,9 +600,6 @@ spec:
                 - watch
             - apiGroups:
                 - operators.coreos.com
-              resourceNames:
-                - ibm-operator-catalog
-                - opencloud-operators
               resources:
                 - catalogsources
               verbs:
@@ -644,8 +645,6 @@ spec:
                 - watch
             - apiGroups:
                 - operators.coreos.com
-              resourceNames:
-                - redhat-marketplace
               resources:
                 - operatorsources
               verbs:
@@ -689,10 +688,25 @@ spec:
             strategy: {}
             template:
               metadata:
+                annotations:
+                  productID: 36cdaba810c348c096b85800dd62bcf1
+                  productMetric: FREE
+                  productName: Red Hat Marketplace Operator
                 labels:
                   control-plane: controller-manager
                   redhat.marketplace.com/name: redhat-marketplace-operator
               spec:
+                affinity:
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                        - matchExpressions:
+                            - key: kubernetes.io/arch
+                              operator: In
+                              values:
+                                - amd64
+                                - ppc64le
+                                - s390x
                 containers:
                   - args:
                       - --health-probe-bind-address=:8081
@@ -700,9 +714,9 @@ spec:
                       - --enable-leader-election
                     env:
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-                        value: quay.io/razee/remoteresources3:0.9.0
+                        value: quay.io/razee/remoteresources3:0.9.3
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-                        value: quay.io/razee/watch-keeper:0.7.5
+                        value: quay.io/razee/watch-keeper:0.7.7
                       - name: RELATED_IMAGE_PROMETHEUS
                         value: registry.redhat.io/openshift4/ose-prometheus:v4.6
                       - name: RELATED_IMAGE_OAUTH_PROXY
@@ -732,11 +746,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter:2.2.0-10
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-361
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state:2.2.0-10
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-361
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/zach_source/redhat-marketplace-authcheck:2.2.0-10
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-361
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -765,7 +779,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: quay.io/zach_source/redhat-marketplace-operator:2.2.0-10
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-361
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -784,23 +798,31 @@ spec:
                       initialDelaySeconds: 5
                       periodSeconds: 10
                     resources:
+                      limits:
+                        cpu: 400m
+                        memory: 500Mi
                       requests:
                         cpu: 100m
                         memory: 100Mi
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
+                      privileged: false
+                      readOnlyRootFilesystem: true
+                      runAsNonRoot: true
                     volumeMounts:
                       - mountPath: /tmp/k8s-webhook-server/serving-certs
                         name: cert
                         readOnly: true
                   - args:
                       - --secure-listen-address=0.0.0.0:8443
-                      - --upstream=http://127.0.0.1:8080/
+                      - --upstream=http://127.0.0.1:8081/
                       - --logtostderr=true
                       - --v=10
                     image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-                    name: kube-rbac-proxy
-                    ports:
-                      - containerPort: 8443
-                        name: https
+                    name: mgr-kube-rbac-proxy
                     resources: {}
                 serviceAccountName: redhat-marketplace-operator
                 terminationGracePeriodSeconds: 10
@@ -1135,7 +1157,30 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  version: 2.2.0
+  relatedImages:
+    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-361
+      name: RELATED_IMAGE_METRIC_STATE
+    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-361
+      name: RELATED_IMAGE_REPORTER
+    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-361
+      name: RELATED_IMAGE_AUTHCHECK
+    - image: quay.io/razee/remoteresources3:0.9.3
+      name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+    - image: quay.io/razee/watch-keeper:0.7.7
+      name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+    - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+      name: RELATED_IMAGE_PROMETHEUS
+    - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+      name: RELATED_IMAGE_OAUTH_PROXY
+    - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+      name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+    - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+      name: RELATED_IMAGE_CONFIGMAP_RELOADER
+    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+      name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+    - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+      name: RELATED_IMAGE_KUBE_RBAC_PROXY
+  version: 2.3.0
   webhookdefinitions:
     - admissionReviewVersions:
         - v1beta1

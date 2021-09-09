@@ -116,7 +116,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen manifests go-bindata
+generate: controller-gen manifests
 	go generate ./...
 
 # Generate API
@@ -185,6 +185,12 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
+	for i in RELATED_IMAGE_METRIC_STATE,$(METRIC_STATE_IMAGE) RELATED_IMAGE_REPORTER,$(REPORTER_IMAGE) RELATED_IMAGE_AUTHCHECK,$(AUTHCHECK_IMAGE); do \
+		IFS=","; set -- $$i; \
+		$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
+	done
+
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
@@ -203,7 +209,7 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 .PHONY: bundle-build
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.5-v4.7" \
+	--label com.redhat.openshift.versions="v4.5-v4.8" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	--push \
@@ -245,7 +251,7 @@ opm-builder-base: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
-	--label com.redhat.openshift.versions="v4.5-v4.7" \
+	--label com.redhat.openshift.versions="v4.5-v4.8" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \

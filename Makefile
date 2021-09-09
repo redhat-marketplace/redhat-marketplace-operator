@@ -37,9 +37,20 @@ vet:
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
+TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 tests/v2 v2 v2/scripts v2/tools/connect v2/tools/skaffold-tdd-tool v2/tools/version
+
 .PHONY: tidy-all
 tidy-all:
-	$(MAKE) $(addsuffix /tidy,$(PROJECTS))
+	current_dir=`pwd` ; \
+	for project in $(TIDY_TARGETS) ; do \
+		echo "go mod $$curent_dir/$$project" && cd $$current_dir/$$project && go mod tidy ; \
+	done
+
+.PHONY: download-all
+download-all:
+	$(shell cd v2/tools/version && go mod download)
+	$(shell cd v2/tools/connect && go mod download)
+	$(MAKE) $(addsuffix /download,$(PROJECTS))
 
 .PHONY: test
 test:
@@ -121,6 +132,8 @@ authchecker/%:
 
 tests/%:
 	@cd ./tests/v2 && $(MAKE) $(@F)
+
+
 
 base/%:
 	cd ./base && $(MAKE) $(@F)

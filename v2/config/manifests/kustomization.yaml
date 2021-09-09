@@ -31,3 +31,24 @@ vars:
       kind: Service
       version: v1
       name: controller-manager-service
+  - name: REPORTER_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.reporterImage
+  - name: METRIC_STATE_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.metricStateImage
+  - name: AUTHCHECK_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.authcheckImage

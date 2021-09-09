@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -205,27 +204,26 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		setup = func(r *ReconcilerTest) error {
 			var log = logf.Log.WithName("razee_controller")
-			r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
+			r.SetClient(fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...))
 			cfg, err := config.GetConfig()
 			Expect(err).To(Succeed())
 
 			factory := manifests.NewFactory(
 				cfg,
-				scheme.Scheme,
+				k8sScheme,
 			)
 
 			r.SetReconciler(&RazeeDeploymentReconciler{
 				Client:  r.GetClient(),
-				Scheme:  scheme.Scheme,
+				Scheme:  k8sScheme,
 				Log:     log,
-				CC:      reconcileutils.NewClientCommand(r.GetClient(), scheme.Scheme, log),
+				CC:      reconcileutils.NewClientCommand(r.GetClient(), k8sScheme, log),
 				cfg:     cfg,
 				factory: factory,
 				patcher: patch.RHMDefaultPatcher,
 			})
 			return nil
 		}
-		scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
 	})
 
 	It("clean install", func() {
@@ -240,9 +238,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		)
 		reconcilerTest.TestAll(t,
 			ReconcileStep(opts,
-				ReconcileWithExpectedResults(
-					append(
-						RangeReconcileResults(RequeueResult, 15))...)),
+				ReconcileWithUntilDone(true)),
 			// Let's do some client checks
 			ListStep(opts,
 				ListWithObj(&corev1.ConfigMapList{}),

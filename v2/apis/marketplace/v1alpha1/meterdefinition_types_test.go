@@ -39,7 +39,6 @@ func (c *counter) Next() int {
 
 	next := c.count
 	c.count = c.count + 1
-	fmt.Println(next)
 	return next
 }
 
@@ -122,7 +121,6 @@ var _ = Describe("MeterDefinition", func() {
 			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		}
 
-		fmt.Println(v1beta1ID(mdefBeta.Spec.Meters[0]))
 		c := &counter{}
 
 		Expect(mdefBeta.Spec).To(MatchAllFields(Fields{

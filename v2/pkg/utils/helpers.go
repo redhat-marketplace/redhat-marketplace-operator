@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/blang/semver"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +39,8 @@ const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
 
 var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
 var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
+
+var ParsedVersion460, _ = semver.Make("4.6.0")
 
 func IsNil(i interface{}) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
