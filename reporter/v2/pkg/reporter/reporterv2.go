@@ -476,6 +476,7 @@ func (r *MarketplaceReporterV2) WriteReport(
 			logger.Error(err, "failed to marshal metrics report", "report", metricReport)
 			return nil, err
 		}
+		//fmt.Println(string(marshallBytes))
 		filename := filepath.Join(
 			filedir,
 			fmt.Sprintf("%s.json", reportSliceID.String()))

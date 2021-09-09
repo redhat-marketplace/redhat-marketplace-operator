@@ -121,6 +121,7 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 	// key.AdditionalAttributes["parentProductName"]
 	// key.AdditionalAttributes["productConversionRatio"]
 
+	allLabels := []map[string]interface{}{}
 	dupeKeys := map[string]interface{}{}
 
 	for _, meterDef := range d.values {
@@ -145,13 +146,13 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 				continue
 			}
 
-			v, ok := measuredUsage.AdditionalAttributes[k]
+			v, ok := key.AdditionalAttributes[k]
 
 			if ok && v != value {
 				dupeKeys[k] = nil
-				delete(measuredUsage.AdditionalAttributes, k)
+				delete(key.AdditionalAttributes, k)
 			} else if !ok {
-				measuredUsage.AdditionalAttributes[k] = value
+				key.AdditionalAttributes[k] = value
 			}
 		}
 
@@ -159,19 +160,17 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 
 	}
 
-	/*
-		if len(dupeKeys) != 0 {
-			for i, meterDef := range d.values {
-				nonUniqueLabels := map[string]interface{}{}
-				for duped := range dupeKeys {
-					nonUniqueLabels[duped] = meterDef.LabelMap[duped]
-				}
-
-				key.MetricsExtended[i].Labels = nonUniqueLabels
-				allLabels = append(allLabels, nonUniqueLabels)
+	if len(dupeKeys) != 0 {
+		for i, meterDef := range d.values {
+			nonUniqueLabels := map[string]interface{}{}
+			for duped := range dupeKeys {
+				nonUniqueLabels[duped] = meterDef.LabelMap[duped]
 			}
+
+			key.MeasuredUsage[i].AdditionalAttributes = nonUniqueLabels
+			allLabels = append(allLabels, nonUniqueLabels)
 		}
-	*/
+	}
 
 	hash := xxhash.New()
 	hash.Write([]byte(d.clusterID))

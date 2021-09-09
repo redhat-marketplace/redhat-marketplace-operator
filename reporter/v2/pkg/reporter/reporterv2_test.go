@@ -44,6 +44,7 @@ var _ = Describe("ReporterV2", func() {
 	var (
 		err           error
 		sut           *MarketplaceReporterV2
+		sutv1         *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		dir, dir2     string
 		uploader      Uploader
@@ -54,6 +55,9 @@ var _ = Describe("ReporterV2", func() {
 		endStr   = "2020-07-19T00:00:00Z"
 		start, _ = time.Parse(time.RFC3339, startStr)
 		end, _   = time.Parse(time.RFC3339, endStr)
+
+		metricIds []string
+		eventIds  []string
 	)
 
 	BeforeEach(func() {
@@ -169,9 +173,16 @@ var _ = Describe("ReporterV2", func() {
 
 		rowMatcher := MatchAllKeys(Keys{
 			"additionalAttributes": MatchAllKeys(Keys{
-				"clusterId": Equal("foo-id"),
-				"group":     Equal("app.partner.metering.com"),
-				"kind":      Equal("App"),
+				"clusterId":           Equal("foo-id"),
+				"group":               Equal("app.partner.metering.com"),
+				"kind":                Equal("App"),
+				"meter_def_name":      Equal("foo"),
+				"meter_def_namespace": Equal("bar"),
+				"namespace":           Equal("metering-example-operator"),
+				"pod":                 Equal("example-app-pod"),
+				"meter_domain":        Equal("apps.partner.metering.com"),
+				"meter_version":       Equal("v1"),
+				"service":             Equal("example-app-service"),
 			}),
 			"start":     BeNumerically(">", 0),
 			"end":       BeNumerically(">", 0),
@@ -187,28 +198,14 @@ var _ = Describe("ReporterV2", func() {
 					"value":    BeNumerically(">", 0),
 
 					"additionalAttributes": MatchAllKeys(Keys{
-						"meter_def_name":      Equal("foo"),
-						"meter_def_namespace": Equal("bar"),
-						"meter_query":         Equal("rpc_durations_seconds_sum"),
-						"namespace":           Equal("metering-example-operator"),
-						"pod":                 Equal("example-app-pod"),
-						"meter_domain":        Equal("apps.partner.metering.com"),
-						"meter_version":       Equal("v1"),
-						"service":             Equal("example-app-service"),
+						"meter_query": Equal("rpc_durations_seconds_sum"),
 					}),
 				}),
 				"my_query": MatchAllKeys(Keys{
 					"metricId": Equal("my_query"),
 					"value":    BeNumerically(">", 0),
 					"additionalAttributes": MatchKeys(IgnoreExtras, Keys{
-						"meter_def_name":      Equal("foo"),
-						"meter_def_namespace": Equal("bar"),
-						"meter_query":         Equal("my_query"),
-						"namespace":           Equal("metering-example-operator"),
-						"pod":                 Equal("example-app-pod"),
-						"meter_domain":        Equal("apps.partner.metering.com"),
-						"meter_version":       Equal("v1"),
-						"service":             Equal("example-app-service"),
+						"meter_query": Equal("my_query"),
 					}),
 				}),
 			}),
@@ -253,9 +250,6 @@ var _ = Describe("ReporterV2", func() {
 					id := func(element interface{}) string {
 						return "row"
 					}
-
-					eid := data["data"].([]interface{})[0].(map[string]interface{})["eventId"]
-					fmt.Println(fmt.Sprintf("dac debug eventid: %v", eid))
 
 					Expect(data["data"].([]interface{})[0]).To(rowMatcher)
 
@@ -391,13 +385,21 @@ var _ = Describe("ReporterV2", func() {
 					},
 				},
 			}
+
 		})
 
 		rowMatcher := MatchAllKeys(Keys{
 			"additionalAttributes": MatchAllKeys(Keys{
-				"clusterId": Equal("foo-id"),
-				"group":     Equal("apps.partner.metering.com"),
-				"kind":      Or(Equal("App"), Equal("App2")),
+				"clusterId":           Equal("foo-id"),
+				"group":               Equal("apps.partner.metering.com"),
+				"kind":                Or(Equal("App"), Equal("App2")),
+				"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
+				"meter_def_namespace": Equal("bar"),
+				"namespace":           Equal("metering-example-operator"),
+				"pod":                 Equal("example-app-pod"),
+				"meter_domain":        Equal("apps.partner.metering.com"),
+				"meter_version":       Equal("v1"),
+				"service":             Equal("example-app-service"),
 			}),
 			"start":     BeNumerically(">", 0),
 			"end":       BeNumerically(">", 0),
@@ -413,28 +415,14 @@ var _ = Describe("ReporterV2", func() {
 					"metricId": Equal("rpc_durations_seconds_sum"),
 					"value":    BeNumerically(">", 0),
 					"additionalAttributes": MatchAllKeys(Keys{
-						"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
-						"meter_def_namespace": Equal("bar"),
-						"meter_query":         Equal("rpc_durations_seconds_sum"),
-						"namespace":           Equal("metering-example-operator"),
-						"pod":                 Equal("example-app-pod"),
-						"meter_domain":        Equal("apps.partner.metering.com"),
-						"meter_version":       Equal("v1"),
-						"service":             Equal("example-app-service"),
+						"meter_query": Equal("rpc_durations_seconds_sum"),
 					}),
 				}),
 				"rpc_durations_seconds_count": MatchAllKeys(Keys{
 					"metricId": Equal("rpc_durations_seconds_count"),
 					"value":    BeNumerically(">", 0),
 					"additionalAttributes": MatchAllKeys(Keys{
-						"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
-						"meter_def_namespace": Equal("bar"),
-						"meter_query":         Equal("my_query"),
-						"namespace":           Equal("metering-example-operator"),
-						"pod":                 Equal("example-app-pod"),
-						"meter_domain":        Equal("apps.partner.metering.com"),
-						"meter_version":       Equal("v1"),
-						"service":             Equal("example-app-service"),
+						"meter_query": Equal("my_query"),
 					}),
 				}),
 			}),
@@ -505,4 +493,214 @@ var _ = Describe("ReporterV2", func() {
 			Expect(uploader.UploadFile(fileName)).To(Succeed())
 		}, 20)
 	})
+
+	Context("v1 & v2 schema match ids", func() {
+		BeforeEach(func() {
+			generatedData = map[string]string{
+				"rpc_durations_seconds_sum": GenerateRandomData(start, end, []string{"rpc_durations_seconds_sum"}),
+				"my_query":                  GenerateRandomData(start, end, []string{"my_query"}),
+			}
+
+			meterDefs := []v1beta1.MeterDefinition{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+					Spec: v1beta1.MeterDefinitionSpec{
+						Group: "apps.partner.metering.com",
+						Kind:  "App",
+						ResourceFilters: []v1beta1.ResourceFilter{
+							{
+								Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
+								OwnerCRD: &v1beta1.OwnerCRDFilter{
+									GroupVersionKind: common.GroupVersionKind{
+										APIVersion: "apps.partner.metering.com/v1",
+										Kind:       "App",
+									},
+								},
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+						},
+						Meters: []v1beta1.MeterWorkload{
+							{
+								Aggregation:  "sum",
+								Metric:       "rpc_durations_seconds",
+								Query:        "rpc_durations_seconds_sum",
+								Label:        "rpc_durations_seconds_sum",
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+							{
+
+								Aggregation:  "sum",
+								Metric:       "rpc_durations_seconds",
+								Query:        "my_query",
+								Label:        "rpc_durations_seconds_count",
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo2",
+						Namespace: "bar",
+					},
+					Spec: v1beta1.MeterDefinitionSpec{
+						Group: "apps.partner.metering.com",
+						Kind:  "App2",
+						ResourceFilters: []v1beta1.ResourceFilter{
+							{
+								Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
+								OwnerCRD: &v1beta1.OwnerCRDFilter{
+									GroupVersionKind: common.GroupVersionKind{
+										APIVersion: "apps.partner.metering.com/v1",
+										Kind:       "App",
+									},
+								},
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+						},
+						Meters: []v1beta1.MeterWorkload{
+							{
+								Aggregation:  "sum",
+								Metric:       "rpc_durations_seconds",
+								Query:        "rpc_durations_seconds_sum",
+								Label:        "rpc_durations_seconds_sum",
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+							{
+
+								Aggregation:  "sum",
+								Metric:       "rpc_durations_seconds",
+								Query:        "my_query",
+								Label:        "rpc_durations_seconds_count",
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+						},
+					},
+				},
+			}
+
+			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
+
+			sut = &MarketplaceReporterV2{
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfg,
+				mktconfig:     config,
+				meterDefinitions: MeterDefinitionReferences{
+					{
+						Name:      "foo",
+						Namespace: "bar",
+						Spec:      &meterDefs[0].Spec,
+					},
+				},
+				report: &marketplacev1alpha1.MeterReport{
+					Spec: marketplacev1alpha1.MeterReportSpec{
+						StartTime: metav1.Time{Time: start},
+						EndTime:   metav1.Time{Time: end},
+					},
+				},
+			}
+
+			sutv1 = &MarketplaceReporter{
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfg,
+				mktconfig:     config,
+				meterDefinitions: MeterDefinitionReferences{
+					{
+						Name:      "foo",
+						Namespace: "bar",
+						Spec:      &meterDefs[0].Spec,
+					},
+				},
+				report: &marketplacev1alpha1.MeterReport{
+					Spec: marketplacev1alpha1.MeterReportSpec{
+						StartTime: metav1.Time{Time: start},
+						EndTime:   metav1.Time{Time: end},
+					},
+				},
+			}
+
+		})
+
+		It("query, build and submit a report", func() {
+			By("collecting metrics v2")
+			results, errs, _, err := sut.CollectMetrics(context.TODO())
+
+			Expect(err).To(Succeed())
+			Expect(errs).To(BeEmpty())
+			Expect(results).ToNot(BeEmpty())
+
+			By("writing report")
+
+			files, err := sut.WriteReport(
+				uuid.New(),
+				results)
+
+			Expect(err).To(Succeed())
+			Expect(files).ToNot(BeEmpty())
+
+			for _, file := range files {
+				By(fmt.Sprintf("testing file %s", file))
+				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := ioutil.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if !strings.Contains(file, "manifest") {
+					datarows := data["data"].([]interface{})
+					for _, data := range datarows {
+						datamap := data.(map[string]interface{})
+						eventId, ok := datamap["eventId"].(string)
+						Expect(ok).To(BeTrue(), "eventId not found")
+						eventIds = append(eventIds, eventId)
+					}
+				}
+			}
+
+			By("collecting metrics v1")
+			resultsv1, errs, _, err := sutv1.CollectMetrics(context.TODO())
+
+			Expect(err).To(Succeed())
+			Expect(errs).To(BeEmpty())
+			Expect(resultsv1).ToNot(BeEmpty())
+
+			By("writing report")
+
+			files, err = sutv1.WriteReport(
+				uuid.New(),
+				resultsv1)
+
+			Expect(err).To(Succeed())
+			Expect(files).ToNot(BeEmpty())
+
+			for _, file := range files {
+				By(fmt.Sprintf("testing file %s", file))
+				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := ioutil.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if !strings.Contains(file, "metadata") {
+					metrics := data["metrics"].([]interface{})
+					for _, metric := range metrics {
+						metricmap := metric.(map[string]interface{})
+						metricId, ok := metricmap["metric_id"].(string)
+						Expect(ok).To(BeTrue(), "metricId not found")
+						metricIds = append(metricIds, metricId)
+					}
+				}
+			}
+
+			Expect(eventIds).Should(ContainElements(metricIds))
+
+		}, 20)
+
+	})
+
 })
