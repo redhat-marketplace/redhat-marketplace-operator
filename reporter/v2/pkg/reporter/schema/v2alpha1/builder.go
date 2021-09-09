@@ -95,8 +95,6 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 		key.AdditionalAttributes["clusterId"] = d.clusterID
 	}
 
-	// key.AdditionalAttributes["hostname"]
-
 	if meterDef.MeterGroup != "" {
 		key.AdditionalAttributes["group"] = meterDef.MeterGroup
 	}
@@ -109,6 +107,8 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 		key.AdditionalAttributes["namespace"] = d.resourceNamespace
 	}
 
+	/* Additional well known attributes */
+	// key.AdditionalAttributes["hostname"]
 	// key.AdditionalAttributes["source"]
 	// key.AdditionalAttributes["metricType"]
 	// key.AdditionalAttributes["manual"]
