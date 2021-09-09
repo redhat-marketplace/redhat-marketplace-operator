@@ -101,14 +101,19 @@ type MeterBaseSpec struct {
 	// +optional
 	AdditionalScrapeConfigs *corev1.SecretKeySelector `json:"additionalScrapeConfigs,omitempty"`
 
+	// DataServiceEnabled is the flag that controls if the DataService will be created.
+	// Setting enabled to "true" will install DataService components.
+	// False will delete the DataServicecomponents.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	DataServiceEnabled bool `json:"dataServiceEnabled"`
+
 	// UserWorkloadMonitoringEnabled controls whether to attempt to use
 	// Openshift user-defined workload monitoring as the Prometheus provider
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	UserWorkloadMonitoringEnabled *bool `json:"userWorkloadMonitoringEnabled,omitempty"`
-
-	ExternalPrometheus `json:"externalPrometheus,omitempty"`
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.

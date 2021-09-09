@@ -26,7 +26,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	kconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func NewTask(
@@ -37,13 +37,12 @@ func NewTask(
 	panic(wire.Build(
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideSimpleClientSet,
-		wire.FieldsOf(new(*Config), "UploaderTarget"),
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		ProvideUploader,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
-		config.GetConfig,
+		kconfig.GetConfig,
 	))
 }
 
@@ -81,6 +80,24 @@ func NewReporterV2(
 		getMarketplaceConfig,
 		getMeterDefinitionReferences,
 		ReporterSetV2,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+	))
+}
+
+func NewUploadTask(
+	ctx context.Context,
+	config *Config,
+) (*UploadTask, error) {
+	panic(wire.Build(
+		reconcileutils.CommandRunnerProviderSet,
+		managers.ProvideSimpleClientSet,
+		kconfig.GetConfig,
+		wire.Struct(new(UploadTask), "*"),
+		wire.InterfaceValue(new(logr.Logger), logger),
+		ProvideDownloader,
+		ProvideUploader,
+		ProvideAdmin,
+		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }

@@ -27,14 +27,17 @@ type ReportOutputDir string
 
 // Top level config
 type Config struct {
-	OutputDirectory string
-	MetricsPerFile  *int
-	MaxRoutines     *int
-	Retry           *int
-	CaFile          string
-	TokenFile       string
-	Local           bool
-	Upload          bool
+	OutputDirectory      string
+	MetricsPerFile       *int
+	MaxRoutines          *int
+	Retry                *int
+	CaFile               string
+	TokenFile            string
+	DataServiceTokenFile string
+	DataServiceCertFile  string
+	DeployedNamespace    string
+	Local                bool
+	Upload               bool
 	UploaderTarget
 	ReporterSchema string
 }
