@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -195,7 +196,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestForOwner{
-				IsController: true,
+				IsController: false,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
@@ -449,6 +450,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		if result, _ := cc.Do(context.TODO(),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.reconcilePrometheusOperator(instance)...),
+			Do(r.createTokenSecret(instance)...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
 			Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
@@ -609,11 +611,11 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Provide Status on Prometheus ActiveTargets
 	targets, err := r.healthBadActiveTargets(cc, userWorkloadMonitoringEnabled, reqLogger)
-	if err != nil {
-		return reconcile.Result{RequeueAfter: time.Minute * 1}, err
+	if err == nil {
+		instance.Status.Targets = targets
+	} else {
+		instance.Status.Targets = []common.Target{}
 	}
-
-	instance.Status.Targets = targets
 
 	var condition status.Condition
 	if len(targets) == 0 {
@@ -877,11 +879,56 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	}
 }
 
+const tokenSecretName = "redhat-marketplace-service-account-token"
+
+func (r *MeterBaseReconciler) createTokenSecret(instance *marketplacev1alpha1.MeterBase) []ClientAction {
+	secretName := tokenSecretName
+	secret := corev1.Secret{}
+
+	return []ClientAction{
+		HandleResult(
+			GetAction(types.NamespacedName{
+				Name:      secretName,
+				Namespace: r.cfg.DeployedNamespace,
+			}, &secret),
+			OnNotFound(Call(func() (ClientAction, error) {
+				secret.Name = secretName
+				secret.Namespace = r.cfg.DeployedNamespace
+
+				tokenData, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+				if err != nil {
+					return nil, err
+				}
+
+				secret.Data = map[string][]byte{
+					"token": tokenData,
+				}
+
+				return CreateAction(&secret, CreateWithAddOwner(instance)), nil
+			})),
+			OnContinue(Call(func() (ClientAction, error) {
+				tokenData, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+				if err != nil {
+					return nil, err
+				}
+
+				if v, ok := secret.Data["token"]; !ok || ok && bytes.Compare(v, tokenData) != 0 {
+					secret.Data = map[string][]byte{
+						"token": tokenData,
+					}
+					return UpdateAction(&secret), nil
+				}
+				return nil, nil
+			})),
+		),
+	}
+}
+
 func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 	userWorkoadMonitoring bool,
 ) []ClientAction {
-	var secretName *string
+	secretName := tokenSecretName
 
 	metricStateDeployment := &appsv1.Deployment{}
 	metricStateService := &corev1.Service{}
@@ -889,7 +936,6 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	metricStateMeterDefinition := &marketplacev1beta1.MeterDefinition{}
 	kubeStateMetricsService := &corev1.Service{}
 	reporterMeterDefinition := &marketplacev1beta1.MeterDefinition{}
-	operatorPod := corev1.Pod{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
@@ -911,30 +957,11 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			},
 			args,
 		),
-		Call(func() (ClientAction, error) {
-			_, err := r.CC.Do(
-				context.TODO(),
-				GetAction(types.NamespacedName{
-					Namespace: r.cfg.DeployedNamespace,
-					Name:      r.cfg.DeployedPodName,
-				}, &operatorPod))
 
-			if err != nil {
-				return nil, err
-			}
-
-			for _, volume := range operatorPod.Spec.Volumes {
-				if volume.Secret != nil && strings.Contains(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
-					secretName = &volume.Secret.SecretName
-				}
-			}
-
-			return nil, nil
-		}),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
-				return r.factory.MetricStateServiceMonitor(secretName)
+				return r.factory.MetricStateServiceMonitor(&secretName)
 			},
 			args,
 		),
@@ -969,21 +996,21 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeStateMetricsServiceMonitor(secretName)
+					return r.factory.KubeStateMetricsServiceMonitor(&secretName)
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeletServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeletServiceMonitor(secretName)
+					return r.factory.KubeletServiceMonitor(&secretName)
 				},
 				args,
 			),
 		)
 	} else {
-		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(secretName)
-		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(secretName)
+		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(&secretName)
+		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(&secretName)
 
 		actions = append(actions,
 			HandleResult(
