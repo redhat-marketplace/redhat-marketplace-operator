@@ -881,6 +881,8 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 	userWorkoadMonitoring bool,
 ) []ClientAction {
+	var secretName *string
+
 	metricStateDeployment := &appsv1.Deployment{}
 	metricStateService := &corev1.Service{}
 	metricStateServiceMonitor := &monitoringv1.ServiceMonitor{}
@@ -921,12 +923,18 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 				return nil, err
 			}
 
+			for _, volume := range operatorPod.Spec.Volumes {
+				if volume.Secret != nil && strings.Contains(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
+					secretName = &volume.Secret.SecretName
+				}
+			}
+
 			return nil, nil
 		}),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
-				return r.factory.MetricStateServiceMonitor(&operatorPod)
+				return r.factory.MetricStateServiceMonitor(secretName)
 			},
 			args,
 		),
@@ -961,21 +969,21 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeStateMetricsServiceMonitor()
+					return r.factory.KubeStateMetricsServiceMonitor(secretName)
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeletServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeletServiceMonitor()
+					return r.factory.KubeletServiceMonitor(secretName)
 				},
 				args,
 			),
 		)
 	} else {
-		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor()
-		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor()
+		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(secretName)
+		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(secretName)
 
 		actions = append(actions,
 			HandleResult(
