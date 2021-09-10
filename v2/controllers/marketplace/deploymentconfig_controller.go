@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -207,29 +206,52 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{},nil
 	}
 
-	err = r.CatalogClient.CheckAuth(reqLogger)
-	if err != nil {
-		return reconcile.Result{},err
-	}
-
 	// if LicenceUsageMeteringEnabled is disabled delete all system meterdefs for csvs originating from rhm
 	if !instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
-		reqLogger.Info("license usage metering disabled, uninstalling system meterdefs")
-		result := r.deleteAllSystemMeterDefsForRhmCvs(reqLogger)
-		if !result.Is(Continue){
-			reqLogger.Info(result.Error())
-			result.Return()
+		isRunning := r.isDeploymentConfigRunning(reqLogger)
+		if isRunning {
+			err = r.CatalogClient.CheckAuth(reqLogger)
+			if err != nil {
+				return reconcile.Result{},err
+			}
+
+			reqLogger.Info("license usage metering disabled, uninstalling system meterdefs")
+
+			result := r.deleteAllSystemMeterDefsForRhmCvs(reqLogger)
+			if !result.Is(Continue){
+				reqLogger.Info(result.Error())
+				result.Return()
+			}
 		}
 	}
 
-	// catalog server not enabled, stop uninstall and stop reconciling
+	// catalog server not enabled, uninstall and stop reconciling
 	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
-		result := r.uninstallFileServerResources(reqLogger)
-		if !result.Is(Continue){
-			result.Return()
+		isRunning := r.isDeploymentConfigRunning(reqLogger)
+		if isRunning {
+			err = r.CatalogClient.CheckAuth(reqLogger)
+			if err != nil {
+				return reconcile.Result{},err
+			}
+
+			result := r.deleteAllCommunityMeterDefsForRhmCvs(reqLogger)
+			if result.Is(Error){
+				reqLogger.Info(result.Error())
+				result.Return()
+			}
+
+			reqLogger.Info("done removing community meterdefinitions")
+
+			result = r.uninstallFileServerDeploymentResources(reqLogger)
+			if !result.Is(Continue){
+				result.Return()
+			}
+
+			reqLogger.Info("done uninstalling catalog server resources")
+			return reconcile.Result{},nil
 		}
 
-		reqLogger.Info("done uninstalling catalog server resources")
+		reqLogger.Info("catalog server not enabled")
 		return reconcile.Result{},nil
 	}
 
@@ -277,7 +299,12 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return result.Return()
 	}
 
-	//syncs the latest meterdefinitions from the catalog with the community meterdefinitions on the cluster
+	err = r.CatalogClient.CheckAuth(reqLogger)
+	if err != nil {
+		return reconcile.Result{},err
+	}
+
+	//syncs the latest meterdefinitions from the catalog with the community & system meterdefinitions on the cluster
 	result = r.sync(instance,request, reqLogger)
 	if !result.Is(Continue) {
 		return result.Return()
@@ -354,7 +381,7 @@ var listSubs = func (k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVers
 
 func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.ClusterServiceVersion,reqLogger logr.Logger) *ExecResult {
 	
-	systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
+	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -362,7 +389,7 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.Cluster
 		}
 	}
 
-	result := r.createOrUpdate(systemMeterDefs, csv, reqLogger)
+	result := r.createOrUpdate(latestSystemMeterDefs, csv, reqLogger)
 	if !result.Is(Continue) {
 		return result
 	}
@@ -380,7 +407,7 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.Cluster
 		return result
 	}
 
-	result = r.deleteOnDiff(systemMeterDefsOnCluster.Items, systemMeterDefs, reqLogger)
+	result = r.deleteOnDiff(systemMeterDefsOnCluster.Items, latestSystemMeterDefs, reqLogger)
 	if !result.Is(Continue) {
 		return result
 	}
@@ -391,20 +418,16 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.Cluster
 }
 
 func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv olmv1alpha1.ClusterServiceVersion,reqLogger logr.Logger) *ExecResult {
-	/*
-		csv.Name = memcached-operator.v0.0.1
-		splitName = memcached-operator
-	*/
-	splitName := strings.Split(csv.Name, ".")[0]
+	csvName := csv.Name
 	csvVersion := csv.Spec.Version.Version.String()
 	csvNamespace := csv.Namespace
 
 	/*
 		pings the file server for a map of labels we use to index meterdefintions that originated from the file server
 		these labels also get added to a meterdefinition by the file server	before it returns
-		split-name gets dynamically added on the call to get labels - could probably just use the split name in the controller however
+		csvName gets dynamically added on the call to get labels
 		{
-			"marketplace.redhat.com/installedOperatorNameTag": "<split-name>",
+			"marketplace.redhat.com/installedOperatorNameTag": "<csvName>",
 			"marketplace.redhat.com/isCommunityMeterdefintion": "true"
 		}
 
@@ -424,7 +447,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv olmv1alpha1.Clus
 		if no community meterdefs are found, skip to next csv
 		if community meterdefs are found and deleted, skip to next csv
 	*/
-	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
+	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, csvNamespace, reqLogger)
 	if err != nil {
 		if errors.Is(err, catalog.CatalogNoContentErr) {
 			reqLogger.Info("csv has no meterdefinitions in catalog", "csv", csv.Name)
@@ -512,10 +535,32 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 	}
 }
 
-/* 
-	seems like removing owner refs is enough to remove these resources, but doing a pass through with a deletion to be sure
-*/
-func(r *DeploymentConfigReconciler) uninstallFileServerResources(reqLogger logr.Logger) (result *ExecResult) {
+func (r *DeploymentConfigReconciler) isDeploymentConfigRunning(reqLogger logr.Logger) bool{
+	// get the latest deploymentconfig
+	dc := &osappsv1.DeploymentConfig{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, dc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("deployment config not found, ignoring")
+			return false
+		}
+
+		reqLogger.Error(err, "Failed to get deploymentconfig")
+		return false
+	}
+
+	for _, c := range dc.Status.Conditions {
+		if c.Type == osappsv1.DeploymentAvailable {
+			if c.Status != corev1.ConditionTrue {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func(r *DeploymentConfigReconciler) uninstallFileServerDeploymentResources(reqLogger logr.Logger) (result *ExecResult) {
 
 	result = r.uninstallDeploymentConfig(reqLogger)
 	if !result.Is(Continue) {
@@ -681,7 +726,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(ins
 			reqLogger.Info("created new deploymentconfig")
 
 			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
+				ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
 				Err:             nil,
 			}
 		}
@@ -740,7 +785,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(ins
 
 			reqLogger.Info("created new catalog server service")
 			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
+				ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
 				Err:             nil,
 			}
 		}
@@ -756,7 +801,6 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(ins
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-
 			reqLogger.Info("image stream not found, creating")
 
 			newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
@@ -781,7 +825,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(ins
 			reqLogger.Info("created new image stream")
 
 			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
+				ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
 				Err:             nil,
 			}
 		}
@@ -973,6 +1017,66 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger
 		}
 
 		result := r.deleteMeterdefsForCsv(systemMeterDefIndexLabels, reqLogger)
+		if result.Is(Noop){
+			reqLogger.Info("skipping deletion of system meterdefs", "csv", csv.Name)
+			continue
+		}
+
+		if !result.Is(Continue) && !result.Is(Noop){
+			return result
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func (r *DeploymentConfigReconciler) deleteAllCommunityMeterDefsForRhmCvs(reqLogger logr.Logger) *ExecResult {
+
+	csvList := &olmv1alpha1.ClusterServiceVersionList{}
+	err := r.Client.List(context.TODO(), csvList)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	for _, csv := range csvList.Items {
+		subs, err := listSubs(r.Client,&csv)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+
+		packageName,err := matcher.ParsePackageName(&csv)
+		if err != nil {
+			reqLogger.Info(err.Error())
+		}
+	
+		foundSub,err := matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName,packageName,subs,&csv)
+		if err != nil {
+			reqLogger.Info(err.Error())
+		}
+
+		isRhmCsv := matcher.CheckOperatorTag(foundSub)
+		if !isRhmCsv {
+			reqLogger.Info("csv is not an rhm resource", "csv", csv.Name)
+			continue
+		}
+
+		communityIndexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger, csv.Name)
+		if err != nil {	
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+
+		result := r.deleteMeterdefsForCsv(communityIndexLabels, reqLogger)
 		if result.Is(Noop){
 			reqLogger.Info("skipping deletion of system meterdefs", "csv", csv.Name)
 			continue
