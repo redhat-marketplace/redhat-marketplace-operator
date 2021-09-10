@@ -617,10 +617,8 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Provide Status on Prometheus ActiveTargets
 	targets, err := r.healthBadActiveTargets(cc, userWorkloadMonitoringEnabled, reqLogger)
-	if err == nil {
-		instance.Status.Targets = targets
-	} else {
-		instance.Status.Targets = []common.Target{}
+	if err != nil {
+		return reconcile.Result{RequeueAfter: time.Minute * 1}, err
 	}
 
 	var condition status.Condition
