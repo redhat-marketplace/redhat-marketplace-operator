@@ -729,10 +729,8 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 
 func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	fileName := MetricStateServiceMonitorV45
-	isValidOpenShiftVersion := false
 	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		fileName = MetricStateServiceMonitorV46
-		isValidOpenShiftVersion = true
 	}
 
 	sm, err := f.NewServiceMonitor(MustAssetReader(fileName))
