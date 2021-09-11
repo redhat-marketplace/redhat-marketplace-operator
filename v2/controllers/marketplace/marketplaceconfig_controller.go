@@ -150,18 +150,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 	}
 
-	if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil || marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
-		marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
-		marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
-		reqLogger.Info("updating file server values")
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
@@ -572,22 +560,31 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
+		
+	reqLogger.Info("found meterbase")
+
 	if foundMeterBase.Spec.MeterdefinitionCatalogServer == nil {
 		foundMeterBase.Spec.MeterdefinitionCatalogServer = &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
 			MeterdefinitionCatalogServerEnabled: *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer,
 			LicenceUsageMeteringEnabled: *marketplaceConfig.Spec.Features.LicenseUsageMetering,
 		}
+	}
 
-		err = r.Client.Update(context.TODO(), foundMeterBase)
+	updatedMeterBase := foundMeterBase.DeepCopy()
+	updatedMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer
+	updatedMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = *marketplaceConfig.Spec.Features.LicenseUsageMetering
+	
+	if !reflect.DeepEqual(foundMeterBase, updatedMeterBase) {
 
+		reqLogger.Info("updating meterbase")
+
+		err = r.Client.Update(context.TODO(), updatedMeterBase)
 		if err != nil {
-			reqLogger.Error(err, "failed to update status")
+			reqLogger.Error(err, "failed to update meterbase")
 			return reconcile.Result{}, err
 		}
 
 	}
-
-	reqLogger.Info("found meterbase")
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &unstructured.Unstructured{}
