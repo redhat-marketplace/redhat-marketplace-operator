@@ -334,7 +334,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
 	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
-		userWorkloadMonitoringEnabledSpec = false // TODO: 2.3.0++ change back when downstream can support
+		userWorkloadMonitoringEnabledSpec = true
 	} else {
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
