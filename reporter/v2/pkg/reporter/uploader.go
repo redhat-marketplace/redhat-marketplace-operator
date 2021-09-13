@@ -127,8 +127,6 @@ func provideDataServiceConfig(deployedNamespace string, dataServiceTokenFile str
 		serviceAccountToken = string(content)
 	}
 
-	logger.Info("deployed namespace", "namespace", deployedNamespace)
-
 	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, deployedNamespace)
 
 	return &DataServiceConfig{

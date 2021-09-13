@@ -38,6 +38,9 @@ type Config struct {
 	DeployedNamespace    string
 	Local                bool
 	Upload               bool
+	PrometheusService    string
+	PrometheusNamespace  string
+	PrometheusPort       string
 	UploaderTargets
 }
 

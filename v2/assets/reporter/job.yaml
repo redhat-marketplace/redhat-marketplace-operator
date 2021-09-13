@@ -32,10 +32,16 @@ spec:
             - mountPath: /etc/auth-service-account
               name: token-vol
               readOnly: true
+            - mountPath: /etc/configmaps/serving-certs-ca-bundle
+              name: serving-certs-ca-bundle
+              readOnly: true
       volumes:
         - configMap:
             name: operator-certs-ca-bundle
           name: operator-certs-ca-bundle
+        - configMap:
+            name: serving-certs-ca-bundle
+          name: serving-certs-ca-bundle
         - name: token-vol
           projected:
             sources:

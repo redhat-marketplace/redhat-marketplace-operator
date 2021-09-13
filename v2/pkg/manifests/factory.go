@@ -325,7 +325,7 @@ func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) 
 	return j, nil
 }
 
-func (f *Factory) NewReporterCronJob() (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -337,8 +337,8 @@ func (f *Factory) NewReporterCronJob() (*batchv1beta1.CronJob, error) {
 	}
 
 	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit
-	container := j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
-	f.ReplaceImages(&container)
+	container := &j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+	f.ReplaceImages(container)
 
 	dataServiceArgs := []string{
 		"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",
@@ -346,19 +346,31 @@ func (f *Factory) NewReporterCronJob() (*batchv1beta1.CronJob, error) {
 		"--cafile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",
 	}
 
+	if userWorkloadEnabled {
+		dataServiceArgs = append(dataServiceArgs,
+			"--prometheus-service=thanos-querier",
+			"--prometheus-namespace=openshift-monitoring",
+			"--prometheus-port=http")
+	} else {
+		dataServiceArgs = append(dataServiceArgs,
+			"--prometheus-service=rhm-prometheus-meterbase",
+			"--prometheus-namespace="+f.namespace,
+			"--prometheus-port=rbac")
+	}
+
 	container.Args = append(container.Args, "--namespace", f.namespace)
 	container.Args = append(container.Args, dataServiceArgs...)
 
 	dataServiceVolumeMounts := []v1.VolumeMount{
 		{
+			Name:      "serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+			ReadOnly:  false,
+		},
+		{
 			Name:      "data-service-token-vol",
 			ReadOnly:  true,
 			MountPath: "/etc/data-service-sa",
-		},
-		{
-			Name:      "serving-certs-ca-bundle",
-			MountPath: "/etc/configmaps/serving-certs-ca-bundle",
-			ReadOnly:  true,
 		},
 	}
 
@@ -393,11 +405,11 @@ func (f *Factory) NewReporterCronJob() (*batchv1beta1.CronJob, error) {
 		},
 	}
 
-	j.Spec.JobTemplate.Spec.Template.Spec.Volumes = append(j.Spec.JobTemplate.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
+	volumes := &j.Spec.JobTemplate.Spec.Template.Spec.Volumes
+	*volumes = append(*volumes, dataServiceTokenVols...)
 
 	// Keep last 3 days of data
 	j.Spec.JobTemplate.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
-	j.Spec.JobTemplate.Spec.Template.Spec.Containers[0] = container
 
 	return j, nil
 }

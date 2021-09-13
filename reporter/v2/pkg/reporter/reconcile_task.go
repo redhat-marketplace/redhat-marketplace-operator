@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -17,6 +18,7 @@ type ReconcileTask struct {
 }
 
 func (r *ReconcileTask) Run(ctx context.Context) error {
+	logger.Info("reconcile run start")
 	meterReports := marketplacev1alpha1.MeterReportList{}
 
 	err := r.K8SClient.List(ctx, &meterReports, client.InNamespace(r.Namespace))
@@ -27,19 +29,32 @@ func (r *ReconcileTask) Run(ctx context.Context) error {
 
 	var errs []error
 
+	meterReportsToRunNames := []string{}
+	meterReportsToRun := []*marketplacev1alpha1.MeterReport{}
+
 	// Run reports and upload to data service
-	for _, report := range meterReports.Items {
+	for i := range meterReports.Items {
+		report := meterReports.Items[i]
 		if r.CanRunReportTask(ctx, report) {
-			if err := r.ReportTask(ctx, &report); err != nil {
-				errs = append(errs, err)
-				continue
-			}
+			meterReportsToRun = append(meterReportsToRun, &report)
+			meterReportsToRunNames = append(meterReportsToRunNames, report.Name)
+		}
+	}
+
+	logger.Info("meter reports ready to run", "reports", strings.Join(meterReportsToRunNames, ", "))
+
+	for _, report := range meterReportsToRun {
+		if err := r.ReportTask(ctx, report); err != nil {
+			logger.Error(err, "error running report")
+			errs = append(errs, err)
+			continue
 		}
 	}
 
 	// Get reports from data service to upload
 	if r.CanRunUploadTask(ctx) {
 		if err := r.UploadTask(ctx); err != nil {
+			logger.Error(err, "error uploading files from data service")
 			errs = append(errs, err)
 		}
 	}

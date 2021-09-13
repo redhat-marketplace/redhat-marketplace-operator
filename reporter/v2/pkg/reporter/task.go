@@ -162,10 +162,16 @@ func (r *Task) Run() error {
 	return nil
 }
 
-func providePrometheusSetup(config *Config, report *marketplacev1alpha1.MeterReport, promService *corev1.Service) *PrometheusAPISetup {
+func providePrometheusSetup(
+	config *Config,
+	report *marketplacev1alpha1.MeterReport,
+	promService *corev1.Service,
+	promPort *corev1.ServicePort,
+) *PrometheusAPISetup {
 	return &PrometheusAPISetup{
 		Report:        report,
 		PromService:   promService,
+		PromPort:      promPort,
 		CertFilePath:  config.CaFile,
 		TokenFilePath: config.TokenFile,
 		RunLocal:      config.Local,
@@ -231,6 +237,7 @@ func getPrometheusService(
 	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
 	cc ClientCommandRunner,
+	cfg *Config,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
 
@@ -240,8 +247,8 @@ func getPrometheusService(
 	}
 
 	name := types.NamespacedName{
-		Name:      report.Spec.PrometheusService.Name,
-		Namespace: report.Spec.PrometheusService.Namespace,
+		Name:      cfg.PrometheusService,
+		Namespace: cfg.PrometheusNamespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -250,6 +257,21 @@ func getPrometheusService(
 
 	logger.Info("retrieved prometheus service")
 	return
+}
+
+func getPrometheusPort(
+	cfg *Config,
+	service *corev1.Service,
+) *corev1.ServicePort {
+	var port *corev1.ServicePort
+
+	for i, portB := range service.Spec.Ports {
+		if portB.Name == cfg.PrometheusPort {
+			port = &service.Spec.Ports[i]
+		}
+	}
+
+	return port
 }
 
 type MeterDefinitionReferences = []marketplacev1beta1.MeterDefinitionReference

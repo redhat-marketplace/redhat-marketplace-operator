@@ -438,6 +438,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if userWorkloadMonitoringEnabled {
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
+			Do(r.createTokenSecret(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.installUserWorkloadMonitoring(instance)...),
@@ -466,9 +467,9 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 		prometheus := &monitoringv1.Prometheus{}
 		if result, _ := cc.Do(context.TODO(),
+			Do(r.createTokenSecret(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.reconcilePrometheusOperator(instance)...),
-			Do(r.createTokenSecret(instance)...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
 			Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
@@ -629,7 +630,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
 	if instance.Spec.DataServiceEnabled {
-		result, err := r.createReporterCronJob(instance)
+		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled)
 		if err != nil {
 			reqLogger.Error(err, "Failed to createReporterCronJob")
 			return result, err
@@ -958,6 +959,8 @@ func (r *MeterBaseReconciler) createTokenSecret(instance *marketplacev1alpha1.Me
 				secret.Name = secretName
 				secret.Namespace = r.cfg.DeployedNamespace
 
+				r.Log.Info("creating secret", "secret", secretName)
+
 				tokenData, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
 				if err != nil {
 					return nil, err
@@ -975,10 +978,13 @@ func (r *MeterBaseReconciler) createTokenSecret(instance *marketplacev1alpha1.Me
 					return nil, err
 				}
 
+				r.Log.Info("found secret", "secret", secretName)
+
 				if v, ok := secret.Data["token"]; !ok || ok && bytes.Compare(v, tokenData) != 0 {
 					secret.Data = map[string][]byte{
 						"token": tokenData,
 					}
+					r.Log.Info("updating secret", "secret", secretName)
 					return UpdateAction(&secret), nil
 				}
 				return nil, nil
@@ -1787,14 +1793,14 @@ func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
 }
 
-func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase) (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob()
+func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool) (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(userWorkloadEnabled)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, cronJob, func() error {
-			orig, err := r.factory.NewReporterCronJob()
+			orig, err := r.factory.NewReporterCronJob(userWorkloadEnabled)
 			if err != nil {
 				return err
 			}
@@ -1816,7 +1822,7 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 }
 
 func (r *MeterBaseReconciler) deleteReporterCronJob() (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob()
+	cronJob, err := r.factory.NewReporterCronJob(false)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

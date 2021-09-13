@@ -26,7 +26,6 @@ import (
 
 	merrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -34,7 +33,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -351,7 +349,14 @@ func (r *MeterReportCreatorReconciler) generateExpectedDates(endTime time.Time, 
 	return expectedCreatedDates
 }
 
-func (r *MeterReportCreatorReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
+func (r *MeterReportCreatorReconciler) newMeterReport(
+	namespace string,
+	startTime time.Time,
+	endTime time.Time,
+	meterReportName string,
+	instance *marketplacev1alpha1.MeterBase,
+	prometheusServiceName string,
+) *marketplacev1alpha1.MeterReport {
 	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
@@ -361,13 +366,9 @@ func (r *MeterReportCreatorReconciler) newMeterReport(namespace string, startTim
 			},
 		},
 		Spec: marketplacev1alpha1.MeterReportSpec{
-			StartTime: metav1.NewTime(startTime),
-			EndTime:   metav1.NewTime(endTime),
-			PrometheusService: &common.ServiceReference{
-				Name:       prometheusServiceName,
-				Namespace:  instance.Namespace,
-				TargetPort: intstr.FromString("rbac"),
-			},
+			StartTime:         metav1.NewTime(startTime),
+			EndTime:           metav1.NewTime(endTime),
+			PrometheusService: nil,
 		},
 	}
 }

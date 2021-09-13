@@ -17,6 +17,7 @@ var log = logf.Log.WithName("reconcile")
 var namespace, cafile, tokenFile string
 var localFilePath, deployedNamespace string
 var dataServiceTokenFile, dataServiceCertFile string
+var prometheusService, prometheusNamespace, prometheusPort string
 var uploadTargets []string
 var local, upload bool
 var retry int
@@ -58,6 +59,9 @@ var ReconcileCmd = &cobra.Command{
 			Upload:               upload,
 			UploaderTargets:      targets,
 			DeployedNamespace:    deployedNamespace,
+			PrometheusService:    prometheusService,
+			PrometheusNamespace:  prometheusNamespace,
+			PrometheusPort:       prometheusPort,
 		}
 		cfg.SetDefaults()
 
@@ -97,4 +101,8 @@ func init() {
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReconcileCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
 	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
+
+	ReconcileCmd.Flags().StringVar(&prometheusService, "prometheus-service", "rhm-prometheus-meterbase", "token file for the data service")
+	ReconcileCmd.Flags().StringVar(&prometheusNamespace, "prometheus-namespace", "openshift-redhat-marketplace", "cert file for the data service")
+	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
 }
