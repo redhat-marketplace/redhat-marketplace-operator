@@ -52,11 +52,14 @@ rules:
   - apiGroups:
       - apiextensions.k8s.io
     resourceNames:
+      - alertmanagerconfigs.monitoring.coreos.com
       - alertmanagers.monitoring.coreos.com
       - podmonitors.monitoring.coreos.com
+      - probes.monitoring.coreos.com
       - prometheuses.monitoring.coreos.com
       - prometheusrules.monitoring.coreos.com
       - servicemonitors.monitoring.coreos.com
+      - thanosrulers.monitoring.coreos.com
     resources:
       - customresourcedefinitions
     verbs:
@@ -306,8 +309,6 @@ rules:
   - apiGroups:
       - 'marketplace.redhat.com'
     resources:
-      - jobs
-      - cronjobs
       - 'meterdefinitions'
       - 'meterdefinitions/status'
     verbs:
@@ -339,16 +340,4 @@ rules:
       - list
       - update
       - patch
-      - watch
-  - apiGroups:
-      - 'route.openshift.io'
-    resources:
-      - routes
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
       - watch

@@ -198,7 +198,7 @@ publish: _#bashWorkflow & {
 	jobs: {
 		push: _#job & {
 			name:      "Push Images to PC"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push-images') }}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -230,7 +230,7 @@ publish: _#bashWorkflow & {
 		}
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish')}}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-images')}}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,

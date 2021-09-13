@@ -12,7 +12,7 @@ jobs:
       run:
         shell: bash
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
-      '/push') }}
+      '/push-images') }}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -255,7 +255,7 @@ jobs:
       run:
         shell: bash
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
-      '/publish')}}
+      '/publish-images')}}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
