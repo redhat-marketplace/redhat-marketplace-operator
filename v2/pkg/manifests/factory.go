@@ -81,8 +81,8 @@ const (
 	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
-	RRS3ControllerDeployment              = "razee/rrs3-controller-deployment.yaml"
-	WatchKeeperDeployment                 = "razee/watch-keeper-deployment.yaml"
+	RRS3ControllerDeployment = "razee/rrs3-controller-deployment.yaml"
+	WatchKeeperDeployment    = "razee/watch-keeper-deployment.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -727,12 +727,10 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	return d, nil
 }
 
-func (f *Factory) MetricStateServiceMonitor(pod *corev1.Pod) (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	fileName := MetricStateServiceMonitorV45
-	isValidOpenShiftVersion := false
 	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		fileName = MetricStateServiceMonitorV46
-		isValidOpenShiftVersion = true
 	}
 
 	sm, err := f.NewServiceMonitor(MustAssetReader(fileName))
@@ -741,32 +739,25 @@ func (f *Factory) MetricStateServiceMonitor(pod *corev1.Pod) (*monitoringv1.Serv
 	}
 
 	sm.Namespace = f.namespace
-
-	var secretName *string
-
-	if isValidOpenShiftVersion && pod != nil {
-		for _, volume := range pod.Spec.Volumes {
-			if volume.Secret != nil && strings.Contains(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
-				secretName = &volume.Secret.SecretName
-			}
-		}
-	}
-
 	for i := range sm.Spec.Endpoints {
 		endpoint := &sm.Spec.Endpoints[i]
 		endpoint.TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
 
-		if secretName != nil {
-			endpoint.BearerTokenSecret = corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: *secretName,
-				},
-				Key: "token",
-			}
+		if secretName != nil && endpoint.BearerTokenFile == "" {
+			addBearerToken(endpoint, *secretName)
 		}
 	}
 
 	return sm, nil
+}
+
+func addBearerToken(endpoint *monitoringv1.Endpoint, secretName string) {
+	endpoint.BearerTokenSecret = corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: secretName,
+		},
+		Key: "token",
+	}
 }
 
 func (f *Factory) MetricStateMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
@@ -791,7 +782,7 @@ func (f *Factory) KubeStateMetricsService() (*corev1.Service, error) {
 	return s, nil
 }
 
-func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) KubeStateMetricsServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := f.NewServiceMonitor(MustAssetReader(KubeStateMetricsServiceMonitor))
 	if err != nil {
 		return nil, err
@@ -799,16 +790,32 @@ func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor
 
 	sm.Namespace = f.namespace
 
+	for i := range sm.Spec.Endpoints {
+		endpoint := &sm.Spec.Endpoints[i]
+
+		if secretName != nil && endpoint.BearerTokenFile == "" {
+			addBearerToken(endpoint, *secretName)
+		}
+	}
+
 	return sm, nil
 }
 
-func (f *Factory) KubeletServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) KubeletServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := f.NewServiceMonitor(MustAssetReader(KubeletServiceMonitor))
 	if err != nil {
 		return nil, err
 	}
 
 	sm.Namespace = f.namespace
+
+	for i := range sm.Spec.Endpoints {
+		endpoint := &sm.Spec.Endpoints[i]
+
+		if secretName != nil && endpoint.BearerTokenFile == "" {
+			addBearerToken(endpoint, *secretName)
+		}
+	}
 
 	return sm, nil
 }

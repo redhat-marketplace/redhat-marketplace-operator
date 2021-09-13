@@ -186,10 +186,10 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
-	for i in RELATED_IMAGE_METRIC_STATE,$(METRIC_STATE_IMAGE) RELATED_IMAGE_REPORTER,$(REPORTER_IMAGE) RELATED_IMAGE_AUTHCHECK,$(AUTHCHECK_IMAGE); do \
-		IFS=","; set -- $$i; \
-		$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
-	done
+	# for i in RELATED_IMAGE_METRIC_STATE,$(METRIC_STATE_IMAGE) RELATED_IMAGE_REPORTER,$(REPORTER_IMAGE) RELATED_IMAGE_AUTHCHECK,$(AUTHCHECK_IMAGE); do \
+	# 	IFS=","; set -- $$i; \
+	# 	$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
+	# done
 
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
