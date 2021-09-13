@@ -356,7 +356,6 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 	// Update associated job
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job)
 	if errors.IsNotFound(err) {
-		reqLogger.Info("job not found")
 		if instance.Status.AssociatedJob != nil {
 			instance.Status.AssociatedJob = nil
 			reqLogger.Info("Updating MeterReport status associatedJob to nil")
@@ -366,7 +365,12 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			if err != nil {
 				reqLogger.Error(err, "Failed to update MeterReport status.")
 			}
+
+			return reconcile.Result{Requeue: true}, nil
 		}
+
+		reqLogger.Info("job not found")
+		return reconcile.Result{}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get job.")
 		return reconcile.Result{}, err
@@ -482,11 +486,19 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		}
 	case jr.IsSuccessful():
 		reqLogger.Info("job is complete")
-		instance.Status.AssociatedJob = jr
 
 		if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobFinished) {
 			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Status().Update(context.TODO(), instance)
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, instance)
+				if err != nil {
+					return err
+				}
+
+				if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobFinished) {
+					instance.Status.AssociatedJob = jr
+					return r.Client.Status().Update(context.TODO(), instance)
+				}
+				return nil
 			})
 			if err != nil {
 				reqLogger.Error(err, "Failed to update MeterReport status.")
@@ -504,13 +516,18 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("job not done", "jr", jr)
 		if instance.Status.AssociatedJob == nil ||
 			!reflect.DeepEqual(instance.Status.AssociatedJob, jr) {
-			instance.Status.AssociatedJob = jr
 
 			reqLogger.Info("Updating MeterReport status associatedJob")
 
 			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, instance)
+				if err != nil {
+					return err
+				}
+				instance.Status.AssociatedJob = jr
 				return r.Client.Status().Update(context.TODO(), instance)
 			})
+
 			if err != nil {
 				reqLogger.Error(err, "Failed to update MeterReport status.")
 				return reconcile.Result{}, err
