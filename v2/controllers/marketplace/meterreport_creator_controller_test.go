@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -89,14 +88,14 @@ var _ = Describe("MeterbaseController", func() {
 			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
 			nameFromString, err := ctrl.newMeterReportNameFromString(exp[0])
 			Expect(err).To(BeNil())
-			Expect(nameFromString).To(Equal("2021-06-01"))
+			Expect(nameFromString).To(Equal("meter-report-2021-06-01"))
 		})
 
 		It("should return an error for report name longer than 63 characters", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
 			minDate := endDate.AddDate(0, 0, 0)
 			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			_, err := ctrl.newMeterReportNameFromString(exp[0])
+			_, err := ctrl.newMeterReportNameFromString(exp[0] + "abasdasbasdfgasdfasbasbsadfgabasdfasdfasbasfasfasabasbasdfasfabasbaasqaf")
 			Expect(err).NotTo(BeNil())
 		})
 
@@ -123,6 +122,7 @@ var _ = Describe("MeterbaseController", func() {
 			name             = utils.METERBASE_NAME
 			namespace        = "openshift-redhat-marketplace"
 			createdMeterBase *marketplacev1alpha1.MeterBase
+			now              = time.Now()
 		)
 
 		key := types.NamespacedName{
@@ -131,6 +131,7 @@ var _ = Describe("MeterbaseController", func() {
 		}
 
 		BeforeEach(func() {
+			operatorCfg.ReportController.PollTime = 10 * time.Second
 			reportCreatorReconciler := &MeterReportCreatorReconciler{
 				Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 				Client: k8sClient,
@@ -166,79 +167,10 @@ var _ = Describe("MeterbaseController", func() {
 				},
 			}
 
+			createDate := metav1.Now().Add(-5 * 24 * time.Hour)
+			createdMeterBase.CreationTimestamp = metav1.NewTime(createDate)
+
 			Expect(k8sClient.Status().Update(context.TODO(), createdMeterBase)).Should(Succeed())
-
-			spec := marketplacev1beta1.MeterDefinitionSpec{
-				Group: "app.partner.metering.com",
-				Kind:  "App",
-				ResourceFilters: []marketplacev1beta1.ResourceFilter{
-					{
-						Namespace: &marketplacev1beta1.NamespaceFilter{UseOperatorGroup: true},
-						OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-							GroupVersionKind: common.GroupVersionKind{
-								APIVersion: "apps.partner.metering.com/v1",
-								Kind:       "App",
-							},
-						},
-						WorkloadType: common.WorkloadTypePod,
-					},
-				},
-				Meters: []marketplacev1beta1.MeterWorkload{
-					{
-						Aggregation:  "sum",
-						Query:        "simple_query",
-						Metric:       "rpc_durations_seconds",
-						Label:        "{{ .Label.meter_query }}",
-						WorkloadType: common.WorkloadTypePod,
-						Description:  "{{ .Label.meter_domain | lower }} description",
-					},
-				},
-			}
-
-			meterDef1 := &marketplacev1beta1.MeterDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mdef1",
-					Namespace: "openshift-redhat-marketplace",
-				},
-				Spec: spec,
-			}
-			meterDef2 := &marketplacev1beta1.MeterDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mdef2",
-					Namespace: "openshift-redhat-marketplace",
-				},
-				Spec: spec,
-			}
-			meterDef3 := &marketplacev1beta1.MeterDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mdef3",
-					Namespace: "openshift-redhat-marketplace",
-				},
-				Spec: spec,
-			}
-			meterDefNoLabel := &marketplacev1beta1.MeterDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mdefnolabel",
-					Namespace: "openshift-redhat-marketplace",
-				},
-				Spec: spec,
-			}
-
-			catNameA := "labelA"
-			mA := make(map[string]string)
-			mA["marketplace.redhat.com/category"] = catNameA
-			catNameB := "labelB"
-			mB := make(map[string]string)
-			mB["marketplace.redhat.com/category"] = catNameB
-
-			meterDef1.SetLabels(mA)
-			meterDef2.SetLabels(mB)
-			meterDef3.SetLabels(mA)
-			meterDefinitionList := []marketplacev1beta1.MeterDefinition{*meterDef1, *meterDef2, *meterDef3, *meterDefNoLabel}
-
-			for i := range meterDefinitionList {
-				Expect(k8sClient.Create(context.TODO(), &meterDefinitionList[i])).Should(Succeed())
-			}
 		})
 
 		AfterEach(func() {
@@ -246,7 +178,7 @@ var _ = Describe("MeterbaseController", func() {
 			Expect(k8sClient.Delete(context.TODO(), createdMeterBase)).Should(Succeed())
 		})
 
-		It("should run meterbase reconciler", func() {
+		It("should run meterbase creator reconciler", func() {
 			k8sClient.Get(context.TODO(), key, createdMeterBase)
 			By("Expecting status")
 			Eventually(func() *status.Condition {
@@ -258,34 +190,24 @@ var _ = Describe("MeterbaseController", func() {
 				"Reason": Equal(marketplacev1alpha1.ReasonMeterBaseFinishInstall),
 			})))
 
-			Eventually(func() []marketplacev1alpha1.MeterReport {
+			Eventually(func() map[string]interface{} {
 				meterReportList := &marketplacev1alpha1.MeterReportList{}
 				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace("openshift-redhat-marketplace"))
 				Expect(err).To(Not(HaveOccurred()))
-				return meterReportList.Items
-			}, timeout, interval).Should(Not(BeEmpty()))
 
-			Eventually(func() []string {
-				meterReportList := &marketplacev1alpha1.MeterReportList{}
-				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace("openshift-redhat-marketplace"))
-				Expect(err).To(Not(HaveOccurred()))
-				var meterReportNames []string
+				meterReportNames := []string{}
 				for _, report := range meterReportList.Items {
 					meterReportNames = append(meterReportNames, report.Name)
 				}
-				return meterReportNames
-			}, timeout, interval).Should(ContainElements([]string{time.Now().Format(utils.DATE_FORMAT) + "-labela", time.Now().Format(utils.DATE_FORMAT) + "-labelb", "meter-report-" + time.Now().Format(utils.DATE_FORMAT)}))
 
-			Eventually(func() int {
-				meterReportList := &marketplacev1alpha1.MeterReportList{}
-				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace("openshift-redhat-marketplace"))
-				Expect(err).To(Not(HaveOccurred()))
-				var meterReportNames []string
-				for _, report := range meterReportList.Items {
-					meterReportNames = append(meterReportNames, report.Name)
+				return map[string]interface{}{
+					"items":       meterReportList.Items,
+					"reportNames": meterReportNames,
 				}
-				return len(meterReportNames)
-			}, timeout, interval).Should(Equal(3))
+			}, timeout, interval).Should(MatchAllKeys(Keys{
+				"items":       HaveLen(1),
+				"reportNames": ContainElements("meter-report-" + now.Format(utils.DATE_FORMAT)),
+			}))
 		})
 	})
 })
