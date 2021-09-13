@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
@@ -186,34 +187,34 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 }
 
 func ConvertWorkloadTypeAlpha(typeIn interface{}) (WorkloadType, error) {
-	workloadType := v1beta1.WorkloadTypePod
+	workloadType := common.WorkloadTypePod
 
 	switch v := typeIn.(type) {
 	case WorkloadType:
 		return v, nil
-	case v1beta1.WorkloadType:
+	case common.WorkloadType:
 		workloadType = v
 	case string:
-		workloadType = v1beta1.WorkloadType(v)
+		workloadType = common.WorkloadType(v)
 	}
 
 	switch workloadType {
-	case v1beta1.WorkloadTypePod:
+	case common.WorkloadTypePod:
 		return WorkloadTypePod, nil
-	case v1beta1.WorkloadTypePVC:
+	case common.WorkloadTypePVC:
 		return WorkloadTypePVC, nil
-	case v1beta1.WorkloadTypeService:
+	case common.WorkloadTypeService:
 		return WorkloadTypeService, nil
 	default:
 		return WorkloadTypePod, errors.NewWithDetails("workload type cannot be generated from workload type", "type", typeIn)
 	}
 }
 
-func ConvertWorkloadTypeBeta(typeIn interface{}) (v1beta1.WorkloadType, error) {
+func ConvertWorkloadTypeBeta(typeIn interface{}) (common.WorkloadType, error) {
 	workloadType := WorkloadTypePod
 
 	switch v := typeIn.(type) {
-	case v1beta1.WorkloadType:
+	case common.WorkloadType:
 		return v, nil
 	case WorkloadType:
 		workloadType = v
@@ -223,14 +224,14 @@ func ConvertWorkloadTypeBeta(typeIn interface{}) (v1beta1.WorkloadType, error) {
 
 	switch workloadType {
 	case WorkloadTypePod:
-		return v1beta1.WorkloadTypePod, nil
+		return common.WorkloadTypePod, nil
 	case WorkloadTypePVC:
-		return v1beta1.WorkloadTypePVC, nil
+		return common.WorkloadTypePVC, nil
 	case WorkloadTypeService:
-		return v1beta1.WorkloadTypeService, nil
+		return common.WorkloadTypeService, nil
 	case WorkloadTypeServiceMonitor:
-		return v1beta1.WorkloadTypeService, nil
+		return common.WorkloadTypeService, nil
 	default:
-		return v1beta1.WorkloadTypePod, errors.NewWithDetails("workload type cannot be generated from workload type", "type", typeIn)
+		return common.WorkloadTypePod, errors.NewWithDetails("workload type cannot be generated from workload type", "type", typeIn)
 	}
 }

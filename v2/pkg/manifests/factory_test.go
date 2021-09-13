@@ -40,7 +40,6 @@ var files = []string{
 	PrometheusMeterDefinition,
 
 	ReporterJob,
-	ReporterUserWorkloadMonitoringJob,
 	ReporterMeterDefinition,
 
 	MetricStateDeployment,

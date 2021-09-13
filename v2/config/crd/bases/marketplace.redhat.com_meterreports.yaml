@@ -17,12 +17,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type == "JobRunning")].status
-      name: RUNNING
-      type: string
-    - jsonPath: .status.conditions[?(@.type == "JobRunning")].reason
-      name: REASON
-      type: string
     - jsonPath: .status.metricUploadCount
       name: METRICS
       type: string
@@ -46,9 +40,6 @@ spec:
           spec:
             description: MeterReportSpec defines the desired state of MeterReport
             properties:
-              category:
-                description: Category of job
-                type: string
               endTime:
                 description: EndTime of the job
                 format: date-time
@@ -60,6 +51,7 @@ spec:
                 type: array
               labelSelector:
                 description: LabelSelectors are used to filter to the correct workload.
+                  DEPRECATED
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
@@ -197,6 +189,15 @@ spec:
                                 type: string
                               metricId:
                                 description: Metric is the id of the meter
+                                type: string
+                              metricType:
+                                description: MetricType identifies the type of metric
+                                  this meter definition reports. Currently "billable",
+                                  "license", or "adoption".
+                                enum:
+                                - billable
+                                - license
+                                - adoption
                                 type: string
                               name:
                                 description: Name of the metric for humans to read.
@@ -835,12 +836,17 @@ spec:
                                   description: ResultValues will hold the results
                                     of the prometheus query
                                   properties:
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
                                     timestamp:
                                       format: int64
                                       type: integer
                                     value:
                                       type: string
                                   required:
+                                  - labels
                                   - timestamp
                                   - value
                                   type: object
@@ -1244,8 +1250,8 @@ spec:
                   type: object
                 type: array
               errors:
-                description: QueryErrorList shows if there were any errors from queries
-                  for the report.
+                description: Errors shows if there were any errors from queries for
+                  the report.
                 items:
                   description: ErrorDetails provides details about errors that happen
                     in the job
@@ -1261,7 +1267,7 @@ spec:
                   type: object
                 type: array
               jobReference:
-                description: A list of pointers to currently running jobs.
+                description: A list of pointers to currently running jobs. DEPRECATED
                 properties:
                   active:
                     description: The number of actively running pods.
@@ -1312,6 +1318,29 @@ spec:
               metricUploadCount:
                 description: MetricUploadCount is the number of metrics in the report
                 type: integer
+              uploadStatus:
+                description: UploadStatus displays the last status for upload targets.
+                items:
+                  description: UploadDetails provides details about uploads for the
+                    meterreport
+                  properties:
+                    error:
+                      description: Error is present if an error occured on upload
+                      type: string
+                    status:
+                      description: Status is the current status
+                      type: string
+                    target:
+                      description: Target is the upload target
+                      type: string
+                  required:
+                  - status
+                  - target
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - target
+                x-kubernetes-list-type: map
               uploadUID:
                 description: UploadID is the ID associated with the upload
                 type: string
@@ -1331,6 +1360,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              workloadCount:
+                description: WorkloadCount is the number of workloads reported on
+                type: integer
             type: object
         type: object
     served: true

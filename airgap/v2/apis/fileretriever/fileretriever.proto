@@ -1,15 +1,15 @@
 syntax = "proto3";
 
-option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver";
+option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever";
 option java_multiple_files = true;
-option java_package = "com.redhat.marketplace.airgap.fileretreiver";
-option java_outer_classname = "FileRetreiver";
+option java_package = "com.redhat.marketplace.airgap.fileretriever";
+option java_outer_classname = "FileRetriever";
 
-package fileretreiver;
+package fileretriever;
 
-import "apis/model/model.proto";
+import "model/model.proto";
 
-service FileRetreiver {
+service FileRetriever {
   rpc ListFileMetadata(ListFileMetadataRequest) returns (stream ListFileMetadataResponse) {};
   rpc GetFileMetadata(GetFileMetadataRequest) returns (GetFileMetadataResponse) {};
   rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse) {};

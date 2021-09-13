@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/server"
@@ -60,9 +60,9 @@ func runSetup() {
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer()
 	bs := &server.Server{}
-	mockSenderServer := bs
-	mockRetreiverServer := bs
-	mockAdminServer := bs
+	mockSenderServer := &server.FileSenderServer{Server: bs}
+	mockRetrieverServer := &server.FileRetrieverServer{Server: bs}
+	mockAdminServer := &server.AdminServer{Server: bs}
 
 	//Initialize logger
 	zapLog, err := zap.NewDevelopment()
@@ -88,7 +88,7 @@ func runSetup() {
 	bs.FileStore = &db
 
 	filesender.RegisterFileSenderServer(s, mockSenderServer)
-	fileretreiver.RegisterFileRetreiverServer(s, mockRetreiverServer)
+	fileretriever.RegisterFileRetrieverServer(s, mockRetrieverServer)
 	adminserver.RegisterAdminServerServer(s, mockAdminServer)
 
 	go func() {
@@ -238,7 +238,7 @@ func TestFileSenderServer_UpdateFileMetadata(t *testing.T) {
 	populateDataset(conn, t)
 	//Create a client for download
 	client := filesender.NewFileSenderClient(conn)
-	retClient := fileretreiver.NewFileRetreiverClient(conn)
+	retClient := fileretriever.NewFileRetrieverClient(conn)
 
 	//Shutdown resources
 	defer shutdown(conn)
@@ -318,7 +318,7 @@ func TestFileSenderServer_UpdateFileMetadata(t *testing.T) {
 			}
 		}
 		if tt.resp != nil {
-			getResp, _ := retClient.GetFileMetadata(context.Background(), &fileretreiver.GetFileMetadataRequest{FileId: tt.resp.GetFileId()})
+			getResp, _ := retClient.GetFileMetadata(context.Background(), &fileretriever.GetFileMetadataRequest{FileId: tt.resp.GetFileId()})
 			if !reflect.DeepEqual(tt.req.Metadata, getResp.GetInfo().GetMetadata()) {
 				t.Errorf("metadata of file and metadata is update request does no match , Expected: %v got %v", tt.req.Metadata, getResp.GetInfo().GetMetadata())
 			}
@@ -326,7 +326,7 @@ func TestFileSenderServer_UpdateFileMetadata(t *testing.T) {
 	}
 }
 
-func TestFileRetreiverServer_DownloadFile(t *testing.T) {
+func TestFileRetrieverServer_DownloadFile(t *testing.T) {
 	//Initialize server
 	runSetup()
 	//Initialize client
@@ -337,17 +337,17 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 
 	populateDataset(conn, t)
 	//Create a client for download
-	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
+	downloadClient := fileretriever.NewFileRetrieverClient(conn)
 
 	tests := []struct {
 		name    string
-		dfr     *fileretreiver.DownloadFileRequest
+		dfr     *fileretriever.DownloadFileRequest
 		size    uint32
 		errCode codes.Code
 	}{
 		{
 			name: "download an existing file on the server",
-			dfr: &fileretreiver.DownloadFileRequest{
+			dfr: &fileretriever.DownloadFileRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "reports.zip"},
@@ -358,7 +358,7 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 		},
 		{
 			name: "download an existing file on the server and mark it for deletion",
-			dfr: &fileretreiver.DownloadFileRequest{
+			dfr: &fileretriever.DownloadFileRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "dosfstools"},
@@ -370,7 +370,7 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 		},
 		{
 			name: "invalid download request for file that doesn't exist on the server",
-			dfr: &fileretreiver.DownloadFileRequest{
+			dfr: &fileretriever.DownloadFileRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "dontexist.zip"},
@@ -381,7 +381,7 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 		},
 		{
 			name: "invalid download request for file with only whitespaces for the name",
-			dfr: &fileretreiver.DownloadFileRequest{
+			dfr: &fileretriever.DownloadFileRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "   "},
@@ -422,18 +422,18 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			}
 
 			if tt.dfr.GetDeleteOnDownload() {
-				lfr := &fileretreiver.ListFileMetadataRequest{
-					FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+				lfr := &fileretriever.ListFileMetadataRequest{
+					FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{
 						{
 							Key:      "provided_name",
-							Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_EQUAL,
+							Operator: fileretriever.ListFileMetadataRequest_ListFileFilter_EQUAL,
 							Value:    tt.dfr.FileId.GetName(),
 						},
 					},
-					SortBy:              []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+					SortBy:              []*fileretriever.ListFileMetadataRequest_ListFileSort{},
 					IncludeDeletedFiles: false,
 				}
-				listFileMetadataClient := fileretreiver.NewFileRetreiverClient(conn)
+				listFileMetadataClient := fileretriever.NewFileRetrieverClient(conn)
 				stream, err := listFileMetadataClient.ListFileMetadata(context.Background(), lfr)
 				var data []*v1.FileInfo
 				if err != nil {
@@ -459,7 +459,7 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 	}
 }
 
-func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
+func TestFileRetrieverServer_ListFileMetadata(t *testing.T) {
 	//Initialize server
 	runSetup()
 	//Initialize client
@@ -468,49 +468,49 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 	defer shutdown(conn)
 
 	populateDataset(conn, t)
-	listFileMetadataClient := fileretreiver.NewFileRetreiverClient(conn)
+	listFileMetadataClient := fileretriever.NewFileRetrieverClient(conn)
 
 	tests := []struct {
 		name    string
-		lfr     *fileretreiver.ListFileMetadataRequest
+		lfr     *fileretriever.ListFileMetadataRequest
 		res_len int
 		errCode codes.Code
 	}{
 		{
 			name: "fetch list of all file by passing empty filter array",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{},
-				SortBy:   []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{},
+				SortBy:   []*fileretriever.ListFileMetadataRequest_ListFileSort{},
 			},
 			res_len: 4,
 			errCode: codes.OK,
 		},
 		{
 			name: "fetch file list based on filter operation",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{
 					{
 						Key:      "description",
-						Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS,
+						Operator: fileretriever.ListFileMetadataRequest_ListFileFilter_CONTAINS,
 						Value:    "filesystem utilities",
 					},
 				},
-				SortBy: []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+				SortBy: []*fileretriever.ListFileMetadataRequest_ListFileSort{},
 			},
 			res_len: 1,
 			errCode: codes.OK,
 		},
 		{
 			name: "fetch file marked for deletion",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{
 					{
 						Key:      "provided_name",
-						Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS,
+						Operator: fileretriever.ListFileMetadataRequest_ListFileFilter_CONTAINS,
 						Value:    "delete",
 					},
 				},
-				SortBy:              []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+				SortBy:              []*fileretriever.ListFileMetadataRequest_ListFileSort{},
 				IncludeDeletedFiles: true,
 			},
 			res_len: 1,
@@ -518,20 +518,20 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 		},
 		{
 			name: "empty values in filter operation",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{
 					{},
 				},
-				SortBy: []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+				SortBy: []*fileretriever.ListFileMetadataRequest_ListFileSort{},
 			},
 			res_len: 0,
 			errCode: codes.InvalidArgument,
 		},
 		{
 			name: "empty values in sort operation",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{},
-				SortBy: []*fileretreiver.ListFileMetadataRequest_ListFileSort{
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{},
+				SortBy: []*fileretriever.ListFileMetadataRequest_ListFileSort{
 					{},
 				},
 			},
@@ -540,27 +540,27 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 		},
 		{
 			name: "empty key/value for filter operation",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{
 					{
 						Key:      "     ",
-						Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS,
+						Operator: fileretriever.ListFileMetadataRequest_ListFileFilter_CONTAINS,
 						Value:    "",
 					},
 				},
-				SortBy: []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+				SortBy: []*fileretriever.ListFileMetadataRequest_ListFileSort{},
 			},
 			res_len: 0,
 			errCode: codes.InvalidArgument,
 		},
 		{
 			name: "empty sort key for sort operation",
-			lfr: &fileretreiver.ListFileMetadataRequest{
-				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{},
-				SortBy: []*fileretreiver.ListFileMetadataRequest_ListFileSort{
+			lfr: &fileretriever.ListFileMetadataRequest{
+				FilterBy: []*fileretriever.ListFileMetadataRequest_ListFileFilter{},
+				SortBy: []*fileretriever.ListFileMetadataRequest_ListFileSort{
 					{
 						Key:       "  ",
-						SortOrder: fileretreiver.ListFileMetadataRequest_ListFileSort_DESC,
+						SortOrder: fileretriever.ListFileMetadataRequest_ListFileSort_DESC,
 					},
 				},
 			},
@@ -600,7 +600,7 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 	}
 }
 
-func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
+func TestFileRetrieverServer_GetFileMetadata(t *testing.T) {
 	//Initialize server
 	runSetup()
 	//Initialize client
@@ -612,17 +612,17 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 	populateDataset(conn, t)
 
 	//Create a client for download
-	getFileMetadaClient := fileretreiver.NewFileRetreiverClient(conn)
+	getFileMetadaClient := fileretriever.NewFileRetrieverClient(conn)
 
 	tests := []struct {
 		name    string
-		dfr     *fileretreiver.GetFileMetadataRequest
+		dfr     *fileretriever.GetFileMetadataRequest
 		size    uint32
 		errCode codes.Code
 	}{
 		{
 			name: "get file metadata of an existing file on the server",
-			dfr: &fileretreiver.GetFileMetadataRequest{
+			dfr: &fileretriever.GetFileMetadataRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "reports.zip"},
@@ -633,7 +633,7 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 		},
 		{
 			name: "invalid get file metadata request for file that doesn't exist on the server",
-			dfr: &fileretreiver.GetFileMetadataRequest{
+			dfr: &fileretriever.GetFileMetadataRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "dontexist.zip"},
@@ -644,7 +644,7 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 		},
 		{
 			name: "invalid get file metadata request for file with only whitespaces for the name",
-			dfr: &fileretreiver.GetFileMetadataRequest{
+			dfr: &fileretriever.GetFileMetadataRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
 						Name: "   "},
@@ -860,11 +860,11 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 	}
 
 	// Mark File for deletion
-	req := &fileretreiver.DownloadFileRequest{
+	req := &fileretriever.DownloadFileRequest{
 		FileId:           deleteFID,
 		DeleteOnDownload: true,
 	}
-	dc := fileretreiver.NewFileRetreiverClient(conn)
+	dc := fileretriever.NewFileRetrieverClient(conn)
 	_, err := dc.DownloadFile(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Error: during delete on download request : %v", err)

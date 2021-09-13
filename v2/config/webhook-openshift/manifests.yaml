@@ -1,4 +1,3 @@
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -6,27 +5,28 @@ metadata:
   creationTimestamp: null
   name: mutating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
-  - v1alpha1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
-  failurePolicy: Fail
-  name: mmeterdefinition.marketplace.redhat.com
-  rules:
-  - apiGroups:
-    - marketplace.redhat.com
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - meterdefinitions
-  sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+      - v1alpha1
+    clientConfig:
+      service:
+        name: controller-manager-service
+        namespace: system
+        path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+        port: 9443
+    failurePolicy: Fail
+    name: mmeterdefinition.marketplace.redhat.com
+    rules:
+      - apiGroups:
+          - marketplace.redhat.com
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - meterdefinitions
+    sideEffects: None
 
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -35,24 +35,25 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
-  - v1alpha1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
-  failurePolicy: Fail
-  name: vmeterdefinition.marketplace.redhat.com
-  rules:
-  - apiGroups:
-    - marketplace.redhat.com
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - meterdefinitions
-  sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+      - v1alpha1
+    clientConfig:
+      service:
+        name: controller-manager-service
+        namespace: system
+        path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+        port: 9443
+    failurePolicy: Fail
+    name: vmeterdefinition.marketplace.redhat.com
+    rules:
+      - apiGroups:
+          - marketplace.redhat.com
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - meterdefinitions
+    sideEffects: None

@@ -364,12 +364,17 @@ spec:
                         description: ResultValues will hold the results of the prometheus
                           query
                         properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
                           timestamp:
                             format: int64
                             type: integer
                           value:
                             type: string
                         required:
+                        - labels
                         - timestamp
                         - value
                         type: object
@@ -511,6 +516,14 @@ spec:
                       type: string
                     metricId:
                       description: Metric is the id of the meter
+                      type: string
+                    metricType:
+                      description: MetricType identifies the type of metric this meter
+                        definition reports. Currently "billable", "license", or "adoption".
+                      enum:
+                      - billable
+                      - license
+                      - adoption
                       type: string
                     name:
                       description: Name of the metric for humans to read.
@@ -816,12 +829,17 @@ spec:
                         description: ResultValues will hold the results of the prometheus
                           query
                         properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
                           timestamp:
                             format: int64
                             type: integer
                           value:
                             type: string
                         required:
+                        - labels
                         - timestamp
                         - value
                         type: object

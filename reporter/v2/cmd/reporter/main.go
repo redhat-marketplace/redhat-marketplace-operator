@@ -19,9 +19,10 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/reconciler"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/report"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/upload"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/sign"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/upload"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/verify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -47,6 +48,7 @@ func init() {
 	rootCmd.AddCommand(upload.UploadCmd)
 	rootCmd.AddCommand(sign.SignCmd)
 	rootCmd.AddCommand(verify.VerifyCmd)
+	rootCmd.AddCommand(reconciler.ReconcileCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
 }
 

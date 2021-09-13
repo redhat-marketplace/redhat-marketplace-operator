@@ -1,13 +1,13 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: rhm-dqlite
+  name: rhm-data-service
 spec:
   port:
-    targetPort: https
+    targetPort: grpc
   to:
     kind: Service
-    name: rhm-dqlite
+    name: rhm-data-service
   tls:
     termination: reencrypt
     insecureEdgeTerminationPolicy: Redirect

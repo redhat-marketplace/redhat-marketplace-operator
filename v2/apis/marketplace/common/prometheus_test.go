@@ -25,10 +25,6 @@ import (
 var _ = Describe("MeterDefPrometheusLabels", func() {
 	var promLabels *MeterDefPrometheusLabels
 
-	BeforeEach(func() {
-
-	})
-
 	It("should turn into a label map", func() {
 		promLabels = &MeterDefPrometheusLabels{
 			MeterDefName:       "name",
@@ -45,9 +41,10 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			MetricWithout:      JSONArray([]string{"a", "b"}),
 			UID:                "uid",
 			WorkloadName:       "workloadname",
-			WorkloadType:       "pod",
+			WorkloadType:       WorkloadTypePod,
 			Label:              "label",
 			Unit:               "unit",
+			MetricType:         "billable",
 		}
 		labelMap, err := promLabels.ToLabels()
 
@@ -65,11 +62,12 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"metric_group_by":      Equal(`["c","d"]`),
 			"metric_without":       Equal(`["a","b"]`),
 			"meter_definition_uid": Equal("uid"),
-			"workload_type":        Equal("pod"),
+			"workload_type":        Equal("Pod"),
 			"workload_name":        Equal("workloadname"),
 			"metric_query":         Equal("query"),
 			"label":                Equal("label"),
 			"unit":                 Equal("unit"),
+			"metric_type":          Equal("billable"),
 		}))
 
 		newPromLabels := &MeterDefPrometheusLabels{}
@@ -102,11 +100,12 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"value_label_override": Equal("valueoverride"),
 			"metric_without":       Equal(`[]`),
 			"meter_definition_uid": Equal("uid"),
-			"workload_type":        Equal("pod"),
+			"workload_type":        Equal("Pod"),
 			"workload_name":        Equal("workloadname"),
 			"metric_query":         Equal("query"),
 			"label":                Equal("label"),
 			"unit":                 Equal("unit"),
+			"metric_type":          Equal("billable"),
 		}))
 
 		newPromLabels = &MeterDefPrometheusLabels{}

@@ -32,7 +32,7 @@ func NewAdminServerClient(cc grpc.ClientConnInterface) AdminServerClient {
 
 func (c *adminServerClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*DeleteFileResponse, error) {
 	out := new(DeleteFileResponse)
-	err := c.cc.Invoke(ctx, "/adminserver.v1.AdminServer/DeleteFile", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/adminserver.AdminServer/DeleteFile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (c *adminServerClient) DeleteFile(ctx context.Context, in *DeleteFileReques
 
 func (c *adminServerClient) CleanTombstones(ctx context.Context, in *CleanTombstonesRequest, opts ...grpc.CallOption) (*CleanTombstonesResponse, error) {
 	out := new(CleanTombstonesResponse)
-	err := c.cc.Invoke(ctx, "/adminserver.v1.AdminServer/CleanTombstones", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/adminserver.AdminServer/CleanTombstones", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func _AdminServer_DeleteFile_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/adminserver.v1.AdminServer/DeleteFile",
+		FullMethod: "/adminserver.AdminServer/DeleteFile",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AdminServerServer).DeleteFile(ctx, req.(*DeleteFileRequest))
@@ -108,7 +108,7 @@ func _AdminServer_CleanTombstones_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/adminserver.v1.AdminServer/CleanTombstones",
+		FullMethod: "/adminserver.AdminServer/CleanTombstones",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AdminServerServer).CleanTombstones(ctx, req.(*CleanTombstonesRequest))
@@ -120,7 +120,7 @@ func _AdminServer_CleanTombstones_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AdminServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "adminserver.v1.AdminServer",
+	ServiceName: "adminserver.AdminServer",
 	HandlerType: (*AdminServerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -133,5 +133,5 @@ var AdminServer_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "apis/adminserver/adminserver.proto",
+	Metadata: "adminserver/adminserver.proto",
 }

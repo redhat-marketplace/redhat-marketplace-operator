@@ -109,16 +109,9 @@ func ProvidePrometheusAPI(
 	var saClient *ServiceAccountClient
 	var authToken string
 	saClient = NewServiceAccountClient(deployedNamespace, kubeInterface)
-	if userWorkloadMonitoringEnabled {
-		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, "", 3600, reqLogger)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-		if err != nil {
-			return nil, err
-		}
+	authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, "", 3600, reqLogger)
+	if err != nil {
+		return nil, err
 	}
 
 	if certConfigMap != nil && authToken != "" && service != nil {

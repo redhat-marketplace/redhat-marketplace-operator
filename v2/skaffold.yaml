@@ -83,7 +83,7 @@ build:
             - go.mod
             - go.sum
             - apis/**
-            - cmd/**
+            - cmd/server/**
             - pkg/**
             - internal/**
             - Dockerfile

@@ -15,11 +15,9 @@
 package list
 
 import (
-	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -27,11 +25,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/olekukonko/tablewriter"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"storj.io/drpc/drpcerr"
 )
 
 type ListConfig struct {
@@ -42,7 +41,7 @@ type ListConfig struct {
 	IncludeDeletedFiles bool
 	FileName            string
 	conn                *grpc.ClientConn
-	client              fileretreiver.FileRetreiverClient
+	client              fileretriever.FileRetrieverClient
 	log                 logr.Logger
 }
 
@@ -127,12 +126,6 @@ func ProvideListConfig(filter []string, sort []string, outputDir string, outputC
 	if err != nil {
 		return nil, err
 	}
-	conn, err := util.InitClient()
-	if err != nil {
-		return nil, err
-	}
-	client := fileretreiver.NewFileRetreiverClient(conn)
-
 	return &ListConfig{
 		Filter:              filter,
 		Sort:                sort,
@@ -140,8 +133,6 @@ func ProvideListConfig(filter []string, sort []string, outputDir string, outputC
 		OutputCSV:           outputCSV,
 		IncludeDeletedFiles: includeDeletedFiles,
 		FileName:            fileName,
-		conn:                conn,
-		client:              client,
 		log:                 log,
 	}, nil
 
@@ -156,13 +147,21 @@ func (lc *ListConfig) closeConnection() {
 
 // listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
 func (lc *ListConfig) listFileMetadata() error {
-	var filterList []*fileretreiver.ListFileMetadataRequest_ListFileFilter
-	var sortList []*fileretreiver.ListFileMetadataRequest_ListFileSort
+	//client, ctx, err := util.InitFileRetrieverProtobufClient()
+
+	ctx, client, err := util.InitFileRetrieverProtobufClient()
+
+	if err != nil {
+		return err
+	}
+
+	var filterList []*fileretriever.ListFileMetadataRequest_ListFileFilter
+	var sortList []*fileretriever.ListFileMetadataRequest_ListFileSort
 	var file *os.File
 	var w *csv.Writer
 	var noOfRow int
 
-	filterList, err := parseFilter(lc.Filter)
+	filterList, err = parseFilter(lc.Filter)
 	if err != nil {
 		return err
 	}
@@ -170,14 +169,18 @@ func (lc *ListConfig) listFileMetadata() error {
 	if err != nil {
 		return err
 	}
-	req := &fileretreiver.ListFileMetadataRequest{
+
+	req := &fileretriever.ListFileMetadataRequest{
 		FilterBy:            filterList,
 		SortBy:              sortList,
 		IncludeDeletedFiles: lc.IncludeDeletedFiles,
 	}
-	resultStream, err := lc.client.ListFileMetadata(context.Background(), req)
+
+	//response, err := client.ListFileMetadata(ctx, req)
+	result, err := client.ListFileMetadata(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve list due to: %v", err)
+		fmt.Println("an error")
+		return fmt.Errorf("failed to retrieve list due to: %v %v", err, drpcerr.Code(err))
 	}
 
 	var table *tablewriter.Table
@@ -200,23 +203,10 @@ func (lc *ListConfig) listFileMetadata() error {
 		table.SetRowLine(true)
 	}
 
-	for {
-		response, err := resultStream.Recv()
-		if err == io.EOF {
-			if lc.OutputCSV {
-				lc.log.Info("List stored", "location:", fp)
-			}
-			break
-		} else if err != nil {
-			if lc.OutputCSV {
-				defer os.Remove(fp)
-			}
-			return fmt.Errorf("error while reading stream: %v", err)
-		}
+	data := result.GetResults()
+	lc.log.Info("Received response:", "info", data)
 
-		data := response.GetResults()
-		lc.log.Info("Received response:", "info", data)
-
+	if data != nil {
 		row, parseErr := parseFileInfo(data)
 		if lc.OutputCSV {
 			if parseErr != nil {
@@ -236,6 +226,7 @@ func (lc *ListConfig) listFileMetadata() error {
 			noOfRow = noOfRow + 1
 		}
 	}
+
 	// Output to console
 	if table != nil {
 		table.SetCaption(true, "Files found: "+strconv.FormatInt(int64(noOfRow), 10))
@@ -246,8 +237,8 @@ func (lc *ListConfig) listFileMetadata() error {
 
 // parseFilter parses arguments for filter operation
 // It returns list of struct ListFileMetadataRequest_ListFileFilter and error if occured
-func parseFilter(filter []string) ([]*fileretreiver.ListFileMetadataRequest_ListFileFilter, error) {
-	var listFilter []*fileretreiver.ListFileMetadataRequest_ListFileFilter
+func parseFilter(filter []string) ([]*fileretriever.ListFileMetadataRequest_ListFileFilter, error) {
+	var listFilter []*fileretriever.ListFileMetadataRequest_ListFileFilter
 
 	modelColumnSet := map[string]bool{
 		"provided_name": true,
@@ -282,7 +273,7 @@ func parseFilter(filter []string) ([]*fileretreiver.ListFileMetadataRequest_List
 			value = filterArgs[2]
 		}
 
-		req := &fileretreiver.ListFileMetadataRequest_ListFileFilter{
+		req := &fileretriever.ListFileMetadataRequest_ListFileFilter{
 			Key:      filterArgs[0],
 			Operator: *operator,
 			Value:    value,
@@ -292,28 +283,28 @@ func parseFilter(filter []string) ([]*fileretreiver.ListFileMetadataRequest_List
 	return listFilter, nil
 }
 
-// parseFilterOperator parses filter operator and returns respective operator defined by fileretreiver.proto
-func parseFilterOperator(op string, isColumn bool) (*fileretreiver.ListFileMetadataRequest_ListFileFilter_Comparison, error) {
-	var operator fileretreiver.ListFileMetadataRequest_ListFileFilter_Comparison
+// parseFilterOperator parses filter operator and returns respective operator defined by fileretriever.proto
+func parseFilterOperator(op string, isColumn bool) (*fileretriever.ListFileMetadataRequest_ListFileFilter_Comparison, error) {
+	var operator fileretriever.ListFileMetadataRequest_ListFileFilter_Comparison
 	if isColumn {
 		switch op {
 		case "EQUAL":
-			operator = fileretreiver.ListFileMetadataRequest_ListFileFilter_EQUAL
+			operator = fileretriever.ListFileMetadataRequest_ListFileFilter_EQUAL
 		case "LESS_THAN":
-			operator = fileretreiver.ListFileMetadataRequest_ListFileFilter_LESS_THAN
+			operator = fileretriever.ListFileMetadataRequest_ListFileFilter_LESS_THAN
 		case "GREATER_THAN":
-			operator = fileretreiver.ListFileMetadataRequest_ListFileFilter_GREATER_THAN
+			operator = fileretriever.ListFileMetadataRequest_ListFileFilter_GREATER_THAN
 		case "CONTAINS":
-			operator = fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS
+			operator = fileretriever.ListFileMetadataRequest_ListFileFilter_CONTAINS
 		default:
 			return nil, fmt.Errorf("invalid filter operation used: %v ", op)
 		}
 	} else {
 		switch op {
 		case "EQUAL":
-			operator = fileretreiver.ListFileMetadataRequest_ListFileFilter_EQUAL
+			operator = fileretriever.ListFileMetadataRequest_ListFileFilter_EQUAL
 		case "CONTAINS":
-			operator = fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS
+			operator = fileretriever.ListFileMetadataRequest_ListFileFilter_CONTAINS
 		default:
 			return nil, fmt.Errorf("invalid filter operation used: %v ", op)
 		}
@@ -324,8 +315,8 @@ func parseFilterOperator(op string, isColumn bool) (*fileretreiver.ListFileMetad
 
 // parseSort parses arguments for sort operation
 // It returns list of struct ListFileMetadataRequest_ListFileSort and error id occured
-func parseSort(sortList []string) ([]*fileretreiver.ListFileMetadataRequest_ListFileSort, error) {
-	var listSort []*fileretreiver.ListFileMetadataRequest_ListFileSort
+func parseSort(sortList []string) ([]*fileretriever.ListFileMetadataRequest_ListFileSort, error) {
+	var listSort []*fileretriever.ListFileMetadataRequest_ListFileSort
 
 	modelColumnSet := map[string]bool{
 		"provided_name": true,
@@ -349,7 +340,7 @@ func parseSort(sortList []string) ([]*fileretreiver.ListFileMetadataRequest_List
 		if err != nil {
 			return nil, err
 		}
-		req := &fileretreiver.ListFileMetadataRequest_ListFileSort{
+		req := &fileretriever.ListFileMetadataRequest_ListFileSort{
 			Key:       sortArgs[0],
 			SortOrder: *operator,
 		}
@@ -358,15 +349,15 @@ func parseSort(sortList []string) ([]*fileretreiver.ListFileMetadataRequest_List
 	return listSort, nil
 }
 
-// parseSortOperator parses sort operator and returns respective operator defined by fileretreiver.proto
-func parseSortOperator(op string) (*fileretreiver.ListFileMetadataRequest_ListFileSort_SortOrder, error) {
-	var operator fileretreiver.ListFileMetadataRequest_ListFileSort_SortOrder
+// parseSortOperator parses sort operator and returns respective operator defined by fileretriever.proto
+func parseSortOperator(op string) (*fileretriever.ListFileMetadataRequest_ListFileSort_SortOrder, error) {
+	var operator fileretriever.ListFileMetadataRequest_ListFileSort_SortOrder
 
 	switch op {
 	case "ASC":
-		operator = fileretreiver.ListFileMetadataRequest_ListFileSort_ASC
+		operator = fileretriever.ListFileMetadataRequest_ListFileSort_ASC
 	case "DESC":
-		operator = fileretreiver.ListFileMetadataRequest_ListFileSort_DESC
+		operator = fileretriever.ListFileMetadataRequest_ListFileSort_DESC
 	default:
 		return nil, fmt.Errorf("invalid sort operation used: %v", op)
 	}

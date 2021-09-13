@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"google.golang.org/grpc/codes"
@@ -29,11 +29,31 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type FileRetrieverServer struct {
+	*Server
+	fileretriever.UnimplementedFileRetrieverServer
+}
+
+type DRPCFileRetrieverServer struct {
+	*FileRetrieverServer
+}
+
 const chunkSize = 1024
 
-// DownloadFile fetches the file from database, provided the file specified in the request exists
-func (frs *Server) DownloadFile(dfr *fileretreiver.DownloadFileRequest, stream fileretreiver.FileRetreiver_DownloadFileServer) error {
+type downloadFileResponseStream interface {
+	Send(*fileretriever.DownloadFileResponse) error
+}
 
+func (frs *FileRetrieverServer) DownloadFile(dfr *fileretriever.DownloadFileRequest, stream fileretriever.FileRetriever_DownloadFileServer) error {
+	return frs.downloadFile(dfr, stream)
+}
+
+func (frs *DRPCFileRetrieverServer) DownloadFile(dfr *fileretriever.DownloadFileRequest, stream fileretriever.DRPCFileRetriever_DownloadFileStream) error {
+	return frs.downloadFile(dfr, stream)
+}
+
+// DownloadFile fetches the file from database, provided the file specified in the request exists
+func (frs *FileRetrieverServer) downloadFile(dfr *fileretriever.DownloadFileRequest, stream downloadFileResponseStream) error {
 	//Fetch file info from DB
 	metadata, err := frs.FileStore.DownloadFile(dfr.GetFileId())
 	if err != nil {
@@ -61,8 +81,8 @@ func (frs *Server) DownloadFile(dfr *fileretreiver.DownloadFileRequest, stream f
 	deleted_at, _ := ptypes.TimestampProto(time.Unix(metadata.DeletedAt, 0))
 
 	// File information response
-	res := &fileretreiver.DownloadFileResponse{
-		Data: &fileretreiver.DownloadFileResponse_Info{
+	res := &fileretriever.DownloadFileResponse{
+		Data: &fileretriever.DownloadFileResponse_Info{
 			Info: &v1.FileInfo{
 				FileId:           &fid,
 				Size:             metadata.Size,
@@ -97,8 +117,8 @@ func (frs *Server) DownloadFile(dfr *fileretreiver.DownloadFileRequest, stream f
 		}
 
 		// File chunk response
-		res := &fileretreiver.DownloadFileResponse{
-			Data: &fileretreiver.DownloadFileResponse_ChunkData{
+		res := &fileretriever.DownloadFileResponse{
+			Data: &fileretriever.DownloadFileResponse_ChunkData{
 				ChunkData: chunk,
 			},
 		}
@@ -123,8 +143,20 @@ func (frs *Server) DownloadFile(dfr *fileretreiver.DownloadFileRequest, stream f
 	return nil
 }
 
+type listFileMetadataResponseStream interface {
+	Send(*fileretriever.ListFileMetadataResponse) error
+}
+
+func (frs *DRPCFileRetrieverServer) ListFileMetadata(lis *fileretriever.ListFileMetadataRequest, stream fileretriever.DRPCFileRetriever_ListFileMetadataStream) error {
+	return frs.listFileMetadata(lis, stream)
+}
+
+func (frs *FileRetrieverServer) ListFileMetadata(lis *fileretriever.ListFileMetadataRequest, stream fileretriever.FileRetriever_ListFileMetadataServer) error {
+	return frs.listFileMetadata(lis, stream)
+}
+
 // ListFileMetadata fetches list of files from database based on filters and sort conditions provided
-func (frs *Server) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, stream fileretreiver.FileRetreiver_ListFileMetadataServer) error {
+func (frs *FileRetrieverServer) listFileMetadata(lis *fileretriever.ListFileMetadataRequest, stream listFileMetadataResponseStream) error {
 
 	sortOrders := lis.GetSortBy()
 	filters := lis.GetFilterBy()
@@ -209,7 +241,7 @@ func (frs *Server) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, 
 		}
 
 		//Build response
-		response := &fileretreiver.ListFileMetadataResponse{
+		response := &fileretriever.ListFileMetadataResponse{
 			Results: &v1.FileInfo{
 				FileId:           &fileId,
 				Size:             metadata.Size,
@@ -230,7 +262,7 @@ func (frs *Server) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, 
 }
 
 // GetFileMetadata fetches the file metadata from database, provided the file specified in the request exists
-func (frs *Server) GetFileMetadata(ctx context.Context, in *fileretreiver.GetFileMetadataRequest) (*fileretreiver.GetFileMetadataResponse, error) {
+func (frs *FileRetrieverServer) GetFileMetadata(ctx context.Context, in *fileretriever.GetFileMetadataRequest) (*fileretriever.GetFileMetadataResponse, error) {
 	//Fetch file info from DB
 	metadata, err := frs.FileStore.GetFileMetadata(in.GetFileId())
 	if err != nil {
@@ -253,7 +285,7 @@ func (frs *Server) GetFileMetadata(ctx context.Context, in *fileretreiver.GetFil
 	}
 
 	// File information response
-	res := &fileretreiver.GetFileMetadataResponse{
+	res := &fileretriever.GetFileMetadataResponse{
 		Info: &v1.FileInfo{
 			FileId:           &fid,
 			Size:             metadata.Size,

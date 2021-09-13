@@ -17,26 +17,17 @@ package download
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
-	logger "log"
-	"net"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/go-logr/zapr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
-	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/server"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/clienttest"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 const bufSize = 1024 * 1024
@@ -45,89 +36,23 @@ var lis *bufconn.Listener
 var db database.Database
 var dbName = "client.db"
 
-func bufDialer(context.Context, string) (net.Conn, error) {
-	return lis.Dial()
-}
-
-func runSetup() {
-	//Initialize the mock connection and server
-	lis = bufconn.Listen(bufSize)
-	s := grpc.NewServer()
-	bs := server.Server{}
-
-	//Initialize logger
-	zapLog, err := zap.NewDevelopment()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
-	}
-	bs.Log = zapr.NewLogger(zapLog)
-
-	//Create Sqlite Database
-	gormDb, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
-	if err != nil {
-		logger.Fatalf("Error during creation of Database")
-	}
-	db.DB = gormDb
-	db.Log = bs.Log
-
-	//Create tables
-	err = db.DB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
-	if err != nil {
-		logger.Fatalf("Error during creation of Models: %v", err)
-	}
-
-	bs.FileStore = &db
-	mockSenderServer := bs
-	mockRetreiverServer := bs
-	filesender.RegisterFileSenderServer(s, &mockSenderServer)
-	fileretreiver.RegisterFileRetreiverServer(s, &mockRetreiverServer)
-
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			if err.Error() != "closed" { //When lis of type (*bufconn.Listener) is closed, server doesn't have to panic.
-				panic(err)
-			}
-		} else {
-			logger.Printf("Mock server started")
-		}
-	}()
-}
-
-func createClient() *grpc.ClientConn {
-	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
-	if err != nil {
-		logger.Fatalf("failed to dial bufnet: %v", err)
-	}
-
-	return conn
-}
-
-func shutdown(conn *grpc.ClientConn) {
-	sqlDB, err := db.DB.DB()
-	if err != nil {
-		logger.Fatalf("Error: Couldn't close Database: %v", err)
-	}
-	sqlDB.Close()
-	conn.Close()
-	os.Remove(dbName)
-	lis.Close()
-}
-
 func TestDownloadFile(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer os.Remove(dbName)
+
+	lis = bufconn.Listen(bufSize)
+	defer lis.Close()
+
 	//Initialize the server
-	runSetup()
+	clienttest.SetupServer(t, ctx, lis, &db, dbName)
+	conn := clienttest.NewDrpcClient(lis)
 
 	//Initialize connection
-	conn := createClient()
-
-	//Shutdown resources
-	defer shutdown(conn)
-
 	//Populate data on the mock server
-	populateDataset(conn, t)
+	populateDataset(t)
 
-	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
+	downloadClient := fileretriever.NewDRPCFileRetrieverClient(conn)
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
@@ -186,17 +111,20 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestBatchDownload(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer os.Remove(dbName)
+
+	lis = bufconn.Listen(bufSize)
+	defer lis.Close()
+
 	//Initialize the server
-	runSetup()
-
-	//Initialize connection
-	conn := createClient()
-
-	//Shutdown resources
-	defer shutdown(conn)
+	clienttest.SetupServer(t, ctx, lis, &db, dbName)
+	conn := clienttest.NewDrpcClient(lis)
+	defer conn.Close()
 
 	//Populate data on the mock server
-	fns := populateDataset(conn, t)
+	fns := populateDataset(t)
 
 	//Create csv files required for batch download
 	fps := createCSVFiles(fns, t)
@@ -204,7 +132,7 @@ func TestBatchDownload(t *testing.T) {
 	//Delete csv files
 	defer deleteFiles(fps)
 
-	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
+	downloadClient := fileretriever.NewDRPCFileRetrieverClient(conn)
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
@@ -338,7 +266,7 @@ func deleteFiles(fps []string) error {
 }
 
 // populateDataset uploads files to the mock server and returns the file names if upload is successful
-func populateDataset(conn *grpc.ClientConn, t *testing.T) []string {
+func populateDataset(t *testing.T) []string {
 	fns := []string{"reports.zip", "marketplace_report.zip"}
 	files := []v1.FileInfo{
 		{
@@ -371,11 +299,16 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) []string {
 		},
 	}
 
-	uploadClient := filesender.NewFileSenderClient(conn)
+	conn := clienttest.NewDrpcClient(lis)
+	defer conn.Close()
+
+	uploadClient := filesender.NewDRPCFileSenderClient(conn)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	// Upload files to mock server
 	for i := range files {
-		clientStream, err := uploadClient.UploadFile(context.Background())
+		clientStream, err := uploadClient.UploadFile(ctx)
 		if err != nil {
 			t.Fatalf("Error: During call of client.UploadFile: %v", err)
 		}
@@ -398,7 +331,11 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) []string {
 				ChunkData: bs,
 			},
 		}
-		clientStream.Send(&request)
+
+		err = clientStream.Send(&request)
+		if err != nil {
+			t.Fatalf("Error: during send: %v", err)
+		}
 
 		res, err := clientStream.CloseAndRecv()
 		if err != nil {

@@ -7,7 +7,7 @@ option java_outer_classname = "AdminServer";
 
 package adminserver;
 
-import "apis/model/model.proto";
+import "model/model.proto";
 import "google/protobuf/timestamp.proto";
 
 service AdminServer {

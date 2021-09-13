@@ -918,7 +918,7 @@ _#turnStyleStep: _#step & {
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:           "quay.io/rh-marketplace"
-_#goVersion:          "1.16.7"
+_#goVersion:          "1.16.8"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
 _#kubeBuilderVersion: "2.3.2"

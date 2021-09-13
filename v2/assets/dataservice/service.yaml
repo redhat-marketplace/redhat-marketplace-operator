@@ -2,19 +2,23 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: rhm-dqlite-tls
-  name: rhm-dqlite
+    service.beta.openshift.io/serving-cert-secret-name: rhm-data-service-tls
+  name: rhm-data-service
   labels:
-    app: rhm-dqlite
+    app: rhm-data-service
 spec:
   ports:
-  - name: https
-    port: 8002
-    protocol: TCP
-    targetPort: 8002
-  - name: db
-    port: 9001
-    protocol: TCP
-    targetPort: 9001
+    - name: grpc
+      port: 8004
+      protocol: TCP
+      targetPort: 8004
+    - name: https
+      port: 8002
+      protocol: TCP
+      targetPort: 8002
+    - name: db
+      port: 9001
+      protocol: TCP
+      targetPort: 9001
   selector:
-    app: rhm-dqlite
+    app: rhm-data-service

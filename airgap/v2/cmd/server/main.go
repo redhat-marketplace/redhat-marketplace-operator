@@ -15,8 +15,8 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,16 +24,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/server"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/scheduler"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 )
 
 var log logr.Logger
@@ -104,32 +101,28 @@ func main() {
 			}
 			sfg.StartScheduler()
 
-			lis, err := net.Listen("tcp", api)
-			if err != nil {
-				return err
-			}
+			ctx, cancel := context.WithCancel(context.Background())
 
-			defer lis.Close()
-
-			s := grpc.NewServer()
-			bs := server.Server{Log: log, FileStore: fs}
-
-			filesender.RegisterFileSenderServer(s, &bs)
-			fileretreiver.RegisterFileRetreiverServer(s, &bs)
-			adminserver.RegisterAdminServerServer(s, &bs)
+			bs := &server.Server{Log: log, FileStore: fs, TLSKey: tlsKey, TLSCert: tlsCert}
+			bs = server.WithAddress(bs, api)
+			//bs = server.WithTLS(bs, tlsKey, tlsCert)
 
 			stopCh := (&shutdownHandler{log: log}).SetupSignalHandler()
 
-			go func() {
-				if err := s.Serve(lis); err != nil {
-					panic(err)
-				}
-			}()
+			var group errgroup.Group
 
-			<-stopCh
-			cfg.Close()
+			group.Go(func() error {
+				return bs.Start(ctx)
+			})
 
-			return nil
+			// handle signals
+			group.Go(func() error {
+				<-stopCh
+				cancel()
+				return nil
+			})
+
+			return group.Wait()
 		},
 	}
 

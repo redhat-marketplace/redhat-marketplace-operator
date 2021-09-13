@@ -52,7 +52,7 @@ type Task struct {
 	Ctx       context.Context
 	Config    *Config
 	K8SScheme *runtime.Scheme
-	Uploader
+	Uploaders
 }
 
 func (r *Task) Run() error {
@@ -90,17 +90,29 @@ func (r *Task) Run() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
+	uploadStatuses := []*marketplacev1alpha1.UploadDetails{}
+
 	if r.Config.Upload {
+		logger.Info("starting file upload", "file name", fileName)
 
-		logger.Info("starting file upload","file name",fileName)
+		for _, uploader := range r.Uploaders {
+			err = uploader.UploadFile(fileName)
 
-		err = r.Uploader.UploadFile(fileName)
+			status := &marketplacev1alpha1.UploadDetails{
+				Target: uploader.Name(),
+			}
 
-		if err != nil {
-			return errors.Wrap(err, "error uploading file")
+			if err != nil {
+				logger.Error(err, "failed to upload")
+				status.Status = "failure"
+				status.Error = err.Error()
+			} else {
+				logger.Info("uploaded metrics", "metricsLength", len(metrics), "target", uploader.Name())
+				status.Status = "success"
+			}
+
+			uploadStatuses = append(uploadStatuses, status)
 		}
-
-		logger.Info("uploaded metrics", "metricsLength", len(metrics))
 	}
 
 	report := &marketplacev1alpha1.MeterReport{}
@@ -110,6 +122,7 @@ func (r *Task) Run() error {
 			HandleResult(
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
+					report.Status.UploadStatus = uploadStatuses
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
 					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))

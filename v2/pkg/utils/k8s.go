@@ -239,7 +239,9 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled: true,
+			Enabled:                       true,
+			DataServiceEnabled:            true,
+			UserWorkloadMonitoringEnabled: ptr.Bool(true),
 			Prometheus: &marketplacev1alpha1.PrometheusSpec{
 				Storage: marketplacev1alpha1.StorageSpec{
 					Size: resource.MustParse("20Gi"),

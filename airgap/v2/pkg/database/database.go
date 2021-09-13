@@ -42,7 +42,7 @@ type FileStore interface {
 }
 
 type Database struct {
-	DB  *gorm.DB
+	*gorm.DB
 	Log logr.Logger
 }
 
@@ -60,6 +60,15 @@ type Condition struct {
 type metaDataQuery struct {
 	MetaString string
 	MetaValue  []interface{}
+}
+
+func (d *Database) Close() error {
+	sqlDB, err := d.DB.DB()
+	if err != nil {
+		d.Log.Error(err, "couldn't close db")
+		return err
+	}
+	return sqlDB.Close()
 }
 
 // SaveFile allows us to save a file along with it's metadata to the database

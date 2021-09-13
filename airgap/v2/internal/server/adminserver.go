@@ -23,8 +23,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type AdminServer struct {
+	*Server
+
+	adminserver.UnimplementedAdminServerServer
+}
+
 // CleanTombstones allows us to clear file contents/ delete file records
-func (frs *Server) CleanTombstones(ctx context.Context, in *adminserver.CleanTombstonesRequest) (*adminserver.CleanTombstonesResponse, error) {
+func (frs *AdminServer) CleanTombstones(ctx context.Context, in *adminserver.CleanTombstonesRequest) (*adminserver.CleanTombstonesResponse, error) {
 
 	fileList, err := frs.FileStore.CleanTombstones(in.GetBefore(), in.GetPurgeAll())
 	if err != nil {
@@ -41,7 +47,7 @@ func (frs *Server) CleanTombstones(ctx context.Context, in *adminserver.CleanTom
 	return res, nil
 }
 
-func (frs *Server) DeleteFile(ctx context.Context, dfr *adminserver.DeleteFileRequest) (*adminserver.DeleteFileResponse, error) {
+func (frs *AdminServer) DeleteFile(ctx context.Context, dfr *adminserver.DeleteFileRequest) (*adminserver.DeleteFileResponse, error) {
 
 	err := frs.FileStore.TombstoneFile(dfr.GetFileId())
 	if err != nil {

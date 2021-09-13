@@ -17,6 +17,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"emperror.dev/errors"
@@ -26,12 +27,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type WorkloadType string
-
 const (
 	WorkloadTypePod     WorkloadType = "Pod"
 	WorkloadTypeService WorkloadType = "Service"
 	WorkloadTypePVC     WorkloadType = "PersistentVolumeClaim"
+
+	MetricTypeBillable MetricType = "billable"
+	MetricTypeLicense  MetricType = "license"
+	MetricTypeAdoption MetricType = "adoption"
+	MetricTypeEmpty    MetricType = ""
 )
 
 type MeterDefPrometheusLabels struct {
@@ -41,7 +45,7 @@ type MeterDefPrometheusLabels struct {
 
 	// Deprecated: metric is now the primary name
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name" template:""`
-	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
+	WorkloadType      WorkloadType  `json:"workload_type" mapstructure:"workload_type"`
 	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group" template:""`
 	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind" template:""`
 	Metric            string        `json:"metric_label" mapstructure:"metric_label" template:""`
@@ -50,6 +54,7 @@ type MeterDefPrometheusLabels struct {
 	MetricQuery       string        `json:"metric_query" mapstructure:"metric_query"`
 	MetricWithout     JSONArray     `json:"metric_without" mapstructure:"metric_without"`
 	MetricGroupBy     JSONArray     `json:"metric_group_by,omitempty" mapstructure:"metric_group_by"`
+	MetricType        MetricType    `json:"metric_type,omitempty" mapstructure:"metric_type"`
 
 	ResourceName      string `json:"resource_name,omitempty"`
 	ResourceNamespace string `json:"resource_namespace,omitempty"`
@@ -148,12 +153,12 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 		var ok bool
 		var objName interface{}
 
-		switch {
-		case m.WorkloadType == string(WorkloadTypePVC):
+		switch m.WorkloadType {
+		case WorkloadTypePVC:
 			objName, ok = values.Label["persistentvolumeclaim"]
-		case m.WorkloadType == string(WorkloadTypePod):
+		case WorkloadTypePod:
 			objName, ok = values.Label["pod"]
-		case m.WorkloadType == string(WorkloadTypeService):
+		case WorkloadTypeService:
 			objName, ok = values.Label["service"]
 		}
 
@@ -322,8 +327,9 @@ type Result struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:generate:=true
 type ResultValues struct {
-	Timestamp int64  `json:"timestamp"`
-	Value     string `json:"value"`
+	Timestamp int64             `json:"timestamp"`
+	Value     string            `json:"value"`
+	Labels    map[string]string `json:"labels"`
 }
 
 // Target is used by meterbase as a list of prometheus activeTargets with failed health, without DiscoveredLabels
@@ -335,4 +341,38 @@ type Target struct {
 	LastError  string                    `json:"lastError"`
 	LastScrape string                    `json:"lastScrape"`
 	Health     prometheusv1.HealthStatus `json:"health"`
+}
+
+type MetricType string
+
+func (a *MetricType) UnmarshalJSON(b []byte) error {
+	str, err := strconv.Unquote(string(b))
+
+	if err != nil {
+		return err
+	}
+
+	*a = MetricType(str)
+	return nil
+}
+
+func (a MetricType) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(string(a))), nil
+}
+
+type WorkloadType string
+
+func (a *WorkloadType) UnmarshalJSON(b []byte) error {
+	str, err := strconv.Unquote(string(b))
+
+	if err != nil {
+		return err
+	}
+
+	*a = WorkloadType(str)
+	return nil
+}
+
+func (a WorkloadType) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(string(a))), nil
 }

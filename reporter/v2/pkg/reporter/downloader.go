@@ -21,14 +21,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"golang.org/x/oauth2"
-	"google.golang.org/grpc"
-
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/oauth"
 
 	"os"
 	"path/filepath"
@@ -44,66 +39,47 @@ type Downloader interface {
 }
 
 type DataServiceDownloader struct {
+	Ctx context.Context
 	DataServiceConfig
-	FileRetreiverClient fileretreiver.FileRetreiverClient
+	FileRetrieverClient fileretriever.FileRetrieverClient
 }
 
-func NewDataServiceDownloader(dataServiceConfig *DataServiceConfig) (Downloader, error) {
-	fileRetreiverClient, err := createDataServiceDownloadClient(dataServiceConfig)
+func NewDataServiceDownloader(ctx context.Context, dataServiceConfig *DataServiceConfig) (Downloader, error) {
+	client, err := createDataServiceDownloadClient(ctx, dataServiceConfig)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &DataServiceDownloader{
-		FileRetreiverClient: fileRetreiverClient,
+		FileRetrieverClient: client,
 		DataServiceConfig:   *dataServiceConfig,
 	}, nil
 }
 
-func createDataServiceDownloadClient(dataServiceConfig *DataServiceConfig) (fileretreiver.FileRetreiverClient, error) {
-
+func createDataServiceDownloadClient(ctx context.Context, dataServiceConfig *DataServiceConfig) (fileretriever.FileRetrieverClient, error) {
 	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
-	options := []grpc.DialOption{}
+	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert, dataServiceConfig.DataServiceToken)
 
-	/* create tls */
-	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
-	if err != nil {
-		logger.Error(err, "failed to create creds")
-		return nil, err
-	}
-
-	options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
-
-	/* create oauth2 token  */
-	oauth2Token := &oauth2.Token{
-		AccessToken: dataServiceConfig.DataServiceToken,
-	}
-
-	perRPC := oauth.NewOauthAccess(oauth2Token)
-	options = append(options, grpc.WithPerRPCCredentials(perRPC))
-
-	conn, err := grpc.Dial(dataServiceConfig.Address, options...)
 	if err != nil {
 		logger.Error(err, "failed to establish connection")
 		return nil, err
 	}
 
-	client := fileretreiver.NewFileRetreiverClient(conn)
-
-	return client, nil
+	return fileretriever.NewFileRetrieverClient(conn), nil
 }
 
 func (d *DataServiceDownloader) ListFiles() ([]string, error) {
-	var req *fileretreiver.ListFileMetadataRequest
+	var req *fileretriever.ListFileMetadataRequest
 
 	fileList := []string{}
 
-	req = &fileretreiver.ListFileMetadataRequest{
+	req = &fileretriever.ListFileMetadataRequest{
 		IncludeDeletedFiles: false,
 	}
 
-	resultStream, err := d.FileRetreiverClient.ListFileMetadata(context.Background(), req)
+	resultStream, err := d.FileRetrieverClient.ListFileMetadata(context.Background(), req)
 	if err != nil {
 		return fileList, fmt.Errorf("error while opening stream: %v", err)
 	}
@@ -125,13 +101,13 @@ func (d *DataServiceDownloader) ListFiles() ([]string, error) {
 
 func (d *DataServiceDownloader) DownloadFile(path string) (string, error) {
 	fn := strings.TrimSpace(path)
-	var req *fileretreiver.DownloadFileRequest
+	var req *fileretriever.DownloadFileRequest
 
 	// Validate input and prepare request
 	if len(fn) == 0 {
 		return "", fmt.Errorf("file id/name is blank")
 	} else {
-		req = &fileretreiver.DownloadFileRequest{
+		req = &fileretriever.DownloadFileRequest{
 			FileId: &v1.FileID{
 				Data: &v1.FileID_Name{
 					Name: fn},
@@ -140,7 +116,7 @@ func (d *DataServiceDownloader) DownloadFile(path string) (string, error) {
 		}
 	}
 
-	resultStream, err := d.FileRetreiverClient.DownloadFile(context.Background(), req)
+	resultStream, err := d.FileRetrieverClient.DownloadFile(context.Background(), req)
 	if err != nil {
 		return "", fmt.Errorf("failed to attempt download due to: %v", err)
 	}
@@ -181,6 +157,6 @@ func ProvideDownloader(
 		return nil, err
 	}
 
-	return NewDataServiceDownloader(dataServiceConfig)
+	return NewDataServiceDownloader(ctx, dataServiceConfig)
 
 }

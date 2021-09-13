@@ -23,11 +23,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"golang.org/x/oauth2"
-	"google.golang.org/grpc"
-
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/oauth"
 )
 
 func (u *DataServiceAdmin) Name() string {
@@ -43,8 +38,8 @@ type DataServiceAdmin struct {
 	AdminServerClient adminserver.AdminServerClient
 }
 
-func NewDataServiceAdmin(dataServiceConfig *DataServiceConfig) (Admin, error) {
-	adminServerClient, err := createDataServiceAdminClient(dataServiceConfig)
+func NewDataServiceAdmin(ctx context.Context, dataServiceConfig *DataServiceConfig) (Admin, error) {
+	adminServerClient, err := createDataServiceAdminClient(ctx, dataServiceConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -55,38 +50,17 @@ func NewDataServiceAdmin(dataServiceConfig *DataServiceConfig) (Admin, error) {
 	}, nil
 }
 
-func createDataServiceAdminClient(dataServiceConfig *DataServiceConfig) (adminserver.AdminServerClient, error) {
-
+func createDataServiceAdminClient(ctx context.Context, dataServiceConfig *DataServiceConfig) (adminserver.AdminServerClient, error) {
 	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
-	options := []grpc.DialOption{}
+	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert, dataServiceConfig.DataServiceToken)
 
-	/* create tls */
-	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
-	if err != nil {
-		logger.Error(err, "failed to create creds")
-		return nil, err
-	}
-
-	options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
-
-	/* create oauth2 token  */
-	oauth2Token := &oauth2.Token{
-		AccessToken: dataServiceConfig.DataServiceToken,
-	}
-
-	perRPC := oauth.NewOauthAccess(oauth2Token)
-	options = append(options, grpc.WithPerRPCCredentials(perRPC))
-
-	conn, err := grpc.Dial(dataServiceConfig.Address, options...)
 	if err != nil {
 		logger.Error(err, "failed to establish connection")
 		return nil, err
 	}
 
-	client := adminserver.NewAdminServerClient(conn)
-
-	return client, nil
+	return adminserver.NewAdminServerClient(conn), nil
 }
 
 func (d *DataServiceAdmin) DeleteFile(path string) error {
@@ -125,6 +99,5 @@ func ProvideAdmin(
 		return nil, err
 	}
 
-	return NewDataServiceAdmin(dataServiceConfig)
-
+	return NewDataServiceAdmin(ctx, dataServiceConfig)
 }

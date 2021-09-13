@@ -244,6 +244,8 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
 // +kubebuilder:rbac:urls=/metrics,verbs=get
+// +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -1747,14 +1749,23 @@ func labelsForPrometheusOperator(name string) map[string]string {
 }
 
 func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase) (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob(r.cfg.ReportController.RetryLimit)
+	cronJob, err := r.factory.NewReporterCronJob()
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, cronJob, func() error {
+			orig, err := r.factory.NewReporterCronJob()
+			if err != nil {
+				return err
+			}
 			r.factory.SetControllerReference(instance, cronJob)
-			return r.factory.UpdateReporterCronJob(cronJob, r.cfg.ReportController.RetryLimit)
+
+			if !reflect.DeepEqual(cronJob.Spec.JobTemplate, orig.Spec.JobTemplate) {
+				cronJob.Spec.JobTemplate = orig.Spec.JobTemplate
+			}
+
+			return nil
 		})
 		return err
 	})
@@ -1766,7 +1777,7 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 }
 
 func (r *MeterBaseReconciler) deleteReporterCronJob() (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob(r.cfg.ReportController.RetryLimit)
+	cronJob, err := r.factory.NewReporterCronJob()
 	if err != nil {
 		return reconcile.Result{}, err
 	}

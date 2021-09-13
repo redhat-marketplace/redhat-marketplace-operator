@@ -7,7 +7,7 @@ option java_outer_classname = "FileSender";
 
 package filesender;
 
-import "apis/model/model.proto";
+import "model/model.proto";
 
 service FileSender {
   rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse) {};
