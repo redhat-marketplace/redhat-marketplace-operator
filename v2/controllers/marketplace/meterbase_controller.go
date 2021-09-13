@@ -322,7 +322,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
 	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
-		userWorkloadMonitoringEnabledSpec = false // TODO: 2.3.0++ change back when downstream can support
+		userWorkloadMonitoringEnabledSpec = true
 	} else {
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
@@ -426,6 +426,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if userWorkloadMonitoringEnabled {
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
+			Do(r.createTokenSecret(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.installUserWorkloadMonitoring(instance)...),
@@ -454,9 +455,9 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 		prometheus := &monitoringv1.Prometheus{}
 		if result, _ := cc.Do(context.TODO(),
+			Do(r.createTokenSecret(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.reconcilePrometheusOperator(instance)...),
-			Do(r.createTokenSecret(instance)...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
 			Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
