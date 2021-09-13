@@ -24,7 +24,6 @@ import (
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -179,8 +178,6 @@ func (c *CatalogClient) Ping(reqLogger logr.Logger) error {
 		return err
 	}
 
-	reqLogger.Info("making call to", "url", url.String())
-
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
 		return err
@@ -194,14 +191,12 @@ func (c *CatalogClient) Ping(reqLogger logr.Logger) error {
 }
 
 func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
-	reqLogger.Info("retrieving meterdefinitions", "csvName", csvName, "csvVersion", version)
+	reqLogger.Info("retrieving community meterdefinitions", "csvName", csvName, "csvVersion", version)
 
 	url, err := concatPaths(c.Endpoint.String(), ListForVersionEndpoint, csvName, version, namespace)
 	if err != nil {
 		return nil, err
 	}
-
-	reqLogger.Info("making call to", "url", url.String())
 
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
@@ -231,8 +226,6 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, err
 	}
 
-	reqLogger.Info("response data", "data", string(responseData))
-
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&mdefSlice)
 	if err != nil {
 		reqLogger.Error(err, "error decoding response from ListMeterdefinitions()")
@@ -255,8 +248,6 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 	if err != nil {
 		return nil, err
 	}
-
-	reqLogger.Info("call system meterdef endpoint", "url", url.String())
 
 	response, err := c.HttpClient.Post(url.String(),
 		"application/json", bytes.NewBuffer(requestBody))
@@ -289,8 +280,6 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 
-	reqLogger.Info("response data from GetSystemMeterdefinitions()", "data", string(responseData))
-
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&mdefSlice)
@@ -302,15 +291,13 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 	return mdefSlice, nil
 }
 
-func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
-	reqLogger.Info("retrieving meterdefinition index label")
+func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
+	reqLogger.Info("retrieving community meterdefinition index label")
 
 	url, err := concatPaths(c.Endpoint.String(), GetMeterdefinitionIndexLabelEndpoint, csvName)
 	if err != nil {
 		return nil, err
 	}
-
-	reqLogger.Info("calling file server for meterdef index labels", "url", url.String())
 
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
@@ -333,8 +320,6 @@ func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName st
 		reqLogger.Error(err, "error reading body")
 		return nil, err
 	}
-
-	reqLogger.Info("response data", "data", string(data))
 
 	labels := map[string]string{}
 	err = json.Unmarshal(data, &labels)
@@ -353,8 +338,6 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvN
 		return nil, err
 	}
 
-	reqLogger.Info("calling file server for system meterdef index labels", "url", url.String())
-
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
 		return nil, err
@@ -376,8 +359,6 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvN
 		reqLogger.Error(err, "error reading body")
 		return nil, err
 	}
-
-	reqLogger.Info("response data", "data", string(data))
 
 	labels := map[string]string{}
 	err = json.Unmarshal(data, &labels)

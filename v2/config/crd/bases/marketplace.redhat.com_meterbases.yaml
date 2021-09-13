@@ -85,23 +85,26 @@ spec:
             meterdefinitionCatalogServer:
               description: MeterdefinitionCatalogServer deployment configuration.
               properties:
-                catalogServerEnabled:
-                  description: MeterdefinitionCatalogServerEnabled is the flag that
-                    controls if the meterbase controller will deploy the resources
-                    needed to create the Meterdefinition Catalog Server. Setting enabled
-                    to "true" wil install a DeploymentConfig, ImageStream, and Service.
-                    False will suspend controller operations for the Catalog Server.
+                deployMeterDefinitionCatalogServer:
+                  description: DeployFileServer controls whether the deploymentconfig
+                    controller will deploy the resources needed to create the Meterdefinition
+                    Catalog Server. The Catalog Server will look for changes to an
+                    image repository and pull down the latest Image when a change
+                    is detected. Setting DeployFileServer to "true" wil install a
+                    DeploymentConfig, ImageStream, and Service.
                   type: boolean
-                licenceUsageMeteringEnabled:
-                  description: LicenceUsageMeteringEnabled is the flag that controls
-                    if Metering for Licensed products is active. Setting enabled to
-                    "true" Meterdefintions that will meter your cluster based on pre-determined
-                    metering defintions. False will suspend controller metering for
-                    licensed products.
+                syncCommunityMeterDefinitions:
+                  description: SyncCommunityMeterDefinitions represents the enablement
+                    of the Meterdefinition Catalog Server with a directive to sync
+                    community meterdefinitions from the meterdefinition catalog, defaults
+                    to true when not set
                   type: boolean
-              required:
-              - catalogServerEnabled
-              - licenceUsageMeteringEnabled
+                syncSystemMeterDefinitions:
+                  description: SyncSystemMeterDefinitions represents the enablement
+                    of the Meterdefinition Catalog Server with a directive to sync
+                    system meterdefinitions from the meterdefinition catalog, defaults
+                    to true when not set
+                  type: boolean
               type: object
             prometheus:
               description: Prometheus deployment configuration.

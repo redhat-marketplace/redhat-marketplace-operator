@@ -103,7 +103,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	}
 
 	// catalog server not enabled, stop reconciling
-	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+	if !*instance.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
 		reqLogger.Info("catalog server isn't enabled, stopping reconcile")
 		return reconcile.Result{}, nil
 	}
@@ -157,17 +157,19 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					return reconcile.Result{},err
 				}
 
-				communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
-				if err != nil {
-					return reconcile.Result{}, err
+				if *instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+					communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+
+					result := r.createMeterDefs(communityMeterdefs, csvName, csvVersion, CSV, reqLogger)
+					if !result.Is(Continue) {
+						return result.Return()
+					}
 				}
 
-				result := r.createMeterDefs(communityMeterdefs, csvName, csvVersion, CSV, reqLogger)
-				if !result.Is(Continue) {
-					return result.Return()
-				}
-
-				if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+				if *instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
 					reqLogger.Info("system meterdefs enabled")
 					
 					systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
@@ -175,7 +177,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{}, err
 					}
 
-					result = r.createMeterDefs(systemMeterDefs, csvName, csvVersion, CSV, reqLogger)
+					result := r.createMeterDefs(systemMeterDefs, csvName, csvVersion, CSV, reqLogger)
 					if !result.Is(Continue) {
 						return result.Return()
 					}

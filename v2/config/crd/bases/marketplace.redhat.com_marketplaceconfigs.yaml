@@ -73,16 +73,32 @@ spec:
                   description: Deployment represents the enablement of the razee deployment,
                     defaults to true when not set
                   type: boolean
-                licenseUsageMetering:
-                  description: LicenseUsageMetering represents the enablement of the
-                    usage metering for licensed products, defaults to true when not
-                    set
-                  type: boolean
-                meterdefinitionCatalogServer:
-                  description: MeterdefinitionCatalogServer represents the enablement
-                    of the Meterdefinition Catalog Server, defaults to true when not
-                    set
-                  type: boolean
+                meterDefinitionCatalogServer:
+                  description: MeterDefinitionCatlaogServer holds feature flags for
+                    the meterdefinition catalog server
+                  properties:
+                    deployMeterDefinitionCatalogServer:
+                      description: DeployFileServer controls whether the deploymentconfig
+                        controller will deploy the resources needed to create the
+                        Meterdefinition Catalog Server. The Catalog Server will look
+                        for changes to an image repository and pull down the latest
+                        Image when a change is detected. Setting DeployFileServer
+                        to "true" wil install a DeploymentConfig, ImageStream, and
+                        Service.
+                      type: boolean
+                    syncCommunityMeterDefinitions:
+                      description: SyncCommunityMeterDefinitions represents the enablement
+                        of the Meterdefinition Catalog Server with a directive to
+                        sync community meterdefinitions from the meterdefinition catalog,
+                        defaults to true when not set
+                      type: boolean
+                    syncSystemMeterDefinitions:
+                      description: SyncSystemMeterDefinitions represents the enablement
+                        of the Meterdefinition Catalog Server with a directive to
+                        sync system meterdefinitions from the meterdefinition catalog,
+                        defaults to true when not set
+                      type: boolean
+                  type: object
                 registration:
                   description: Registration represents the enablement of the registration
                     watchkeeper deployment, defaults to true when not set

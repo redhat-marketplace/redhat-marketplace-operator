@@ -34,19 +34,42 @@ type Features struct {
 	// +optional
 	Registration *bool `json:"registration,omitempty"`
 
-	// MeterdefinitionCatalogServer represents the enablement of the Meterdefinition Catalog Server, defaults to true when not set
+	//MeterDefinitionCatlaogServer holds feature flags for the meterdefinition catalog server
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Razee deployment?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	// +optional
+	MeterDefinitionCatalogServer MeterDefinitionCatalogServer `json:"meterDefinitionCatalogServer,omitempty"`
+}
+
+// MeterDefinitionCatalogServer represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
+// +kubebuilder:object:generate:=true
+type MeterDefinitionCatalogServer struct {
+	// SyncCommunityMeterDefinitions represents the enablement of the Meterdefinition Catalog Server with a directive to sync community meterdefinitions from the meterdefinition catalog, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Community Meterdefinition Catalog Server?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	// +optional
-	MeterdefinitionCatalogServer *bool `json:"meterdefinitionCatalogServer,omitempty"`
+	SyncCommunityMeterDefinitions *bool `json:"syncCommunityMeterDefinitions,omitempty"`
 
-	// LicenseUsageMetering represents the enablement of the usage metering for licensed products, defaults to true when not set
+	// SyncSystemMeterDefinitions represents the enablement of the Meterdefinition Catalog Server with a directive to sync system meterdefinitions from the meterdefinition catalog, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable License Usage Metering?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	// +optional
-	LicenseUsageMetering *bool `json:"licenseUsageMetering,omitempty"`
+	SyncSystemMeterDefinitions *bool `json:"syncSystemMeterDefinitions,omitempty"`
+
+	// DeployFileServer controls whether the deploymentconfig controller will deploy the resources needed 
+	// to create the Meterdefinition Catalog Server. The Catalog Server will look for changes to an image repository and pull down the latest
+	// Image when a change is detected.
+	// Setting DeployFileServer to "true" wil install a DeploymentConfig, ImageStream, and Service. 
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable License Usage Metering?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	// +optional
+	DeployMeterDefinitionCatalogServer *bool `json:"deployMeterDefinitionCatalogServer,omitempty"`
 }

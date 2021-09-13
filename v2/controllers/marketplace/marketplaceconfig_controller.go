@@ -130,8 +130,11 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.Features = &common.Features{
 			Deployment:   ptr.Bool(true),
 			Registration: ptr.Bool(true),
-			MeterdefinitionCatalogServer: ptr.Bool(true),
-			LicenseUsageMetering: ptr.Bool(true),
+			MeterDefinitionCatalogServer: common.MeterDefinitionCatalogServer{
+				SyncCommunityMeterDefinitions: ptr.Bool(true),
+				SyncSystemMeterDefinitions: ptr.Bool(true),
+				DeployMeterDefinitionCatalogServer: ptr.Bool(true),
+			},
 		}
 	} else {
 		if marketplaceConfig.Spec.Features.Deployment == nil {
@@ -141,12 +144,16 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
 		}
 
-		if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil {
-			marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
+		if marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions == nil {
+			marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(true)
 		}
 
-		if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
-			marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
+		if marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions == nil {
+			marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(true)
+		}
+
+		if marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer == nil {
+			marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(true)
 		}
 	}
 
@@ -391,6 +398,20 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		updateInstanceSpec = true
 		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 	}
+	
+	if !*marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
+		if *marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions != false {
+			updateInstanceSpec = true
+			*marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions = false
+		}
+
+		if *marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions != false {
+			updateInstanceSpec = true
+			*marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions = false
+		}
+		
+		reqLogger.Info("latest marketplaceconfig DeployMeterDefinitionCatalogServer is disabled, updating marketplaceconfig")
+	}	
 
 	if updateInstanceSpec {
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
@@ -564,15 +585,23 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("found meterbase")
 
 	if foundMeterBase.Spec.MeterdefinitionCatalogServer == nil {
-		foundMeterBase.Spec.MeterdefinitionCatalogServer = &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-			MeterdefinitionCatalogServerEnabled: *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer,
-			LicenceUsageMeteringEnabled: *marketplaceConfig.Spec.Features.LicenseUsageMetering,
+		foundMeterBase.Spec.MeterdefinitionCatalogServer =  &common.MeterDefinitionCatalogServer{
+			SyncCommunityMeterDefinitions: marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions,
+			SyncSystemMeterDefinitions: marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions,
+			DeployMeterDefinitionCatalogServer: marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer,
 		}
 	}
 
 	updatedMeterBase := foundMeterBase.DeepCopy()
-	updatedMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer
-	updatedMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = *marketplaceConfig.Spec.Features.LicenseUsageMetering
+	updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions
+	updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions
+	updatedMeterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer
+
+	if !*updatedMeterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
+		reqLogger.Info("marketplaceconfig DeployMeterDefinitionCatalogServer is set to false")
+		*updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = false
+		*updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = false
+	}
 	
 	if !reflect.DeepEqual(foundMeterBase, updatedMeterBase) {
 

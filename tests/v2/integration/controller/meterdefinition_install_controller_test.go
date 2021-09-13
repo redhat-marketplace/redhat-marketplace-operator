@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	ks8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -70,9 +71,10 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 						},
 						Replicas: ptr.Int32(2),
 					},
-					MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-						MeterdefinitionCatalogServerEnabled: true,
-						LicenceUsageMeteringEnabled:         true,
+					MeterdefinitionCatalogServer: &common.MeterDefinitionCatalogServer{
+						SyncCommunityMeterDefinitions: ptr.Bool(true),
+						SyncSystemMeterDefinitions: ptr.Bool(true),
+						DeployMeterDefinitionCatalogServer: ptr.Bool(true),
 					},
 				},
 			}
@@ -85,21 +87,22 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 			}
 
 			if meterBase.Spec.MeterdefinitionCatalogServer == nil {
-				meterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = true
-				meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = true
+				meterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(true)
+				meterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(true)
+				meterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(true)
 				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
 			}
 
-			if !meterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+			if !*meterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
 				fmt.Println("updating MeterdefinitionCatalogServerEnabled")
-				meterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = true
+				meterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(true)
 				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
 				time.Sleep(time.Second * 30)
 			}
 
-			if !meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+			if !*meterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
 				fmt.Println("updating LicenceUsageMeteringEnabled")
-				meterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = true
+				meterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(true)
 				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
 			}
 			
@@ -163,7 +166,7 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 					}
 
 					return mdefNames
-				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1")
+				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","memcached-operator.v0.0.1-test-global-meterdef-pod-count-1", "memcached-operator.v0.0.1-test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1")
 			})
 		})
 
@@ -206,7 +209,7 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 					}
 
 					return mdefNames
-				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1 during update")
+				}, timeout, interval).Should(ContainElements("memcached-meterdef-1","memcached-operator.v0.0.1-test-global-meterdef-pod-count-1", "memcached-operator.v0.0.1-test-global-meterdef-pod-count-2"),"apply meterdefs for 0.0.1 during update")
 
 				fmt.Println("upgrading to v0.0.2")
 				Eventually(func() bool {
@@ -285,7 +288,7 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 
 					return mdefNames
 				}, timeout, interval).Should(And(
-					ContainElements("memcached-meterdef-2","test-global-meterdef-pod-count-1", "test-global-meterdef-pod-count-2"),
+					ContainElements("memcached-meterdef-2","memcached-operator.v0.0.2-test-global-meterdef-pod-count-1", "memcached-operator.v0.0.2-test-global-meterdef-pod-count-2"),
 					Not(ContainElement("memcached-meterdef-1")),
 				),"apply meterdefs for 0.0.2")
 			})

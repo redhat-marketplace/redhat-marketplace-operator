@@ -72,8 +72,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		features = &common.Features{
 			Deployment: ptr.Bool(true),
-			MeterdefinitionCatalogServer: ptr.Bool(true),
-			LicenseUsageMetering: ptr.Bool(true),
+			Registration: ptr.Bool(true),
+			MeterDefinitionCatalogServer: common.MeterDefinitionCatalogServer{
+				SyncCommunityMeterDefinitions: ptr.Bool(true),
+				SyncSystemMeterDefinitions: ptr.Bool(true),
+				DeployMeterDefinitionCatalogServer: ptr.Bool(true),
+			},
 		}
 
 		deployedNamespace = &corev1.Namespace{

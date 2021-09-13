@@ -40,32 +40,32 @@ import (
 var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	var (
-
-		namespace                     = "default"
+		namespace = "default"
 
 		/* rhm csv */
-		csvName                       = "test-csv-1.v0.0.1"
-		csvSplitName                  = "test-csv-1"
-		csvVersion    				  = "0.0.1"
-		subName 					  = "test-csv-1-sub"
-		packageName  				  = "test-csv-1-rhmp"
-		catalogSourceName             = "redhat-marketplace"
+		csvName = "test-csv-1.v0.0.1"
+		// csvSplitName                  = "test-csv-1"
+		csvVersion        = "0.0.1"
+		subName           = "test-csv-1-sub"
+		packageName       = "test-csv-1-rhmp"
+		catalogSourceName = "redhat-marketplace"
 
 		/* non-rhm csv */
-		nonRhmCsvName 				  = "non-rhm-csv.v0.0.1"
-		nonRhmSubNmae 				  = "non-rhm-sub"
-		nonRhmPackageName 			  = "non-rhm-package"
-		nonRhmCatalogSourceName       = "non-rhm-catalog-source"
+		nonRhmCsvName           = "non-rhm-csv.v0.0.1"
+		nonRhmSubNmae           = "non-rhm-sub"
+		nonRhmPackageName       = "non-rhm-package"
+		nonRhmCatalogSourceName = "non-rhm-catalog-source"
 
 		/* system meterdefs */
-		systemMeterDefName 			  = csvName + "-" + "pod-count"
+		systemMeterDefName  = csvName + "-" + "pod-count"
+		systemMeterDef2Name = csvName + "-" + "cpu-usage"
 
-		listMeterDefsForCsvPath       = "/" + catalog.ListForVersionEndpoint + "/" + csvSplitName + "/" + csvVersion + "/" + namespace
-		indexLabelsPath               = "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + csvName
-		systemMeterDefIndexLabelsPath = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName
-		indexLabelsBody               []byte
-		systemMeterDefIndexLabelsBody []byte
-		dcControllerMockServer        *ghttp.Server
+		listMeterDefsForCsvPath          = "/" + catalog.ListForVersionEndpoint + "/" + csvName + "/" + csvVersion + "/" + namespace
+		indexLabelsPath                  = "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + csvName
+		systemMeterDefIndexLabelsPath    = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName
+		communityMeterDefIndexLabelsBody []byte
+		systemMeterDefIndexLabelsBody    []byte
+		dcControllerMockServer           *ghttp.Server
 	)
 
 	idFn := func(element interface{}) string {
@@ -83,17 +83,66 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 	}
 
 	systemMeterDefKey := types.NamespacedName{
-		Name: systemMeterDefName,
+		Name:      systemMeterDefName,
 		Namespace: namespace,
 	}
 
-	systemMeterDef := marketplacev1beta1.MeterDefinition{
+	systemMeterDef1 := marketplacev1beta1.MeterDefinition{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "MeterDefinition",
 			APIVersion: "marketplace.redhat.com/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      systemMeterDefName,
+			Namespace: "default",
+			Annotations: map[string]string{
+				"versionRange": "<=0.0.1",
+			},
+			Labels: map[string]string{
+				"marketplace.redhat.com/installedOperatorNameTag": csvName,
+				"marketplace.redhat.com/isSystemMeterDefinition":  "1",
+			},
+		},
+		Spec: marketplacev1beta1.MeterDefinitionSpec{
+			Group: "apps.partner.metering.com",
+			Kind:  "App",
+			ResourceFilters: []marketplacev1beta1.ResourceFilter{
+				{
+					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
+						GroupVersionKind: common.GroupVersionKind{
+							APIVersion: "test_package_1.com/v2",
+							Kind:       "test_package_1Cluster",
+						},
+					},
+					Namespace: &marketplacev1beta1.NamespaceFilter{
+						UseOperatorGroup: true,
+					},
+				},
+			},
+			Meters: []marketplacev1beta1.MeterWorkload{
+				{
+					Aggregation: "sum",
+					GroupBy:     []string{"namespace"},
+					Period: &metav1.Duration{
+						Duration: time.Duration(time.Hour * 1),
+					},
+					Query:        "kube_service_labels{}",
+					Metric:       "test_package_1_cluster_count",
+					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
+				},
+			},
+		},
+	}
+
+	systemMeterDef2 := marketplacev1beta1.MeterDefinition{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "MeterDefinition",
+			APIVersion: "marketplace.redhat.com/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      systemMeterDef2Name,
 			Namespace: "default",
 			Annotations: map[string]string{
 				"versionRange": "<=0.0.1",
@@ -247,9 +296,10 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				},
 				Replicas: ptr.Int32(2),
 			},
-			MeterdefinitionCatalogServer: &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-				MeterdefinitionCatalogServerEnabled: true,
-				LicenceUsageMeteringEnabled:         true,
+			MeterdefinitionCatalogServer: &common.MeterDefinitionCatalogServer{
+				SyncCommunityMeterDefinitions:      ptr.Bool(true),
+				SyncSystemMeterDefinitions:         ptr.Bool(true),
+				DeployMeterDefinitionCatalogServer: ptr.Bool(true),
 			},
 		},
 	}
@@ -270,7 +320,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Name:      csvName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"operatorframework.io/properties": fmt.Sprintf(`{"properties":[{"type":"olm.gvk","value":{"group":"app.joget.com","kind":"JogetDX","version":"v1alpha1"}},{"type":"olm.package","value":{"packageName":"%v","version":"0.0.1"}}]}`,packageName),
+				"operatorframework.io/properties": fmt.Sprintf(`{"properties":[{"type":"olm.gvk","value":{"group":"app.joget.com","kind":"JogetDX","version":"v1alpha1"}},{"type":"olm.package","value":{"packageName":"%v","version":"0.0.1"}}]}`, packageName),
 			},
 		},
 		Spec: olmv1alpha1.ClusterServiceVersionSpec{
@@ -295,7 +345,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Name:      nonRhmCsvName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"operatorframework.io/properties": fmt.Sprintf(`{"properties":[{"type":"olm.gvk","value":{"group":"app.joget.com","kind":"JogetDX","version":"v1alpha1"}},{"type":"olm.package","value":{"packageName":"%v","version":"0.0.1"}}]}`,nonRhmPackageName),
+				"operatorframework.io/properties": fmt.Sprintf(`{"properties":[{"type":"olm.gvk","value":{"group":"app.joget.com","kind":"JogetDX","version":"v1alpha1"}},{"type":"olm.package","value":{"packageName":"%v","version":"0.0.1"}}]}`, nonRhmPackageName),
 			},
 		},
 		Spec: olmv1alpha1.ClusterServiceVersionSpec{
@@ -450,9 +500,9 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Expect(k8sClient.Create(context.TODO(), dc)).Should(SucceedOrAlreadyExist, "create test deploymentconfig")
 		Expect(k8sClient.Create(context.TODO(), is)).Should(SucceedOrAlreadyExist, "create test image stream")
 		Expect(k8sClient.Create(context.TODO(), service)).Should(SucceedOrAlreadyExist, "create file server service")
-		Expect(k8sClient.Create(context.TODO(),catalogSource.DeepCopy())).Should(Succeed(),"create catalog source")
+		Expect(k8sClient.Create(context.TODO(), catalogSource.DeepCopy())).Should(Succeed(), "create catalog source")
 
-		indexLabelsBody = []byte(fmt.Sprintf(`{
+		communityMeterDefIndexLabelsBody = []byte(fmt.Sprintf(`{
 				"marketplace.redhat.com/installedOperatorNameTag": "%v",
 				"marketplace.redhat.com/isCommunityMeterdefintion": "1"
 			}`, csvName))
@@ -460,7 +510,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		dcControllerMockServer.RouteToHandler(
 			"GET", indexLabelsPath, ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", indexLabelsPath),
-				ghttp.RespondWithPtr(&Status200, &indexLabelsBody),
+				ghttp.RespondWithPtr(&Status200, &communityMeterDefIndexLabelsBody),
 			))
 
 		systemMeterDefIndexLabelsBody = []byte(fmt.Sprintf(`{
@@ -472,19 +522,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			"GET", systemMeterDefIndexLabelsPath, ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", systemMeterDefIndexLabelsPath),
 				ghttp.RespondWithPtr(&Status200, &systemMeterDefIndexLabelsBody),
-			))
-
-		returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef.DeepCopy()}
-
-		systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-		dcControllerMockServer.RouteToHandler(
-			"POST", systemMeterdefsPath, ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", systemMeterdefsPath),
-				ghttp.RespondWithPtr(&Status200, &systemMeterDefBody),
 			))
 	})
 
@@ -500,8 +537,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		k8sClient.Delete(context.TODO(), _meterDef2)
 
 		_systemMeterDef := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(),types.NamespacedName{Name: systemMeterDefName, Namespace: namespace},_systemMeterDef)
-		k8sClient.Delete(context.TODO(),_systemMeterDef)
+		k8sClient.Get(context.TODO(), types.NamespacedName{Name: systemMeterDefName, Namespace: namespace}, _systemMeterDef)
+		k8sClient.Delete(context.TODO(), _systemMeterDef)
 
 		_csv := &olmv1alpha1.ClusterServiceVersion{}
 		k8sClient.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: namespace}, _csv)
@@ -518,17 +555,15 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Create", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
-				return subs,nil
+			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+				return subs, nil
 			}
 
 			Expect(k8sClient.Create(context.TODO(), csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
-
 			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
-			returnedMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*meterDef1.DeepCopy()}
-
-			meterdefForCsvBody, err := json.Marshal(returnedMeterdefGoSlice)
+			returnedCommunityMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*meterDef1.DeepCopy()}
+			communityMeterDefsBody, err := json.Marshal(returnedCommunityMeterdefGoSlice)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -536,7 +571,19 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			dcControllerMockServer.RouteToHandler(
 				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
-					ghttp.RespondWithPtr(&Status200, &meterdefForCsvBody),
+					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
+				))
+
+			returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef1.DeepCopy()}
+			systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dcControllerMockServer.RouteToHandler(
+				"POST", systemMeterdefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", systemMeterdefsPath),
+					ghttp.RespondWithPtr(&Status200, &systemMeterDefBody),
 				))
 		})
 
@@ -551,29 +598,28 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		It("Should create a system meterdef", func() {
 			Eventually(func() string {
 				foundSystemMeterDef := &marketplacev1beta1.MeterDefinition{}
-				k8sClient.Get(context.TODO(), types.NamespacedName{Name: systemMeterDef.Name, Namespace: namespace}, foundSystemMeterDef)
+				k8sClient.Get(context.TODO(), types.NamespacedName{Name: systemMeterDef1.Name, Namespace: namespace}, foundSystemMeterDef)
 				return foundSystemMeterDef.Name
-			}, timeout, interval).Should(Equal(systemMeterDef.Name))
+			}, timeout, interval).Should(Equal(systemMeterDef1.Name))
 		})
 	})
 
 	Context("Update", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
-				return subs,nil
+			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+				return subs, nil
 			}
 
-			Expect(k8sClient.Create(context.TODO(),csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
+			Expect(k8sClient.Create(context.TODO(), csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
 
 			existingMeterDef := meterDef1.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingMeterDef)).Should(Succeed(), "create existing meterdef")
-
 			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			updatedMeterDef := meterDef1.DeepCopy()
 			updatedMeterDef.Spec.Meters[0].Name = "updated"
-			updateMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*updatedMeterDef}
-			meterdefForCsvBody, err := json.Marshal(updateMeterdefGoSlice)
+			updatedCommunityMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*updatedMeterDef}
+			communityMeterDefsBody, err := json.Marshal(updatedCommunityMeterdefGoSlice)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -581,21 +627,21 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			dcControllerMockServer.RouteToHandler(
 				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
-					ghttp.RespondWithPtr(&Status200, &meterdefForCsvBody),
+					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
-			existingSystemMeterDef := systemMeterDef.DeepCopy()
+			existingSystemMeterDef := systemMeterDef1.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), existingSystemMeterDef)).Should(Succeed(), "create existing system meterdef")
 
-			updatedSystemMeterDef := systemMeterDef.DeepCopy()
+			updatedSystemMeterDef := systemMeterDef1.DeepCopy()
 			updatedSystemMeterDef.Spec.Meters[0].Name = "updated system meterdef"
 			updatedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*updatedSystemMeterDef}
 			systemMeterDefBody, err := json.Marshal(updatedSystemMeterDefSlice)
 			if err != nil {
 				log.Fatal(err)
 			}
-	
-			//overwriting top-level BeforeEach()
+
+			//overwriting RouteToHandler in top-level BeforeEach()
 			dcControllerMockServer.RouteToHandler(
 				"POST", systemMeterdefsPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", systemMeterdefsPath),
@@ -632,26 +678,26 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
-				return subs,nil
+			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+				return subs, nil
 			}
 
-			Expect(k8sClient.Create(context.TODO(),csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
+			Expect(k8sClient.Create(context.TODO(), csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
 
 			_meterDef1 := meterDef1.DeepCopy()
 			_meterDef2 := meterDef2.DeepCopy()
+			_systemMeterDef1 := systemMeterDef1.DeepCopy()
+			_systemMeterDef2 := systemMeterDef2.DeepCopy()
 
-			existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{*_meterDef1, *_meterDef2}
-
+			existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{*_meterDef1, *_meterDef2, *_systemMeterDef1, *_systemMeterDef2}
 			for _, existingMeterdef := range existingMeterdefSlice {
 				Expect(k8sClient.Create(context.TODO(), &existingMeterdef)).Should(Succeed(), "create existing meterdefs")
 			}
 
 			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
-			latestMeterdefsFromCatalog := []marketplacev1beta1.MeterDefinition{*_meterDef1}
-
-			meterdefForCsvBody, err := json.Marshal(latestMeterdefsFromCatalog)
+			latestCommunityMeterdefsFromCatalog := []marketplacev1beta1.MeterDefinition{*_meterDef1}
+			communityMeterDefsBody, err := json.Marshal(latestCommunityMeterdefsFromCatalog)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -659,14 +705,37 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			dcControllerMockServer.RouteToHandler(
 				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
-					ghttp.RespondWithPtr(&Status200, &meterdefForCsvBody),
+					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
+				))
+
+			returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef1.DeepCopy()}
+			systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dcControllerMockServer.RouteToHandler(
+				"POST", systemMeterdefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", systemMeterdefsPath),
+					ghttp.RespondWithPtr(&Status200, &systemMeterDefBody),
 				))
 		})
 
-		It("meterdef-2 should be deleted if removed from the catalog", func() {
+		It("meterdef-2 should be deleted off the cluster if removed from the catalog", func() {
 			Eventually(func() []string {
+
+				labelsMap := map[string]string{}
+				err := json.Unmarshal(communityMeterDefIndexLabelsBody, &labelsMap)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				listOts := []client.ListOption{
+					client.MatchingLabels(labelsMap),
+				}
+
 				mdefList := &marketplacev1beta1.MeterDefinitionList{}
-				k8sClient.List(context.TODO(), mdefList)
+				k8sClient.List(context.TODO(), mdefList, listOts...)
 
 				var mdefNames []string
 				for _, mdef := range mdefList.Items {
@@ -675,9 +744,38 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 				return mdefNames
 			}, timeout, interval).Should(And(
-				HaveLen(2),
+				HaveLen(1),
 				MatchAllElements(idFn, Elements{
-					"meterdef-1":             Equal("meterdef-1"),
+					"meterdef-1": Equal("meterdef-1"),
+				}),
+			))
+		})
+
+		It("systemmeterdef should be deleted off the cluster if removed from the catalog", func() {
+			Eventually(func() []string {
+
+				labelsMap := map[string]string{}
+				err := json.Unmarshal(systemMeterDefIndexLabelsBody, &labelsMap)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				listOts := []client.ListOption{
+					client.MatchingLabels(labelsMap),
+				}
+
+				mdefList := &marketplacev1beta1.MeterDefinitionList{}
+				k8sClient.List(context.TODO(), mdefList, listOts...)
+
+				var mdefNames []string
+				for _, mdef := range mdefList.Items {
+					mdefNames = append(mdefNames, mdef.Name)
+				}
+
+				return mdefNames
+			}, timeout, interval).Should(And(
+				HaveLen(1),
+				MatchAllElements(idFn, Elements{
 					systemMeterDefName: Equal(systemMeterDefName),
 				}),
 			))
@@ -686,15 +784,15 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Remove Catalog directory", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
-				return subs,nil
+			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+				return subs, nil
 			}
 
-			Expect(k8sClient.Create(context.TODO(),csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
+			Expect(k8sClient.Create(context.TODO(), csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
 
 			_meterDef1 := meterDef1.DeepCopy()
-
 			_meterDef2 := meterDef2.DeepCopy()
+
 			existingMeterdefSlice := []marketplacev1beta1.MeterDefinition{*_meterDef1, *_meterDef2}
 
 			for _, existingMeterdef := range existingMeterdefSlice {
@@ -704,11 +802,22 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 			notFoundBody := []byte(`no meterdefs found`)
-
 			dcControllerMockServer.RouteToHandler(
 				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
 					ghttp.RespondWith(http.StatusNoContent, notFoundBody),
+				))
+
+			returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef1.DeepCopy()}
+			systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dcControllerMockServer.RouteToHandler(
+				"POST", systemMeterdefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", systemMeterdefsPath),
+					ghttp.RespondWithPtr(&Status200, &systemMeterDefBody),
 				))
 		})
 
@@ -716,7 +825,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
 
 				labelsMap := map[string]string{}
-				err := json.Unmarshal(indexLabelsBody, &labelsMap)
+				err := json.Unmarshal(communityMeterDefIndexLabelsBody, &labelsMap)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -734,12 +843,11 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("non-rhm resources", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
-				return subs,nil
+			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+				return subs, nil
 			}
 
 			Expect(k8sClient.Create(context.TODO(), nonRhmCsv.DeepCopy())).Should(Succeed(), "create non-rhm-csv")
-
 			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
 		})
@@ -754,19 +862,17 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		})
 	})
 
-	Context("LicenceUsageMetering feature flag", func() {
+	Context("feature flags", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client,csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription,error) {
-				return subs,nil
+			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+				return subs, nil
 			}
 
-			Expect(k8sClient.Create(context.TODO(),csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
-
+			Expect(k8sClient.Create(context.TODO(), csvOnCluster.DeepCopy())).Should(Succeed(), "create csv on cluster")
 			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
 
-			returnedMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*meterDef1.DeepCopy()}
-
-			meterdefForCsvBody, err := json.Marshal(returnedMeterdefGoSlice)
+			returnedCommunityMeterdefGoSlice := []marketplacev1beta1.MeterDefinition{*meterDef1.DeepCopy()}
+			communityMeterDefsBody, err := json.Marshal(returnedCommunityMeterdefGoSlice)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -774,11 +880,40 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			dcControllerMockServer.RouteToHandler(
 				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
-					ghttp.RespondWithPtr(&Status200, &meterdefForCsvBody),
+					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
+				))
+
+			returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef1.DeepCopy()}
+			systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dcControllerMockServer.RouteToHandler(
+				"POST", systemMeterdefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", systemMeterdefsPath),
+					ghttp.RespondWithPtr(&Status200, &systemMeterDefBody),
 				))
 		})
 
-		It("all system meterdefinitions should be deleted if LicenseUsageMetering is disabled", func() {
+		It("all system meterdefinitions should be deleted if SyncSystemMeterDefinitions is disabled", func() {
+			Eventually(func() []marketplacev1beta1.MeterDefinition {
+				labelsMap := map[string]string{}
+				err := json.Unmarshal(communityMeterDefIndexLabelsBody, &labelsMap)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				listOts := []client.ListOption{
+					client.MatchingLabels(labelsMap),
+				}
+
+				mdefList := &marketplacev1beta1.MeterDefinitionList{}
+				k8sClient.List(context.TODO(), mdefList, listOts...)
+
+				return mdefList.Items
+			}, timeout, interval).Should(HaveLen(1), "community meterdefs should get created")
+
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
 				labelsMap := map[string]string{}
 				err := json.Unmarshal(systemMeterDefIndexLabelsBody, &labelsMap)
@@ -794,14 +929,32 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				k8sClient.List(context.TODO(), mdefList, listOts...)
 
 				return mdefList.Items
-			}, timeout, interval).Should(HaveLen(1),"system meterdefs should get created")
+			}, timeout, interval).Should(HaveLen(1), "system meterdefs should get created")
 
 			foundMeterBase := &marketplacev1alpha1.MeterBase{}
-			Expect(k8sClient.Get(context.TODO(),types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: namespace},foundMeterBase))
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, foundMeterBase))
 
-			foundMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = false
-			Expect(k8sClient.Update(context.TODO(),foundMeterBase)).Should(Succeed(),"disable LicenseUsageMetering")
-			
+			foundMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(false)
+			foundMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(false)
+			Expect(k8sClient.Update(context.TODO(), foundMeterBase)).Should(Succeed(), "disable SyncSystemMeterDefinitions and SyncCommunityMeterDefinitions feature flags")
+
+			Eventually(func() []marketplacev1beta1.MeterDefinition {
+				labelsMap := map[string]string{}
+				err := json.Unmarshal(communityMeterDefIndexLabelsBody, &labelsMap)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				listOts := []client.ListOption{
+					client.MatchingLabels(labelsMap),
+				}
+
+				mdefList := &marketplacev1beta1.MeterDefinitionList{}
+				k8sClient.List(context.TODO(), mdefList, listOts...)
+
+				return mdefList.Items
+			}, timeout, interval).Should(HaveLen(0), "community meterdefs should be deleted")
+
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
 				labelsMap := map[string]string{}
 				err := json.Unmarshal(systemMeterDefIndexLabelsBody, &labelsMap)
@@ -817,18 +970,18 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				k8sClient.List(context.TODO(), mdefList, listOts...)
 
 				return mdefList.Items
-			}, timeout, interval).Should(HaveLen(0))
+			}, timeout, interval).Should(HaveLen(0), "system meterdefs should be deleted")
 		})
 	})
 
-	Context("MeterdefinitionCatalogServerEnabled feature flag", func() {
+	Context("DeployMeterDefinitionCatalogServer feature flag", func() {
 		BeforeEach(func() {
 			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
-			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = false
+			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(false)
 			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
 		})
 
-		It("all file server resources should be deleted if MeterdefinitionCatalogServerEnabled is disabled", func() {
+		It("all file server resources should be deleted if DeployMeterDefinitionCatalogServer is disabled", func() {
 			Eventually(func() bool {
 				var dcNotFound bool
 				var isNotFound bool
@@ -857,4 +1010,3 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		})
 	})
 })
-
