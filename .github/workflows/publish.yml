@@ -12,7 +12,7 @@ jobs:
       run:
         shell: bash
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
-      '/push') }}
+      '/push-images') }}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -35,7 +35,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -255,7 +255,7 @@ jobs:
       run:
         shell: bash
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
-      '/publish')}}
+      '/publish-images')}}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -278,7 +278,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -433,7 +433,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -589,7 +589,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Cache Go modules
       uses: actions/cache@v2
       with:

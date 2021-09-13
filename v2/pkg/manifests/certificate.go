@@ -22,11 +22,11 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"time"
 )
 
 func newCertificateBundleSecret(commonName string) ([]byte, []byte, []byte, []byte, error) {
-
 	/* Certificate Authority */
 	caCert := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -35,7 +35,8 @@ func newCertificateBundleSecret(commonName string) ([]byte, []byte, []byte, []by
 			Country:      []string{"US"},
 			CommonName:   commonName,
 		},
-		NotBefore:             time.Now(),
+		NotBefore: time.Now(),
+		// TODO: fix and rotate
 		NotAfter:              time.Now().AddDate(10, 0, 0),
 		IsCA:                  true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
@@ -79,6 +80,9 @@ func newCertificateBundleSecret(commonName string) ([]byte, []byte, []byte, []by
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		DNSNames:    []string{commonName},
+		IPAddresses: []net.IP{
+			net.ParseIP("127.0.0.1"),
+		},
 	}
 
 	serverKey, err := rsa.GenerateKey(rand.Reader, 4096)

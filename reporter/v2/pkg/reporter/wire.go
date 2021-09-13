@@ -39,7 +39,7 @@ func NewTask(
 		managers.ProvideSimpleClientSet,
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
-		ProvideUploader,
+		ProvideUploaders,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 		kconfig.GetConfig,
@@ -58,6 +58,7 @@ func NewReporter(
 		wire.InterfaceValue(new(logr.Logger), logger),
 		getMarketplaceReport,
 		getPrometheusService,
+		getPrometheusPort,
 		getMarketplaceConfig,
 		getMeterDefinitionReferences,
 		ReporterSet,
@@ -76,8 +77,22 @@ func NewUploadTask(
 		wire.Struct(new(UploadTask), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		ProvideDownloader,
-		ProvideUploader,
+		ProvideUploaders,
 		ProvideAdmin,
+		provideScheme,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+	))
+}
+
+func NewReconcileTask(
+	ctx context.Context,
+	config *Config,
+	namespace Namespace,
+) (*ReconcileTask, error) {
+	panic(wire.Build(
+		managers.ProvideSimpleClientSet,
+		kconfig.GetConfig,
+		wire.Struct(new(ReconcileTask), "*"),
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))

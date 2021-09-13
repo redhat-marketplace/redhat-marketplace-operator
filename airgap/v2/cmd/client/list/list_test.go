@@ -16,28 +16,19 @@ package list
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"io"
-	logger "log"
-	"net"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-logr/zapr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
-	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/clienttest"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 const bufSize = 1024 * 1024
@@ -46,88 +37,21 @@ var lis *bufconn.Listener
 var db database.Database
 var dbName = "client.db"
 
-func bufDialer(context.Context, string) (net.Conn, error) {
-	return lis.Dial()
-}
-
-func runSetup() {
-	//Initialize the mock connection and server
-	lis = bufconn.Listen(bufSize)
-	s := grpc.NewServer()
-	bs := server.BaseServer{}
-	mockSenderServer := server.FileSenderServer{}
-	mockRetreiverServer := server.FileRetreiverServer{}
-
-	//Initialize logger
-	zapLog, err := zap.NewDevelopment()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
-	}
-	bs.Log = zapr.NewLogger(zapLog)
-
-	//Create Sqlite Database
-	gormDb, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
-	if err != nil {
-		logger.Fatalf("Error during creation of Database")
-	}
-	db.DB = gormDb
-	db.Log = bs.Log
-
-	//Create tables
-	err = db.DB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
-	if err != nil {
-		logger.Fatalf("Error during creation of Models: %v", err)
-	}
-
-	bs.FileStore = &db
-	mockSenderServer.B = bs
-	mockRetreiverServer.B = bs
-	filesender.RegisterFileSenderServer(s, &mockSenderServer)
-	fileretreiver.RegisterFileRetreiverServer(s, &mockRetreiverServer)
-
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			if err.Error() != "closed" { //When lis of type (*bufconn.Listener) is closed, server doesn't have to panic.
-				panic(err)
-			}
-		} else {
-			logger.Printf("Mock server started")
-		}
-	}()
-}
-
-func createClient() *grpc.ClientConn {
-	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
-	if err != nil {
-		logger.Fatalf("failed to dial bufnet: %v", err)
-	}
-
-	return conn
-}
-
-func shutdown(conn *grpc.ClientConn) {
-	sqlDB, err := db.DB.DB()
-	if err != nil {
-		logger.Fatalf("Error: Couldn't close Database: %v", err)
-	}
-	sqlDB.Close()
-	conn.Close()
-	os.Remove(dbName)
-	lis.Close()
-}
-
 func TestList(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer os.Remove(dbName)
+
+	lis = bufconn.Listen(bufSize)
+	defer lis.Close()
+
 	//Initialize the server
-	runSetup()
-	//Initialize connection
-	conn := createClient()
-	//Shutdown resources
-	defer shutdown(conn)
+	clienttest.SetupServer(t, ctx, lis, &db, dbName)
+	conn := clienttest.NewDrpcClient(lis)
 
 	//Populate dataset for testing
-	populateDataset(conn, t)
-	listFilMetaDataCLient := fileretreiver.NewFileRetreiverClient(conn)
+	populateDataset(t)
+	listFileClient := fileretriever.NewDRPCFileRetrieverClient(conn)
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
@@ -144,7 +68,7 @@ func TestList(t *testing.T) {
 				OutputCSV: true,
 				FileName:  "files.csv",
 				conn:      conn,
-				client:    listFilMetaDataCLient,
+				client:    listFileClient,
 			},
 			res: []string{"marketplace_report.zip", "reports.zip"},
 		},
@@ -154,7 +78,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"size GREATER_THAN 100", "type CONTAINS report"},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 		},
 		{
@@ -163,7 +87,7 @@ func TestList(t *testing.T) {
 				Filter: []string{},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 		},
 		{
@@ -172,7 +96,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"provided_name EQUAL reports.zip", "size GREATER_THAN 100", "version EQUAL 1"},
 				Sort:   []string{"provided_name ASC"},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 		},
 		{
@@ -181,7 +105,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"'description    ' CONTAINS 'with builtin'"},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 		},
 		{
@@ -191,7 +115,7 @@ func TestList(t *testing.T) {
 				Sort:                []string{},
 				IncludeDeletedFiles: true,
 				conn:                conn,
-				client:              listFilMetaDataCLient,
+				client:              listFileClient,
 			},
 		},
 		{
@@ -200,7 +124,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"size GREATER_THAN 10 0"},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "'size GREATER_THAN 10 0' : invalid number of arguments provided for filter operation, Required 3 | Provided 4",
 		},
@@ -210,7 +134,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"size GREATERTHAN 100"},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid filter operation used",
 		},
@@ -220,7 +144,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"created_at GREATER_THAN 21-4-13"},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "cannot parse",
 		},
@@ -230,7 +154,7 @@ func TestList(t *testing.T) {
 				Filter: []string{},
 				Sort:   []string{"asd"},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid number of arguments provided for sort operation, Required 2 | Provided 1",
 		},
@@ -240,7 +164,7 @@ func TestList(t *testing.T) {
 				Filter: []string{},
 				Sort:   []string{"size ASCENDING"},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid sort operation used",
 		},
@@ -250,7 +174,7 @@ func TestList(t *testing.T) {
 				Filter: []string{"'    ' EQUAL '   ' "},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid number of arguments provided for filter operation, Required 3 | Provided 1",
 		},
@@ -260,7 +184,7 @@ func TestList(t *testing.T) {
 				Filter: []string{" "},
 				Sort:   []string{},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid number of arguments provided for filter operation, Required 3 | Provided 0",
 		},
@@ -270,7 +194,7 @@ func TestList(t *testing.T) {
 				Filter: []string{},
 				Sort:   []string{" ' ' ASC"},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid number of arguments provided for sort operation, Required 2 | Provided 1",
 		},
@@ -280,7 +204,7 @@ func TestList(t *testing.T) {
 				Filter: []string{},
 				Sort:   []string{""},
 				conn:   conn,
-				client: listFilMetaDataCLient,
+				client: listFileClient,
 			},
 			errMsg: "invalid number of arguments provided for sort operation, Required 2 | Provided 0",
 		},
@@ -335,7 +259,7 @@ func TestList(t *testing.T) {
 }
 
 // populateDataset uploads files to the mock server
-func populateDataset(conn *grpc.ClientConn, t *testing.T) {
+func populateDataset(t *testing.T) {
 	deleteFID := &v1.FileID{
 		Data: &v1.FileID_Name{
 			Name: "delete.txt",
@@ -407,7 +331,8 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 		},
 	}
 
-	uploadClient := filesender.NewFileSenderClient(conn)
+	conn := clienttest.NewDrpcClient(lis)
+	uploadClient := filesender.NewDRPCFileSenderClient(conn)
 
 	// Upload files to mock server
 	for i := range files {
@@ -445,11 +370,11 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 	}
 
 	// Mark File for deletion
-	req := &fileretreiver.DownloadFileRequest{
+	req := &fileretriever.DownloadFileRequest{
 		FileId:           deleteFID,
 		DeleteOnDownload: true,
 	}
-	dc := fileretreiver.NewFileRetreiverClient(conn)
+	dc := fileretriever.NewDRPCFileRetrieverClient(conn)
 	_, err := dc.DownloadFile(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Error: during delete on download request : %v", err)

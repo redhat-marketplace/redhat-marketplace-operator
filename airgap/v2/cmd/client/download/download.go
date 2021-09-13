@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -37,7 +37,7 @@ type DownloadConfig struct {
 	FileListPath     string
 	DeleteOnDownload bool
 	conn             *grpc.ClientConn
-	client           fileretreiver.FileRetreiverClient
+	client           fileretriever.FileRetrieverClient
 	log              logr.Logger
 }
 
@@ -72,7 +72,7 @@ var DownloadCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer dc.closeConnection()
+		defer dc.Close()
 
 		// If file list path is specified, perform batch download
 		if len(strings.TrimSpace(dc.FileListPath)) != 0 {
@@ -93,7 +93,13 @@ func init() {
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
-func ProvideDownloadConfig(fileName string, fileId string, outputDirectory string, fileListPath string, deleteOnDownload bool) (*DownloadConfig, error) {
+func ProvideDownloadConfig(
+	fileName string,
+	fileId string,
+	outputDirectory string,
+	fileListPath string,
+	deleteOnDownload bool,
+) (*DownloadConfig, error) {
 	log, err := util.InitLog()
 	if err != nil {
 		return nil, err
@@ -102,7 +108,8 @@ func ProvideDownloadConfig(fileName string, fileId string, outputDirectory strin
 	if err != nil {
 		return nil, err
 	}
-	client := fileretreiver.NewFileRetreiverClient(conn)
+
+	client := fileretriever.NewFileRetrieverClient(conn)
 
 	return &DownloadConfig{
 		FileName:         fileName,
@@ -117,7 +124,7 @@ func ProvideDownloadConfig(fileName string, fileId string, outputDirectory strin
 }
 
 // closeConnection closes the grpc client connection
-func (dc *DownloadConfig) closeConnection() {
+func (dc *DownloadConfig) Close() {
 	if dc != nil && dc.conn != nil {
 		dc.conn.Close()
 	}
@@ -127,7 +134,7 @@ func (dc *DownloadConfig) closeConnection() {
 func (dc *DownloadConfig) DownloadFile(fn string, fid string) error {
 	fn = strings.TrimSpace(fn)
 	fid = strings.TrimSpace(fid)
-	var req *fileretreiver.DownloadFileRequest
+	var req *fileretriever.DownloadFileRequest
 	var name string
 	var cs string
 
@@ -136,7 +143,7 @@ func (dc *DownloadConfig) DownloadFile(fn string, fid string) error {
 		return fmt.Errorf("file id/name is blank")
 	} else if len(fn) != 0 {
 		name = fn
-		req = &fileretreiver.DownloadFileRequest{
+		req = &fileretriever.DownloadFileRequest{
 			FileId: &v1.FileID{
 				Data: &v1.FileID_Name{
 					Name: fn},
@@ -145,7 +152,7 @@ func (dc *DownloadConfig) DownloadFile(fn string, fid string) error {
 		}
 	} else {
 		name = fid
-		req = &fileretreiver.DownloadFileRequest{
+		req = &fileretriever.DownloadFileRequest{
 			FileId: &v1.FileID{
 				Data: &v1.FileID_Id{
 					Id: fid},

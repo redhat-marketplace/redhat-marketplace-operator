@@ -94,7 +94,6 @@ type MarketplaceConfigReconciler struct {
 func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
-	//	cc := r.cc
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -113,16 +112,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	// run the finalizers
-	/*
-		newRazeeCrd := utils.BuildRazeeCr(
-			marketplaceConfig.Namespace,
-			marketplaceConfig.Spec.ClusterUUID,
-			marketplaceConfig.Spec.DeploySecretName,
-			marketplaceConfig.Spec.Features,
-		)
-		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-	*/
-
 	// Check for deletion and run cleanup
 	isMarketplaceConfigMarkedToBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if isMarketplaceConfigMarkedToBeDeleted {
@@ -184,107 +173,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			return reconcile.Result{}, err
 		}
 	}
-
-	/*
-		if result, _ := cc.Do(
-			context.TODO(),
-			Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
-			Call(
-				RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
-					HandleResult(
-						GetAction(
-							types.NamespacedName{
-								Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
-						OnContinue(DeleteAction(newRazeeCrd))),
-					HandleResult(
-						GetAction(
-							types.NamespacedName{
-								Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
-						OnContinue(DeleteAction(newMeterBaseCr))),
-					Call(func() (ClientAction, error) {
-						secret := &v1.Secret{}
-						err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
-						if err != nil {
-							if k8serrors.IsNotFound(err) {
-								secret = nil
-								reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-							} else {
-								reqLogger.Error(err, "error fetching secret")
-								return nil, nil
-							}
-						}
-
-						if secret == nil {
-							return nil, nil
-						}
-
-						pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-						if !ok {
-							return nil, nil
-						}
-
-						token := string(pullSecret)
-						tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-						if err != nil {
-							reqLogger.Error(err, "error parsing token")
-							return nil, nil
-						}
-
-						marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
-							NewMarketplaceClient(token, tokenClaims)
-
-						if err != nil {
-							reqLogger.Error(err, "error constructing marketplace client")
-							return nil, nil
-						}
-
-						result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-						if !result.Is(Continue) {
-							return nil, nil
-						}
-
-						return nil, nil
-
-					}),
-				)),
-		); !result.Is(Continue) {
-
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-			}
-
-			if result.Is(Return) {
-				reqLogger.Info("Delete is complete.")
-			}
-
-			return result.Return()
-		}
-
-
-		isMarkedForDeletion := marketplaceConfig.GetDeletionTimestamp() != nil
-		if isMarkedForDeletion {
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				key, _ := client.ObjectKeyFromObject(marketplaceConfig)
-				err := r.Client.Get(context.TODO(), key, marketplaceConfig)
-
-				if err != nil {
-					return err
-				}
-				marketplaceConfig.SetFinalizers(utils.RemoveKey(marketplaceConfig.GetFinalizers(), utils.CONTROLLER_FINALIZER))
-				return r.Client.Update(context.TODO(), marketplaceConfig)
-			})
-
-			if err != nil && k8serrors.IsNotFound(err) {
-				reqLogger.Error(err, "error executing finalizer")
-				return reconcile.Result{}, err
-			}
-
-			reqLogger.Info("Delete is complete.")
-			return reconcile.Result{}, nil
-		}
-	*/
-
 	// Set default namespaces for workload monitoring
 	if marketplaceConfig.Spec.NamespaceLabelSelector == nil {
 		marketplaceConfig.Spec.NamespaceLabelSelector = &metav1.LabelSelector{
@@ -303,35 +191,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 		return reconcile.Result{Requeue: true}, nil
 	}
-
-	// Update the OperatorGroup targetNamespace list
-	// namespace list is from MarketPlaceConfig NamespaceLabelSelector or a default
-	// In turn, OLM updates the olm.targetNamespaces annotation of
-	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
-	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
-
-	// Needs work; modifying og creates issue with reinstalls
-	// operatorGroupName, _ := getOperatorGroup()
-	// if len(operatorGroupName) != 0 {
-	// 	operatorGroup := &olmv1.OperatorGroup{}
-
-	// 	err = r.Client.Get(context.TODO(),
-	// 		types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace},
-	// 		operatorGroup,
-	// 	)
-
-	// 	if err != nil && !k8serrors.IsNotFound(err) {
-	// 		return reconcile.Result{}, err
-	// 	} else if err == nil {
-	// 		operatorGroup.Spec.TargetNamespaces = []string{}
-	// 		operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
-
-	// 		err = r.Client.Update(context.TODO(), operatorGroup)
-	// 		if err != nil {
-	// 			return reconcile.Result{}, err
-	// 		}
-	// 	}
-	// }
 
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
@@ -571,64 +430,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "Failed to get MeterBase CR")
 		return reconcile.Result{}, err
 	}
-	reqLogger.Info("found meterbase")
-
-	/*
-		result, _ := cc.Do(
-			context.TODO(),
-			GetAction(
-				types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace},
-				foundMeterBase,
-			),
-		)
-
-		if result.Is(Error) {
-			return result.Return()
-		}
-
-
-		reqLogger.Info("meterbase install info", "found", !result.Is(NotFound))
-
-		reqLogger.Info("meterbase is enabled")
-		// Check if MeterBase exists, if not create one
-		if result.Is(NotFound) {
-			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-
-			if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
-				reqLogger.Error(err, "Failed to set controller ref")
-				return reconcile.Result{}, err
-			}
-
-			reqLogger.Info("creating meterbase")
-			err = r.Client.Create(context.TODO(), newMeterBaseCr)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
-				return reconcile.Result{}, err
-			}
-
-			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
-				Message: "Meter base installed.",
-			})
-
-			if ok {
-				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-				if err != nil {
-					reqLogger.Error(err, "failed to update status")
-					return reconcile.Result{}, err
-				}
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get MeterBase CR")
-			return reconcile.Result{}, err
-		}
-	*/
-
 	reqLogger.Info("found meterbase")
 
 	// Check if operator source exists, or create a new one
@@ -938,34 +739,6 @@ func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev
 
 	return err
 }
-
-/*
-func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	reqLogger.Info("attempting to un-register")
-
-	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-		AccountId:   marketplaceConfig.Spec.RhmAccountID,
-		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-	}
-
-	reqLogger.Info("unregister", "marketplace client account", marketplaceClientAccount)
-
-	registrationStatusOutput, err := marketplaceClient.UnRegister(marketplaceClientAccount)
-	if err != nil {
-		reqLogger.Error(err, "unregister failed")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
-	}
-
-	reqLogger.Info("unregister", "RegistrationStatus", registrationStatusOutput.RegistrationStatus)
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-}
-*/
 
 func (r *MarketplaceConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)

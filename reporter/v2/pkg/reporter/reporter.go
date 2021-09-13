@@ -34,7 +34,6 @@ import (
 	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
@@ -79,6 +78,7 @@ type MarketplaceReporter struct {
 }
 
 type ReportName types.NamespacedName
+type Namespace string
 
 func NewMarketplaceReporter(
 	config *Config,
@@ -193,7 +193,7 @@ type meterDefPromModel struct {
 	mdef *meterDefPromQuery
 	model.Value
 	MetricName string
-	Type       marketplacev1beta1.WorkloadType
+	Type       marketplacecommon.WorkloadType
 }
 
 type meterDefPromQuery struct {
@@ -274,7 +274,7 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 		return err
 	}
 
-	for key, _ := range definitionSet {
+	for key := range definitionSet {
 		logger.Info("meter definitions provided", "key", key)
 	}
 
@@ -538,10 +538,7 @@ func (r *MarketplaceReporter) WriteReport(
 	for idxRange := range gopart.Partition(len(metricsArr), partitionSize) {
 		metricReport := &schemav1alpha1.MarketplaceReportSlice{}
 		metricReport.ReportSliceID = common.ReportSliceKey(uuid.New())
-
-		if r.Config.UploaderTarget != UploaderTargetRedHatInsights {
-			metricReport.Metadata = &metadata
-		}
+		metricReport.Metadata = &metadata
 
 		for _, builder := range metricsArr[idxRange.Low:idxRange.High] {
 			metric, err := builder.Build()

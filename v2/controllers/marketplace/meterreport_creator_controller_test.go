@@ -87,16 +87,16 @@ var _ = Describe("MeterbaseController", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
 			minDate := endDate.AddDate(0, 0, 0)
 			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			nameFromString, err := ctrl.newMeterReportNameFromString(catNameA, exp[0])
+			nameFromString, err := ctrl.newMeterReportNameFromString(exp[0])
 			Expect(err).To(BeNil())
-			Expect(nameFromString).To(Equal("2021-06-01-labela"))
+			Expect(nameFromString).To(Equal("2021-06-01"))
 		})
 
 		It("should return an error for report name longer than 63 characters", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
 			minDate := endDate.AddDate(0, 0, 0)
 			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			_, err := ctrl.newMeterReportNameFromString("veryveryverylongcategorynamethatdoesnotfitinthednslimit", exp[0])
+			_, err := ctrl.newMeterReportNameFromString(exp[0])
 			Expect(err).NotTo(BeNil())
 		})
 
@@ -180,7 +180,7 @@ var _ = Describe("MeterbaseController", func() {
 								Kind:       "App",
 							},
 						},
-						WorkloadType: marketplacev1beta1.WorkloadTypePod,
+						WorkloadType: common.WorkloadTypePod,
 					},
 				},
 				Meters: []marketplacev1beta1.MeterWorkload{
@@ -189,7 +189,7 @@ var _ = Describe("MeterbaseController", func() {
 						Query:        "simple_query",
 						Metric:       "rpc_durations_seconds",
 						Label:        "{{ .Label.meter_query }}",
-						WorkloadType: marketplacev1beta1.WorkloadTypePod,
+						WorkloadType: common.WorkloadTypePod,
 						Description:  "{{ .Label.meter_domain | lower }} description",
 					},
 				},

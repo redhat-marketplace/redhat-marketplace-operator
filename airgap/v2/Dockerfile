@@ -6,7 +6,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 ENV GOROOT=/usr/local/go
 ENV GOPATH=/go
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-ENV GO_VERSION=1.16 OS=linux ARCH=${ARCH}
+ENV GO_VERSION=1.16.6 OS=linux ARCH=${ARCH}
 
 RUN apt-get update && apt-get install -y git build-essential dh-autoreconf pkg-config libuv1-dev libsqlite3-dev tcl8.6 wget liblz4-1 liblz4-dev
 
@@ -28,8 +28,12 @@ WORKDIR /opt/airgap
 
 COPY airgap/v2 .
 
-RUN go get -d -v ./... && \
-    go install -tags libsqlite3 ./cmd/server/main.go
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd airgap/v2 && \
+    go mod download
+
+RUN go install -tags libsqlite3 ./cmd/server/main.go
 
 # FROM debian:buster-slim
 FROM ubuntu

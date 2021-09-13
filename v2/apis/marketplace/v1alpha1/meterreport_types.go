@@ -42,14 +42,10 @@ type MeterReportSpec struct {
 	EndTime metav1.Time `json:"endTime"`
 
 	// LabelSelectors are used to filter to the correct workload.
+	// DEPRECATED
 	// +optional
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
-
-	// Category of job
-	// +optional
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	Category string `json:"category,omitempty"`
 
 	// PrometheusService is the definition for the service labels.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -84,9 +80,22 @@ type MeterReportStatus struct {
 	Conditions status.Conditions `json:"conditions,omitempty"`
 
 	// A list of pointers to currently running jobs.
+	// DEPRECATED
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	AssociatedJob *common.JobReference `json:"jobReference,omitempty"`
+
+	// UploadStatus displays the last status for upload targets.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +listType:=map
+	// +listMapKey:=target
+	// +optional
+	UploadStatus []*UploadDetails `json:"uploadStatus,omitempty"`
+
+	// WorkloadCount is the number of workloads reported on
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	WorkloadCount *int `json:"workloadCount,omitempty"`
 
 	// MetricUploadCount is the number of metrics in the report
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -98,7 +107,7 @@ type MeterReportStatus struct {
 	// +optional
 	UploadID *types.UID `json:"uploadUID,omitempty"`
 
-	// QueryErrorList shows if there were any errors from queries
+	// Errors shows if there were any errors from queries
 	// for the report.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
@@ -108,6 +117,16 @@ type MeterReportStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Warnings []ErrorDetails `json:"warnings,omitempty"`
+}
+
+// UploadDetails provides details about uploads for the meterreport
+type UploadDetails struct {
+	// Target is the upload target
+	Target string `json:"target"`
+	// Status is the current status
+	Status string `json:"status"`
+	// Error is present if an error occured on upload
+	Error string `json:"error,omitempty"`
 }
 
 // ErrorDetails provides details about errors that happen in the job
@@ -145,6 +164,11 @@ const (
 	ReportConditionReasonJobWaiting    status.ConditionReason = "Waiting"
 	ReportConditionReasonJobFinished   status.ConditionReason = "Finished"
 	ReportConditionReasonJobErrored    status.ConditionReason = "Errored"
+
+	ReportConditionTypeUploadStatus             status.ConditionType   = "NotUploaded"
+	ReportConditionReasonUploadStatusFinished   status.ConditionReason = "Finished"
+	ReportConditionReasonUploadStatusNotStarted status.ConditionReason = "NotStarted"
+	ReportConditionReasonUploadStatusErrored    status.ConditionReason = "Errored"
 )
 
 var (
@@ -178,6 +202,22 @@ var (
 		Reason:  ReportConditionReasonJobErrored,
 		Message: "Job has errored",
 	}
+
+	ReportConditionUploadStatusFinished = status.Condition{
+		Type:   ReportConditionTypeUploadStatus,
+		Status: corev1.ConditionTrue,
+		Reason: ReportConditionReasonUploadStatusFinished,
+	}
+	ReportConditionUploadStatusUnknown = status.Condition{
+		Type:   ReportConditionTypeUploadStatus,
+		Status: corev1.ConditionUnknown,
+		Reason: ReportConditionReasonUploadStatusNotStarted,
+	}
+	ReportConditionUploadStatusErrored = status.Condition{
+		Type:   ReportConditionTypeUploadStatus,
+		Status: corev1.ConditionTrue,
+		Reason: ReportConditionReasonUploadStatusErrored,
+	}
 )
 
 // +kubebuilder:object:root=true
@@ -185,8 +225,6 @@ var (
 // MeterReport is the Schema for the meterreports API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
-// +kubebuilder:printcolumn:name="RUNNING",type=string,JSONPath=`.status.conditions[?(@.type == "JobRunning")].status`
-// +kubebuilder:printcolumn:name="REASON",type=string,JSONPath=`.status.conditions[?(@.type == "JobRunning")].reason`
 // +kubebuilder:printcolumn:name="METRICS",type=string,JSONPath=`.status.metricUploadCount`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Reports"
 // +kubebuilder:resource:path=meterreports,scope=Namespaced

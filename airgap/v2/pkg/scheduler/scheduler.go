@@ -19,7 +19,7 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 	"google.golang.org/protobuf/types/known/timestamppb"

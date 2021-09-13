@@ -41,6 +41,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "Path to the configuration file")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Service Account token")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
+	viper.BindPFlags(rootCmd.PersistentFlags())
 }
 
 func er(msg interface{}) {
