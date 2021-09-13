@@ -55,7 +55,6 @@ spec:
             runAsNonRoot: true
         - args:
             - --kubelet-service=kube-system/kubelet
-            - --logtostderr=true
             - --prometheus-config-reloader={{PROM_CONFIGMAP_RELOADER_IMAGE}}
             - --deny-namespaces={{NAMESPACES}}
             - --prometheus-instance-namespaces={{NAMESPACE}}

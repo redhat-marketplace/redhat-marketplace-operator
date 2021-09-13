@@ -161,3 +161,40 @@ spec:
   #   name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
   # - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
   #   name: RELATED_IMAGE_KUBE_RBAC_PROXY
+  # - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+  #   name: RELATED_IMAGE_PROMETHEUS_46
+  # - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.6
+  #   name: RELATED_IMAGE_OAUTH_PROXY_46
+  # - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.6
+  #   name: RELATED_IMAGE_PROMETHEUS_OPERATOR_46
+  # - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.6
+  #   name: RELATED_IMAGE_CONFIGMAP_RELOADER_46
+  # - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.6
+  #   name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER_46
+  # - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.6
+  #   name: RELATED_IMAGE_KUBE_RBAC_PROXY_46
+  # - image: registry.redhat.io/openshift4/ose-prometheus:v4.7
+  #   name: RELATED_IMAGE_PROMETHEUS_47
+  # - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.7
+  #   name: RELATED_IMAGE_OAUTH_PROXY_47
+  # - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.7
+  #   name: RELATED_IMAGE_PROMETHEUS_OPERATOR_47
+  # - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.7
+  #   name: RELATED_IMAGE_CONFIGMAP_RELOADER_47
+  # - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.7
+  #   name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER_47
+  # - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.7
+  #   name: RELATED_IMAGE_KUBE_RBAC_PROXY_47
+  # - image: registry.redhat.io/openshift4/ose-prometheus:v4.8
+  #   name: RELATED_IMAGE_PROMETHEUS_48
+  # - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.8
+  #   name: RELATED_IMAGE_OAUTH_PROXY_48
+  # - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.8
+  #   name: RELATED_IMAGE_PROMETHEUS_OPERATOR_48
+  # - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.8
+  #   name: RELATED_IMAGE_CONFIGMAP_RELOADER_48
+  # - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.8
+  #   name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER_48
+  # - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.8
+  #   n
+    ame: RELATED_IMAGE_KUBE_RBAC_PROXY_48
