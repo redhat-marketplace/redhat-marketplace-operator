@@ -5,7 +5,7 @@ metadata:
     alm-examples: '[]'
     capabilities: Full Lifecycle
     categories: Developer Tools
-    certified: "true"
+    certified: 'true'
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
@@ -25,36 +25,36 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
-      displayName: Marketplace Config
-      kind: MarketplaceConfig
-      name: marketplaceconfigs.marketplace.redhat.com
-      version: v1alpha1
-    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
-      displayName: Meter Base
-      kind: MeterBase
-      name: meterbases.marketplace.redhat.com
-      version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
-      displayName: Meter Definition
-      kind: MeterDefinition
-      name: meterdefinitions.marketplace.redhat.com
-      version: v1beta1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
-      displayName: Meter Definition
-      kind: MeterDefinition
-      name: meterdefinitions.marketplace.redhat.com
-      version: v1alpha1
-    - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
-      displayName: Razee Deployment
-      kind: RazeeDeployment
-      name: razeedeployments.marketplace.redhat.com
-      version: v1alpha1
-    - description: RemoteResourceS3 is the Schema for the remoteresources3s API
-      displayName: Remote Resource S3
-      kind: RemoteResourceS3
-      name: remoteresources3s.marketplace.redhat.com
-      version: v1alpha1
+      - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
+        displayName: Marketplace Config
+        kind: MarketplaceConfig
+        name: marketplaceconfigs.marketplace.redhat.com
+        version: v1alpha1
+      - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+        displayName: Meter Base
+        kind: MeterBase
+        name: meterbases.marketplace.redhat.com
+        version: v1alpha1
+      - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+        displayName: Meter Definition
+        kind: MeterDefinition
+        name: meterdefinitions.marketplace.redhat.com
+        version: v1beta1
+      - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+        displayName: Meter Definition
+        kind: MeterDefinition
+        name: meterdefinitions.marketplace.redhat.com
+        version: v1alpha1
+      - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+        displayName: Razee Deployment
+        kind: RazeeDeployment
+        name: razeedeployments.marketplace.redhat.com
+        version: v1alpha1
+      - description: RemoteResourceS3 is the Schema for the remoteresources3s API
+        displayName: Remote Resource S3
+        kind: RemoteResourceS3
+        name: remoteresources3s.marketplace.redhat.com
+        version: v1alpha1
   description: |
     The Red Hat Marketplace Operator provides cluster management, metering and
     operator installation for Red Hat Marketplace customers.
@@ -105,59 +105,59 @@ spec:
     You can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)
   displayName: Red Hat Marketplace
   icon:
-  - base64data: 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
-    mediatype: image/png
+    - base64data: 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
+      mediatype: image/png
   install:
     spec:
       deployments: null
-    strategy: ""
+    strategy: ''
   installModes:
-  - supported: true
-    type: OwnNamespace
-  - supported: true
-    type: SingleNamespace
-  - supported: true
-    type: MultiNamespace
-  - supported: false
-    type: AllNamespaces
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: true
+      type: MultiNamespace
+    - supported: false
+      type: AllNamespaces
   keywords:
-  - red hat marketplace
-  - operators
-  - buy
+    - red hat marketplace
+    - operators
+    - buy
   links:
-  - name: Visit the marketplace!
-    url: https://marketplace.redhat.com
-  - name: About
-    url: https://marketplace.redhat.com/en-us/about
-  - name: Support
-    url: https://marketplace.redhat.com/en-us/support
+    - name: Visit the marketplace!
+      url: https://marketplace.redhat.com
+    - name: About
+      url: https://marketplace.redhat.com/en-us/about
+    - name: Support
+      url: https://marketplace.redhat.com/en-us/support
   maintainers:
-  - email: rhmoper@us.ibm.com
-    name: RHM Operator Team
+    - email: rhmoper@us.ibm.com
+      name: RHM Operator Team
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  relatedImages:
-  - image: $(METRIC_STATE_IMAGE_MARKER)
-    name: RELATED_IMAGE_METRIC_STATE
-  - image: $(REPORTER_IMAGE_MARKER)
-    name: RELATED_IMAGE_REPORTER
-  - image: $(AUTHCHECK_IMAGE_MARKER)
-    name: RELATED_IMAGE_AUTHCHECK
-  - image: quay.io/razee/remoteresources3:0.9.3
-    name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-  - image: quay.io/razee/watch-keeper:0.7.7
-    name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-  - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
-    name: RELATED_IMAGE_PROMETHEUS
-  - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
-    name: RELATED_IMAGE_OAUTH_PROXY
-  - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
-    name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-  - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
-    name: RELATED_IMAGE_CONFIGMAP_RELOADER
-  - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
-    name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-  - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-    name: RELATED_IMAGE_KUBE_RBAC_PROXY
   version: 0.0.0
+  # relatedImages:
+  # - image: $(METRIC_STATE_IMAGE_MARKER)
+  #   name: RELATED_IMAGE_METRIC_STATE
+  # - image: $(REPORTER_IMAGE_MARKER)
+  #   name: RELATED_IMAGE_REPORTER
+  # - image: $(AUTHCHECK_IMAGE_MARKER)
+  #   name: RELATED_IMAGE_AUTHCHECK
+  # - image: quay.io/razee/remoteresources3:0.9.3
+  #   name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+  # - image: quay.io/razee/watch-keeper:0.7.7
+  #   name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+  # - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+  #   name: RELATED_IMAGE_PROMETHEUS
+  # - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+  #   name: RELATED_IMAGE_OAUTH_PROXY
+  # - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+  #   name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+  # - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+  #   name: RELATED_IMAGE_CONFIGMAP_RELOADER
+  # - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+  #   name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+  # - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+  #   name: RELATED_IMAGE_KUBE_RBAC_PROXY
