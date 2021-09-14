@@ -27,7 +27,11 @@ import (
 )
 
 var log = logf.Log.WithName("reporter_report_cmd")
-var name, namespace, cafile, tokenFile, localFilePath, deployedNamespace, dataServiceTokenFile, dataServiceCertFile, reporterSchema string
+
+var name, namespace, cafile, tokenFile string
+var localFilePath, deployedNamespace string
+var dataServiceTokenFile, dataServiceCertFile string
+var reporterSchema string
 var uploadTargets []string
 var local, upload bool
 var retry int
@@ -49,6 +53,7 @@ var ReportCmd = &cobra.Command{
 
 		tmpDir := os.TempDir()
 
+		targets := reporter.UploaderTargets{}
 		for _, uploadTarget := range uploadTargets {
 			uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
 			log.Info("upload target", "target set to", uploadTarget.Name())
@@ -57,39 +62,39 @@ var ReportCmd = &cobra.Command{
 			case *reporter.LocalFilePathUploader:
 				v.LocalFilePath = localFilePath
 			}
+			targets = append(targets, uploadTarget)
+		}
 
-			cfg := &reporter.Config{
-				OutputDirectory:      tmpDir,
-				Retry:                ptr.Int(retry),
-				CaFile:               cafile,
-				TokenFile:            tokenFile,
-				DataServiceTokenFile: dataServiceTokenFile,
-				DataServiceCertFile:  dataServiceCertFile,
-				Local:                local,
-				Upload:               upload,
-				UploaderTarget:       uploadTarget,
-				DeployedNamespace:    deployedNamespace,
-				ReporterSchema:       reporterSchema,
-			}
-			cfg.SetDefaults()
+		cfg := &reporter.Config{
+			OutputDirectory:      tmpDir,
+			Retry:                ptr.Int(retry),
+			CaFile:               cafile,
+			TokenFile:            tokenFile,
+			DataServiceTokenFile: dataServiceTokenFile,
+			DataServiceCertFile:  dataServiceCertFile,
+			Local:                local,
+			Upload:               upload,
+			UploaderTargets:      targets,
+			DeployedNamespace:    deployedNamespace,
+			ReporterSchema:       reporterSchema,
+		}
+		cfg.SetDefaults()
 
-			task, err := reporter.NewTask(
-				ctx,
-				reporter.ReportName{Namespace: namespace, Name: name},
-				cfg,
-			)
+		task, err := reporter.NewTask(
+			ctx,
+			reporter.ReportName{Namespace: namespace, Name: name},
+			cfg,
+		)
 
-			if err != nil {
-				log.Error(err, "couldn't initialize task")
-				os.Exit(1)
-			}
+		if err != nil {
+			log.Error(err, "couldn't initialize task")
+			os.Exit(1)
+		}
 
-			err = task.Run()
-			if err != nil {
-				log.Error(err, "error running task")
-				os.Exit(1)
-			}
-
+		err = task.Run()
+		if err != nil {
+			log.Error(err, "error running task")
+			os.Exit(1)
 		}
 
 		os.Exit(0)

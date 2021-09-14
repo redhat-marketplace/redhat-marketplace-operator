@@ -15,25 +15,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
-	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
+	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/server"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/scheduler"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 )
 
 var log logr.Logger
@@ -49,9 +46,9 @@ func main() {
 		purgeAfter     string
 		config         string
 		cronExpression string
-    caCert         string
-	  tlsCert        string
-	  tlsKey         string
+		caCert         string
+		tlsCert        string
+		tlsKey         string
 	)
 
 	cmd := &cobra.Command{
@@ -86,6 +83,8 @@ func main() {
 				return err
 			}
 
+			defer cfg.Close()
+
 			sfg := &scheduler.SchedulerConfig{
 				Log:            log,
 				Fs:             fs,
@@ -102,36 +101,28 @@ func main() {
 			}
 			sfg.StartScheduler()
 
-			lis, err := net.Listen("tcp", api)
-			if err != nil {
-				return err
-			}
+			ctx, cancel := context.WithCancel(context.Background())
 
-			s := grpc.NewServer()
-			bs := server.BaseServer{Log: log, FileStore: fs}
+			bs := &server.Server{Log: log, FileStore: fs, TLSKey: tlsKey, TLSCert: tlsCert}
+			bs = server.WithAddress(bs, api)
+			//bs = server.WithTLS(bs, tlsKey, tlsCert)
 
-			//Register servers
-			filesender.RegisterFileSenderServer(s, &server.FileSenderServer{B: bs})
-			fileretreiver.RegisterFileRetreiverServer(s, &server.FileRetreiverServer{B: bs})
-			adminserver.RegisterAdminServerServer(s, &server.AdminServerServer{B: bs})
+			stopCh := (&shutdownHandler{log: log}).SetupSignalHandler()
 
-			go func() {
-				if err := s.Serve(lis); err != nil {
-					panic(err)
-				}
-			}()
+			var group errgroup.Group
 
-			ch := make(chan os.Signal)
-			signal.Notify(ch, unix.SIGINT)
-			signal.Notify(ch, unix.SIGQUIT)
-			signal.Notify(ch, unix.SIGTERM)
+			group.Go(func() error {
+				return bs.Start(ctx)
+			})
 
-			<-ch
+			// handle signals
+			group.Go(func() error {
+				<-stopCh
+				cancel()
+				return nil
+			})
 
-			lis.Close()
-			cfg.Close()
-
-			return nil
+			return group.Wait()
 		},
 	}
 
@@ -157,6 +148,31 @@ func main() {
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+var onlyOneSignalHandler = make(chan struct{})
+var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+
+type shutdownHandler struct {
+	log logr.Logger
+}
+
+func (s *shutdownHandler) SetupSignalHandler() (stopCh <-chan struct{}) {
+	close(onlyOneSignalHandler) // panics when called twice
+
+	stop := make(chan struct{})
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, shutdownSignals...)
+	go func() {
+		<-c
+		s.log.Info("shutdown signal received")
+		close(stop)
+		<-c
+		s.log.Info("second shutdown signal received, killing")
+		os.Exit(1) // second signal. Exit directly.
+	}()
+
+	return stop
 }
 
 func init() {

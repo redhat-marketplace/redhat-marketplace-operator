@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -53,7 +54,7 @@ func init() {
 
 	logf.SetLogger(zap.New(zap.UseDevMode(true)))
 	rootCmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8089", "The address the probe endpoint binds to.")
-	rootCmd.Flags().StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace to list")
+	rootCmd.Flags().StringVar(&namespace, "namespace", "", "namespace to list")
 	rootCmd.Flags().StringVar(&podname, "podname", os.Getenv("POD_NAME"), "podname")
 	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry count")
 }
@@ -64,6 +65,11 @@ func run(cmd *cobra.Command, args []string) {
 		"namespace", namespace,
 		"retry", retry,
 	)
+
+	if namespace == "" {
+		setupLog.Error(errors.New("namespace not provided"), "namespace not provided", "namespace", namespace)
+		os.Exit(1)
+	}
 
 	opts := ctrl.Options{
 		Scheme:                 scheme,

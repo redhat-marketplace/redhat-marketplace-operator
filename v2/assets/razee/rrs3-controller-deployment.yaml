@@ -24,21 +24,7 @@ spec:
       name: rhm-remoteresources3-controller
     spec:
       containers:
-        - args:
-            - --namespace
-            - $POD_NAMESPACE
-          env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-          imagePullPolicy: IfNotPresent
+        - imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
             httpGet:

@@ -31,7 +31,7 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*T
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, taskConfig)
+	uploaders, err := ProvideUploaders(ctx, clientCommandRunner, logrLogger, taskConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*T
 		Ctx:        ctx,
 		Config:     taskConfig,
 		K8SScheme:  scheme,
-		Uploader:   uploader,
+		Uploaders:  uploaders,
 	}
 	return task, nil
 }
@@ -67,11 +67,12 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner)
+	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner, reporterConfig)
 	if err != nil {
 		return nil, err
 	}
-	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service)
+	servicePort := getPrometheusPort(reporterConfig, service)
+	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service, servicePort)
 	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
@@ -107,11 +108,12 @@ func NewReporterV2(task *Task) (*MarketplaceReporterV2, error) {
 	if err != nil {
 		return nil, err
 	}
-	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner)
+	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner, reporterConfig)
 	if err != nil {
 		return nil, err
 	}
-	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service)
+	servicePort := getPrometheusPort(reporterConfig, service)
+	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service, servicePort)
 	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
@@ -151,7 +153,7 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 	if err != nil {
 		return nil, err
 	}
-	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, config2)
+	uploaders, err := ProvideUploaders(ctx, clientCommandRunner, logrLogger, config2)
 	if err != nil {
 		return nil, err
 	}
@@ -160,13 +162,12 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 		return nil, err
 	}
 	uploadTask := &UploadTask{
-		CC:         clientCommandRunner,
 		K8SClient:  simpleClient,
 		Ctx:        ctx,
 		Config:     config2,
 		K8SScheme:  scheme,
 		Downloader: downloader,
-		Uploader:   uploader,
+		Uploaders:  uploaders,
 		Admin:      admin,
 	}
 	return uploadTask, nil
@@ -175,3 +176,26 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 var (
 	_wireLoggerValue3 = logger
 )
+
+func NewReconcileTask(ctx context.Context, config2 *Config, namespace Namespace) (*ReconcileTask, error) {
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	scheme := provideScheme()
+	simpleClient, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme)
+	if err != nil {
+		return nil, err
+	}
+	reconcileTask := &ReconcileTask{
+		K8SClient: simpleClient,
+		Config:    config2,
+		K8SScheme: scheme,
+		Namespace: namespace,
+	}
+	return reconcileTask, nil
+}

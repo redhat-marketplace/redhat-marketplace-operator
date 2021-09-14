@@ -139,7 +139,7 @@ var _ = Describe("ReporterV2", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -148,7 +148,7 @@ var _ = Describe("ReporterV2", func() {
 								Query:        "simple_query",
 								Metric:       "rpc_durations_seconds",
 								Label:        "{{ .Label.meter_query }}",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 								Description:  "{{ .Label.meter_domain | lower }} description",
 							},
 						},
@@ -302,7 +302,7 @@ var _ = Describe("ReporterV2", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -311,7 +311,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "rpc_durations_seconds_sum",
 								Label:        "rpc_durations_seconds_sum",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 							{
 
@@ -319,7 +319,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "my_query",
 								Label:        "rpc_durations_seconds_count",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 					},
@@ -341,7 +341,7 @@ var _ = Describe("ReporterV2", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -350,7 +350,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "rpc_durations_seconds_sum",
 								Label:        "rpc_durations_seconds_sum",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 							{
 
@@ -358,7 +358,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "my_query",
 								Label:        "rpc_durations_seconds_count",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 					},
@@ -519,7 +519,7 @@ var _ = Describe("ReporterV2", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -528,7 +528,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "rpc_durations_seconds_sum",
 								Label:        "rpc_durations_seconds_sum",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 							{
 
@@ -536,7 +536,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "my_query",
 								Label:        "rpc_durations_seconds_count",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 					},
@@ -558,7 +558,7 @@ var _ = Describe("ReporterV2", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -567,7 +567,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "rpc_durations_seconds_sum",
 								Label:        "rpc_durations_seconds_sum",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 							{
 
@@ -575,7 +575,7 @@ var _ = Describe("ReporterV2", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "my_query",
 								Label:        "rpc_durations_seconds_count",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 					},

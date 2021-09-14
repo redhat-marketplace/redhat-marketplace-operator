@@ -10,7 +10,7 @@ spec:
   endpoints:
   - bearerTokenSecret:
       key: token
-      name: redhat-marketplace-operator-token
+      name: redhat-marketplace-service-account-token
     honorLabels: true
     interval: 30s
     metricRelabelings:
@@ -59,7 +59,7 @@ spec:
           name: kubelet-serving-ca-bundle
   - bearerTokenSecret:
       key: token
-      name: redhat-marketplace-operator-token
+      name: redhat-marketplace-service-account-token
     honorLabels: true
     interval: 30s
     metricRelabelings:
@@ -81,7 +81,7 @@ spec:
           name: kubelet-serving-ca-bundle
   - bearerTokenSecret:
       key: token
-      name: redhat-marketplace-operator-token
+      name: redhat-marketplace-service-account-token
     honorLabels: true
     interval: 30s
     path: /metrics/probes

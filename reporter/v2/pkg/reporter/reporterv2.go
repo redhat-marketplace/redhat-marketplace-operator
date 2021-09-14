@@ -455,10 +455,7 @@ func (r *MarketplaceReporterV2) WriteReport(
 	for idxRange := range gopart.Partition(len(metricsArr), partitionSize) {
 		metricReport := &schemav2alpha1.MarketplaceReportSlice{}
 		reportSliceID := common.ReportSliceKey(uuid.New())
-
-		if r.Config.UploaderTarget != UploaderTargetRedHatInsights {
-			metricReport.Metadata = &metadata
-		}
+		metricReport.Metadata = &metadata
 
 		for _, builder := range metricsArr[idxRange.Low:idxRange.High] {
 			metric, err := builder.Build()

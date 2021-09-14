@@ -31,7 +31,7 @@ func NewFileSenderClient(cc grpc.ClientConnInterface) FileSenderClient {
 }
 
 func (c *fileSenderClient) UploadFile(ctx context.Context, opts ...grpc.CallOption) (FileSender_UploadFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &FileSender_ServiceDesc.Streams[0], "/filesender.v1.FileSender/UploadFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &FileSender_ServiceDesc.Streams[0], "/filesender.FileSender/UploadFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (x *fileSenderUploadFileClient) CloseAndRecv() (*UploadFileResponse, error)
 
 func (c *fileSenderClient) UpdateFileMetadata(ctx context.Context, in *UpdateFileMetadataRequest, opts ...grpc.CallOption) (*UpdateFileMetadataResponse, error) {
 	out := new(UpdateFileMetadataResponse)
-	err := c.cc.Invoke(ctx, "/filesender.v1.FileSender/UpdateFileMetadata", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/filesender.FileSender/UpdateFileMetadata", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func _FileSender_UpdateFileMetadata_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/filesender.v1.FileSender/UpdateFileMetadata",
+		FullMethod: "/filesender.FileSender/UpdateFileMetadata",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FileSenderServer).UpdateFileMetadata(ctx, req.(*UpdateFileMetadataRequest))
@@ -153,7 +153,7 @@ func _FileSender_UpdateFileMetadata_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FileSender_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "filesender.v1.FileSender",
+	ServiceName: "filesender.FileSender",
 	HandlerType: (*FileSenderServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -168,5 +168,5 @@ var FileSender_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "apis/filesender/filesender.proto",
+	Metadata: "filesender/filesender.proto",
 }

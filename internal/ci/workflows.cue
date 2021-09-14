@@ -198,7 +198,7 @@ publish: _#bashWorkflow & {
 	jobs: {
 		push: _#job & {
 			name:      "Push Images to PC"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push-images') }}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -230,7 +230,7 @@ publish: _#bashWorkflow & {
 		}
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish')}}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-images')}}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -918,7 +918,7 @@ _#turnStyleStep: _#step & {
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:           "quay.io/rh-marketplace"
-_#goVersion:          "1.16.7"
+_#goVersion:          "1.16.8"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
 _#kubeBuilderVersion: "2.3.2"

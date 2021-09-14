@@ -155,6 +155,28 @@ rules:
   - list
   - watch
 - apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - batch
   - extensions
   resources:
@@ -519,6 +541,7 @@ rules:
   resources:
   - statefulsets
   verbs:
+  - create
   - delete
   - get
   - list
@@ -529,6 +552,7 @@ rules:
   - batch
   - extensions
   resources:
+  - cronjobs
   - jobs
   verbs:
   - create
@@ -687,6 +711,7 @@ rules:
   resources:
   - routes
   verbs:
+  - create
   - delete
   - get
   - list

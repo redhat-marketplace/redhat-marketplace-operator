@@ -38,7 +38,10 @@ type Config struct {
 	DeployedNamespace    string
 	Local                bool
 	Upload               bool
-	UploaderTarget
+	PrometheusService    string
+	PrometheusNamespace  string
+	PrometheusPort       string
+	UploaderTargets
 	ReporterSchema string
 }
 
@@ -60,8 +63,8 @@ func (c *Config) SetDefaults() {
 		c.Retry = ptr.Int(5)
 	}
 
-	if c.UploaderTarget == nil {
-		c.UploaderTarget = UploaderTargetRedHatInsights
+	if c.UploaderTargets == nil {
+		c.UploaderTargets = UploaderTargets{&DataServiceUploader{}}
 	}
 }
 

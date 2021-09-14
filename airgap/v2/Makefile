@@ -11,6 +11,8 @@ export IMG
 IMAGE ?= $(IMG)
 export IMAGE
 
+include ../../utils.Makefile
+
 all: generate vet fmt
 
 IMAGE_PUSH ?= true
@@ -66,8 +68,6 @@ vet:
 generate:
 	go generate ./...
 
-
-
 SRC_DIR=$(shell pwd)
 DST_DIR=$(SRC_DIR)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
@@ -80,10 +80,14 @@ build:
 demo: build
 	docker-compose up
 
-generate-proto: protoc
+generate-proto: protoc protoc-gen-go
 	@{ TMP_DIR=$$(mktemp -d) ;\
-		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=$(SRC_DIR) --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR $(SRC_DIR)/apis/model/v1/modelv1.proto $(SRC_DIR)/apis/filesender/filesender.proto $(SRC_DIR)/apis/fileretreiver/fileretreiver.proto $(SRC_DIR)/apis/adminserver/adminserver.proto ;\
-		cp -r $$TMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis ./ ;\
+		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative ./apis/model/model.proto  ;\
+		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative --twirp_out $$TMP_DIR --twirp_opt=paths=source_relative ./apis/filesender/filesender.proto ;\
+		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative --twirp_out $$TMP_DIR --twirp_opt=paths=source_relative ./apis/fileretreiver/fileretreiver.proto ;\
+		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative --twirp_out $$TMP_DIR --twirp_opt=paths=source_relative ./apis/adminserver/adminserver.proto ;\
+		ls $$TMP_DIR ;\
+		cp -r $$TMP_DIR/apis ./ ;\
 		rm -rf $$TMP_DIR ; \
 	}
 
@@ -106,20 +110,6 @@ endif
 PROTOC=$(shell pwd)/bin/protoc
 protoc: protoc-gen-go
 	$(call install-zip,https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6,protoc-3.15.6-$(PROTOC_UNAME)-$(PROTOC_ARCH).zip,$(PROTOC),$(shell pwd)/bin,./bin/protoc ./include)
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
 
 # install-binary will 'curl' any package url $1 with file $2 and install it to $3
 define install-binary

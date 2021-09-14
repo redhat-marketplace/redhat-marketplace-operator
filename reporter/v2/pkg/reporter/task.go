@@ -52,7 +52,7 @@ type Task struct {
 	Ctx       context.Context
 	Config    *Config
 	K8SScheme *runtime.Scheme
-	Uploader
+	Uploaders
 }
 
 func (r *Task) Run() error {
@@ -103,17 +103,29 @@ func (r *Task) reportV1() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
-	if r.Config.Upload {
+	uploadStatuses := []*marketplacev1alpha1.UploadDetails{}
 
+	if r.Config.Upload {
 		logger.Info("starting file upload", "file name", fileName)
 
-		err = r.Uploader.UploadFile(fileName)
+		for _, uploader := range r.Uploaders {
+			err = uploader.UploadFile(fileName)
 
-		if err != nil {
-			return errors.Wrap(err, "error uploading file")
+			status := &marketplacev1alpha1.UploadDetails{
+				Target: uploader.Name(),
+			}
+
+			if err != nil {
+				logger.Error(err, "failed to upload")
+				status.Status = "failure"
+				status.Error = err.Error()
+			} else {
+				logger.Info("uploaded metrics", "metricsLength", len(metrics), "target", uploader.Name())
+				status.Status = "success"
+			}
+
+			uploadStatuses = append(uploadStatuses, status)
 		}
-
-		logger.Info("uploaded metrics", "metricsLength", len(metrics))
 	}
 
 	report := &marketplacev1alpha1.MeterReport{}
@@ -123,6 +135,7 @@ func (r *Task) reportV1() error {
 			HandleResult(
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
+					report.Status.UploadStatus = uploadStatuses
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
 					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
@@ -195,14 +208,29 @@ func (r *Task) reportV2() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
+	uploadStatuses := []*marketplacev1alpha1.UploadDetails{}
+
 	if r.Config.Upload {
-		err = r.Uploader.UploadFile(fileName)
+		logger.Info("starting file upload", "file name", fileName)
 
-		if err != nil {
-			return errors.Wrap(err, "error uploading file")
+		for _, uploader := range r.Uploaders {
+			err = uploader.UploadFile(fileName)
+
+			status := &marketplacev1alpha1.UploadDetails{
+				Target: uploader.Name(),
+			}
+
+			if err != nil {
+				logger.Error(err, "failed to upload")
+				status.Status = "failure"
+				status.Error = err.Error()
+			} else {
+				logger.Info("uploaded metrics", "metricsLength", len(metrics), "target", uploader.Name())
+				status.Status = "success"
+			}
+
+			uploadStatuses = append(uploadStatuses, status)
 		}
-
-		logger.Info("uploaded metrics", "metricsLength", len(metrics))
 	}
 
 	report := &marketplacev1alpha1.MeterReport{}
@@ -212,6 +240,7 @@ func (r *Task) reportV2() error {
 			HandleResult(
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
+					report.Status.UploadStatus = uploadStatuses
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
 					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
@@ -251,10 +280,16 @@ func (r *Task) reportV2() error {
 	return nil
 }
 
-func providePrometheusSetup(config *Config, report *marketplacev1alpha1.MeterReport, promService *corev1.Service) *PrometheusAPISetup {
+func providePrometheusSetup(
+	config *Config,
+	report *marketplacev1alpha1.MeterReport,
+	promService *corev1.Service,
+	promPort *corev1.ServicePort,
+) *PrometheusAPISetup {
 	return &PrometheusAPISetup{
 		Report:        report,
 		PromService:   promService,
+		PromPort:      promPort,
 		CertFilePath:  config.CaFile,
 		TokenFilePath: config.TokenFile,
 		RunLocal:      config.Local,
@@ -320,6 +355,7 @@ func getPrometheusService(
 	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
 	cc ClientCommandRunner,
+	cfg *Config,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
 
@@ -329,8 +365,8 @@ func getPrometheusService(
 	}
 
 	name := types.NamespacedName{
-		Name:      report.Spec.PrometheusService.Name,
-		Namespace: report.Spec.PrometheusService.Namespace,
+		Name:      cfg.PrometheusService,
+		Namespace: cfg.PrometheusNamespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -339,6 +375,21 @@ func getPrometheusService(
 
 	logger.Info("retrieved prometheus service")
 	return
+}
+
+func getPrometheusPort(
+	cfg *Config,
+	service *corev1.Service,
+) *corev1.ServicePort {
+	var port *corev1.ServicePort
+
+	for i, portB := range service.Spec.Ports {
+		if portB.Name == cfg.PrometheusPort {
+			port = &service.Spec.Ports[i]
+		}
+	}
+
+	return port
 }
 
 type MeterDefinitionReferences = []marketplacev1beta1.MeterDefinitionReference

@@ -18,8 +18,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,21 +37,16 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
-	"golang.org/x/oauth2"
-	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/jsonpath"
-
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/oauth"
 
 	"github.com/IBM/ibm-cos-sdk-go/aws"
 	"github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
@@ -62,6 +55,8 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 )
+
+type UploaderTargets []UploaderTarget
 
 type UploaderTarget interface {
 	Name() string
@@ -112,11 +107,15 @@ func MustParseUploaderTarget(s string) UploaderTarget {
 	}
 }
 
+type Uploaders []Uploader
+
 type Uploader interface {
+	UploaderTarget
 	UploadFile(path string) error
 }
 
 type DataServiceUploader struct {
+	Ctx context.Context
 	DataServiceConfig
 	UploadClient filesender.FileSender_UploadFileClient
 }
@@ -128,7 +127,6 @@ type DataServiceConfig struct {
 }
 
 func provideDataServiceConfig(deployedNamespace string, dataServiceTokenFile string, dataServiceCertFile string) (*DataServiceConfig, error) {
-
 	cert, err := ioutil.ReadFile(dataServiceCertFile)
 	if err != nil {
 		return nil, err
@@ -140,12 +138,10 @@ func provideDataServiceConfig(deployedNamespace string, dataServiceTokenFile str
 		if err != nil {
 			return nil, err
 		}
-		serviceAccountToken = fmt.Sprintf(string(content))
+		serviceAccountToken = string(content)
 	}
 
-	logger.Info("deployed namespace", "namespace", deployedNamespace)
-
-	var dataServiceDNS = fmt.Sprintf("%s.%s.svc.cluster.local:8002", utils.DATA_SERVICE_NAME, deployedNamespace)
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, deployedNamespace)
 
 	return &DataServiceConfig{
 		Address:          dataServiceDNS,
@@ -154,8 +150,8 @@ func provideDataServiceConfig(deployedNamespace string, dataServiceTokenFile str
 	}, nil
 }
 
-func NewDataServiceUploader(dataServiceConfig *DataServiceConfig) (Uploader, error) {
-	uploadClient, err := createDataServiceUploadClient(dataServiceConfig)
+func NewDataServiceUploader(ctx context.Context, dataServiceConfig *DataServiceConfig) (Uploader, error) {
+	uploadClient, err := createDataServiceUploadClient(ctx, dataServiceConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -166,29 +162,11 @@ func NewDataServiceUploader(dataServiceConfig *DataServiceConfig) (Uploader, err
 	}, nil
 }
 
-func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig) (filesender.FileSender_UploadFileClient, error) {
+func createDataServiceUploadClient(ctx context.Context, dataServiceConfig *DataServiceConfig) (filesender.FileSender_UploadFileClient, error) {
 	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
-	options := []grpc.DialOption{}
+	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert, dataServiceConfig.DataServiceToken)
 
-	/* creat tls */
-	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
-	if err != nil {
-		logger.Error(err, "failed to create creds")
-		return nil, err
-	}
-
-	options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
-
-	/* create oauth2 token  */
-	oauth2Token := &oauth2.Token{
-		AccessToken: dataServiceConfig.DataServiceToken,
-	}
-
-	perRPC := oauth.NewOauthAccess(oauth2Token)
-	options = append(options, grpc.WithPerRPCCredentials(perRPC))
-
-	conn, err := grpc.Dial(dataServiceConfig.Address, options...)
 	if err != nil {
 		logger.Error(err, "failed to establish connection")
 		return nil, err
@@ -205,26 +183,7 @@ func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig) (filese
 	return uploadClient, nil
 }
 
-func createTlsConfig(caCert []byte) (*tls.Config, error) {
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get system cert pool")
-	}
-
-	ok := caCertPool.AppendCertsFromPEM(caCert)
-	if !ok {
-		err = errors.New("failed to append cert to cert pool")
-		logger.Error(err, "cert pool error")
-		return nil, err
-	}
-
-	return &tls.Config{
-		RootCAs: caCertPool,
-	}, nil
-}
-
 func (d *DataServiceUploader) UploadFile(path string) error {
-
 	m := map[string]string{
 		"version":    "v1",
 		"reportType": "rhm-metering",
@@ -508,42 +467,60 @@ func (r *LocalFilePathUploader) UploadFile(path string) error {
 	return nil
 }
 
-func ProvideUploader(
+func ProvideUploaders(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	log logr.Logger,
 	reporterConfig *Config,
-) (Uploader, error) {
-	switch reporterConfig.UploaderTarget.(type) {
-	case *RedHatInsightsUploader:
-		config, err := provideProductionInsightsConfig(ctx, cc, log)
+) (Uploaders, error) {
+	uploaders := Uploaders{}
 
-		if err != nil {
-			return nil, err
+	for _, target := range reporterConfig.UploaderTargets {
+		switch target.(type) {
+		case *RedHatInsightsUploader:
+			config, err := provideProductionInsightsConfig(ctx, cc, log)
+
+			if err != nil {
+				return nil, err
+			}
+
+			uploader, err := NewRedHatInsightsUploader(config)
+			if err != nil {
+				return uploaders, err
+			}
+			uploaders = append(uploaders, uploader)
+		case *NoOpUploader:
+			uploaders = append(uploaders, target.(Uploader))
+		case *LocalFilePathUploader:
+			uploaders = append(uploaders, target.(Uploader))
+		case *DataServiceUploader:
+			dataServiceConfig, err := provideDataServiceConfig(reporterConfig.DeployedNamespace, reporterConfig.DataServiceTokenFile, reporterConfig.DataServiceCertFile)
+			if err != nil {
+				return nil, err
+			}
+
+			uploader, err := NewDataServiceUploader(ctx, dataServiceConfig)
+			if err != nil {
+				return uploaders, err
+			}
+			uploaders = append(uploaders, uploader)
+		case *COSS3Uploader:
+			cosS3Config, err := provideCOSS3Config(ctx, cc, reporterConfig.DeployedNamespace, log)
+			if err != nil {
+				return nil, err
+			}
+
+			uploader, err := NewCOSS3Uploader(cosS3Config)
+			if err != nil {
+				return uploaders, err
+			}
+			uploaders = append(uploaders, uploader)
+		default:
+			return nil, errors.Errorf("uploader target not available %s", target.Name())
 		}
-
-		return NewRedHatInsightsUploader(config)
-	case *NoOpUploader:
-		return reporterConfig.UploaderTarget.(Uploader), nil
-	case *LocalFilePathUploader:
-		return reporterConfig.UploaderTarget.(Uploader), nil
-	case *DataServiceUploader:
-		dataServiceConfig, err := provideDataServiceConfig(reporterConfig.DeployedNamespace, reporterConfig.DataServiceTokenFile, reporterConfig.DataServiceCertFile)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewDataServiceUploader(dataServiceConfig)
-	case *COSS3Uploader:
-		cosS3Config, err := provideCOSS3Config(ctx, cc, reporterConfig.DeployedNamespace, log)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewCOSS3Uploader(cosS3Config)
 	}
 
-	return nil, errors.Errorf("uploader target not available %s", reporterConfig.UploaderTarget.Name())
+	return uploaders, nil
 }
 
 type ReportJobError struct {

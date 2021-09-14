@@ -51,7 +51,7 @@ var UploadCmd = &cobra.Command{
 			Retry:                ptr.Int(retry),
 			DataServiceTokenFile: dataServiceTokenFile,
 			DataServiceCertFile:  dataServiceCertFile,
-			UploaderTarget:       uploadTarget,
+			UploaderTargets:      reporter.UploaderTargets{uploadTarget},
 			DeployedNamespace:    deployedNamespace,
 		}
 		cfg.SetDefaults()
@@ -66,7 +66,7 @@ var UploadCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = uploadTask.Upload()
+		err = uploadTask.Run()
 		if err != nil {
 			log.Error(err, "error running upload task")
 			os.Exit(1)

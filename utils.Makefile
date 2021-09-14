@@ -20,7 +20,7 @@ clean-bin:
 # download controller-gen if necessary
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.2)
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:

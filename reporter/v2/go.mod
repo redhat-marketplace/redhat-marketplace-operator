@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/IBM/ibm-cos-sdk-go v1.7.0 // indirect
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.2.0
@@ -23,10 +24,10 @@ require (
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
-	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
-	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
-	google.golang.org/grpc v1.32.0
+	google.golang.org/grpc v1.39.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.20.1
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v12.0.0+incompatible
@@ -35,7 +36,6 @@ require (
 )
 
 replace (
-	github.com/canonical/go-dqlite => github.com/dacleyra/go-dqlite v1.8.4
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2

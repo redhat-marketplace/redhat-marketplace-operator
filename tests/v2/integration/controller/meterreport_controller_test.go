@@ -197,7 +197,7 @@ var _ = Describe("MeterReportController", func() {
 
 			Eventually(func() bool {
 				ss := &appsv1.StatefulSet{}
-				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: "rhm-dqlite",Namespace: "openshift-redhat-marketplace"} ,ss)
+				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: "rhm-data-service",Namespace: "openshift-redhat-marketplace"} ,ss)
 				if err != nil {
 					return false
 				}

@@ -18,7 +18,6 @@ RUN dnf -y install git make yum gzip \
 RUN curl -o go.tar.gz https://dl.google.com/go/go$VERSION.$OS-$ARCH.tar.gz && \
   rm -rf /usr/local/go && \
   sha256sum go.tar.gz && \
-  chmod ugo+r go.tar.gz && \
   tar -C /usr/local -xzf go.tar.gz && \
   echo 'PATH=$PATH:/usr/local/go/bin' >> /etc/profile && \
   echo 'PATH=$PATH:/usr/local/go/bin' >> $HOME/.profile

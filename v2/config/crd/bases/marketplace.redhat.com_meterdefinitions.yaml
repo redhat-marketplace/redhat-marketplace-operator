@@ -1,10 +1,10 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: v0.6.2
   creationTimestamp: null
   name: meterdefinitions.marketplace.redhat.com
 spec:
@@ -14,11 +14,7 @@ spec:
     listKind: MeterDefinitionList
     plural: meterdefinitions
     singular: meterdefinition
-  preserveUnknownFields: false
   scope: Namespaced
-  subresources:
-    status: {}
-  version: v1alpha1
   versions:
   - name: v1alpha1
     schema:
@@ -368,12 +364,17 @@ spec:
                         description: ResultValues will hold the results of the prometheus
                           query
                         properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
                           timestamp:
                             format: int64
                             type: integer
                           value:
                             type: string
                         required:
+                        - labels
                         - timestamp
                         - value
                         type: object
@@ -421,6 +422,8 @@ spec:
         type: object
     served: true
     storage: false
+    subresources:
+      status: {}
   - name: v1beta1
     schema:
       openAPIV3Schema:
@@ -513,6 +516,14 @@ spec:
                       type: string
                     metricId:
                       description: Metric is the id of the meter
+                      type: string
+                    metricType:
+                      description: MetricType identifies the type of metric this meter
+                        definition reports. Currently "billable", "license", or "adoption".
+                      enum:
+                      - billable
+                      - license
+                      - adoption
                       type: string
                     name:
                       description: Name of the metric for humans to read.
@@ -818,12 +829,17 @@ spec:
                         description: ResultValues will hold the results of the prometheus
                           query
                         properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
                           timestamp:
                             format: int64
                             type: integer
                           value:
                             type: string
                         required:
+                        - labels
                         - timestamp
                         - value
                         type: object
@@ -871,6 +887,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

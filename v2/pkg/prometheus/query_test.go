@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_query"
 )
@@ -42,7 +43,7 @@ var _ = Describe("Query", func() {
 		testQuery = NewPromQuery(&PromQueryArgs{
 			Metric: "rpc_durations_seconds_count",
 			Query:  `foo{bar="true"}`,
-			Type:   v1beta1.WorkloadTypePod,
+			Type:   common.WorkloadTypePod,
 			Start:  start,
 			End:    end,
 			Step:   time.Minute * 60,
@@ -76,7 +77,7 @@ var _ = Describe("Query", func() {
 				Namespace: "foons",
 			},
 			AggregateFunc: "sum",
-			Type:          v1beta1.WorkloadTypePVC,
+			Type:          common.WorkloadTypePVC,
 		})
 
 		expected := `sum by (namespace,persistentvolumeclaim) (avg(label_replace(label_replace(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"},"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)")) without(cluster_ip,container,endpoint,exported_namespace,exported_persistentvolumeclaim,instance,job,pod,pod_ip,pod_uid,priority_class,prometheus,service) * on(namespace,persistentvolumeclaim) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(namespace,persistentvolumeclaim) group_right group(kube_persistentvolumeclaim_resource_requests_storage_bytes) without(cluster_ip,container,endpoint,exported_namespace,instance,job,priority_class,prometheus)`
@@ -95,7 +96,7 @@ var _ = Describe("Query", func() {
 				Namespace: "foons",
 			},
 			AggregateFunc: "sum",
-			Type:          v1beta1.WorkloadTypePVC,
+			Type:          common.WorkloadTypePVC,
 			GroupBy:       []string{"foo"},
 			Without:       []string{"bar"},
 		})
@@ -115,7 +116,7 @@ var _ = Describe("Query", func() {
 				Namespace: "foons",
 			},
 			AggregateFunc: "sum",
-			Type:          v1beta1.WorkloadTypePVC,
+			Type:          common.WorkloadTypePVC,
 			GroupBy:       []string{"persistentvolumeclaim"},
 		})
 
