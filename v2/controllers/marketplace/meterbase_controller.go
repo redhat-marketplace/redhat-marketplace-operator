@@ -50,6 +50,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,6 +80,10 @@ const (
 
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterBaseReconciler{}
+var ErrRetentionTime = errors.New("retention time must be at least 7 days")
+var ErrInsufficientMemoryConfiguration = errors.New("must allocate at least 40GiB of memory")
+var ErrParseUserWorkloadConfiguration = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
+var ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
 
 // MeterBaseReconciler reconciles a MeterBase object
 type MeterBaseReconciler struct {
@@ -327,15 +332,34 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
 
-	// userWorkloadMonitoringEnabled is considered enabled if both the Spec and cluster configuration are satisfied
-	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec
+	/* 
+		//TODO: look for cm
+		name: user-workload-monitoring-config
+		namespace: openshift-user-workload-monitoring
+
+		if not found - set userWorkloadMonitoringEnabled to false and set condition
+		if found: 
+			is retention set to at least >= 7 days
+			disk size >= 40gs
+	*/
+	userWorkloadConfigSet,userWorkloadErr := isUserWorkLoadMonitoringConfigOnCluster(cc,reqLogger)
+	if userWorkloadErr != nil {
+		reqLogger.Info(userWorkloadErr.Error())
+	}
+
+	// userWorkloadMonitoringEnabled is considered enabled if the Spec,cluster configuration,and user workload configuration are satisfied
+	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigSet
 
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
 		// Set initial UWM status
+		reqLogger.Info("setting initial status for UWM")
 		if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
 			instance,
 			userWorkloadMonitoringEnabledSpec,
 			userWorkloadMonitoringEnabledOnCluster,
+			userWorkloadConfigSet,
+			userWorkloadErr,
+			reqLogger,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
 				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
@@ -364,6 +388,9 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				instance,
 				userWorkloadMonitoringEnabledSpec,
 				userWorkloadMonitoringEnabledOnCluster,
+				userWorkloadConfigSet,
+				userWorkloadErr,
+				reqLogger,
 			); result.Is(Error) || result.Is(Requeue) {
 				if err != nil {
 					return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
@@ -417,7 +444,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				return result.ReturnWithError(merrors.Wrap(result, "error uninstalling prometheus"))
 			}
 
-			reqLogger.Info("returing result", "result", *result)
+			reqLogger.Info("returning result from prometheus uninstall", "result", *result)
 			return result.Return()
 		}
 	}
@@ -436,7 +463,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				return result.ReturnWithError(merrors.Wrap(result, "error creating metric-state"))
 			}
 
-			reqLogger.Info("returing result", "result", *result)
+			reqLogger.Info("returning result from openshift provides prometheus", "result", *result)
 			return result.Return()
 		}
 
@@ -470,7 +497,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
 			}
 
-			reqLogger.Info("returing result", "result", *result)
+			reqLogger.Info("returning result from prometheus install", "result", *result)
 			return result.Return()
 		}
 
@@ -554,6 +581,9 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			instance,
 			userWorkloadMonitoringEnabledSpec,
 			userWorkloadMonitoringEnabledOnCluster,
+			userWorkloadConfigSet,
+			userWorkloadErr,
+			reqLogger,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
 				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
@@ -1729,6 +1759,71 @@ func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
 }
 
+func isUserWorkLoadMonitoringConfigSet(clusterMonitorConfigMap *corev1.ConfigMap) (bool, error) {
+	uwmc := cmomanifests.UserWorkloadConfiguration{}
+	config, ok := clusterMonitorConfigMap.Data["config.yaml"]
+	if !ok {
+		return false, ErrParseUserWorkloadConfiguration 
+	}
+
+	err := yaml.Unmarshal([]byte(config), &uwmc)
+	if err != nil {
+		return false, err
+	}
+
+	foundDuration,err := time.ParseDuration(uwmc.Prometheus.Retention)
+	if err != nil {
+		return false,err
+	}
+
+	wantedDuration,err := time.ParseDuration("168h")
+	if err != nil {
+		return false,err
+	}
+
+	if float64(foundDuration) < float64(wantedDuration) {
+		return false, ErrRetentionTime
+	}
+
+	wantedMemory := resource.MustParse("40Gi")
+	wantedMemoryI64,_ := wantedMemory.AsInt64()
+	foundMemoryI64,_ := uwmc.Prometheus.Resources.Requests.Memory().AsInt64()
+
+	if foundMemoryI64 < wantedMemoryI64 {
+		return false, ErrInsufficientMemoryConfiguration
+	}
+
+	return true,nil
+}
+
+func isUserWorkLoadMonitoringConfigOnCluster(cc ClientCommandRunner,reqLogger logr.Logger)(bool, error) {
+	uwmc := &corev1.ConfigMap{}
+	result, _ := cc.Do(
+		context.TODO(),
+		GetAction(types.NamespacedName{
+			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
+		}, uwmc),
+	)
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to get user-workload-monitoring-config.")
+		return false, result
+	} else if result.Is(NotFound) {	
+		return false, ErrUserWorkloadMonitoringConfigNotFound
+	} else if result.Is(Continue) {
+		reqLogger.Info("found user-workload-monitoring-config")
+		enableUserWorkload, err := isUserWorkLoadMonitoringConfigSet(uwmc)
+		if err != nil {
+			reqLogger.Info(err.Error())
+			return false, err
+		}
+
+		return enableUserWorkload, nil
+	}
+
+	return false, nil
+}
+
 func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (bool, error) {
 	cmc := cmomanifests.ClusterMonitoringConfiguration{}
 	config, ok := clusterMonitorConfigMap.Data["config.yaml"]
@@ -1787,9 +1882,12 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	instance *marketplacev1alpha1.MeterBase,
 	userWorkloadMonitoringEnabledSpec bool,
 	userWorkloadMonitoringEnabledOnCluster bool,
+	userWorkloadConfigurationSet bool,
+	userWorkloadConfigurationErr error,
+	reqLogger logr.Logger,
 ) (*ExecResult, error) {
-
-	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster {
+	// var c status.Condition
+	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 			Status:  corev1.ConditionTrue,
@@ -1797,7 +1895,10 @@ func updateUserWorkloadMonitoringEnabledStatus(
 			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringEnabled,
 		}))
 		return result, err
-	} else if !userWorkloadMonitoringEnabledSpec {
+	} 
+
+	if !userWorkloadMonitoringEnabledSpec {
+		reqLogger.Info("uwm not enabled on meterbase spec")
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 			Status:  corev1.ConditionFalse,
@@ -1805,7 +1906,10 @@ func updateUserWorkloadMonitoringEnabledStatus(
 			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringSpecDisabled,
 		}))
 		return result, err
-	} else {
+	} 
+
+	if !userWorkloadMonitoringEnabledOnCluster {
+		reqLogger.Info("uwm not enabled on cluster")
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 			Status:  corev1.ConditionFalse,
@@ -1813,7 +1917,55 @@ func updateUserWorkloadMonitoringEnabledStatus(
 			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringClusterDisabled,
 		}))
 		return result, err
+	} 
+	
+	if userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && !userWorkloadConfigurationSet && userWorkloadConfigurationErr != nil {
+		reqLogger.Info("workload config not set")
+
+		if errors.Is(userWorkloadConfigurationErr,ErrInsufficientMemoryConfiguration) {
+			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+				Status:  corev1.ConditionFalse,
+				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringInsufficientMemory,
+				Message: userWorkloadConfigurationErr.Error(),
+			}))
+			return result, err
+		}
+
+		if errors.Is(userWorkloadConfigurationErr,ErrRetentionTime) {
+			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+				Status:  corev1.ConditionFalse,
+				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringRetentionTime,
+				Message: userWorkloadConfigurationErr.Error(),
+			}))
+			return result, err
+		}
+
+		if errors.Is(userWorkloadConfigurationErr,ErrParseUserWorkloadConfiguration) {
+			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+					Status:  corev1.ConditionFalse,
+					Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration,
+					Message: userWorkloadConfigurationErr.Error(),
+				}))
+			return result, err
+		}
+
+		if errors.Is(userWorkloadConfigurationErr,ErrUserWorkloadMonitoringConfigNotFound) {
+			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+					Status:  corev1.ConditionFalse,
+					Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringConfigNotFound,
+					Message: userWorkloadConfigurationErr.Error(),
+				}))
+			return result, err
+		}
 	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	},nil
 }
 
 // Return Prometheus ActiveTargets with HealthBad or Unknown status
