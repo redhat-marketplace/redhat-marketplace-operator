@@ -80,7 +80,7 @@ const (
 
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterBaseReconciler{}
-var ErrRetentionTime = errors.New("retention time must be at least 7 days")
+var ErrRetentionTime = errors.New("retention time must be at least 168h")
 var ErrInsufficientMemoryConfiguration = errors.New("must allocate at least 40GiB of memory")
 var ErrParseUserWorkloadConfiguration = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
 var ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
@@ -332,16 +332,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
 
-	/* 
-		//TODO: look for cm
-		name: user-workload-monitoring-config
-		namespace: openshift-user-workload-monitoring
-
-		if not found - set userWorkloadMonitoringEnabled to false and set condition
-		if found: 
-			is retention set to at least >= 7 days
-			disk size >= 40gs
-	*/
 	userWorkloadConfigSet,userWorkloadErr := isUserWorkLoadMonitoringConfigOnCluster(cc,reqLogger)
 	if userWorkloadErr != nil {
 		reqLogger.Info(userWorkloadErr.Error())
@@ -359,7 +349,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			userWorkloadMonitoringEnabledOnCluster,
 			userWorkloadConfigSet,
 			userWorkloadErr,
-			reqLogger,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
 				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
@@ -390,7 +379,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				userWorkloadMonitoringEnabledOnCluster,
 				userWorkloadConfigSet,
 				userWorkloadErr,
-				reqLogger,
 			); result.Is(Error) || result.Is(Requeue) {
 				if err != nil {
 					return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
@@ -583,7 +571,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			userWorkloadMonitoringEnabledOnCluster,
 			userWorkloadConfigSet,
 			userWorkloadErr,
-			reqLogger,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
 				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
@@ -1884,7 +1871,6 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	userWorkloadMonitoringEnabledOnCluster bool,
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
-	reqLogger logr.Logger,
 ) (*ExecResult, error) {
 	// var c status.Condition
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
@@ -1898,7 +1884,6 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	} 
 
 	if !userWorkloadMonitoringEnabledSpec {
-		reqLogger.Info("uwm not enabled on meterbase spec")
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 			Status:  corev1.ConditionFalse,
@@ -1909,7 +1894,6 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	} 
 
 	if !userWorkloadMonitoringEnabledOnCluster {
-		reqLogger.Info("uwm not enabled on cluster")
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 			Status:  corev1.ConditionFalse,
@@ -1919,9 +1903,7 @@ func updateUserWorkloadMonitoringEnabledStatus(
 		return result, err
 	} 
 	
-	if userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && !userWorkloadConfigurationSet && userWorkloadConfigurationErr != nil {
-		reqLogger.Info("workload config not set")
-
+	if !userWorkloadConfigurationSet && userWorkloadConfigurationErr != nil {
 		if errors.Is(userWorkloadConfigurationErr,ErrInsufficientMemoryConfiguration) {
 			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
