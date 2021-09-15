@@ -15,10 +15,13 @@
 package list
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -30,7 +33,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
-	"storj.io/drpc/drpcerr"
 )
 
 type ListConfig struct {
@@ -101,16 +103,21 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     # Save list to csv file
     client list  --output-dir=/path/to/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*60*time.Second)
+		defer cancel()
+
 		// create a list client
-		lc, err := ProvideListConfig(filter, sort, outputDir, outputCSV, includeDeletedFiles, fileName)
+		lc, err := ProvideListConfig(ctx, filter, sort, outputDir, outputCSV, includeDeletedFiles, fileName)
 		if err != nil {
 			return err
 		}
+
 		if cmd.Flag("output-dir").Changed {
 			lc.OutputCSV = true
 		}
+
 		defer lc.closeConnection()
-		return lc.listFileMetadata()
+		return lc.listFileMetadata(ctx)
 	},
 }
 
@@ -121,11 +128,23 @@ func init() {
 	ListCmd.Flags().BoolVarP(&includeDeletedFiles, "include-deleted-files", "a", false, "List all files along with files marked for deleteion")
 }
 
-func ProvideListConfig(filter []string, sort []string, outputDir string, outputCSV bool, includeDeletedFiles bool, fileName string) (*ListConfig, error) {
+func ProvideListConfig(ctx context.Context, filter []string, sort []string, outputDir string, outputCSV bool, includeDeletedFiles bool, fileName string) (*ListConfig, error) {
 	log, err := util.InitLog()
 	if err != nil {
 		return nil, err
 	}
+
+	conn, err := util.InitClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	client := fileretriever.NewFileRetrieverClient(conn)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &ListConfig{
 		Filter:              filter,
 		Sort:                sort,
@@ -134,6 +153,8 @@ func ProvideListConfig(filter []string, sort []string, outputDir string, outputC
 		IncludeDeletedFiles: includeDeletedFiles,
 		FileName:            fileName,
 		log:                 log,
+		client:              client,
+		conn:                conn,
 	}, nil
 
 }
@@ -145,20 +166,35 @@ func (lc *ListConfig) closeConnection() {
 	}
 }
 
-// listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
-func (lc *ListConfig) listFileMetadata() error {
-	//client, ctx, err := util.InitFileRetrieverProtobufClient()
+type nopCloser struct{}
 
-	ctx, client, err := util.InitFileRetrieverProtobufClient()
+func (n nopCloser) Close() error { return nil }
 
-	if err != nil {
-		return err
+func (lc *ListConfig) getWriter() (*tablewriter.Table, io.Closer, error) {
+	if lc.OutputCSV {
+		fp := filepath.Join(lc.OutputDir, lc.FileName)
+		file, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		writer, err := tablewriter.NewCSV(file, fp, true)
+
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return writer, file, nil
 	}
 
+	return tablewriter.NewWriter(os.Stdout), nopCloser{}, nil
+}
+
+// listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
+func (lc *ListConfig) listFileMetadata(ctx context.Context) error {
+	var err error
 	var filterList []*fileretriever.ListFileMetadataRequest_ListFileFilter
 	var sortList []*fileretriever.ListFileMetadataRequest_ListFileSort
-	var file *os.File
-	var w *csv.Writer
 	var noOfRow int
 
 	filterList, err = parseFilter(lc.Filter)
@@ -177,61 +213,44 @@ func (lc *ListConfig) listFileMetadata() error {
 	}
 
 	//response, err := client.ListFileMetadata(ctx, req)
-	result, err := client.ListFileMetadata(ctx, req)
+	result, err := lc.client.ListFileMetadata(ctx, req)
 	if err != nil {
-		fmt.Println("an error")
-		return fmt.Errorf("failed to retrieve list due to: %v %v", err, drpcerr.Code(err))
+		return fmt.Errorf("failed to retrieve list due to: %v", err)
 	}
 
 	var table *tablewriter.Table
-	fp := lc.OutputDir + string(os.PathSeparator) + lc.FileName
-	if lc.OutputCSV {
-		file, err = os.Create(fp)
-		if err != nil {
-			return err
-		}
-		w = csv.NewWriter(file)
-		defer file.Close()
-		defer w.Flush()
-		err = writeToCSV(getHeaders(), w)
-		if err != nil {
-			return err
-		}
-	} else {
-		table = tablewriter.NewWriter(os.Stdout)
-		table.SetHeader(getHeaders())
-		table.SetRowLine(true)
+
+	table, close, err := lc.getWriter()
+	if err != nil {
+		return err
 	}
+	defer close.Close()
 
-	data := result.GetResults()
-	lc.log.Info("Received response:", "info", data)
+	table.SetHeader(getHeaders())
+	table.SetRowLine(true)
 
-	if data != nil {
-		row, parseErr := parseFileInfo(data)
-		if lc.OutputCSV {
+	for {
+		resp, err := result.Recv()
+
+		if err == io.EOF {
+			break
+		}
+
+		lc.log.Info("Received response:", "info", resp)
+
+		if resp.Results != nil {
+			row, parseErr := parseFileInfo(resp.Results)
+
 			if parseErr != nil {
-				defer os.Remove(fp)
-				return err
-			}
-			err = writeToCSV(row, w)
-			if err != nil {
-				defer os.Remove(fp)
-				return err
-			}
-		} else {
-			if parseErr != nil {
-				return err
+				return parseErr
 			}
 			table.Append(row)
 			noOfRow = noOfRow + 1
 		}
 	}
 
-	// Output to console
-	if table != nil {
-		table.SetCaption(true, "Files found: "+strconv.FormatInt(int64(noOfRow), 10))
-		table.Render()
-	}
+	table.SetCaption(true, "Files found: "+strconv.FormatInt(int64(noOfRow), 10))
+	table.Render()
 	return nil
 }
 
@@ -445,12 +464,13 @@ func parseArgs(argString string) []string {
 func parseFileInfo(finfo *v1.FileInfo) ([]string, error) {
 	mdata, err := json.Marshal(finfo.Metadata)
 	if err != nil {
+		fmt.Println("foo")
 		return nil, err
 	}
 	metadata := string(mdata)
 
 	var deletedAt string
-	if finfo.DeletedTombstone.Seconds != 0 {
+	if finfo.DeletedTombstone != nil {
 		deletedAt = time.Unix(finfo.DeletedTombstone.Seconds, 0).Format(time.RFC3339)
 	}
 

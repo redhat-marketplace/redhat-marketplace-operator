@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
-	"net/http"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
@@ -28,10 +27,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"storj.io/drpc/drpchttp"
-	"storj.io/drpc/drpcmigrate"
-	"storj.io/drpc/drpcmux"
-	"storj.io/drpc/drpcserver"
 )
 
 type Server struct {
@@ -76,13 +71,11 @@ func WithCustomListener(s *Server, listen func() (net.Listener, error)) *Server 
 func (frs *Server) Start(ctx context.Context) error {
 	adminServer := AdminServer{Server: frs}
 	fileRetriever := FileRetrieverServer{Server: frs}
-	drpcFileRetriever := DRPCFileRetrieverServer{FileRetrieverServer: &fileRetriever}
 	fileSender := FileSenderServer{Server: frs}
-	drpcFileSender := DRPCFileSenderServer{FileSenderServer: &fileSender}
 
 	if frs.startListener == nil {
 		frs.startListener = func() (net.Listener, error) {
-			return net.Listen("tcp", ":8001")
+			return net.Listen("tcp", ":8003")
 		}
 	}
 
@@ -98,23 +91,13 @@ func (frs *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	// create a listen mux that evalutes enough bytes to recognize the DRPC header
-	lisMux := drpcmigrate.NewListenMux(lis, len(drpcmigrate.DRPCHeader))
+	defer lis.Close()
 
 	// we're going to run the different protocol servers in parallel, so
 	// make an errgroup
 	var group errgroup.Group
 
-	// create a drpc RPC mux
-	m := drpcmux.New()
-
 	group.Go(func() error {
-		lis, err := net.Listen("tcp", ":8003")
-
-		if err != nil {
-			return err
-		}
-
 		grpcServer := grpc.NewServer()
 
 		filesender.RegisterFileSenderServer(grpcServer, &fileSender)
@@ -123,60 +106,6 @@ func (frs *Server) Start(ctx context.Context) error {
 		reflection.Register(grpcServer)
 
 		return grpcServer.Serve(lis)
-	})
-
-	// drpc handling
-	group.Go(func() error {
-		err = filesender.DRPCRegisterFileSender(m, &drpcFileSender)
-		if err != nil {
-			return err
-		}
-
-		err = fileretriever.DRPCRegisterFileRetriever(m, &drpcFileRetriever)
-		if err != nil {
-			return err
-		}
-
-		err = adminserver.DRPCRegisterAdminServer(m, &adminServer)
-		if err != nil {
-			return err
-		}
-
-		// register the proto-specific methods on the mux
-		// create a drpc server
-		s := drpcserver.New(m)
-
-		// grap the listen mux route for the DRPC Header
-		drpcLis := lisMux.Route(drpcmigrate.DRPCHeader)
-		drpcLis, err := frs.tlsListener(drpcLis)
-
-		if err != nil {
-			return err
-		}
-
-		// run the server
-		// N.B.: if you want TLS, you need to wrap the drpcLis net.Listener
-		// with TLS before passing to Serve here.
-		return s.Serve(ctx, drpcLis)
-	})
-
-	// http handling
-	group.Go(func() error {
-		// create an http server using the drpc mux wrapped in a handler
-		s := http.Server{Handler: drpchttp.New(m)}
-		htmlLis, err := frs.tlsListener(lisMux.Default())
-
-		if err != nil {
-			return err
-		}
-
-		// run the server
-		return s.Serve(htmlLis)
-	})
-
-	// run the listen mux
-	group.Go(func() error {
-		return lisMux.Run(ctx)
 	})
 
 	// wait

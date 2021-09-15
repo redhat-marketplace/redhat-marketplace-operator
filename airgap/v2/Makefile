@@ -80,17 +80,6 @@ build:
 demo: build
 	docker-compose up
 
-generate-proto: protoc protoc-gen-go
-	@{ TMP_DIR=$$(mktemp -d) ;\
-		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative ./apis/model/model.proto  ;\
-		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative --twirp_out $$TMP_DIR --twirp_opt=paths=source_relative ./apis/filesender/filesender.proto ;\
-		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative --twirp_out $$TMP_DIR --twirp_opt=paths=source_relative ./apis/fileretreiver/fileretreiver.proto ;\
-		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=./bin/include -I=. --go_opt=paths=source_relative --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR --go-drpc_out $$TMP_DIR --go-drpc_opt=paths=source_relative --twirp_out $$TMP_DIR --twirp_opt=paths=source_relative ./apis/adminserver/adminserver.proto ;\
-		ls $$TMP_DIR ;\
-		cp -r $$TMP_DIR/apis ./ ;\
-		rm -rf $$TMP_DIR ; \
-	}
-
 PROTOC_GEN_GO=$(shell pwd)/bin/protoc-gen-go
 protoc-gen-go:
 	$(call go-get-tool,$(PROTOC),google.golang.org/protobuf/cmd/protoc-gen-go)

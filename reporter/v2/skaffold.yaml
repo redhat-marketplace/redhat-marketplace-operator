@@ -1,0 +1,30 @@
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: reporter
+build:
+  local:
+    useBuildkit: true
+    concurrency: 2
+  artifacts:
+    - image: quay.io/zach_source/redhat-marketplace-reporter
+      custom:
+        buildCommand: ARCHS=amd64 make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - cmd/**
+            - pkg/**
+            - Dockerfile
+          ignore:
+            - './**/*_test.go'
+deploy:
+  kubectl:
+    manifests:
+      - pod.yaml
+    hooks:
+      before:
+        - host:
+            command: ['sh', '-c', 'kubectl delete pod -l app=rhm-meter-report-test || true']
+            os: [darwin, linux]

@@ -165,7 +165,7 @@ const (
 	ReportConditionReasonJobFinished   status.ConditionReason = "Finished"
 	ReportConditionReasonJobErrored    status.ConditionReason = "Errored"
 
-	ReportConditionTypeUploadStatus             status.ConditionType   = "NotUploaded"
+	ReportConditionTypeUploadStatus             status.ConditionType   = "Uploaded"
 	ReportConditionReasonUploadStatusFinished   status.ConditionReason = "Finished"
 	ReportConditionReasonUploadStatusNotStarted status.ConditionReason = "NotStarted"
 	ReportConditionReasonUploadStatusErrored    status.ConditionReason = "Errored"
@@ -215,7 +215,7 @@ var (
 	}
 	ReportConditionUploadStatusErrored = status.Condition{
 		Type:   ReportConditionTypeUploadStatus,
-		Status: corev1.ConditionTrue,
+		Status: corev1.ConditionFalse,
 		Reason: ReportConditionReasonUploadStatusErrored,
 	}
 )
@@ -226,6 +226,8 @@ var (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
 // +kubebuilder:printcolumn:name="METRICS",type=string,JSONPath=`.status.metricUploadCount`
+// +kubebuilder:printcolumn:name="UPLOADED",type=string,JSONPath=`.status.conditions[?(@.type == "Uploaded")].status`
+// +kubebuilder:printcolumn:name="REASON",type=string,JSONPath=`.status.conditions[?(@.type == "Uploaded")].reason`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Reports"
 // +kubebuilder:resource:path=meterreports,scope=Namespaced
 type MeterReport struct {

@@ -26,9 +26,9 @@ type Metadata struct {
 	Size                uint32
 	Compression         bool
 	CompressionType     string
-	CleanTombstoneSetAt int64
 	CreatedAt           int64
 	DeletedAt           int64
+	CleanTombstoneSetAt int64
 	FileID              string
 	File                File
 	FileMetadata        []FileMetadata
