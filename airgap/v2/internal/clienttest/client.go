@@ -25,21 +25,18 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"storj.io/drpc"
-	"storj.io/drpc/drpcconn"
-	"storj.io/drpc/drpcmigrate"
 )
 
-func NewDrpcClient(lis *bufconn.Listener) drpc.Conn {
-	rawconn, err := lis.Dial()
-	if err != nil {
-		panic(err)
-	}
+func NewGRPCClient(ctx context.Context, lis *bufconn.Listener) *grpc.ClientConn {
+	conn, _ := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return lis.Dial()
+	}), grpc.WithInsecure())
 
-	return drpcconn.New(drpcmigrate.NewHeaderConn(rawconn, drpcmigrate.DRPCHeader))
+	return conn
 }
 
 func SetupServer(

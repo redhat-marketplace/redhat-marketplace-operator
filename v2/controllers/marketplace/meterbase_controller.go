@@ -334,7 +334,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
 	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
-		userWorkloadMonitoringEnabledSpec = false // TODO: 2.3.0++ change back when downstream can support
+		userWorkloadMonitoringEnabledSpec = true
 	} else {
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
@@ -1808,6 +1808,18 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 
 			if !reflect.DeepEqual(cronJob.Spec.JobTemplate, orig.Spec.JobTemplate) {
 				cronJob.Spec.JobTemplate = orig.Spec.JobTemplate
+			}
+
+			if cronJob.Spec.ConcurrencyPolicy != orig.Spec.ConcurrencyPolicy {
+				cronJob.Spec.ConcurrencyPolicy = orig.Spec.ConcurrencyPolicy
+			}
+
+			if cronJob.Spec.FailedJobsHistoryLimit != orig.Spec.FailedJobsHistoryLimit {
+				cronJob.Spec.FailedJobsHistoryLimit = orig.Spec.FailedJobsHistoryLimit
+			}
+
+			if cronJob.Spec.SuccessfulJobsHistoryLimit != orig.Spec.SuccessfulJobsHistoryLimit {
+				cronJob.Spec.SuccessfulJobsHistoryLimit = orig.Spec.SuccessfulJobsHistoryLimit
 			}
 
 			return nil

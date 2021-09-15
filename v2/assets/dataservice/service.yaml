@@ -12,10 +12,6 @@ spec:
       port: 8004
       protocol: TCP
       targetPort: 8004
-    - name: https
-      port: 8002
-      protocol: TCP
-      targetPort: 8002
     - name: db
       port: 9001
       protocol: TCP

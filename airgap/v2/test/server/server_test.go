@@ -856,7 +856,6 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 			t.Fatalf("Error: during stream close and recieve: %v", err)
 		}
 		t.Logf("Received response: %v", res)
-		time.Sleep(1 * time.Second)
 	}
 
 	// Mark File for deletion

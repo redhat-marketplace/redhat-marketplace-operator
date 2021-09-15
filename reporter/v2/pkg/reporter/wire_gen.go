@@ -71,13 +71,16 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	servicePort := getPrometheusPort(reporterConfig, service)
+	servicePort, err := getPrometheusPort(reporterConfig, service)
+	if err != nil {
+		return nil, err
+	}
 	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service, servicePort)
 	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
 	}
-	v, err := getMeterDefinitionReferences(contextContext, meterReport, clientCommandRunner)
+	v, err := getMeterDefinitionReferences(contextContext, meterReport, simpleClient)
 	if err != nil {
 		return nil, err
 	}

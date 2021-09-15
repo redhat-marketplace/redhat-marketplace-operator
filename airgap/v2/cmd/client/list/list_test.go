@@ -17,10 +17,11 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
@@ -28,6 +29,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/clienttest"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -36,23 +38,28 @@ const bufSize = 1024 * 1024
 var lis *bufconn.Listener
 var db database.Database
 var dbName = "client.db"
+var conn *grpc.ClientConn
 
 func TestList(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	defer os.Remove(dbName)
+	//defer os.Remove(dbName)
 
 	lis = bufconn.Listen(bufSize)
 	defer lis.Close()
 
 	//Initialize the server
 	clienttest.SetupServer(t, ctx, lis, &db, dbName)
-	conn := clienttest.NewDrpcClient(lis)
+	conn = clienttest.NewGRPCClient(ctx, lis)
 
 	//Populate dataset for testing
 	populateDataset(t)
-	listFileClient := fileretriever.NewDRPCFileRetrieverClient(conn)
-	od, _ := os.Getwd()
+	listFileClient := fileretriever.NewFileRetrieverClient(conn)
+	od, err := ioutil.TempDir(os.TempDir(), "list")
+
+	if err != nil {
+		t.Fatal(err, "failed")
+	}
 	tests := []struct {
 		name   string
 		lc     *ListConfig
@@ -213,28 +220,26 @@ func TestList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.lc.log, _ = util.InitLog()
-			err := tt.lc.listFileMetadata()
+			err := tt.lc.listFileMetadata(ctx)
 
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
+					return
 				}
 			} else if len(tt.errMsg) > 0 {
 				t.Errorf("Expected error: %v was never received!", tt.errMsg)
+				return
 			}
 
 			if tt.lc.OutputCSV {
-				fp := tt.lc.OutputDir + string(os.PathSeparator) + tt.lc.FileName
+				fp := filepath.Join(tt.lc.OutputDir, tt.lc.FileName)
 				f, err := os.Open(fp)
 				if err != nil {
 					t.Errorf("Error opening file: %v", err)
+					return
 				}
 				r := csv.NewReader(f)
-				// Read column names
-				_, err = r.Read()
-				if err != nil {
-					t.Errorf("Error reading file: %v", err)
-				}
 
 				i := 0
 				for {
@@ -244,6 +249,7 @@ func TestList(t *testing.T) {
 					}
 					if tt.res[i] != strings.TrimSpace(record[1]) {
 						t.Errorf("Expected name: %v, instead got: %v", tt.res[i], record[1])
+						return
 					}
 					i++
 				}
@@ -252,6 +258,7 @@ func TestList(t *testing.T) {
 				err = os.Remove(fp)
 				if err != nil {
 					t.Errorf("Error removing file %v", err)
+					return
 				}
 			}
 		})
@@ -331,8 +338,7 @@ func populateDataset(t *testing.T) {
 		},
 	}
 
-	conn := clienttest.NewDrpcClient(lis)
-	uploadClient := filesender.NewDRPCFileSenderClient(conn)
+	uploadClient := filesender.NewFileSenderClient(conn)
 
 	// Upload files to mock server
 	for i := range files {
@@ -366,15 +372,14 @@ func populateDataset(t *testing.T) {
 			t.Fatalf("Error: during stream close and recieve: %v", err)
 		}
 		t.Logf("Received response: %v", res)
-		time.Sleep(1 * time.Second)
 	}
 
 	// Mark File for deletion
 	req := &fileretriever.DownloadFileRequest{
 		FileId:           deleteFID,
-		DeleteOnDownload: true,
+		DeleteOnDownload: false,
 	}
-	dc := fileretriever.NewDRPCFileRetrieverClient(conn)
+	dc := fileretriever.NewFileRetrieverClient(conn)
 	_, err := dc.DownloadFile(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Error: during delete on download request : %v", err)

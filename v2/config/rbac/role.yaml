@@ -712,9 +712,17 @@ rules:
   - routes
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resourceNames:
+  - rhm-data-service
+  resources:
+  - routes
+  verbs:
+  - delete
+  - get
   - patch
   - update
-  - watch

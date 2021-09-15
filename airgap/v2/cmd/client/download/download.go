@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
@@ -67,8 +68,11 @@ var DownloadCmd = &cobra.Command{
     # Mark file for deletion on download 
     client download -D --file-name file_name --output-directory /path/to/output/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*60*time.Second)
+		defer cancel()
+
 		// create new download client
-		dc, err := ProvideDownloadConfig(fileName, fileId, outputDirectory, fileListPath, deleteOnDownload)
+		dc, err := ProvideDownloadConfig(ctx, fileName, fileId, outputDirectory, fileListPath, deleteOnDownload)
 		if err != nil {
 			return err
 		}
@@ -94,6 +98,7 @@ func init() {
 }
 
 func ProvideDownloadConfig(
+	ctx context.Context,
 	fileName string,
 	fileId string,
 	outputDirectory string,
@@ -104,7 +109,7 @@ func ProvideDownloadConfig(
 	if err != nil {
 		return nil, err
 	}
-	conn, err := util.InitClient()
+	conn, err := util.InitClient(ctx)
 	if err != nil {
 		return nil, err
 	}

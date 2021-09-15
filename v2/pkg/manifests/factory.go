@@ -325,6 +325,30 @@ func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) 
 	return j, nil
 }
 
+type dataServiceRef struct {
+	Service, Namespace, PortName string
+}
+
+func (d *dataServiceRef) ToPrometheusArgs() []string {
+	return []string{
+		fmt.Sprintf("--prometheus-service=%s", d.Service),
+		fmt.Sprintf("--prometheus-namespace=%s", d.Namespace),
+		fmt.Sprintf("--prometheus-port=%s", d.PortName),
+	}
+}
+
+var (
+	marketplacePrometheus = &dataServiceRef{
+		Service:  "rhm-prometheus-meterbase",
+		PortName: "rbac",
+	}
+	thanosQuerier = &dataServiceRef{
+		Service:   "thanos-querier",
+		Namespace: "openshift-monitoring",
+		PortName:  "web",
+	}
+)
+
 func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
@@ -332,8 +356,7 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	}
 
 	if j.Spec.Schedule == "" {
-		//j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(59))
-		j.Spec.Schedule = "*/5 * * * *"
+		j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(15))
 	}
 
 	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit
@@ -347,15 +370,11 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	}
 
 	if userWorkloadEnabled {
-		dataServiceArgs = append(dataServiceArgs,
-			"--prometheus-service=thanos-querier",
-			"--prometheus-namespace=openshift-monitoring",
-			"--prometheus-port=http")
+		dataServiceArgs = append(dataServiceArgs, thanosQuerier.ToPrometheusArgs()...)
 	} else {
-		dataServiceArgs = append(dataServiceArgs,
-			"--prometheus-service=rhm-prometheus-meterbase",
-			"--prometheus-namespace="+f.namespace,
-			"--prometheus-port=rbac")
+		ref := marketplacePrometheus
+		ref.Namespace = f.namespace
+		dataServiceArgs = append(dataServiceArgs, ref.ToPrometheusArgs()...)
 	}
 
 	container.Args = append(container.Args, "--namespace", f.namespace)

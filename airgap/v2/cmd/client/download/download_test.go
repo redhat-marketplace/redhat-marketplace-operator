@@ -27,6 +27,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/internal/clienttest"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -35,8 +36,10 @@ const bufSize = 1024 * 1024
 var lis *bufconn.Listener
 var db database.Database
 var dbName = "client.db"
+var conn *grpc.ClientConn
+var downloadClient fileretriever.FileRetrieverClient
 
-func TestDownloadFile(t *testing.T) {
+func TestDownload(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer os.Remove(dbName)
@@ -44,15 +47,30 @@ func TestDownloadFile(t *testing.T) {
 	lis = bufconn.Listen(bufSize)
 	defer lis.Close()
 
-	//Initialize the server
 	clienttest.SetupServer(t, ctx, lis, &db, dbName)
-	conn := clienttest.NewDrpcClient(lis)
 
 	//Initialize connection
 	//Populate data on the mock server
-	populateDataset(t)
+	conn = clienttest.NewGRPCClient(ctx, lis)
+	defer conn.Close()
 
-	downloadClient := fileretriever.NewDRPCFileRetrieverClient(conn)
+	downloadClient = fileretriever.NewFileRetrieverClient(conn)
+
+	fns := populateDataset(t, ctx)
+
+	t.Run("downloadFile", testDownloadFile)
+
+	//Create csv files required for batch download
+	fps := createCSVFiles(fns, t)
+
+	//Delete csv files
+	defer deleteFiles(fps)
+
+	t.Run("downloadBatch", testBatchDownload(fns, fps))
+}
+
+func testDownloadFile(t *testing.T) {
+	//Initialize the server
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
@@ -110,89 +128,69 @@ func TestDownloadFile(t *testing.T) {
 	}
 }
 
-func TestBatchDownload(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	defer os.Remove(dbName)
-
-	lis = bufconn.Listen(bufSize)
-	defer lis.Close()
-
-	//Initialize the server
-	clienttest.SetupServer(t, ctx, lis, &db, dbName)
-	conn := clienttest.NewDrpcClient(lis)
-	defer conn.Close()
-
-	//Populate data on the mock server
-	fns := populateDataset(t)
-
-	//Create csv files required for batch download
-	fps := createCSVFiles(fns, t)
-
-	//Delete csv files
-	defer deleteFiles(fps)
-
-	downloadClient := fileretriever.NewDRPCFileRetrieverClient(conn)
-	od, _ := os.Getwd()
-	tests := []struct {
-		name   string
-		dc     *DownloadConfig
-		errMsg string
-	}{
-		{
-			name: "valid batch download request",
-			dc: &DownloadConfig{
-				OutputDirectory: od,
-				FileListPath:    fps[0],
-				conn:            conn,
-				client:          downloadClient,
+func testBatchDownload(fns []string, fps []string) func(t *testing.T) {
+	return func(t *testing.T) {
+		od, _ := os.Getwd()
+		tests := []struct {
+			name   string
+			dc     *DownloadConfig
+			errMsg string
+		}{
+			{
+				name: "valid batch download request",
+				dc: &DownloadConfig{
+					OutputDirectory: od,
+					FileListPath:    fps[0],
+					conn:            conn,
+					client:          downloadClient,
+				},
 			},
-		},
-		{
-			name: "invalid request with csv having insufficient headers",
-			dc: &DownloadConfig{
-				OutputDirectory: od,
-				FileListPath:    fps[1],
-				conn:            conn,
-				client:          downloadClient,
+			{
+				name: "invalid request with csv having insufficient headers",
+				dc: &DownloadConfig{
+					OutputDirectory: od,
+					FileListPath:    fps[1],
+					conn:            conn,
+					client:          downloadClient,
+				},
+				errMsg: "column count mismatch",
 			},
-			errMsg: "column count mismatch",
-		},
-		{
-			name: "invalid request with csv having headers in the wrong order",
-			dc: &DownloadConfig{
-				OutputDirectory: od,
-				FileListPath:    fps[2],
-				conn:            conn,
-				client:          downloadClient,
+			{
+				name: "invalid request with csv having headers in the wrong order",
+				dc: &DownloadConfig{
+					OutputDirectory: od,
+					FileListPath:    fps[2],
+					conn:            conn,
+					client:          downloadClient,
+				},
+				errMsg: "column order mismatch",
 			},
-			errMsg: "column order mismatch",
-		},
-	}
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.dc.log, _ = util.InitLog()
-			err := tt.dc.BatchDownload()
-			if err != nil {
-				if !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
-				}
-			} else if len(tt.errMsg) > 0 {
-				t.Errorf("Expected error: %v was never received!", tt.errMsg)
-			} else {
-				fns, _, _ = parseCSV(tt.dc.FileListPath)
-				defer deleteFiles(fns)
-
-				for _, fn := range fns {
-					finfo, fErr := os.Stat(fn)
-					if os.IsNotExist(fErr) {
-						t.Fatalf("File from csv wasn't downloaded: %v", fn)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				tt.dc.log, _ = util.InitLog()
+				err := tt.dc.BatchDownload()
+				if err != nil {
+					if !strings.Contains(err.Error(), tt.errMsg) {
+						t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
 					}
-					t.Logf("File downloaded successfully: %v", finfo.Name())
+				} else if len(tt.errMsg) > 0 {
+					t.Errorf("Expected error: %v was never received!", tt.errMsg)
+				} else {
+					fns, _, _ = parseCSV(tt.dc.FileListPath)
+					defer deleteFiles(fns)
+
+					for _, fn := range fns {
+						finfo, fErr := os.Stat(fn)
+						if os.IsNotExist(fErr) {
+							t.Fatalf("File from csv wasn't downloaded: %v", fn)
+						}
+						t.Logf("File downloaded successfully: %v", finfo.Name())
+					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -266,7 +264,7 @@ func deleteFiles(fps []string) error {
 }
 
 // populateDataset uploads files to the mock server and returns the file names if upload is successful
-func populateDataset(t *testing.T) []string {
+func populateDataset(t *testing.T, ctx context.Context) []string {
 	fns := []string{"reports.zip", "marketplace_report.zip"}
 	files := []v1.FileInfo{
 		{
@@ -299,12 +297,7 @@ func populateDataset(t *testing.T) []string {
 		},
 	}
 
-	conn := clienttest.NewDrpcClient(lis)
-	defer conn.Close()
-
-	uploadClient := filesender.NewDRPCFileSenderClient(conn)
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
+	uploadClient := filesender.NewFileSenderClient(conn)
 
 	// Upload files to mock server
 	for i := range files {

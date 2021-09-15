@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: krp-curl
+spec:
+  template:
+    metadata:
+      name: krp-curl
+    spec:
+      restartPolicy: Never
+      serviceAccountName: redhat-marketplace-operator
+      containers:
+        - name: krp-curl
+          image: quay.io/brancz/krp-curl:v0.0.2
+          command:
+            - /bin/sh
+            - -c
+            - cat /service-account/token
+          volumeMounts:
+            - name: token-vol
+              mountPath: '/service-account'
+              readOnly: true
+      volumes:
+        - name: token-vol
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: rhm-data-service.openshift-redhat-marketplace.svc
+                  expirationSeconds: 86400
+                  path: token
+  backoffLimit: 4

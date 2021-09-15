@@ -59,14 +59,16 @@ func (r *UploadTask) Run() error {
 			logger.Info("Uploaded file to redhat-insights", "file", file, "target", uploader.Name())
 			err = uploader.UploadFile(localFileName)
 			if err != nil {
+				logger.Error(err, "failed to upload a file")
 				return errors.WithDetails(err, "error uploading file", "target", uploader.Name())
 			}
 		}
 
 		// Mark the file as deleted in DataService
-		logger.Info("DeleteFile", "Deleting file from data-service", file)
+		logger.V(8).Info("DeleteFile", "Deleting file from data-service", file)
 		err = r.Admin.DeleteFile(file)
 		if err != nil {
+			logger.Error(err, "failed to delete a file")
 			return err
 		}
 		logger.Info("DeleteFile", "Deleted file from data-service", file)

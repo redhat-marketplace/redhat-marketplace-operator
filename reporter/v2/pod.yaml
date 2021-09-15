@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rhm-meter-report-test
+  namespace: openshift-redhat-marketplace
+  labels:
+    app: rhm-meter-report-test
+spec:
+  restartPolicy: Never
+  containers:
+    - args:
+        - reconcile
+        - --namespace
+        - openshift-redhat-marketplace
+        - --dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+        - --dataServiceTokenFile=/etc/data-service-sa/data-service-token
+        - --cafile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+        - --prometheus-service=thanos-querier
+        - --prometheus-namespace=openshift-monitoring
+        - --prometheus-port=web
+        - --uploadTargets=noop
+      image: quay.io/zach_source/redhat-marketplace-reporter
+      imagePullPolicy: Always
+      name: redhat-marketplace-reporter
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+        - mountPath: /etc/configmaps/serving-certs-ca-bundle
+          name: serving-certs-ca-bundle
+        - mountPath: /etc/data-service-sa
+          name: data-service-token-vol
+          readOnly: true
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          name: redhat-marketplace-operator-token-8svxb
+          readOnly: true
+  imagePullSecrets:
+    - name: redhat-marketplace-operator-dockercfg-r2b8b
+  securityContext:
+    fsGroup: 1000670000
+    seLinuxOptions:
+      level: s0:c26,c10
+  serviceAccount: redhat-marketplace-operator
+  serviceAccountName: redhat-marketplace-operator
+  terminationGracePeriodSeconds: 30
+  volumes:
+    - configMap:
+        defaultMode: 420
+        name: serving-certs-ca-bundle
+      name: serving-certs-ca-bundle
+    - name: data-service-token-vol
+      projected:
+        defaultMode: 420
+        sources:
+          - serviceAccountToken:
+              audience: rhm-data-service.openshift-redhat-marketplace.svc
+              expirationSeconds: 3600
+              path: data-service-token
+    - name: redhat-marketplace-operator-token-8svxb
+      secret:
+        defaultMode: 420
+        secretName: redhat-marketplace-operator-token-8svxb

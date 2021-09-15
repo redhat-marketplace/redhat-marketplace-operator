@@ -16,6 +16,7 @@ package prometheus
 
 import (
 	"context"
+	"os"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -42,7 +43,7 @@ func queryForPrometheusService(
 			Name:      utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
 			Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
 		}
-		portName = "http"
+		portName = "web"
 	} else {
 		name = types.NamespacedName{
 			Name:      utils.METERBASE_PROMETHEUS_SERVICE_NAME,
@@ -118,20 +119,17 @@ func ProvidePrometheusAPI(
 		return nil, err
 	}
 
-	var saClient *ServiceAccountClient
-	var authToken string
-	saClient = NewServiceAccountClient(deployedNamespace, kubeInterface)
-	authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, "", 3600, reqLogger)
+	authToken, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
 	if err != nil {
 		return nil, err
 	}
 
-	if certConfigMap != nil && authToken != "" && service != nil {
+	if certConfigMap != nil && service != nil {
 		cert, err := parseCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			return nil, err
 		}
-		prometheusAPI, err := NewPromAPI(service, port, &cert, authToken)
+		prometheusAPI, err := NewPromAPI(service, port, &cert, string(authToken))
 		if err != nil {
 			return nil, err
 		}

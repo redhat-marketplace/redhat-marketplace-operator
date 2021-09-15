@@ -12,11 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build tools
-
-package tools
+package server
 
 import (
-	_ "github.com/twitchtv/twirp/protoc-gen-twirp"
-	_ "google.golang.org/protobuf/cmd/protoc-gen-go"
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func ConvertTimestamp(t int64) (out *timestamppb.Timestamp) {
+	if t != 0 {
+		out, _ = ptypes.TimestampProto(time.Unix(t, 0))
+		return
+	}
+
+	return
+}

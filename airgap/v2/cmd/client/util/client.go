@@ -20,14 +20,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	"github.com/spf13/viper"
-	"github.com/twitchtv/twirp"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -35,7 +31,7 @@ import (
 )
 
 // InitClient Initializes gRPC client connection
-func InitClient() (*grpc.ClientConn, error) {
+func InitClient(ctx context.Context) (*grpc.ClientConn, error) {
 	// Create connection
 	insecure := viper.GetBool("insecure")
 	var conn *grpc.ClientConn
@@ -82,7 +78,7 @@ func InitClient() (*grpc.ClientConn, error) {
 		}
 	}
 
-	conn, err = grpc.Dial(address, options...)
+	conn, err = grpc.DialContext(ctx, address, options...)
 
 	if err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
@@ -91,66 +87,6 @@ func InitClient() (*grpc.ClientConn, error) {
 }
 
 type Closeable func() error
-
-func InitFileRetrieverProtobufClient() (context.Context, fileretriever.FileRetriever, error) {
-	address := viper.GetString("address")
-	token := viper.GetString("token")
-	tlsConfig, err := getTlS()
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	client := fileretriever.NewFileRetrieverProtobufClient(address,
-		&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
-			},
-		},
-		twirp.WithClientPathPrefix(""))
-
-	header := make(http.Header)
-	header.Add("authorization", "bearer "+token)
-
-	ctx := context.Background()
-	ctx, err = twirp.WithHTTPRequestHeaders(ctx, header)
-
-	if err != nil {
-		return ctx, client, err
-	}
-
-	return ctx, client, nil
-}
-
-func InitFileSenderProtobufClient() (context.Context, filesender.FileSender, error) {
-	address := viper.GetString("address")
-	token := viper.GetString("token")
-	tlsConfig, err := getTlS()
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	client := filesender.NewFileSenderProtobufClient(address,
-		&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
-			},
-		},
-		twirp.WithClientPathPrefix(""))
-
-	header := make(http.Header)
-	header.Add("authorization", "bearer "+token)
-
-	ctx := context.Background()
-	ctx, err = twirp.WithHTTPRequestHeaders(ctx, header)
-
-	if err != nil {
-		return ctx, client, err
-	}
-
-	return ctx, client, nil
-}
 
 func getTlS() (tlsConfig *tls.Config, err error) {
 	tlsEnabled := viper.GetBool("tls")

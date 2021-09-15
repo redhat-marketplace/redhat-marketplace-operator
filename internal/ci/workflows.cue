@@ -480,7 +480,7 @@ branch_build: _#bashWorkflow & {
 				VERSION: "${{ needs.test.outputs.tag }}"
 			}
 			strategy: matrix: {
-				project: ["operator", "authchecker", "metering", "reporter"]
+				project: ["operator", "authchecker", "metering", "reporter", "airgap"]
 				include: [
 					{
 						project: "operator"
@@ -493,6 +493,9 @@ branch_build: _#bashWorkflow & {
 					},
 					{
 						project: "reporter"
+					},
+					{
+						project: "airgap"
 					},
 				]
 			}

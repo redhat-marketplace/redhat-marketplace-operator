@@ -3,6 +3,9 @@ kind: CronJob
 metadata:
   name: rhm-meter-report-upload
 spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 3
   jobTemplate:
     spec:
       template:
