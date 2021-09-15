@@ -1810,6 +1810,18 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 				cronJob.Spec.JobTemplate = orig.Spec.JobTemplate
 			}
 
+			if cronJob.Spec.ConcurrencyPolicy != orig.Spec.ConcurrencyPolicy {
+				cronJob.Spec.ConcurrencyPolicy = orig.Spec.ConcurrencyPolicy
+			}
+
+			if cronJob.Spec.FailedJobsHistoryLimit != orig.Spec.FailedJobsHistoryLimit {
+				cronJob.Spec.FailedJobsHistoryLimit = orig.Spec.FailedJobsHistoryLimit
+			}
+
+			if cronJob.Spec.SuccessfulJobsHistoryLimit != orig.Spec.SuccessfulJobsHistoryLimit {
+				cronJob.Spec.SuccessfulJobsHistoryLimit = orig.Spec.SuccessfulJobsHistoryLimit
+			}
+
 			return nil
 		})
 		return err

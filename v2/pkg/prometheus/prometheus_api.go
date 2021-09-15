@@ -43,7 +43,7 @@ func queryForPrometheusService(
 			Name:      utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
 			Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
 		}
-		portName = "http"
+		portName = "web"
 	} else {
 		name = types.NamespacedName{
 			Name:      utils.METERBASE_PROMETHEUS_SERVICE_NAME,

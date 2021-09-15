@@ -106,7 +106,7 @@ spec:
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
               readOnly: false
-        volumes:
+      volumes:
         - name: rhm-data-service-tls
           secret:
             secretName: rhm-data-service-tls

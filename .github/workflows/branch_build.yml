@@ -266,11 +266,13 @@ jobs:
         - authchecker
         - metering
         - reporter
+        - airgap
         include:
         - project: operator
         - project: authchecker
         - project: metering
         - project: reporter
+        - project: airgap
   deploy:
     name: Deploy
     needs:
