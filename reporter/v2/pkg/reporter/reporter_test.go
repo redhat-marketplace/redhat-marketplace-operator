@@ -279,6 +279,10 @@ var _ = Describe("Reporter", func() {
 
 					Expect(data).To(MatchAllKeys(Keys{
 						"report_slice_id": Not(BeEmpty()),
+						"metadata": MatchKeys(IgnoreExtras, Keys{
+							"reportVersion": Equal("v1alpha1"),
+							"version":       BeAssignableToTypeOf(""),
+						}),
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": rowMatcher,
 						}),
@@ -522,6 +526,10 @@ var _ = Describe("Reporter", func() {
 					Expect(firstRow).To(rowMatcher)
 					Expect(data).To(MatchAllKeys(Keys{
 						"report_slice_id": Not(BeEmpty()),
+						"metadata": MatchKeys(IgnoreExtras, Keys{
+							"reportVersion": Equal("v1alpha1"),
+							"version":       BeAssignableToTypeOf(""),
+						}),
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": rowMatcher,
 						}),

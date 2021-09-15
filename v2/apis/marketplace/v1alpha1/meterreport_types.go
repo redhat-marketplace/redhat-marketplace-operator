@@ -48,8 +48,10 @@ type MeterReportSpec struct {
 	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
 
 	// PrometheusService is the definition for the service labels.
+	// DEPRECATED
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	PrometheusService *common.ServiceReference `json:"prometheusService"`
+	// +optional
+	PrometheusService *common.ServiceReference `json:"prometheusService,omitempty"`
 
 	// MeterDefinitions is the list of meterDefinitions included in the report
 	// DEPRECATED

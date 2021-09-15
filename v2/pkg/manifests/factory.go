@@ -356,8 +356,7 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	}
 
 	if j.Spec.Schedule == "" {
-		//j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(59))
-		j.Spec.Schedule = "*/5 * * * *"
+		j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(15))
 	}
 
 	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit

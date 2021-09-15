@@ -20,6 +20,12 @@ spec:
     - jsonPath: .status.metricUploadCount
       name: METRICS
       type: string
+    - jsonPath: .status.conditions[?(@.type == "Uploaded")].status
+      name: UPLOADED
+      type: string
+    - jsonPath: .status.conditions[?(@.type == "Uploaded")].reason
+      name: REASON
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -896,6 +902,7 @@ spec:
                 type: array
               prometheusService:
                 description: PrometheusService is the definition for the service labels.
+                  DEPRECATED
                 properties:
                   basicAuth:
                     description: BasicAuth allow an endpoint to authenticate over
@@ -1202,7 +1209,6 @@ spec:
                 type: string
             required:
             - endTime
-            - prometheusService
             - startTime
             type: object
           status:
