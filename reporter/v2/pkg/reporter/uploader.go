@@ -599,11 +599,11 @@ func provideProductionInsightsConfig(
 }
 
 type COSS3UploaderConfig struct {
-	ApiKey            string `json:"apiKey"`
-	ServiceInstanceID string `json:"serviceInstanceID"`
-	AuthEndpoint      string `json:"authEndpoint"`
-	ServiceEndpoint   string `json:"serviceEndpoint"`
-	Bucket            string `json:"bucket"`
+	ApiKey            string `json:"apiKey" yaml:"apiKey"`
+	ServiceInstanceID string `json:"serviceInstanceID" yaml:"serviceInstanceID"`
+	AuthEndpoint      string `json:"authEndpoint" yaml:"authEndpoint"`
+	ServiceEndpoint   string `json:"serviceEndpoint" yaml:"serviceEndpoint"`
+	Bucket            string `json:"bucket" yaml:"bucket"`
 }
 
 type COSS3Uploader struct {
@@ -644,14 +644,14 @@ func (r *COSS3Uploader) UploadFile(path string) error {
 
 	result, err := r.uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(r.COSS3UploaderConfig.Bucket),
-		Key:    aws.String(file.Name()),
+		Key:    aws.String(filepath.Base(file.Name())),
 		Body:   file,
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to upload file")
 	}
 
-	logger.Info("file uploaded to, %s\n", result.Location)
+	logger.Info("file uploaded", "url", result.Location)
 
 	return nil
 }
