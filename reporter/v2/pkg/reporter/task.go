@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
@@ -31,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -90,6 +92,7 @@ func (r *Task) Run() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
+	uploadCondition := marketplacev1alpha1.ReportConditionUploadStatusUnknown
 	uploadStatuses := []*marketplacev1alpha1.UploadDetails{}
 
 	if r.Config.Upload {
@@ -106,9 +109,12 @@ func (r *Task) Run() error {
 				logger.Error(err, "failed to upload")
 				status.Status = "failure"
 				status.Error = err.Error()
+				uploadCondition = marketplacev1alpha1.ReportConditionUploadStatusErrored
+				uploadCondition.Message = err.Error()
 			} else {
 				logger.Info("uploaded metrics", "metricsLength", len(metrics), "target", uploader.Name())
 				status.Status = "success"
+				uploadCondition = marketplacev1alpha1.ReportConditionUploadStatusFinished
 			}
 
 			uploadStatuses = append(uploadStatuses, status)
@@ -126,6 +132,7 @@ func (r *Task) Run() error {
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
 					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
+					report.Status.Conditions.SetCondition(uploadCondition)
 
 					for _, err := range errorList {
 						report.Status.Errors = append(report.Status.Errors,
@@ -262,7 +269,7 @@ func getPrometheusService(
 func getPrometheusPort(
 	cfg *Config,
 	service *corev1.Service,
-) *corev1.ServicePort {
+) (*corev1.ServicePort, error) {
 	var port *corev1.ServicePort
 
 	for i, portB := range service.Spec.Ports {
@@ -271,7 +278,11 @@ func getPrometheusPort(
 		}
 	}
 
-	return port
+	if port == nil {
+		return nil, errors.New("cannot find port: " + cfg.PrometheusPort)
+	}
+
+	return port, nil
 }
 
 type MeterDefinitionReferences = []marketplacev1beta1.MeterDefinitionReference
@@ -279,79 +290,38 @@ type MeterDefinitionReferences = []marketplacev1beta1.MeterDefinitionReference
 func getMeterDefinitionReferences(
 	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
-	cc ClientCommandRunner,
-) (MeterDefinitionReferences, error) {
-	defs := []marketplacev1beta1.MeterDefinitionReference{}
+	client client.Client,
+) (defs MeterDefinitionReferences, err error) {
+	for _, ref := range report.Spec.MeterDefinitionReferences {
+		if ref.Spec == nil {
+			mdef := marketplacev1beta1.MeterDefinition{}
 
-	if len(report.Spec.MeterDefinitionReferences) == 0 {
-		ref := marketplacev1beta1.MeterDefinitionReference{}
-		update := false
+			err = client.Get(ctx, types.NamespacedName{
+				Name: ref.Name, Namespace: ref.Namespace,
+			}, &mdef)
 
-		mdef := marketplacev1beta1.MeterDefinition{}
-		result, _ := cc.Exec(ctx, GetAction(types.NamespacedName{
-			Name: ref.Name, Namespace: ref.Namespace,
-		}, &mdef))
+			if err != nil {
+				return
+			}
 
-		if result.Is(Error) {
-			return defs, result.Err
-		}
-
-		if result.Is(Continue) {
-			update = true
 			ref.UID = mdef.UID
 			ref.Spec = &mdef.Spec
-			// ref.Spec.LabelSelector = mdef.LabelFilter.LabelSelector
 		}
 
 		defs = append(defs, ref)
-
-		if update {
-			result, _ := cc.Exec(ctx, UpdateAction(report))
-			if result.Is(Error) {
-				return defs, result.Err
-			}
-		}
-
-		return defs, nil
-
-	} else if len(report.Spec.MeterDefinitionReferences) > 0 {
-		update := false
-
-		for _, ref := range report.Spec.MeterDefinitionReferences {
-			if ref.Spec == nil {
-				update = true
-
-				mdef := marketplacev1beta1.MeterDefinition{}
-				result, _ := cc.Exec(ctx, GetAction(types.NamespacedName{
-					Name: ref.Name, Namespace: ref.Namespace,
-				}, &mdef))
-
-				if result.Is(Error) {
-					return defs, result.Err
-				}
-
-				if result.Is(Continue) {
-					update = true
-					ref.UID = mdef.UID
-					ref.Spec = &mdef.Spec
-					// report.Spec.labelSelector = mdef.NamespaceFilter.LabelSelector
-				}
-			}
-
-			defs = append(defs, ref)
-		}
-
-		if update {
-			result, _ := cc.Exec(ctx, UpdateAction(report))
-			if result.Is(Error) {
-				return defs, result.Err
-			}
-		}
-
-		return defs, nil
 	}
 
-	return defs, nil
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if reflect.DeepEqual(report.Spec.MeterDefinitionReferences, defs) {
+			return nil
+		}
+
+		report.Spec.MeterDefinitionReferences = defs
+
+		return client.Update(ctx, report)
+	})
+
+	return
 }
 
 func provideScheme() *runtime.Scheme {

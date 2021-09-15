@@ -129,7 +129,7 @@ func ProvidePrometheusAPI(
 		if err != nil {
 			return nil, err
 		}
-		prometheusAPI, err := NewPromAPI(service, &cert, string(authToken))
+		prometheusAPI, err := NewPromAPI(service, port, &cert, string(authToken))
 		if err != nil {
 			return nil, err
 		}

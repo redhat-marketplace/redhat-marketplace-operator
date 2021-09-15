@@ -30,17 +30,9 @@ type FileSenderServer struct {
 	filesender.UnimplementedFileSenderServer
 }
 
-type DRPCFileSenderServer struct {
-	*FileSenderServer
-}
-
 type fileSenderuploadFileStream interface {
 	SendAndClose(*filesender.UploadFileResponse) error
 	Recv() (*filesender.UploadFileRequest, error)
-}
-
-func (frs *DRPCFileSenderServer) UploadFile(stream filesender.DRPCFileSender_UploadFileStream) error {
-	return frs.uploadFile(stream)
 }
 
 func (frs *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileServer) error {

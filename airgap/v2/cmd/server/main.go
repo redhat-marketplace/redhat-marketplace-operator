@@ -88,7 +88,7 @@ func main() {
 			sfg := &scheduler.SchedulerConfig{
 				Log:            log,
 				Fs:             fs,
-				DBConfig:       *cfg,
+				IsLeader:       cfg.IsLeader,
 				CleanAfter:     viper.GetString("cleanAfter"),
 				PurgeAfter:     viper.GetString("purgeAfter"),
 				CronExpression: viper.GetString("cronExpression"),

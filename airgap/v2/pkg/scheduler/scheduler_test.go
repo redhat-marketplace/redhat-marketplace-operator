@@ -76,6 +76,9 @@ func TestScheduler_handler(t *testing.T) {
 	sfg := SchedulerConfig{
 		Log: logger,
 		Fs:  database,
+		IsLeader: func() (bool, error) {
+			return true, nil
+		},
 	}
 	populateDataset(database, t)
 

@@ -21,14 +21,13 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type SchedulerConfig struct {
 	Log            logr.Logger
 	Fs             *database.Database
-	DBConfig       dqlite.DatabaseConfig
+	IsLeader       func() (bool, error)
 	CleanAfter     string
 	PurgeAfter     string
 	CronExpression string
@@ -59,7 +58,7 @@ func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, before string, purge 
 	_, err := s.Cron(sfg.CronExpression).Tag(tag).Do(
 		func() {
 			// run handler only for leader node
-			isLeader, err := sfg.DBConfig.IsLeader()
+			isLeader, err := sfg.IsLeader()
 			if err != nil {
 				sfg.Log.Error(err, "error while verifying leader")
 			}

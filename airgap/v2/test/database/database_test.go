@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -1040,7 +1039,6 @@ func populateDataset(database *database.Database, t *testing.T) {
 		if dbErr != nil {
 			t.Fatalf("Couldn't save file due to:%v", dbErr)
 		}
-		time.Sleep(1 * time.Second)
 	}
 
 	// update fields for seed data
@@ -1050,7 +1048,6 @@ func populateDataset(database *database.Database, t *testing.T) {
 	setTombstone(deleteFID.GetName(), before, database)
 	setTombstone(deleteFID1.GetName(), before, database)
 	setTombstone(deleteFID2.GetName(), after, database)
-	time.Sleep(1 * time.Second)
 }
 
 // setCreatedAt modifies the created date for provided file

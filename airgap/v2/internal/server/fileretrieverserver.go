@@ -18,24 +18,17 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type FileRetrieverServer struct {
 	*Server
 	fileretriever.UnimplementedFileRetrieverServer
-}
-
-type DRPCFileRetrieverServer struct {
-	*FileRetrieverServer
 }
 
 const chunkSize = 1024
@@ -45,10 +38,6 @@ type downloadFileResponseStream interface {
 }
 
 func (frs *FileRetrieverServer) DownloadFile(dfr *fileretriever.DownloadFileRequest, stream fileretriever.FileRetriever_DownloadFileServer) error {
-	return frs.downloadFile(dfr, stream)
-}
-
-func (frs *DRPCFileRetrieverServer) DownloadFile(dfr *fileretriever.DownloadFileRequest, stream fileretriever.DRPCFileRetriever_DownloadFileStream) error {
 	return frs.downloadFile(dfr, stream)
 }
 
@@ -77,18 +66,14 @@ func (frs *FileRetrieverServer) downloadFile(dfr *fileretriever.DownloadFileRequ
 		fms[fm.Key] = fm.Value
 	}
 
-	created_at, _ := ptypes.TimestampProto(time.Unix(metadata.CreatedAt, 0))
-	deleted_at, _ := ptypes.TimestampProto(time.Unix(metadata.DeletedAt, 0))
-
 	// File information response
 	res := &fileretriever.DownloadFileResponse{
 		Data: &fileretriever.DownloadFileResponse_Info{
 			Info: &v1.FileInfo{
 				FileId:           &fid,
 				Size:             metadata.Size,
-				CreatedAt:        created_at,
-				DeletedTombstone: deleted_at,
-				UpdatedAt:        created_at,
+				CreatedAt:        ConvertTimestamp(metadata.CreatedAt),
+				DeletedTombstone: ConvertTimestamp(metadata.DeletedAt),
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
 				Checksum:         metadata.Checksum,
@@ -145,10 +130,6 @@ func (frs *FileRetrieverServer) downloadFile(dfr *fileretriever.DownloadFileRequ
 
 type listFileMetadataResponseStream interface {
 	Send(*fileretriever.ListFileMetadataResponse) error
-}
-
-func (frs *DRPCFileRetrieverServer) ListFileMetadata(lis *fileretriever.ListFileMetadataRequest, stream fileretriever.DRPCFileRetriever_ListFileMetadataStream) error {
-	return frs.listFileMetadata(lis, stream)
 }
 
 func (frs *FileRetrieverServer) ListFileMetadata(lis *fileretriever.ListFileMetadataRequest, stream fileretriever.FileRetriever_ListFileMetadataServer) error {
@@ -246,9 +227,8 @@ func (frs *FileRetrieverServer) listFileMetadata(lis *fileretriever.ListFileMeta
 				FileId:           &fileId,
 				Size:             metadata.Size,
 				Metadata:         fileMetadata,
-				CreatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
-				UpdatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
-				DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.CleanTombstoneSetAt},
+				CreatedAt:        ConvertTimestamp(metadata.CreatedAt),
+				DeletedTombstone: ConvertTimestamp(metadata.DeletedAt),
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
 				Checksum:         metadata.Checksum,
@@ -289,9 +269,8 @@ func (frs *FileRetrieverServer) GetFileMetadata(ctx context.Context, in *fileret
 		Info: &v1.FileInfo{
 			FileId:           &fid,
 			Size:             metadata.Size,
-			CreatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.DeletedAt},
-			UpdatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
+			CreatedAt:        ConvertTimestamp(metadata.CreatedAt),
+			DeletedTombstone: ConvertTimestamp(metadata.DeletedAt),
 			Compression:      metadata.Compression,
 			CompressionType:  metadata.CompressionType,
 			Metadata:         fms,

@@ -82,6 +82,12 @@ func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplace
 		return false
 	}
 
+	uploadStatus := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeUploadStatus)
+
+	if uploadStatus != nil && uploadStatus.IsTrue() {
+		return false
+	}
+
 	return true
 }
 
