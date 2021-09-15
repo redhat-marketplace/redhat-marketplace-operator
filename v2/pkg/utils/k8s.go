@@ -245,7 +245,7 @@ func BuildMeterBaseCr(namespace string,features *common.Features) *marketplacev1
 					Size: resource.MustParse("20Gi"),
 				},
 			},
-			MeterdefinitionCatalogServer: &features.MeterDefinitionCatalogServer,
+			MeterdefinitionCatalogServer: features.MeterDefinitionCatalogServer,
 		},
 		
 	}

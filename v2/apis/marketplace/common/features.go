@@ -40,7 +40,7 @@ type Features struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	// +optional
-	MeterDefinitionCatalogServer MeterDefinitionCatalogServer `json:"meterDefinitionCatalogServer,omitempty"`
+	MeterDefinitionCatalogServer *MeterDefinitionCatalogServer `json:"meterDefinitionCatalogServer,omitempty"`
 }
 
 // MeterDefinitionCatalogServer represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
