@@ -81,8 +81,9 @@ const (
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterBaseReconciler{}
 var ErrRetentionTime = errors.New("retention time must be at least 168h")
-var ErrInsufficientMemoryConfiguration = errors.New("must allocate at least 40GiB of memory")
+var ErrInsufficientMemoryConfiguration = errors.New("must allocate at least 40GiB of disk space")
 var ErrParseUserWorkloadConfiguration = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
+var ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig = errors.New("could not parse Prometheus VolumeClaimTemplate from user-workload-monitoring-config cm")
 var ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
 
 // MeterBaseReconciler reconciles a MeterBase object
@@ -332,13 +333,13 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
 
-	userWorkloadConfigSet,userWorkloadErr := isUserWorkLoadMonitoringConfigOnCluster(cc,reqLogger)
+	userWorkloadConfigurationIsValid,userWorkloadErr := validateUserWorkLoadMonitoringConfig(cc,reqLogger)
 	if userWorkloadErr != nil {
 		reqLogger.Info(userWorkloadErr.Error())
 	}
 
 	// userWorkloadMonitoringEnabled is considered enabled if the Spec,cluster configuration,and user workload configuration are satisfied
-	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigSet
+	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigurationIsValid
 
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
 		// Set initial UWM status
@@ -347,7 +348,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			instance,
 			userWorkloadMonitoringEnabledSpec,
 			userWorkloadMonitoringEnabledOnCluster,
-			userWorkloadConfigSet,
+			userWorkloadConfigurationIsValid,
 			userWorkloadErr,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
@@ -377,7 +378,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				instance,
 				userWorkloadMonitoringEnabledSpec,
 				userWorkloadMonitoringEnabledOnCluster,
-				userWorkloadConfigSet,
+				userWorkloadConfigurationIsValid,
 				userWorkloadErr,
 			); result.Is(Error) || result.Is(Requeue) {
 				if err != nil {
@@ -569,7 +570,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			instance,
 			userWorkloadMonitoringEnabledSpec,
 			userWorkloadMonitoringEnabledOnCluster,
-			userWorkloadConfigSet,
+			userWorkloadConfigurationIsValid,
 			userWorkloadErr,
 		); result.Is(Error) || result.Is(Requeue) {
 			if err != nil {
@@ -1746,7 +1747,7 @@ func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
 }
 
-func isUserWorkLoadMonitoringConfigSet(clusterMonitorConfigMap *corev1.ConfigMap) (bool, error) {
+func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigMap,reqLogger logr.Logger) (bool, error) {
 	uwmc := cmomanifests.UserWorkloadConfiguration{}
 	config, ok := clusterMonitorConfigMap.Data["config.yaml"]
 	if !ok {
@@ -1763,6 +1764,8 @@ func isUserWorkLoadMonitoringConfigSet(clusterMonitorConfigMap *corev1.ConfigMap
 		return false,err
 	}
 
+	reqLogger.Info("found duration","memory",foundDuration.Hours())
+
 	wantedDuration,err := time.ParseDuration("168h")
 	if err != nil {
 		return false,err
@@ -1774,7 +1777,17 @@ func isUserWorkLoadMonitoringConfigSet(clusterMonitorConfigMap *corev1.ConfigMap
 
 	wantedMemory := resource.MustParse("40Gi")
 	wantedMemoryI64,_ := wantedMemory.AsInt64()
-	foundMemoryI64,_ := uwmc.Prometheus.Resources.Requests.Memory().AsInt64()
+
+	if uwmc.Prometheus.VolumeClaimTemplate == nil {
+		return false,ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig
+	}
+
+	foundMemoryI64,notFound := uwmc.Prometheus.VolumeClaimTemplate.Spec.Resources.Requests.Storage().AsInt64()
+	if !notFound {
+		return false,ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig
+	}
+
+	reqLogger.Info("found memory","memory",foundMemoryI64)
 
 	if foundMemoryI64 < wantedMemoryI64 {
 		return false, ErrInsufficientMemoryConfiguration
@@ -1783,7 +1796,9 @@ func isUserWorkLoadMonitoringConfigSet(clusterMonitorConfigMap *corev1.ConfigMap
 	return true,nil
 }
 
-func isUserWorkLoadMonitoringConfigOnCluster(cc ClientCommandRunner,reqLogger logr.Logger)(bool, error) {
+func validateUserWorkLoadMonitoringConfig(cc ClientCommandRunner,reqLogger logr.Logger)(bool, error) {
+	reqLogger.Info("validating user-workload-monitoring-config cm")
+
 	uwmc := &corev1.ConfigMap{}
 	result, _ := cc.Do(
 		context.TODO(),
@@ -1799,9 +1814,8 @@ func isUserWorkLoadMonitoringConfigOnCluster(cc ClientCommandRunner,reqLogger lo
 		return false, ErrUserWorkloadMonitoringConfigNotFound
 	} else if result.Is(Continue) {
 		reqLogger.Info("found user-workload-monitoring-config")
-		enableUserWorkload, err := isUserWorkLoadMonitoringConfigSet(uwmc)
+		enableUserWorkload, err := isUserWorkLoadMonitoringConfigValid(uwmc,reqLogger)
 		if err != nil {
-			reqLogger.Info(err.Error())
 			return false, err
 		}
 
@@ -1835,7 +1849,7 @@ func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastruc
 		return false, nil
 	}
 
-	reqLogger.Info("attempting to get if userworkload monitoring is enabled")
+	reqLogger.Info("attempting to get if userworkload monitoring is enabled on cluster")
 
 	// Check if enableUserWorkload: true in cluster-monitoring-config
 	clusterMonitorConfigMap := &corev1.ConfigMap{}
@@ -1872,7 +1886,7 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
 ) (*ExecResult, error) {
-	// var c status.Condition
+
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
@@ -1939,6 +1953,16 @@ func updateUserWorkloadMonitoringEnabledStatus(
 					Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 					Status:  corev1.ConditionFalse,
 					Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringConfigNotFound,
+					Message: userWorkloadConfigurationErr.Error(),
+				}))
+			return result, err
+		}
+
+		if errors.Is(userWorkloadConfigurationErr,ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig) {
+			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+					Status:  corev1.ConditionFalse,
+					Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringCouldNotParsePromVolumeClaimTemplate,
 					Message: userWorkloadConfigurationErr.Error(),
 				}))
 			return result, err

@@ -193,14 +193,15 @@ const (
 	// ConditionUserWorkloadMonitoringEnabled means UWM is actively used as the prometheus provider
 	ConditionUserWorkloadMonitoringEnabled status.ConditionType = "UserWorkloadMonitoringEnabled"
 
-	ReasonUserWorkloadMonitoringEnabled         status.ConditionReason = "UserWorkloadMonitoringEnabled"
-	ReasonUserWorkloadMonitoringSpecDisabled    status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
-	ReasonUserWorkloadMonitoringClusterDisabled status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
-	ReasonUserWorkloadMonitoringInsufficientMemory status.ConditionReason  = "UserWorkloadMonitoringInsufficientMemory"
-	ReasonUserWorkloadMonitoringRetentionTime status.ConditionReason = "UserWorkloadMonitoringRetentionTime"
-	ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration status.ConditionReason = "UserWorkloadMonitoringParseUserWorkloadConfiguration"
-	ReasonUserWorkloadMonitoringConfigNotFound status.ConditionReason = "UserWorkloadMonitoringConfigNotFound"
-	ReasonUserWorkloadMonitoringTransitioning   status.ConditionReason = "UserWorkloadMonitoringTransitioning"
+	ReasonUserWorkloadMonitoringEnabled                             status.ConditionReason = "UserWorkloadMonitoringEnabled"
+	ReasonUserWorkloadMonitoringSpecDisabled                        status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
+	ReasonUserWorkloadMonitoringClusterDisabled                     status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
+	ReasonUserWorkloadMonitoringInsufficientMemory                  status.ConditionReason = "UserWorkloadMonitoringInsufficientMemory"
+	ReasonUserWorkloadMonitoringRetentionTime                       status.ConditionReason = "UserWorkloadMonitoringRetentionTime"
+	ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration      status.ConditionReason = "UserWorkloadMonitoringParseUserWorkloadConfiguration"
+	ReasonUserWorkloadMonitoringConfigNotFound                      status.ConditionReason = "UserWorkloadMonitoringConfigNotFound"
+	ReasonUserWorkloadMonitoringCouldNotParsePromVolumeClaimTemplate status.ConditionReason = "UserWorkloadMonitoringParsePromVolumeClaimTemplate"
+	ReasonUserWorkloadMonitoringTransitioning                       status.ConditionReason = "UserWorkloadMonitoringTransitioning"
 
 	MessageUserWorkloadMonitoringEnabled         string = "UserWorkloadMonitoring is enabled in the Meterbase Spec, is enabled on the Cluster, and user-workload-monitoring configmap is configured correctly"
 	MessageUserWorkloadMonitoringSpecDisabled    string = "UserWorkloadMonitoring is disabled in the Meterbase Spec"
