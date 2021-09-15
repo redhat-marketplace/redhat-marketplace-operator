@@ -196,7 +196,7 @@ const (
 	ReasonUserWorkloadMonitoringEnabled                             status.ConditionReason = "UserWorkloadMonitoringEnabled"
 	ReasonUserWorkloadMonitoringSpecDisabled                        status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
 	ReasonUserWorkloadMonitoringClusterDisabled                     status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
-	ReasonUserWorkloadMonitoringInsufficientMemory                  status.ConditionReason = "UserWorkloadMonitoringInsufficientMemory"
+	ReasonUserWorkloadMonitoringInsufficientStorage                  status.ConditionReason = "UserWorkloadMonitoringInsufficientStorage"
 	ReasonUserWorkloadMonitoringRetentionTime                       status.ConditionReason = "UserWorkloadMonitoringRetentionTime"
 	ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration      status.ConditionReason = "UserWorkloadMonitoringParseUserWorkloadConfiguration"
 	ReasonUserWorkloadMonitoringConfigNotFound                      status.ConditionReason = "UserWorkloadMonitoringConfigNotFound"

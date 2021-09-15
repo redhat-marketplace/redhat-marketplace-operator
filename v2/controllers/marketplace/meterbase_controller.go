@@ -81,7 +81,7 @@ const (
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterBaseReconciler{}
 var ErrRetentionTime = errors.New("retention time must be at least 168h")
-var ErrInsufficientMemoryConfiguration = errors.New("must allocate at least 40GiB of disk space")
+var ErrInsufficientStorageConfiguration = errors.New("must allocate at least 40GiB of disk space")
 var ErrParseUserWorkloadConfiguration = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
 var ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig = errors.New("could not parse Prometheus VolumeClaimTemplate from user-workload-monitoring-config cm")
 var ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
@@ -343,7 +343,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
 		// Set initial UWM status
-		reqLogger.Info("setting initial status for UWM")
 		if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
 			instance,
 			userWorkloadMonitoringEnabledSpec,
@@ -1790,7 +1789,7 @@ func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigM
 	reqLogger.Info("found memory","memory",foundMemoryI64)
 
 	if foundMemoryI64 < wantedMemoryI64 {
-		return false, ErrInsufficientMemoryConfiguration
+		return false, ErrInsufficientStorageConfiguration
 	}
 
 	return true,nil
@@ -1918,11 +1917,11 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	} 
 	
 	if !userWorkloadConfigurationSet && userWorkloadConfigurationErr != nil {
-		if errors.Is(userWorkloadConfigurationErr,ErrInsufficientMemoryConfiguration) {
+		if errors.Is(userWorkloadConfigurationErr,ErrInsufficientStorageConfiguration) {
 			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringInsufficientMemory,
+				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringInsufficientStorage,
 				Message: userWorkloadConfigurationErr.Error(),
 			}))
 			return result, err
