@@ -581,7 +581,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-		
 	reqLogger.Info("found meterbase")
 
 	if foundMeterBase.Spec.MeterdefinitionCatalogServer == nil {
@@ -589,6 +588,14 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			SyncCommunityMeterDefinitions: marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions,
 			SyncSystemMeterDefinitions: marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions,
 			DeployMeterDefinitionCatalogServer: marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer,
+		}
+
+		reqLogger.Info("setting MeterdefinitionCatalog features")
+
+		err = r.Client.Update(context.TODO(), foundMeterBase)
+		if err != nil {
+			reqLogger.Error(err, "failed to update meterbase")
+			return reconcile.Result{}, err
 		}
 	}
 

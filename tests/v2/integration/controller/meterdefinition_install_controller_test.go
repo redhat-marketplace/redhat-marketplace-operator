@@ -82,8 +82,7 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 			meterBase := &marketplacev1alpha1.MeterBase{}
 			err := testHarness.Get(context.TODO(),types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: Namespace},meterBase)
 			if ks8serrors.IsNotFound(err){
-				fmt.Println("meterbase not found")
-				Expect(testHarness.Create(context.TODO(),subSectionMeterBase))
+				Expect(testHarness.Create(context.TODO(),subSectionMeterBase)).Should(Succeed())
 			}
 
 			if meterBase.Spec.MeterdefinitionCatalogServer == nil {
@@ -94,15 +93,18 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 			}
 
 			if !*meterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
-				fmt.Println("updating MeterdefinitionCatalogServerEnabled")
 				meterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(true)
 				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
 				time.Sleep(time.Second * 30)
 			}
 
 			if !*meterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
-				fmt.Println("updating LicenceUsageMeteringEnabled")
 				meterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(true)
+				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
+			}
+
+			if !*meterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+				meterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(true)
 				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed())
 			}
 			
@@ -124,12 +126,10 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 
 			testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-operator.v0.0.2", Namespace: "openshift-redhat-marketplace"}, memcachedCSV)
 			testHarness.Delete(context.TODO(), memcachedCSV)
-
-			time.Sleep(time.Second * 10)
 		})
 
 		Context("memcached 0.0.1", func() {
-			It("Should create a meterdefs for memcached 0.0.1", func() {
+			It("Should create meterdefs for memcached 0.0.1", func() {
 				Eventually(func() []string {
 					foundSub := &olmv1alpha1.Subscription{}
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-subscription", Namespace: "openshift-redhat-marketplace"}, foundSub)

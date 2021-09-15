@@ -99,8 +99,7 @@ const (
 	RazeeWatchLevelLite   = "lite"
 	RazeeWatchLevelDetail = "detail"
 
-	DEPLOYMENT_CONFIG_NAME                 = "rhm-meterdefinition-file-server"
-	CATALOG_SERVER_SERVICE_NAME			   = "rhm-meterdefinition-file-server"
+	DeploymentConfigName                 = "rhm-meterdefinition-file-server"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
 	OperatorTag = "marketplace.redhat.com/operator"

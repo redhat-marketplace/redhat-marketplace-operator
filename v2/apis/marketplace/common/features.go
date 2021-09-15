@@ -46,7 +46,7 @@ type Features struct {
 // MeterDefinitionCatalogServer represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
 // +kubebuilder:object:generate:=true
 type MeterDefinitionCatalogServer struct {
-	// SyncCommunityMeterDefinitions represents the enablement of the Meterdefinition Catalog Server with a directive to sync community meterdefinitions from the meterdefinition catalog, defaults to true when not set
+	// SyncCommunityMeterDefinitions represents the enablement of logic that will sync community meterdefinitions from the meterdefinition catalog, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Community Meterdefinition Catalog Server?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
@@ -54,7 +54,7 @@ type MeterDefinitionCatalogServer struct {
 	// +optional
 	SyncCommunityMeterDefinitions *bool `json:"syncCommunityMeterDefinitions,omitempty"`
 
-	// SyncSystemMeterDefinitions represents the enablement of the Meterdefinition Catalog Server with a directive to sync system meterdefinitions from the meterdefinition catalog, defaults to true when not set
+	// SyncSystemMeterDefinitions represents the enablement of logic that will sync system meterdefinitions from the meterdefinition catalog, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable License Usage Metering?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"

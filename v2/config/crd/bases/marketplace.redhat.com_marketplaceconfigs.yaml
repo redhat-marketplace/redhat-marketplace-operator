@@ -88,15 +88,13 @@ spec:
                       type: boolean
                     syncCommunityMeterDefinitions:
                       description: SyncCommunityMeterDefinitions represents the enablement
-                        of the Meterdefinition Catalog Server with a directive to
-                        sync community meterdefinitions from the meterdefinition catalog,
-                        defaults to true when not set
+                        of logic that will sync community meterdefinitions from the
+                        meterdefinition catalog, defaults to true when not set
                       type: boolean
                     syncSystemMeterDefinitions:
                       description: SyncSystemMeterDefinitions represents the enablement
-                        of the Meterdefinition Catalog Server with a directive to
-                        sync system meterdefinitions from the meterdefinition catalog,
-                        defaults to true when not set
+                        of logic that will sync system meterdefinitions from the meterdefinition
+                        catalog, defaults to true when not set
                       type: boolean
                   type: object
                 registration:

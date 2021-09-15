@@ -194,12 +194,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		meterdefsOnCluster := []marketplacev1beta1.MeterDefinition{testMeterdef1,testMeterdef2}
 		latestFromCatalog := []marketplacev1beta1.MeterDefinition{testMeterdef1}
-		diff := FindMeterdefDiff(meterdefsOnCluster,latestFromCatalog)
+		diff := FindMeterdefSliceDiff(meterdefsOnCluster,latestFromCatalog)
 		Expect(len(diff)).To(Equal(1))
 		Expect(diff[0].Name).To(Equal("meterdef-2"))
 
 		latestFromCatalog = append(latestFromCatalog, testMeterdef2)
-		diff = FindMeterdefDiff(meterdefsOnCluster,latestFromCatalog)
+		diff = FindMeterdefSliceDiff(meterdefsOnCluster,latestFromCatalog)
 		Expect(len(diff)).To(Equal(0))
 	})
 })

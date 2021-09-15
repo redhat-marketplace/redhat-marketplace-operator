@@ -120,7 +120,7 @@ func FindDiff(a, b []string) []string {
 	return diff
 }
 
-func FindMeterdefDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition) (deleteList []marketplacev1beta1.MeterDefinition) {
+func FindMeterdefSliceDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition) (deleteList []marketplacev1beta1.MeterDefinition) {
 	for _, installedMeterdef := range catalogMdefsOnCluster {
 		found := false
 		for _, meterdefFromCatalog := range latestMeterdefsFromCatalog {

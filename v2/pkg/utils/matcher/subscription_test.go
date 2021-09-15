@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = FDescribe("Matcher functions", func() {
+var _ = Describe("Matcher functions", func() {
 	var (
 		namespace = "default"
 		jogetv13 *olmv1alpha1.ClusterServiceVersion
@@ -152,7 +152,7 @@ var _ = FDescribe("Matcher functions", func() {
 			subs[0].Status.InstalledCSV = jogetv14Name
 		})
 	
-		It("should return with an updating error message",func(){
+		It("should try and match the csv to subscription without using olm annotations",func(){
 			packageName,_ := ParsePackageName(jogetv14)
 			Expect(packageName).To(BeEmpty())
 	

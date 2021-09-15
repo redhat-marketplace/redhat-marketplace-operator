@@ -377,7 +377,6 @@ func(f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream){
 	is.Spec.Tags[0].Name = f.operatorConfig.ImageStreamTag
 }
 
-//TODO: should we bother updating these values ? Worried about nil pointers
 func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig)(updated bool){
 	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
 

@@ -44,7 +44,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		/* rhm csv */
 		csvName = "test-csv-1.v0.0.1"
-		// csvSplitName                  = "test-csv-1"
 		csvVersion        = "0.0.1"
 		subName           = "test-csv-1-sub"
 		packageName       = "test-csv-1-rhmp"
@@ -57,12 +56,13 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		nonRhmCatalogSourceName = "non-rhm-catalog-source"
 
 		/* system meterdefs */
-		systemMeterDefName  = csvName + "-" + "pod-count"
+		systemMeterDef1Name  = csvName + "-" + "pod-count"
 		systemMeterDef2Name = csvName + "-" + "cpu-usage"
 
 		listMeterDefsForCsvPath          = "/" + catalog.ListForVersionEndpoint + "/" + csvName + "/" + csvVersion + "/" + namespace
 		indexLabelsPath                  = "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + csvName
 		systemMeterDefIndexLabelsPath    = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName
+		healthEndpoint 				     = "/" + catalog.HealthEndpoint
 		communityMeterDefIndexLabelsBody []byte
 		systemMeterDefIndexLabelsBody    []byte
 		dcControllerMockServer           *ghttp.Server
@@ -82,8 +82,23 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Namespace: namespace,
 	}
 
-	systemMeterDefKey := types.NamespacedName{
-		Name:      systemMeterDefName,
+	systemMeterDef1Key := types.NamespacedName{
+		Name:      systemMeterDef1Name,
+		Namespace: namespace,
+	}
+
+	systemMeterDef2Key := types.NamespacedName{
+		Name:      systemMeterDef2Name,
+		Namespace: namespace,
+	}
+
+	rhmCsvKey  := types.NamespacedName{
+		Name:      csvName,
+		Namespace: namespace,
+	}
+
+	meterBaseKey := types.NamespacedName{
+		Name: utils.METERBASE_NAME, 
 		Namespace: namespace,
 	}
 
@@ -93,7 +108,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			APIVersion: "marketplace.redhat.com/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      systemMeterDefName,
+			Name:      systemMeterDef1Name,
 			Namespace: "default",
 			Annotations: map[string]string{
 				"versionRange": "<=0.0.1",
@@ -417,7 +432,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		dc := &osappsv1.DeploymentConfig{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.DEPLOYMENT_CONFIG_NAME,
+				Name:      utils.DeploymentConfigName,
 				Namespace: "default",
 			},
 			Spec: osappsv1.DeploymentConfigSpec{
@@ -451,7 +466,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		is := &osimagev1.ImageStream{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.DEPLOYMENT_CONFIG_NAME,
+				Name:      utils.DeploymentConfigName,
 				Namespace: "default",
 			},
 			Spec: osimagev1.ImageStreamSpec{
@@ -483,7 +498,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.DEPLOYMENT_CONFIG_NAME,
+				Name:      utils.DeploymentConfigName,
 				Namespace: namespace,
 			},
 			Spec: corev1.ServiceSpec{
@@ -523,29 +538,41 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				ghttp.VerifyRequest("GET", systemMeterDefIndexLabelsPath),
 				ghttp.RespondWithPtr(&Status200, &systemMeterDefIndexLabelsBody),
 			))
+		
+		healthBody := []byte(`status ok`)
+
+		dcControllerMockServer.RouteToHandler(
+			"GET", healthEndpoint, ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", healthEndpoint),
+				ghttp.RespondWith(http.StatusOK,healthBody),
+			))
 	})
 
 	AfterEach(func() {
 		dcControllerMockServer.Close()
 
 		_meterDef1 := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: meterDef1Key.Name, Namespace: namespace}, _meterDef1)
+		k8sClient.Get(context.TODO(), meterDef1Key, _meterDef1)
 		k8sClient.Delete(context.TODO(), _meterDef1)
 
 		_meterDef2 := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: meterDef2Key.Name, Namespace: namespace}, _meterDef2)
+		k8sClient.Get(context.TODO(), meterDef2Key, _meterDef2)
 		k8sClient.Delete(context.TODO(), _meterDef2)
 
-		_systemMeterDef := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: systemMeterDefName, Namespace: namespace}, _systemMeterDef)
-		k8sClient.Delete(context.TODO(), _systemMeterDef)
+		_systemMeterDef1 := &marketplacev1beta1.MeterDefinition{}
+		k8sClient.Get(context.TODO(), systemMeterDef1Key, _systemMeterDef1)
+		k8sClient.Delete(context.TODO(), _systemMeterDef1)
+
+		_systemMeterDef2 := &marketplacev1beta1.MeterDefinition{}
+		k8sClient.Get(context.TODO(), systemMeterDef2Key, _systemMeterDef2)
+		k8sClient.Delete(context.TODO(), _systemMeterDef2)
 
 		_csv := &olmv1alpha1.ClusterServiceVersion{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: namespace}, _csv)
+		k8sClient.Get(context.TODO(), rhmCsvKey, _csv)
 		k8sClient.Delete(context.TODO(), _csv)
 
 		_meterBase := &marketplacev1alpha1.MeterBase{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, _meterBase)).Should(Succeed(), "get meterbase")
+		Expect(k8sClient.Get(context.TODO(), meterBaseKey, _meterBase)).Should(Succeed(), "get meterbase")
 		k8sClient.Delete(context.TODO(), _meterBase)
 
 		_catalogSource := &olmv1alpha1.CatalogSource{}
@@ -598,7 +625,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		It("Should create a system meterdef", func() {
 			Eventually(func() string {
 				foundSystemMeterDef := &marketplacev1beta1.MeterDefinition{}
-				k8sClient.Get(context.TODO(), types.NamespacedName{Name: systemMeterDef1.Name, Namespace: namespace}, foundSystemMeterDef)
+				k8sClient.Get(context.TODO(), systemMeterDef1Key, foundSystemMeterDef)
 				return foundSystemMeterDef.Name
 			}, timeout, interval).Should(Equal(systemMeterDef1.Name))
 		})
@@ -665,7 +692,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		It("system meterdefintion on cluster should be updated", func() {
 			Eventually(func() string {
 				foundSystemMeterDef := &marketplacev1beta1.MeterDefinition{}
-				k8sClient.Get(context.TODO(), systemMeterDefKey, foundSystemMeterDef)
+				k8sClient.Get(context.TODO(), systemMeterDef1Key, foundSystemMeterDef)
 
 				if foundSystemMeterDef.Spec.Meters != nil {
 					return foundSystemMeterDef.Spec.Meters[0].Name
@@ -776,7 +803,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}, timeout, interval).Should(And(
 				HaveLen(1),
 				MatchAllElements(idFn, Elements{
-					systemMeterDefName: Equal(systemMeterDefName),
+					systemMeterDef1Name: Equal(systemMeterDef1Name),
 				}),
 			))
 		})
@@ -932,7 +959,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}, timeout, interval).Should(HaveLen(1), "system meterdefs should get created")
 
 			foundMeterBase := &marketplacev1alpha1.MeterBase{}
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: namespace}, foundMeterBase))
+			Expect(k8sClient.Get(context.TODO(), meterBaseKey, foundMeterBase))
 
 			foundMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(false)
 			foundMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(false)
@@ -988,19 +1015,19 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				var serviceIsNotFound bool
 
 				dc := &osappsv1.DeploymentConfig{}
-				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, dc)
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, dc)
 				if k8serrors.IsNotFound(err) {
 					dcNotFound = true
 				}
 
 				is := &osimagev1.ImageStreamImage{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, is)
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, is)
 				if k8serrors.IsNotFound(err) {
 					isNotFound = true
 				}
 
 				service := &corev1.Service{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: namespace}, service)
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, service)
 				if k8serrors.IsNotFound(err) {
 					serviceIsNotFound = true
 				}

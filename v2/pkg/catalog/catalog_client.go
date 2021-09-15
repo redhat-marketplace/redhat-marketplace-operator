@@ -183,8 +183,13 @@ func (c *CatalogClient) Ping(reqLogger logr.Logger) error {
 		return err
 	}
 
-	if response.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
+	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusUnauthorized {
+			return fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
+		}
+
+		return errors.New(fmt.Sprintf("Error on ping to file server for health status: %s:%d",response.Status,response.StatusCode))
+
 	}
 
 	return nil
@@ -204,16 +209,18 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, err
 	}
 
-	if response.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
-	}
+	if response.StatusCode != http.StatusOK {
 
-	if response.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
-	}
+		if response.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
+		}
+	
+		if response.StatusCode == http.StatusNoContent {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
+		}
 
-	if response.StatusCode == http.StatusNoContent {
-		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
+		return nil,errors.New(fmt.Sprintf("Error querying file server for community meter definition: %s:%d",response.Status,response.StatusCode))
+
 	}
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
@@ -256,15 +263,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 	
-	if response.StatusCode != http.StatusOK {
-		if response.StatusCode == http.StatusUnauthorized {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
-		}
-	
-		if response.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
-		}
-	
+	if response.StatusCode != http.StatusOK {	
 		if response.StatusCode == http.StatusNoContent {
 			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
 		}
@@ -305,11 +304,6 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, c
 	}
 
 	if response.StatusCode != 200 {
-
-		if response.StatusCode == http.StatusUnauthorized {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
-		}
-
 		return nil,errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d",response.Status,response.StatusCode))
 	}
 
@@ -344,11 +338,6 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvN
 	}
 
 	if response.StatusCode != 200 {
-
-		if response.StatusCode == http.StatusUnauthorized {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
-		}
-
 		return nil,errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d",response.Status,response.StatusCode))
 	}
 
@@ -389,7 +378,7 @@ func concatPaths(basePath string, paths ...string) (*url.URL, error) {
 func (c *CatalogClient) getCatalogServerService(reqLogger logr.InfoLogger) (*corev1.Service, error) {
 	service := &corev1.Service{}
 
-	err := c.K8sClient.Get(context.TODO(), types.NamespacedName{Namespace: c.DeployedNamespace, Name: utils.CATALOG_SERVER_SERVICE_NAME}, service)
+	err := c.K8sClient.Get(context.TODO(), types.NamespacedName{Namespace: c.DeployedNamespace, Name: utils.DeploymentConfigName}, service)
 	if err != nil {
 		return nil, err
 	}
