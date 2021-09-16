@@ -1163,30 +1163,7 @@ spec:
       name: RHM Operator Team
   maturity: stable
   provider:
-    name: Red Hat Marketplace
-    relatedImages:
-      - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.2-515
-        name: RELATED_IMAGE_METRIC_STATE
-      - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.2-515
-        name: RELATED_IMAGE_REPORTER
-      - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.2-515
-        name: RELATED_IMAGE_AUTHCHECK
-      - image: quay.io/razee/remoteresources3:0.9.3
-        name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-      - image: quay.io/razee/watch-keeper:0.7.7
-        name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-      - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
-        name: RELATED_IMAGE_PROMETHEUS
-      - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
-        name: RELATED_IMAGE_OAUTH_PROXY
-      - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
-        name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-      - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
-        name: RELATED_IMAGE_CONFIGMAP_RELOADER
-      - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
-        name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-      - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-        name: RELATED_IMAGE_KUBE_RBAC_PROXY  
+    name: Red Hat Marketplace  
   version: 2.3.2
   webhookdefinitions:
     - admissionReviewVersions:
@@ -1229,3 +1206,26 @@ spec:
       targetPort: 9443
       type: MutatingAdmissionWebhook
       webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+  relatedImages:
+    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.2-515
+      name: RELATED_IMAGE_METRIC_STATE
+    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.2-515
+      name: RELATED_IMAGE_REPORTER
+    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.2-515
+      name: RELATED_IMAGE_AUTHCHECK
+    - image: quay.io/razee/remoteresources3:0.9.3
+      name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+    - image: quay.io/razee/watch-keeper:0.7.7
+      name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+    - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+      name: RELATED_IMAGE_PROMETHEUS
+    - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+      name: RELATED_IMAGE_OAUTH_PROXY
+    - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+      name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+    - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+      name: RELATED_IMAGE_CONFIGMAP_RELOADER
+    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+      name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+    - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+      name: RELATED_IMAGE_KUBE_RBAC_PROXY    
