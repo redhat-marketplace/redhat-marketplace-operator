@@ -107,7 +107,7 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	DataServiceEnabled bool `json:"dataServiceEnabled,omitempty"`
+	DataServiceEnabled *bool `json:"dataServiceEnabled,omitempty"`
 
 	// UserWorkloadMonitoringEnabled controls whether to attempt to use
 	// Openshift user-defined workload monitoring as the Prometheus provider
@@ -115,6 +115,14 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	UserWorkloadMonitoringEnabled *bool `json:"userWorkloadMonitoringEnabled,omitempty"`
+}
+
+func (m *MeterBaseSpec) IsDataServiceEnabled() bool {
+	if m.DataServiceEnabled == nil {
+		return true
+	}
+
+	return *m.DataServiceEnabled
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.

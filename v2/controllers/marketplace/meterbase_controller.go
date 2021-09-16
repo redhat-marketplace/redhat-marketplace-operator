@@ -629,7 +629,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
-	if instance.Spec.DataServiceEnabled {
+	if instance.Spec.IsDataServiceEnabled() {
 		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled)
 		if err != nil {
 			reqLogger.Error(err, "Failed to createReporterCronJob")
@@ -852,7 +852,7 @@ func (r *MeterBaseReconciler) newMeterReport(
 		},
 	}
 
-	if instance.Spec.DataServiceEnabled {
+	if instance.Spec.IsDataServiceEnabled() {
 		mreport.Spec.ExtraArgs = append(mreport.Spec.ExtraArgs, "--uploadTargets=data-service")
 		return mreport
 	}

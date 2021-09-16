@@ -150,7 +150,7 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	if meterBase.Spec.DataServiceEnabled == true { // Install the DataService
+	if meterBase.Spec.IsDataServiceEnabled() { // Install the DataService
 		/* DataService mTLS certificate Secret */
 		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
 		if err != nil {

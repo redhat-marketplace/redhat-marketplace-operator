@@ -240,7 +240,7 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 		},
 		Spec: marketplacev1alpha1.MeterBaseSpec{
 			Enabled:                       true,
-			DataServiceEnabled:            true,
+			DataServiceEnabled:            ptr.Bool(true),
 			UserWorkloadMonitoringEnabled: ptr.Bool(true),
 			Prometheus: &marketplacev1alpha1.PrometheusSpec{
 				Storage: marketplacev1alpha1.StorageSpec{
