@@ -30,6 +30,7 @@ import (
 )
 
 const timeout = time.Second * 100
+const longTimeout = time.Second * 200
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {

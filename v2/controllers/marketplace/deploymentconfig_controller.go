@@ -331,14 +331,14 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	for _, csv := range csvList.Items {
 
 		fromRhm, err := r.isRhmCsv(&csv, reqLogger)
-		if !fromRhm {
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
 			}
+		}
 
+		if !fromRhm {
 			reqLogger.Info("csv is not an rhm resource", "csv", csv.Name)
 			continue
 		}
