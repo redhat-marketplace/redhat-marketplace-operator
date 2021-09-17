@@ -87,9 +87,12 @@ var _ = FDescribe("MeterDefInstallController reconcile", func() {
 			}
 
 			if meterBase.Spec.MeterdefinitionCatalogServer == nil {
-				meterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(true)
-				meterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(true)
-				meterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(true)
+				meterBase.Spec.MeterdefinitionCatalogServer = &common.MeterDefinitionCatalogServer{
+					DeployMeterDefinitionCatalogServer: ptr.Bool(true),
+					SyncCommunityMeterDefinitions: ptr.Bool(true),
+					SyncSystemMeterDefinitions: ptr.Bool(true),
+				}
+				
 				Expect(testHarness.Update(context.TODO(),meterBase)).Should(Succeed(),"set MeterdefinitionCatalogServer values if nil")
 			}
 
