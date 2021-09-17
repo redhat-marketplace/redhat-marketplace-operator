@@ -1747,48 +1747,53 @@ func labelsForPrometheusOperator(name string) map[string]string {
 }
 
 func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigMap,reqLogger logr.Logger) (bool, error) {
-	uwmc := cmomanifests.UserWorkloadConfiguration{}
 	config, ok := clusterMonitorConfigMap.Data["config.yaml"]
 	if !ok {
 		return false, ErrParseUserWorkloadConfiguration 
 	}
 
+	uwmc := cmomanifests.UserWorkloadConfiguration{}
 	err := yaml.Unmarshal([]byte(config), &uwmc)
 	if err != nil {
+		err = fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,err.Error())
+		return false, err
+	}
+
+	if uwmc.Prometheus == nil {
+		err := fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,"could not find prometheus spec in user workload config")
 		return false, err
 	}
 
 	foundDuration,err := time.ParseDuration(uwmc.Prometheus.Retention)
 	if err != nil {
-		return false,err
+		err = fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,err.Error())
+		return false, err
 	}
 
 	reqLogger.Info("found duration","memory",foundDuration.Hours())
 
 	wantedDuration,err := time.ParseDuration("168h")
 	if err != nil {
-		return false,err
+		err = fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,err.Error())
+		return false, err
 	}
 
 	if float64(foundDuration) < float64(wantedDuration) {
 		return false, ErrRetentionTime
 	}
 
-	wantedMemory := resource.MustParse("40Gi")
-	wantedMemoryI64,_ := wantedMemory.AsInt64()
-
 	if uwmc.Prometheus.VolumeClaimTemplate == nil {
-		return false,ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig
+		err := fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,"could not find Prometheus.VolumeClaimTemplate in user workload config")
+		return false, err
 	}
 
-	foundMemoryI64,notFound := uwmc.Prometheus.VolumeClaimTemplate.Spec.Resources.Requests.Storage().AsInt64()
-	if !notFound {
-		return false,ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig
-	}
+	wantedStorage := resource.MustParse("40Gi")
+	wantedStorageI64,_ := wantedStorage.AsInt64()
+	foundStorageI64,_ := uwmc.Prometheus.VolumeClaimTemplate.Spec.Resources.Requests.Storage().AsInt64()
 
-	reqLogger.Info("found memory","memory",foundMemoryI64)
+	reqLogger.Info("found memory","memory",foundStorageI64)
 
-	if foundMemoryI64 < wantedMemoryI64 {
+	if foundStorageI64 < wantedStorageI64 {
 		return false, ErrInsufficientStorageConfiguration
 	}
 
