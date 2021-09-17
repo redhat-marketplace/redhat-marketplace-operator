@@ -42,6 +42,7 @@ type Config struct {
 	PrometheusNamespace  string
 	PrometheusPort       string
 	UploaderTargets
+	ReporterSchema string
 }
 
 const (
@@ -69,5 +70,10 @@ func (c *Config) SetDefaults() {
 
 var ReporterSet = wire.NewSet(
 	NewMarketplaceReporter,
+	NewRedHatInsightsUploader,
+)
+
+var ReporterSetV2 = wire.NewSet(
+	NewMarketplaceReporterV2,
 	NewRedHatInsightsUploader,
 )

@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/IBM/ibm-cos-sdk-go v1.7.0 // indirect
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.2.0
@@ -26,6 +27,7 @@ require (
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	google.golang.org/grpc v1.39.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.20.1
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v12.0.0+incompatible

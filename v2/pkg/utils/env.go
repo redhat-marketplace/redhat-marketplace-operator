@@ -45,6 +45,7 @@ const (
 	METERBASE_PROMETHEUS_NAME              = "rhm-prometheus-meterbase"
 	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
+	RHM_COS_UPLOADER_SECRET                = "rhm-cos-uploader-secret"
 
 	/* RHOS Monitoring Resource Names */
 	OPENSHIFT_MONITORING_NAMESPACE                              = "openshift-monitoring"

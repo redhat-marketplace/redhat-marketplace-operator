@@ -32,6 +32,7 @@ var namespace, cafile, tokenFile string
 var localFilePath, deployedNamespace string
 var dataServiceTokenFile, dataServiceCertFile string
 var prometheusService, prometheusNamespace, prometheusPort string
+var reporterSchema string
 var uploadTargets []string
 var local, upload bool
 var retry int
@@ -76,6 +77,7 @@ var ReconcileCmd = &cobra.Command{
 			PrometheusService:    prometheusService,
 			PrometheusNamespace:  prometheusNamespace,
 			PrometheusPort:       prometheusPort,
+			ReporterSchema:       reporterSchema,
 		}
 		cfg.SetDefaults()
 
@@ -119,4 +121,6 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&prometheusService, "prometheus-service", "rhm-prometheus-meterbase", "token file for the data service")
 	ReconcileCmd.Flags().StringVar(&prometheusNamespace, "prometheus-namespace", "openshift-redhat-marketplace", "cert file for the data service")
 	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
+
+	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
 }

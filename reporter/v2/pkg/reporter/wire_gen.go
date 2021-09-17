@@ -95,6 +95,50 @@ var (
 	_wireLogrLoggerValue = logger
 )
 
+func NewReporterV2(task *Task) (*MarketplaceReporterV2, error) {
+	reporterConfig := task.Config
+	contextContext := task.Ctx
+	simpleClient := task.K8SClient
+	scheme := task.K8SScheme
+	logrLogger := _wireLoggerValue2
+	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
+	reportName := task.ReportName
+	meterReport, err := getMarketplaceReport(contextContext, clientCommandRunner, reportName)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceConfig, err := getMarketplaceConfig(contextContext, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner, reporterConfig)
+	if err != nil {
+		return nil, err
+	}
+	servicePort, err := getPrometheusPort(reporterConfig, service)
+	if err != nil {
+		return nil, err
+	}
+	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service, servicePort)
+	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
+	if err != nil {
+		return nil, err
+	}
+	v, err := getMeterDefinitionReferences(contextContext, meterReport, simpleClient)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceReporterV2, err := NewMarketplaceReporterV2(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v)
+	if err != nil {
+		return nil, err
+	}
+	return marketplaceReporterV2, nil
+}
+
+var (
+	_wireLoggerValue2 = logger
+)
+
 func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
@@ -109,7 +153,7 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 	if err != nil {
 		return nil, err
 	}
-	logrLogger := _wireLoggerValue2
+	logrLogger := _wireLoggerValue3
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
 	downloader, err := ProvideDownloader(ctx, clientCommandRunner, logrLogger, config2)
 	if err != nil {
@@ -136,7 +180,7 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 }
 
 var (
-	_wireLoggerValue2 = logger
+	_wireLoggerValue3 = logger
 )
 
 func NewReconcileTask(ctx context.Context, config2 *Config, namespace Namespace) (*ReconcileTask, error) {

@@ -380,6 +380,14 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	container.Args = append(container.Args, "--namespace", f.namespace)
 	container.Args = append(container.Args, dataServiceArgs...)
 
+	if len(f.operatorConfig.ReportController.UploadTargetsOverride) != 0 {
+		container.Args = append(container.Args, "--uploadTargets", strings.Join(f.operatorConfig.ReportController.UploadTargetsOverride, ","))
+	}
+
+	if f.operatorConfig.ReportController.ReporterSchema != "" {
+		container.Args = append(container.Args, "--reporterSchema", f.operatorConfig.ReportController.ReporterSchema)
+	}
+
 	dataServiceVolumeMounts := []v1.VolumeMount{
 		{
 			Name:      "serving-certs-ca-bundle",
