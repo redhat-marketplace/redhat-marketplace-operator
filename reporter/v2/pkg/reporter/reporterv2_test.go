@@ -196,7 +196,6 @@ var _ = Describe("ReporterV2", func() {
 				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
 					"metricId": Equal("rpc_durations_seconds_sum"),
 					"value":    BeNumerically(">", 0),
-
 					"additionalAttributes": MatchAllKeys(Keys{
 						"meter_query": Equal("rpc_durations_seconds_sum"),
 					}),
@@ -204,7 +203,7 @@ var _ = Describe("ReporterV2", func() {
 				"my_query": MatchAllKeys(Keys{
 					"metricId": Equal("my_query"),
 					"value":    BeNumerically(">", 0),
-					"additionalAttributes": MatchKeys(IgnoreExtras, Keys{
+					"additionalAttributes": MatchAllKeys(Keys{
 						"meter_query": Equal("my_query"),
 					}),
 				}),
@@ -253,10 +252,17 @@ var _ = Describe("ReporterV2", func() {
 
 					Expect(data["data"].([]interface{})[0]).To(rowMatcher)
 
-					Expect(data).To(MatchKeys(IgnoreExtras, Keys{
+					Expect(data).To(MatchAllKeys(Keys{
 						// metadata is optional
 						"data": MatchElements(id, AllowDuplicates, Elements{
 							"row": rowMatcher,
+						}),
+						"metadata": MatchAllKeys(Keys{
+							"reportVersion":  Equal("v2alpha1"),
+							"rhmAccountId":   Equal("foo"),
+							"rhmClusterId":   Equal("foo-id"),
+							"rhmEnvironment": Equal("production"),
+							"version":        BeAssignableToTypeOf(""),
 						}),
 					}))
 				}
@@ -474,6 +480,13 @@ var _ = Describe("ReporterV2", func() {
 						// metadata is optional
 						"data": MatchElements(id, AllowDuplicates, Elements{
 							"row": rowMatcher,
+						}),
+						"metadata": MatchAllKeys(Keys{
+							"reportVersion":  Equal("v2alpha1"),
+							"rhmAccountId":   Equal("foo"),
+							"rhmClusterId":   Equal("foo-id"),
+							"rhmEnvironment": Equal("production"),
+							"version":        BeAssignableToTypeOf(""),
 						}),
 					}))
 				}
