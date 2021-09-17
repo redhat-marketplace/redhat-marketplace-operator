@@ -1764,21 +1764,21 @@ func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigM
 		return false, err
 	}
 
-	foundDuration,err := time.ParseDuration(uwmc.Prometheus.Retention)
+	foundRetention,err := time.ParseDuration(uwmc.Prometheus.Retention)
 	if err != nil {
 		err = fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,err.Error())
 		return false, err
 	}
 
-	reqLogger.Info("found duration","duration",foundDuration.Hours())
+	reqLogger.Info("found duration","duration",foundRetention.Hours())
 
-	wantedDuration,err := time.ParseDuration("168h")
+	wantedRetention,err := time.ParseDuration("168h")
 	if err != nil {
 		err = fmt.Errorf("%w: %s ",ErrParseUserWorkloadConfiguration,err.Error())
 		return false, err
 	}
 
-	if float64(foundDuration) < float64(wantedDuration) {
+	if float64(foundRetention) < float64(wantedRetention) {
 		return false, ErrRetentionTime
 	}
 
