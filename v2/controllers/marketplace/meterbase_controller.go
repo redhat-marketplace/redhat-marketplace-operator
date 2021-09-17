@@ -78,13 +78,17 @@ const (
 	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
 )
 
+var (
+	ErrRetentionTime = errors.New("retention time must be at least 168h")
+	ErrInsufficientStorageConfiguration = errors.New("must allocate at least 40GiB of disk space")
+	ErrParseUserWorkloadConfiguration = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
+	ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig = errors.New("could not parse Prometheus VolumeClaimTemplate from user-workload-monitoring-config cm")
+	ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
+)
+
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterBaseReconciler{}
-var ErrRetentionTime = errors.New("retention time must be at least 168h")
-var ErrInsufficientStorageConfiguration = errors.New("must allocate at least 40GiB of disk space")
-var ErrParseUserWorkloadConfiguration = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
-var ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig = errors.New("could not parse Prometheus VolumeClaimTemplate from user-workload-monitoring-config cm")
-var ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
+
 
 // MeterBaseReconciler reconciles a MeterBase object
 type MeterBaseReconciler struct {
