@@ -643,9 +643,10 @@ func (r *COSS3Uploader) UploadFile(path string) error {
 	defer file.Close()
 
 	result, err := r.uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(r.COSS3UploaderConfig.Bucket),
-		Key:    aws.String(filepath.Base(file.Name())),
-		Body:   file,
+		Bucket:      aws.String(r.COSS3UploaderConfig.Bucket),
+		Key:         aws.String(filepath.Base(file.Name())),
+		Body:        file,
+		ContentType: aws.String("application/octet-stream"),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to upload file")
