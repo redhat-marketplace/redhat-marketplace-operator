@@ -1770,7 +1770,7 @@ func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigM
 		return false, err
 	}
 
-	reqLogger.Info("found duration","memory",foundDuration.Hours())
+	reqLogger.Info("found duration","duration",foundDuration.Hours())
 
 	wantedDuration,err := time.ParseDuration("168h")
 	if err != nil {
@@ -1791,7 +1791,7 @@ func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigM
 	wantedStorageI64,_ := wantedStorage.AsInt64()
 	foundStorageI64,_ := uwmc.Prometheus.VolumeClaimTemplate.Spec.Resources.Requests.Storage().AsInt64()
 
-	reqLogger.Info("found memory","memory",foundStorageI64)
+	reqLogger.Info("found storage","storage",foundStorageI64)
 
 	if foundStorageI64 < wantedStorageI64 {
 		return false, ErrInsufficientStorageConfiguration
