@@ -82,7 +82,6 @@ var (
 	ErrRetentionTime                                        = errors.New("retention time must be at least 168h")
 	ErrInsufficientStorageConfiguration                     = errors.New("must allocate at least 40GiB of disk space")
 	ErrParseUserWorkloadConfiguration                       = errors.New("could not parse user workload configuration from user-workload-monitoring-config cm")
-	ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig = errors.New("could not parse Prometheus VolumeClaimTemplate from user-workload-monitoring-config cm")
 	ErrUserWorkloadMonitoringConfigNotFound                 = errors.New("user-workload-monitoring-config config map not found on cluster")
 )
 
@@ -1960,16 +1959,6 @@ func updateUserWorkloadMonitoringEnabledStatus(
 				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
 				Status:  corev1.ConditionFalse,
 				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringConfigNotFound,
-				Message: userWorkloadConfigurationErr.Error(),
-			}))
-			return result, err
-		}
-
-		if errors.Is(userWorkloadConfigurationErr, ErrParsePrometheusVolumeClaimTemplateFromWorkloadConfig) {
-			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringCouldNotParsePromVolumeClaimTemplate,
 				Message: userWorkloadConfigurationErr.Error(),
 			}))
 			return result, err

@@ -200,7 +200,6 @@ const (
 	ReasonUserWorkloadMonitoringRetentionTime                       status.ConditionReason = "UserWorkloadMonitoringRetentionTime"
 	ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration      status.ConditionReason = "UserWorkloadMonitoringParseUserWorkloadConfiguration"
 	ReasonUserWorkloadMonitoringConfigNotFound                      status.ConditionReason = "UserWorkloadMonitoringConfigNotFound"
-	ReasonUserWorkloadMonitoringCouldNotParsePromVolumeClaimTemplate status.ConditionReason = "UserWorkloadMonitoringParsePromVolumeClaimTemplate"
 	ReasonUserWorkloadMonitoringTransitioning                       status.ConditionReason = "UserWorkloadMonitoringTransitioning"
 
 	MessageUserWorkloadMonitoringEnabled         string = "UserWorkloadMonitoring is enabled in the Meterbase Spec, is enabled on the Cluster, and user-workload-monitoring configmap is configured correctly"
