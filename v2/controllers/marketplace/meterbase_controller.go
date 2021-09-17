@@ -1772,7 +1772,7 @@ func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigM
 		return false, err
 	}
 
-	reqLogger.Info("found duration", "duration", foundRetention.Hours())
+	reqLogger.Info("found retention", "retention", foundRetention.Hours())
 
 	wantedRetention, err := time.ParseDuration("168h")
 	if err != nil {
