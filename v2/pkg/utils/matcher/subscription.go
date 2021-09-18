@@ -25,6 +25,7 @@ func MatchCsvToSub(catalogName string, packageName string, subs []olmv1alpha1.Su
 
 	if len(subs) > 0 {
 		for _, s := range subs {
+			//try to match the csv without using packageName provided by olm.properties annotation
 			if packageName == "" {
 				if s.Status.InstalledCSV == CSV.Name && s.Spec.CatalogSource == catalogName {
 					return &s, nil

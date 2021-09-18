@@ -370,7 +370,6 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 }
 
 func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-
 	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
 	if err != nil {
 		return err
@@ -535,7 +534,6 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 }
 
 func (r *DeploymentConfigReconciler) isDeploymentConfigRunning(reqLogger logr.Logger) bool {
-
 	dc := &osappsv1.DeploymentConfig{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, dc)
 	if err != nil {

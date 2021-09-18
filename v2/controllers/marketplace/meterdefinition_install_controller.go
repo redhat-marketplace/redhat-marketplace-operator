@@ -141,48 +141,42 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 	foundSub,err := matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName,packageName,subList.Items,CSV)
 	if errors.Is(err,matcher.ErrSubscriptionIsUpdating){
+		reqLogger.Info(err.Error())
 		return reconcile.Result{RequeueAfter: time.Second * 5},nil
 	}
 
-	if foundSub != nil {
-		reqLogger.Info("found Subscription in namespaces", "count", len(subList.Items))
+	isRhmSub := matcher.CheckOperatorTag(foundSub)
+	if isRhmSub {
+		reqLogger.Info("found Subscription with installed CSV")
 
-		if value, ok := foundSub.GetLabels()[operatorTag]; ok {
+		err = r.catalogClient.CheckAuth(reqLogger)
+		if err != nil {
+			return reconcile.Result{},err
+		}
 
-			if value == "true" {
+		if *instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
-				reqLogger.Info("found Subscription with installed CSV")
+			result := r.createMeterDefs(communityMeterdefs, csvName, csvVersion, CSV, reqLogger)
+			if !result.Is(Continue) {
+				return result.Return()
+			}
+		}
 
-				err = r.catalogClient.CheckAuth(reqLogger)
-				if err != nil {
-					return reconcile.Result{},err
-				}
+		if *instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+			reqLogger.Info("system meterdefs enabled")
+			
+			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 
-				if *instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
-					communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-
-					result := r.createMeterDefs(communityMeterdefs, csvName, csvVersion, CSV, reqLogger)
-					if !result.Is(Continue) {
-						return result.Return()
-					}
-				}
-
-				if *instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
-					reqLogger.Info("system meterdefs enabled")
-					
-					systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-
-					result := r.createMeterDefs(systemMeterDefs, csvName, csvVersion, CSV, reqLogger)
-					if !result.Is(Continue) {
-						return result.Return()
-					}
-				}
+			result := r.createMeterDefs(systemMeterDefs, csvName, csvVersion, CSV, reqLogger)
+			if !result.Is(Continue) {
+				return result.Return()
 			}
 		}
 	}
@@ -279,7 +273,6 @@ func checkForCSVVersionChanges(e event.UpdateEvent) bool {
 
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-
 		return checkForCSVVersionChanges(e)
 	},
 
