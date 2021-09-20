@@ -24,10 +24,10 @@ workflows: [
 		file:   "release_status.yml"
 		schema: release_status
 	},
-	{
-		file:   "sync_branches.yml"
-		schema: sync_branches
-	},
+	// {
+	// 	file:   "sync_branches.yml"
+	// 	schema: sync_branches
+	// },
 ]
 varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
 varPresetVersion:        "${{ needs.preset.outputs.version }}"
@@ -290,11 +290,7 @@ publish: _#bashWorkflow & {
 				_#getBundleRunID,
 				_#redhatConnectLogin,
 				_#checkoutCode,
-				_#retagManifestCommand & {
-					env: {
-						TARGET_TAG: "${{ env.TAG }}-${{ env.GITHUB_RUN_ID }}"
-					}
-				},
+				_#retagManifestCommand,
 				_#addRocketToComment,
 			]
 		}
@@ -1075,7 +1071,7 @@ _#retagManifestCommand: _#step & {
 		fromTo: [ for k, v in [_#manifest] {
 			pword: "\(v.pword)"
 			from:  "\(_#registry)/\(v.name):$TAG"
-			to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TARGET_TAG"
+			to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 		}]
 		manifestCopyCommandList: [ for k, v in #args.fromTo {(_#copyImage & {#args: v}).res}]
 	}

@@ -548,13 +548,11 @@ jobs:
       uses: actions/checkout@v2
     - name: Copy Manifest
       run: |-
-        echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TARGET_TAG"
-        skopeo --override-os=linux inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TARGET_TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$TAG docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TARGET_TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
+        echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG"
+        skopeo --override-os=linux inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$TAG docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
         echo "::endgroup::"
       shell: bash {0}
-      env:
-        TARGET_TAG: ${{ env.TAG }}-${{ env.GITHUB_RUN_ID }}
     - uses: peter-evans/create-or-update-comment@v1
       with:
         comment-id: ${{github.event.comment.id}}
