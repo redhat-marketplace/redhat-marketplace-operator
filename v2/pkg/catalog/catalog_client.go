@@ -7,7 +7,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"path"
@@ -36,14 +38,17 @@ const (
 	ListForVersionEndpoint                    = "list-for-version"
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
 	GetMeterdefinitionIndexLabelEndpoint      = "meterdef-index-label"
-	GetSystemMeterDefIndexLabelEndpoint 	  = "system-meterdef-index-label"
-	HealthEndpoint							  = "healthz" 
+	GetSystemMeterDefIndexLabelEndpoint       = "system-meterdef-index-label"
+	HealthEndpoint                            = "healthz"
 )
 
 var (
 	CatalogNoContentErr       error = errors.New("not found")
 	CatalogPathNotFoundStatus error = errors.New("the path to the file server wasn't found")
 	CatalogUnauthorizedErr    error = errors.New("auth error calling file server")
+	defaultRetryWaitMin             = 1 * time.Second
+	defaultRetryWaitMax             = 30 * time.Second
+	defaultRetryMax                 = 4
 )
 
 type CatalogClient struct {
@@ -53,6 +58,154 @@ type CatalogClient struct {
 	K8sClient         client.Client
 	KubeInterface     kubernetes.Interface
 	DeployedNamespace string
+	RetryWaitMin      time.Duration
+	RetryWaitMax      time.Duration
+	RetryMax          int
+}
+
+type Request struct {
+	body io.ReadSeeker
+	*http.Request
+}
+
+func NewRequest(method string, url string, body io.ReadSeeker) (*Request, error) {
+	var rcBody io.ReadCloser
+	if body != nil {
+		rcBody = ioutil.NopCloser(body)
+	}
+
+	httpReq, err := http.NewRequest(method, url, rcBody)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Request{body, httpReq}, nil
+}
+
+func (c *CatalogClient) RetryOnAuthError(resp *http.Response, err error, reqLogger logr.Logger) (bool, error) {
+	if err != nil {
+		return true, err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return true, nil
+	}
+
+	return false, nil
+
+}
+
+func (c *CatalogClient) DefaultBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
+	mult := math.Pow(2, float64(attemptNum)) * float64(min)
+	sleep := time.Duration(mult)
+	if float64(sleep) != mult || sleep > max {
+		sleep = max
+	}
+
+	return sleep
+}
+
+func (c *CatalogClient) Do(req *Request, reqLogger logr.Logger) (*http.Response, error) {
+	reqLogger.Info("calling", "method", req.Method, "url", req.URL)
+
+	if c.HttpClient == nil {
+		reqLogger.Info("setting transport on catalog client")
+
+		err := c.SetTransport(reqLogger)
+		if err != nil {
+			err = errors.Wrap(err, "error setting transport on Catalog Client")
+			return nil, err
+		}
+	}
+
+	retryCount := 0
+
+	for retryCount < c.RetryMax {
+		var code int
+
+		//rewind the request if body is non-nil
+		if req.body != nil {
+			if _, err := req.body.Seek(0, 0); err != nil {
+				return nil, fmt.Errorf("failed to seek body: %v", err)
+			}
+		}
+
+		resp, err := c.HttpClient.Do(req.Request)
+
+		retry, checkErr := c.RetryOnAuthError(resp, err, reqLogger)
+
+		if err != nil {
+			return nil, fmt.Errorf("%s %s request failed: %v", req.Method, req.URL, err)
+		} else {
+
+		}
+
+		if !retry {
+			if checkErr != nil {
+				err = checkErr
+			}
+
+			return resp, err
+		}
+
+		if err == nil {
+			c.drainbody(resp.Body)
+		}
+
+		// check auth
+		reqLogger.Info("checking auth inside Do() wrapper")
+		err = c.SetTransport(reqLogger)
+		if err != nil {
+			err = errors.Wrap(err, "error setting transport on Catalog Client")
+			return nil, err
+		}
+
+		remaining := c.RetryMax - retryCount
+		if remaining == 0 {
+			break
+		}
+
+		wait := c.DefaultBackoff(c.RetryWaitMin, c.RetryWaitMax, retryCount, resp)
+		desc := fmt.Sprintf("%s %s", req.Method, req.URL)
+		if code > 0 {
+			desc = fmt.Sprintf("%s (status: %d)", desc, code)
+		}
+
+		reqLogger.Info("retrying call", "call description", desc, "time until next", wait, "retries remaining", remaining)
+		time.Sleep(wait)
+		retryCount++
+	}
+
+	return nil, fmt.Errorf("%s %s terminating call after %d attempts", req.Method, req.URL, c.RetryMax+1)
+}
+
+func (c *CatalogClient) drainbody(body io.ReadCloser) error {
+	defer body.Close()
+	_, err := io.Copy(ioutil.Discard, io.LimitReader(body, 100))
+	if err != nil {
+		return fmt.Errorf("error reading response body in drainBody: %v", err)
+	}
+
+	return nil
+}
+
+func (c *CatalogClient) Get(url string, reqLogger logr.Logger) (*http.Response, error) {
+	req, err := NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.Do(req, reqLogger)
+}
+
+func (c *CatalogClient) Post(url string, body io.ReadSeeker, reqLogger logr.Logger) (*http.Response, error) {
+	req, err := NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	return c.Do(req, reqLogger)
 }
 
 func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, kubeInterface kubernetes.Interface) (*CatalogClient, error) {
@@ -72,6 +225,9 @@ func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, k
 		DeployedNamespace: cfg.DeployedNamespace,
 		KubeInterface:     kubeInterface,
 		K8sClient:         k8sClient,
+		RetryWaitMin:      defaultRetryWaitMin,
+		RetryWaitMax:      defaultRetryWaitMax,
+		RetryMax:          defaultRetryMax,
 	}, nil
 }
 
@@ -140,61 +296,6 @@ func (c *CatalogClient) SetTransport(reqLogger logr.Logger) error {
 	return nil
 }
 
-func (c *CatalogClient) CheckAuth (reqLogger logr.Logger) error {
-	reqLogger.Info("checking file server auth")
-
-	if c.HttpClient == nil {
-		reqLogger.Info("setting transport on catalog client")
-
-		err := c.SetTransport(reqLogger)
-		if err != nil {
-			err = errors.Wrap(err,"error setting transport on Catalog Client")
-			return err
-		}
-	}
-	 
-	err := c.Ping(reqLogger)
-	if err != nil {
-		if errors.Is(err, CatalogUnauthorizedErr) {
-			err := c.SetTransport(reqLogger)
-			if err != nil {
-				err = errors.Wrap(err,"error setting transport on Catalog Client")
-				return err
-			}
-		}
-
-		return err
-	}
-	
-
-	return nil
-}
-
-func (c *CatalogClient) Ping(reqLogger logr.Logger) error {
-	reqLogger.Info("pinging file server")
-
-	url, err := concatPaths(c.Endpoint.String(), HealthEndpoint)
-	if err != nil {
-		return err
-	}
-
-	response, err := c.HttpClient.Get(url.String())
-	if err != nil {
-		return err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		if response.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
-		}
-
-		return errors.New(fmt.Sprintf("Error on ping to file server for health status: %s:%d",response.Status,response.StatusCode))
-
-	}
-
-	return nil
-}
-
 func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
 	reqLogger.Info("retrieving community meterdefinitions", "csvName", csvName, "csvVersion", version)
 
@@ -203,7 +304,7 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, err
 	}
 
-	response, err := c.HttpClient.Get(url.String())
+	response, err := c.Get(url.String(), reqLogger)
 	if err != nil {
 		reqLogger.Error(err, "Error on GET to Catalog Server")
 		return nil, err
@@ -214,12 +315,12 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		if response.StatusCode == http.StatusNotFound {
 			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
 		}
-	
+
 		if response.StatusCode == http.StatusNoContent {
 			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
 		}
 
-		return nil,errors.New(fmt.Sprintf("Error querying file server for community meter definition: %s:%d",response.Status,response.StatusCode))
+		return nil, errors.New(fmt.Sprintf("Error querying file server for community meter definition: %s:%d", response.Status, response.StatusCode))
 
 	}
 
@@ -256,19 +357,19 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 
-	response, err := c.HttpClient.Post(url.String(),
-		"application/json", bytes.NewBuffer(requestBody))
+	r := bytes.NewReader(requestBody)
+	response, err := c.Post(url.String(), r, reqLogger)
 	if err != nil {
 		reqLogger.Error(err, "Error querying file server for system meter definition")
 		return nil, err
 	}
-	
-	if response.StatusCode != http.StatusOK {	
+
+	if response.StatusCode != http.StatusOK {
 		if response.StatusCode == http.StatusNoContent {
 			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
 		}
 
-		return nil,errors.New(fmt.Sprintf("Error querying file server for system meter definition: %s:%d",response.Status,response.StatusCode))
+		return nil, errors.New(fmt.Sprintf("Error querying file server for system meter definition: %s:%d", response.Status, response.StatusCode))
 	}
 
 	defer response.Body.Close()
@@ -298,13 +399,13 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, c
 		return nil, err
 	}
 
-	response, err := c.HttpClient.Get(url.String())
+	response, err := c.Get(url.String(), reqLogger)
 	if err != nil {
 		return nil, err
 	}
 
 	if response.StatusCode != 200 {
-		return nil,errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d",response.Status,response.StatusCode))
+		return nil, errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d", response.Status, response.StatusCode))
 	}
 
 	defer response.Body.Close()
@@ -332,13 +433,13 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvN
 		return nil, err
 	}
 
-	response, err := c.HttpClient.Get(url.String())
+	response, err := c.Get(url.String(), reqLogger)
 	if err != nil {
 		return nil, err
 	}
 
 	if response.StatusCode != 200 {
-		return nil,errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d",response.Status,response.StatusCode))
+		return nil, errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d", response.Status, response.StatusCode))
 	}
 
 	defer response.Body.Close()

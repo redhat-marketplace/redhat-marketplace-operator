@@ -209,11 +209,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	if !*instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
 		isRunning := r.isDeploymentConfigRunning(reqLogger)
 		if isRunning {
-			err = r.CatalogClient.CheckAuth(reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
 			reqLogger.Info("sync for system meterdefs has been disabled, uninstalling system meterdefs")
 
 			err = r.deleteAllSystemMeterDefsForRhmCvs(reqLogger)
@@ -230,11 +225,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	if !*instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
 		isRunning := r.isDeploymentConfigRunning(reqLogger)
 		if isRunning {
-			err = r.CatalogClient.CheckAuth(reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
 			reqLogger.Info("sync for community meterdefs has been disabled, uninstalling system meterdefs")
 
 			err = r.deleteAllCommunityMeterDefsForRhmCvs(reqLogger)
@@ -299,11 +289,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	result = r.pruneDeployPods(latestVersion, request, reqLogger)
 	if !result.Is(Continue) {
 		return result.Return()
-	}
-
-	err = r.CatalogClient.CheckAuth(reqLogger)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	//syncs the latest meterdefinitions from the catalog with the community & system meterdefinitions on the cluster

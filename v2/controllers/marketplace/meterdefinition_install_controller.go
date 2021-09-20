@@ -149,11 +149,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if isRhmSub {
 		reqLogger.Info("found Subscription with installed CSV")
 
-		err = r.catalogClient.CheckAuth(reqLogger)
-		if err != nil {
-			return reconcile.Result{},err
-		}
-
 		if *instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
 			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
 			if err != nil {

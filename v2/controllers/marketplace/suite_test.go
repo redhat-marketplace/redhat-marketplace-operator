@@ -50,7 +50,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"loo
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	// +kubebuilder:scaffold:imports
 )
