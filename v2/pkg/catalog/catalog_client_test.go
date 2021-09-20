@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("Catalog Client", func() {
@@ -41,7 +43,13 @@ var _ = Describe("Catalog Client", func() {
 		systemMeterdefsPath = "/" + GetSystemMeterdefinitionTemplatesEndpoint
 		namespace = "default"
 		systemMeterDef1Name  = "system-meterdef" + "-" + "pod-count"
-		
+		Status200 = http.StatusOK
+	)
+
+	const (
+		timeout = time.Second * 100
+		interval = time.Second * 3
+
 	)
 
 	serviceKey := types.NamespacedName{Name: utils.DeploymentConfigName,Namespace: namespace}
@@ -49,6 +57,15 @@ var _ = Describe("Catalog Client", func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceKey.Name,
 			Namespace: serviceKey.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "foo",
+					Port:       int32(8180),
+					TargetPort: intstr.FromString("foo"),
+				},
+			},
 		},
 	}
 
@@ -63,15 +80,17 @@ var _ = Describe("Catalog Client", func() {
 		},
 	}
 
-	serviceAccount := corev1.Service{
+	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-service",
+			Name: "test-serviceaccount",
 			Namespace: namespace,
 		},
 	}
 
-	Status200 := http.StatusOK
-
+	// systemMeterDef1Key := types.NamespacedName{
+	// 	Name:      systemMeterDef1Name,
+	// 	Namespace: namespace,
+	// }
 	systemMeterDef1 := marketplacev1beta1.MeterDefinition{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "MeterDefinition",
@@ -122,11 +141,18 @@ var _ = Describe("Catalog Client", func() {
 	}
 
 	BeforeEach(func() {
+		customListener, err := net.Listen("tcp", listenerAddress)
+		Expect(err).ToNot(HaveOccurred())
+
+		catalogClientMockServer = ghttp.NewUnstartedServer()
+		catalogClientMockServer.HTTPTestServer.Listener.Close()
+		catalogClientMockServer.HTTPTestServer.Listener = customListener
+		catalogClientMockServer.SetAllowUnhandledRequests(true)
 		catalogClientMockServer.Start()
+
 		Expect(k8sClient.Create(context.TODO(),servingCertsCm)).Should(Succeed())
 		Expect(k8sClient.Create(context.TODO(),service)).Should(Succeed())
 		Expect(k8sClient.Create(context.TODO(),&serviceAccount)).Should(Succeed())
-
 
 		returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef1.DeepCopy()}
 		systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
@@ -147,6 +173,8 @@ var _ = Describe("Catalog Client", func() {
 	})
 
 	It("should query a range", func() {
-	
+		// Eventually(func() string {
+		// 	out, err := catalogClient.GetSystemMeterdefs()
+		// }, timeout, interval).Should(Equal(systemMeterDef1.Name))
 	})
 })

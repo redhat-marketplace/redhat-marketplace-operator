@@ -16,6 +16,8 @@ package catalog
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -57,8 +59,13 @@ var cancel context.CancelFunc
 var k8scache cache.Cache
 var catalogClient *CatalogClient
 
+const listenerAddress string = "127.0.0.1:2010"
+
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	catalogClientMockServerAddr := fmt.Sprintf("%s%s","http://",listenerAddress)
+	os.Setenv("CATALOG_URL", catalogClientMockServerAddr)
 
 	ctx, cancel = context.WithCancel(context.TODO())
 

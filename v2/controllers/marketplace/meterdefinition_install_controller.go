@@ -76,7 +76,6 @@ type MeterdefinitionInstallReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
-// +kubebuilder:rbac:urls=/healthz,verbs=get;
 // +kubebuilder:rbac:urls=/get-system-meterdefs,verbs=get;post;create;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get

@@ -25,10 +25,6 @@ rules:
   - get
   - post
 - nonResourceURLs:
-  - /healthz
-  verbs:
-  - get
-- nonResourceURLs:
   - /list-for-version/*
   verbs:
   - get
