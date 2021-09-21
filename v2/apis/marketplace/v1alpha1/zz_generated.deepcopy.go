@@ -426,7 +426,7 @@ func (in *MeterBaseSpec) DeepCopyInto(out *MeterBaseSpec) {
 	if in.MeterdefinitionCatalogServer != nil {
 		in, out := &in.MeterdefinitionCatalogServer, &out.MeterdefinitionCatalogServer
 		*out = new(common.MeterDefinitionCatalogServer)
-		(*in).DeepCopyInto(*out)
+		**out = **in
 	}
 	if in.AdditionalScrapeConfigs != nil {
 		in, out := &in.AdditionalScrapeConfigs, &out.AdditionalScrapeConfigs

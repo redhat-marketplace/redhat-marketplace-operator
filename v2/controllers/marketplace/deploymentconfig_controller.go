@@ -44,6 +44,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 
 	osimagev1 "github.com/openshift/api/image/v1"
@@ -205,7 +206,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	// if SyncSystemMeterDefinitions is disabled delete all system meterdefs for csvs originating from rhm
-	if !*instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+	if !instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
 		isRunning := r.isDeploymentConfigRunning(reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for system meterdefs has been disabled, uninstalling system meterdefs")
@@ -221,7 +222,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	// if SyncCommunityMeterDefinitions is disabled delete all community meterdefs for csvs originating from rhm
-	if !*instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+	if !instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
 		isRunning := r.isDeploymentConfigRunning(reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for community meterdefs has been disabled, uninstalling system meterdefs")
@@ -236,7 +237,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	// catalog server not enabled. Uninstall deploymentconfig resources, uninstall all community & system meterdefs, and stop reconciling
-	if !*instance.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
+	if !instance.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
 		result := r.uninstallFileServerDeploymentResources(reqLogger)
 		if !result.Is(Continue) {
 			result.Return()
@@ -263,11 +264,11 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		reqLogger.Error(err, "Failed to get deploymentconfig")
 		return reconcile.Result{}, err
 	}
-
+	//TODO: zach recheck for image pull failure
 	for _, c := range dc.Status.Conditions {
 		if c.Type == osappsv1.DeploymentAvailable {
 			if c.Status != corev1.ConditionTrue {
-				return reconcile.Result{RequeueAfter: time.Minute * 1}, err
+				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
 		}
 	}
@@ -277,7 +278,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		if c.Type == osappsv1.DeploymentProgressing {
 			if c.Reason != "NewReplicationControllerAvailable" || c.Status != corev1.ConditionTrue || dc.Status.LatestVersion == dc.Status.ObservedGeneration {
 				reqLogger.Info("deploymentconfig has not finished rollout, requeueing")
-				return reconcile.Result{RequeueAfter: time.Minute * 2}, err
+				return reconcile.Result{RequeueAfter: time.Minute * 2}, nil
 			}
 		}
 	}
@@ -300,6 +301,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	return reconcile.Result{}, nil
 }
 
+//TODO: zach remove ExecResult - low priority
 func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 
 	csvList := &olmv1alpha1.ClusterServiceVersionList{}
@@ -327,22 +329,27 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			continue
 		}
 
-		if *instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
-			err = r.syncSystemMeterDefs(csv, reqLogger)
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
+		//TODO: 
+		if instance.Spec.MeterdefinitionCatalogServer != nil {
+			if instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+				err = r.syncSystemMeterDefs(csv, reqLogger)
+				if err != nil {
+					return &ExecResult{
+						ReconcileResult: reconcile.Result{},
+						Err:             err,
+					}
 				}
 			}
 		}
 
-		if *instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
-			err = r.syncCommunityMeterDefs(csv, reqLogger)
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
+		if instance.Spec.MeterdefinitionCatalogServer != nil {
+			if instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+				err = r.syncCommunityMeterDefs(csv, reqLogger)
+				if err != nil {
+					return &ExecResult{
+						ReconcileResult: reconcile.Result{},
+						Err:             err,
+					}
 				}
 			}
 		}
@@ -409,6 +416,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv olmv1alpha1.Clus
 		if no community meterdefs are found, skip to next csv
 		if community meterdefs are found and deleted, skip to next csv
 	*/
+	//TODO: handle when the file server can't be reached - return err 
 	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, csvNamespace, reqLogger)
 	if err != nil {
 		if errors.Is(err, catalog.CatalogNoContentErr) {
@@ -461,6 +469,7 @@ var listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVers
 	return subList.Items, nil
 }
 
+//TODO: possibly rename this "isMarketplaceCSV"
 func (r *DeploymentConfigReconciler) isRhmCsv(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
 	subs, err := listSubs(r.Client, csv)
 	if err != nil {
@@ -488,30 +497,34 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 
 		reqLogger.Info("finding meterdefintion", catalogMeterdef.Name, catalogMeterdef.Namespace)
 
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
-		if err != nil && k8serrors.IsNotFound(err) {
-			reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
-			/*
-				create a meterdef for a csv if the csv has a meterdefinition listed in the catalog
-				&& that meterdef is not on the cluster
-			*/
-			err := r.createMeterdefWithOwnerRef(catalogMeterdef, &csv, reqLogger)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
 			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
+					/*
+						create a meterdef for a csv if the csv has a meterdefinition listed in the catalog
+						&& that meterdef is not on the cluster
+					*/
+					err := r.createMeterdefWithOwnerRef(catalogMeterdef, &csv, reqLogger)
+					if err != nil {
+						return err
+					}
+				}
+
 				return err
 			}
-		} else if err != nil {
-			return err
-		} else {
+
 			/*
 				update a meterdef for a csv if a meterdef from the catalog is also on the cluster
 				&& the meterdef from the catalog contains an update to .Spec or .Annotations
 				//TODO: what fields should we check a diff for ?
 			*/
-			err = r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
-			if err != nil {
-				return err
-			}
-		}
+			return r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
+			
+		})
+
+		return err
 	}
 
 	return nil
@@ -682,65 +695,53 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 		Controller:         pointer.BoolPtr(false),
 	}
 
-	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("meterdef file server deployment config not found, creating")
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		foundDeploymentConfig := &osappsv1.DeploymentConfig{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				reqLogger.Info("meterdef file server deployment config not found, creating")
 
-			newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
+				newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+				if err != nil {
+					return err
 				}
+
+				newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+
+				err = r.Client.Create(context.TODO(), newDeploymentConfig)
+				if err != nil {
+					reqLogger.Error(err, "failed to create deploymentconfig")
+					return err
+				}
+
+				reqLogger.Info("created new deploymentconfig")
+
 			}
 
-			newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+			reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
+			return err
+		}
 
-			err = r.Client.Create(context.TODO(), newDeploymentConfig)
+		updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
+		if updated {
+			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
 			if err != nil {
-				reqLogger.Error(err, "failed to create deploymentconfig")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
+				reqLogger.Error(err, "Failed to update file server deploymentconfig")
+				return err
 			}
-
-			reqLogger.Info("created new deploymentconfig")
-
+	
+			reqLogger.Info("updated deploymentconfig")
+	
 			return &ExecResult{
-				ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 30},
+				ReconcileResult: reconcile.Result{Requeue: true},
 				Err:             nil,
 			}
 		}
 
-		reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-
-	}
-
-	updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
-	if updated {
-		err = r.Client.Update(context.TODO(), foundDeploymentConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update file server deploymentconfig")
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		reqLogger.Info("updated deploymentconfig")
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
-	}
+		return err
+	})
+	
 
 	foundfileServerService := &corev1.Service{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
