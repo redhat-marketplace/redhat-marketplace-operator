@@ -1502,20 +1502,63 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (*reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Starting full uninstall of razee")
+	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3, RRS3 deployment")
 
-	reqLogger.Info("Listing chjildRRS3")
+	reqLogger.Info("Listing childRRS3")
 	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
 	}
 
+	if err != nil && errors.IsNotFound((err)) {
+		reqLogger.Info("ChildRRS3 deleted")
+	}
+
 	needReconcile := false
 
 	if err == nil || err != nil && !errors.IsNotFound(err) {
 		reqLogger.Info("Deleteing childRRS3")
-		err := r.Client.Delete(context.TODO(), &childRRS3)
+	
+		// on the next pass through check for hung finalizers
+		var removeFinalizer bool
+		if childRRS3.GetDeletionTimestamp() != nil {
+			currentTime := time.Now()
+			deletionTimeStamp := childRRS3.GetDeletionTimestamp()
+			diff := deletionTimeStamp.Sub(currentTime)
+
+			if time.Duration(diff.Seconds()) > time.Second * 30 {
+				reqLogger.Info("ChildRRS3 is marked for deletion")
+				removeFinalizer = true
+			}
+
+			return &reconcile.Result{Requeue: true}, nil
+		}
+	
+		if removeFinalizer {
+			accessor, err := meta.Accessor(childRRS3)
+			if err != nil {
+				return nil, err
+			}
+	
+			if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
+				accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
+			}
+
+			err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
+				return r.Client.Update(context.TODO(), &childRRS3)
+			})
+
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, err
+			}
+
+			if errors.IsNotFound(err){
+				reqLogger.Info("deletion of child rrs3 complete")
+			}
+		}	
+		
+		err = r.Client.Delete(context.TODO(), &childRRS3)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
 		}
@@ -1524,15 +1567,57 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 	reqLogger.Info("Listing parentRRS3")
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
 	}
 
+	if err != nil && errors.IsNotFound((err)) {
+		reqLogger.Info("ParentRRS3 deleted")
+	}
+
 	if err == nil {
 		reqLogger.Info("Deleteing parentRRS3")
-		err := r.Client.Delete(context.TODO(), &parentRRS3)
+
+		var removeFinalizer bool
+
+		if parentRRS3.GetDeletionTimestamp() != nil {
+			currentTime := time.Now()
+			deletionTimeStamp := parentRRS3.GetDeletionTimestamp()
+			diff := deletionTimeStamp.Sub(currentTime)
+			
+			if time.Duration(diff.Seconds()) > time.Second * 30 {
+				reqLogger.Info("parentRRS3 is marked for deletion")
+				removeFinalizer = true
+			}
+
+			return &reconcile.Result{Requeue: true}, nil
+		}
+	
+		if removeFinalizer {
+			accessor, err := meta.Accessor(parentRRS3)
+			if err != nil {
+				return nil, err
+			}
+	
+			if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
+				accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
+			}
+
+			err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
+				return r.Client.Update(context.TODO(), &parentRRS3)
+			})
+
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, err
+			}
+
+			if errors.IsNotFound(err){
+				reqLogger.Info("deletion of parent rrs3 complete")
+			}
+		}
+
+		err = r.Client.Delete(context.TODO(), &parentRRS3)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
 		}
@@ -1541,7 +1626,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 	//Only reconcile once after deleting both child and parent RRS3 resource
 	if needReconcile {
-		return &reconcile.Result{RequeueAfter: time.Second * 2}, err
+		return &reconcile.Result{Requeue: true}, nil
 	}
 
 	//Delete the deployment
@@ -1595,7 +1680,7 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Starting full uninstall of razee")
+	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3,RRS3 deployment")
 
 	if req.Spec.TargetNamespace == nil {
 		if req.Status.RazeeJobInstall != nil {
@@ -1653,6 +1738,8 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 
 	//remove the watchkeeper deployment
 	r.removeWatchkeeperDeployment(req)
+
+	reqLogger.Info("Removing finalizers on razee cr")
 
 	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.Client.Update(context.TODO(), req)
