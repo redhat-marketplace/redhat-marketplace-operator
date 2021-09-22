@@ -197,21 +197,21 @@ metadata:
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.3.0'
+    olm.skipRange: '>=1.0.0 <2.3.2'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.7.1+git
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-361
-    createdAt: "2021-08-03T17:39:07Z"
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.2-515
+    createdAt: "2021-09-14T22:51:57Z"
   labels:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: redhat-marketplace-operator.v2.3.0
+  name: redhat-marketplace-operator.v2.3.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -746,11 +746,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-361
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.2-515
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-361
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.2-515
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-361
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.2-515
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -779,7 +779,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-361
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.2-515
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -985,6 +985,13 @@ spec:
             - apiGroups:
                 - marketplace.redhat.com
               resources:
+                - events
+              verbs:
+                - create
+                - patch
+            - apiGroups:
+                - marketplace.redhat.com
+              resources:
                 - marketplaceconfigs
               verbs:
                 - create
@@ -1156,31 +1163,8 @@ spec:
       name: RHM Operator Team
   maturity: stable
   provider:
-    name: Red Hat Marketplace
-  relatedImages:
-    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-361
-      name: RELATED_IMAGE_METRIC_STATE
-    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-361
-      name: RELATED_IMAGE_REPORTER
-    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-361
-      name: RELATED_IMAGE_AUTHCHECK
-    - image: quay.io/razee/remoteresources3:0.9.3
-      name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-    - image: quay.io/razee/watch-keeper:0.7.7
-      name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-    - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
-      name: RELATED_IMAGE_PROMETHEUS
-    - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
-      name: RELATED_IMAGE_OAUTH_PROXY
-    - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
-      name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-    - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
-      name: RELATED_IMAGE_CONFIGMAP_RELOADER
-    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
-      name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-    - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-      name: RELATED_IMAGE_KUBE_RBAC_PROXY
-  version: 2.3.0
+    name: Red Hat Marketplace  
+  version: 2.3.2
   webhookdefinitions:
     - admissionReviewVersions:
         - v1beta1
@@ -1222,3 +1206,26 @@ spec:
       targetPort: 9443
       type: MutatingAdmissionWebhook
       webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+  relatedImages:
+    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.2-515
+      name: RELATED_IMAGE_METRIC_STATE
+    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.2-515
+      name: RELATED_IMAGE_REPORTER
+    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.2-515
+      name: RELATED_IMAGE_AUTHCHECK
+    - image: quay.io/razee/remoteresources3:0.9.3
+      name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+    - image: quay.io/razee/watch-keeper:0.7.7
+      name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+    - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+      name: RELATED_IMAGE_PROMETHEUS
+    - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+      name: RELATED_IMAGE_OAUTH_PROXY
+    - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+      name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+    - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+      name: RELATED_IMAGE_CONFIGMAP_RELOADER
+    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+      name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+    - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+      name: RELATED_IMAGE_KUBE_RBAC_PROXY    
