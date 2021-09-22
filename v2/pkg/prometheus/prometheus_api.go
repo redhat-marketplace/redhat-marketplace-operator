@@ -16,6 +16,7 @@ package prometheus
 
 import (
 	"context"
+	"os"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -106,27 +107,17 @@ func ProvidePrometheusAPI(
 		return nil, err
 	}
 
-	var saClient *ServiceAccountClient
-	var authToken string
-	saClient = NewServiceAccountClient(deployedNamespace, kubeInterface)
-	if userWorkloadMonitoringEnabled {
-		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, "", 3600, reqLogger)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-		if err != nil {
-			return nil, err
-		}
+	authToken, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err != nil {
+		return nil, err
 	}
 
-	if certConfigMap != nil && authToken != "" && service != nil {
+	if certConfigMap != nil && service != nil {
 		cert, err := parseCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			return nil, err
 		}
-		prometheusAPI, err := NewPromAPI(service, &cert, authToken)
+		prometheusAPI, err := NewPromAPI(service, &cert, string(authToken))
 		if err != nil {
 			return nil, err
 		}
