@@ -1506,9 +1506,9 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3, RRS3 deployment")
 
-	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	var deleteTimeOut time.Time
 	maxRetry := 3
+
+	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := utils.Retry(func() error {
 		reqLogger.Info("Listing childRRS3")
 		
@@ -1523,15 +1523,6 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 			return nil
 		}
 
-		if childRRS3.GetDeletionTimestamp() != nil {
-			
-			deleteTimeOut = childRRS3.GetDeletionTimestamp().Add(time.Duration(time.Second * 30))
-			
-			if childRRS3.GetDeletionTimestamp().After(deleteTimeOut) {
-				return errors.NewTimeoutError("deletion of childRRS timedout",30)
-			}
-		}
-
 		err = r.Client.Delete(context.TODO(), &childRRS3)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
@@ -1542,7 +1533,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	},maxRetry)
 	
 	// if we can't delete in 3 tries, or deletion timestamp has progress passed 30 secs remove finalizers
-	if errors.IsTimeout(err) || golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
+	if golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
 		accessor, err := meta.Accessor(childRRS3)
 		if err != nil {
 			return  err
@@ -1579,15 +1570,6 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 			return nil
 		}
 
-		if parentRRS3.GetDeletionTimestamp() != nil {
-			
-			deleteTimeOut = parentRRS3.GetDeletionTimestamp().Add(time.Duration(time.Second * 30))
-			
-			if parentRRS3.GetDeletionTimestamp().After(deleteTimeOut) {
-				return errors.NewTimeoutError("deletion of childRRS timedout",30)
-			}
-		}
-
 		err = r.Client.Delete(context.TODO(), &parentRRS3)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete parentRRS3", "Resource", "child")
@@ -1598,7 +1580,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	},maxRetry)
 	
 	// if we can't delete in 3 tries, or deletion timestamp has progress passed 30 secs remove finalizers
-	if errors.IsTimeout(err) || golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
+	if golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
 		reqLogger.Info("removing finalizers on parentRRS3")
 		accessor, err := meta.Accessor(parentRRS3)
 		if err != nil {
