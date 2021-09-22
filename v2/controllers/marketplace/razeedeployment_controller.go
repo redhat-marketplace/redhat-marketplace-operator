@@ -1532,7 +1532,6 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 	},maxRetry)
 	
-	// if we can't delete in 3 tries, or deletion timestamp has progress passed 30 secs remove finalizers
 	if golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
 		accessor, err := meta.Accessor(childRRS3)
 		if err != nil {
@@ -1579,7 +1578,6 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 	},maxRetry)
 	
-	// if we can't delete in 3 tries, or deletion timestamp has progress passed 30 secs remove finalizers
 	if golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
 		reqLogger.Info("removing finalizers on parentRRS3")
 		accessor, err := meta.Accessor(parentRRS3)
