@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"time"
 
+	golangerrors "errors"
+
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -447,9 +449,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if !rrs3DeploymentEnabled {
 		//razee deployment disabled - if the deployment was found, delete it
 
-		res, err := r.removeRazeeDeployments(instance)
-		if res != nil {
-			return *res, err
+		err := r.removeRazeeDeployments(instance)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 
 		//Deployment is disabled - update status
@@ -1500,154 +1502,155 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketp
 //Undeploy the razee deployment and parent
 func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	req *marketplacev1alpha1.RazeeDeployment,
-) (*reconcile.Result, error) {
+) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3, RRS3 deployment")
 
-	reqLogger.Info("Listing childRRS3")
 	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
-
-	if err != nil && errors.IsNotFound((err)) {
-		reqLogger.Info("ChildRRS3 deleted")
-	}
-
-	needReconcile := false
-
-	if err == nil || err != nil && !errors.IsNotFound(err) {
-		reqLogger.Info("Deleteing childRRS3")
-	
-		// on the next pass through check for hung finalizers
-		var removeFinalizer bool
-		if childRRS3.GetDeletionTimestamp() != nil {
-			currentTime := time.Now()
-			deletionTimeStamp := childRRS3.GetDeletionTimestamp()
-			diff := deletionTimeStamp.Sub(currentTime)
-
-			if time.Duration(diff.Seconds()) > time.Second * 30 {
-				reqLogger.Info("ChildRRS3 is marked for deletion")
-				removeFinalizer = true
-			}
-
-			return &reconcile.Result{Requeue: true}, nil
-		}
-	
-		if removeFinalizer {
-			accessor, err := meta.Accessor(childRRS3)
-			if err != nil {
-				return nil, err
-			}
-	
-			if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
-				accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
-			}
-
-			err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
-				return r.Client.Update(context.TODO(), &childRRS3)
-			})
-
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, err
-			}
-
-			if errors.IsNotFound(err){
-				reqLogger.Info("deletion of child rrs3 complete")
-			}
-		}	
+	var deleteTimeOut time.Time
+	maxRetry := 3
+	err := utils.Retry(func() error {
+		reqLogger.Info("Listing childRRS3")
 		
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+			return err
+		}
+
+		if err != nil && errors.IsNotFound((err)) {
+			reqLogger.Info("ChildRRS3 deleted")
+			return nil
+		}
+
+		if childRRS3.GetDeletionTimestamp() != nil {
+			
+			deleteTimeOut = childRRS3.GetDeletionTimestamp().Add(time.Duration(time.Second * 30))
+			
+			if childRRS3.GetDeletionTimestamp().After(deleteTimeOut) {
+				return errors.NewTimeoutError("deletion of childRRS timedout",30)
+			}
+		}
+
 		err = r.Client.Delete(context.TODO(), &childRRS3)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
 		}
-		needReconcile = true
+		
+		return fmt.Errorf("error on deletion of childRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+
+	},maxRetry)
+	
+	// if we can't delete in 3 tries, or deletion timestamp has progress passed 30 secs remove finalizers
+	if errors.IsTimeout(err) || golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
+		accessor, err := meta.Accessor(childRRS3)
+		if err != nil {
+			return  err
+		}
+
+		if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
+			accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
+		}
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
+			return r.Client.Update(context.TODO(), &childRRS3)
+		})
+
+		if err != nil && !errors.IsNotFound(err) {
+			return  err
+		}
+
+		if errors.IsNotFound(err){
+			reqLogger.Info("deletion of child rrs3 complete")
+		}
 	}
 
-	reqLogger.Info("Listing parentRRS3")
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
+	err = utils.Retry(func() error {
+		reqLogger.Info("Listing parentRRS3")
+		
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+		}
 
-	if err != nil && errors.IsNotFound((err)) {
-		reqLogger.Info("ParentRRS3 deleted")
-	}
-
-	if err == nil {
-		reqLogger.Info("Deleteing parentRRS3")
-
-		var removeFinalizer bool
+		if err != nil && errors.IsNotFound((err)) {
+			reqLogger.Info("ParentRRS3 deleted")
+			return nil
+		}
 
 		if parentRRS3.GetDeletionTimestamp() != nil {
-			currentTime := time.Now()
-			deletionTimeStamp := parentRRS3.GetDeletionTimestamp()
-			diff := deletionTimeStamp.Sub(currentTime)
 			
-			if time.Duration(diff.Seconds()) > time.Second * 30 {
-				reqLogger.Info("parentRRS3 is marked for deletion")
-				removeFinalizer = true
-			}
-
-			return &reconcile.Result{Requeue: true}, nil
-		}
-	
-		if removeFinalizer {
-			accessor, err := meta.Accessor(parentRRS3)
-			if err != nil {
-				return nil, err
-			}
-	
-			if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
-				accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
-			}
-
-			err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
-				return r.Client.Update(context.TODO(), &parentRRS3)
-			})
-
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, err
-			}
-
-			if errors.IsNotFound(err){
-				reqLogger.Info("deletion of parent rrs3 complete")
+			deleteTimeOut = parentRRS3.GetDeletionTimestamp().Add(time.Duration(time.Second * 30))
+			
+			if parentRRS3.GetDeletionTimestamp().After(deleteTimeOut) {
+				return errors.NewTimeoutError("deletion of childRRS timedout",30)
 			}
 		}
 
 		err = r.Client.Delete(context.TODO(), &parentRRS3)
 		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
+			reqLogger.Error(err, "could not delete parentRRS3", "Resource", "child")
 		}
-		needReconcile = true
-	}
+		
+		return fmt.Errorf("error on deletion of parentRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
 
-	//Only reconcile once after deleting both child and parent RRS3 resource
-	if needReconcile {
-		return &reconcile.Result{Requeue: true}, nil
+	},maxRetry)
+	
+	// if we can't delete in 3 tries, or deletion timestamp has progress passed 30 secs remove finalizers
+	if errors.IsTimeout(err) || golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
+		reqLogger.Info("removing finalizers on parentRRS3")
+		accessor, err := meta.Accessor(parentRRS3)
+		if err != nil {
+			return  err
+		}
+
+		if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
+			accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
+		}
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
+			return r.Client.Update(context.TODO(), &parentRRS3)
+		})
+
+		if err != nil && !errors.IsNotFound(err) {
+			return  err
+		}
+
+		if errors.IsNotFound(err){
+			reqLogger.Info("deletion of parent rrs3 complete")
+		}
 	}
 
 	//Delete the deployment
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-			Namespace: *req.Spec.TargetNamespace,
-		},
-	}
-	reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-	err = r.Client.Delete(context.TODO(), deployment)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("deployment already deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-			return nil, nil
+	err = utils.Retry(func() error {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				Namespace: *req.Spec.TargetNamespace,
+			},
 		}
-		reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+
+		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+		err = r.Client.Delete(context.TODO(), deployment)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return nil
+			}
+
+			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+	},maxRetry)
+	
+	if err != nil {
+		reqLogger.Error(err,"error deleting rrs3 deployment resources")
 	}
 
-	//deployment deleted - requeue
-	return &reconcile.Result{Requeue: true}, nil
+	return nil
 }
 
 //Undeploy the watchkeeper deployment
@@ -1691,9 +1694,9 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 	}
 
 	//Remove razee deployments and reconcile if requested
-	res, err := r.removeRazeeDeployments(req)
-	if res != nil {
-		return *res, err
+	err := r.removeRazeeDeployments(req)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	configMaps := []string{
