@@ -1680,7 +1680,7 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3,RRS3 deployment")
+	reqLogger.Info("Starting full uninstall of razee resources")
 
 	if req.Spec.TargetNamespace == nil {
 		if req.Status.RazeeJobInstall != nil {
