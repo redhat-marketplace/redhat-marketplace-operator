@@ -234,13 +234,21 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, featu
 // BuildMeterBaseCr returns a MeterBase cr with default values
 func BuildMeterBaseCr(namespace string,deployMdefCatalogServer *bool) *marketplacev1alpha1.MeterBase {
 
-	var mdefCatalogServer *common.MeterDefinitionCatalogServer
+	var mdefCatalogServer *common.MeterDefinitionCatalogServerConfig
 
-	if deployMdefCatalogServer == ptr.Bool(true){
-		mdefCatalogServer = &common.MeterDefinitionCatalogServer{
+	if *deployMdefCatalogServer {
+		mdefCatalogServer = &common.MeterDefinitionCatalogServerConfig{
 			DeployMeterDefinitionCatalogServer: true,
 			SyncCommunityMeterDefinitions: true,
 			SyncSystemMeterDefinitions: true,
+		}
+	}
+
+	if !*deployMdefCatalogServer {
+		mdefCatalogServer = &common.MeterDefinitionCatalogServerConfig{
+			DeployMeterDefinitionCatalogServer: false,
+			SyncCommunityMeterDefinitions: false,
+			SyncSystemMeterDefinitions: false,
 		}
 	}
 
@@ -256,7 +264,7 @@ func BuildMeterBaseCr(namespace string,deployMdefCatalogServer *bool) *marketpla
 					Size: resource.MustParse("20Gi"),
 				},
 			},
-			MeterdefinitionCatalogServer: mdefCatalogServer,
+			MeterdefinitionCatalogServerConfig: mdefCatalogServer,
 		},
 		
 	}

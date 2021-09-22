@@ -311,10 +311,10 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				},
 				Replicas: ptr.Int32(2),
 			},
-			MeterdefinitionCatalogServer: &common.MeterDefinitionCatalogServer{
-				SyncCommunityMeterDefinitions:      ptr.Bool(true),
-				SyncSystemMeterDefinitions:         ptr.Bool(true),
-				DeployMeterDefinitionCatalogServer: ptr.Bool(true),
+			MeterdefinitionCatalogServerConfig: &common.MeterDefinitionCatalogServerConfig{
+				SyncCommunityMeterDefinitions:      true,
+				SyncSystemMeterDefinitions:         true,
+				DeployMeterDefinitionCatalogServer: true,
 			},
 		},
 	}
@@ -961,8 +961,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			foundMeterBase := &marketplacev1alpha1.MeterBase{}
 			Expect(k8sClient.Get(context.TODO(), meterBaseKey, foundMeterBase))
 
-			foundMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = ptr.Bool(false)
-			foundMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = ptr.Bool(false)
+			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions = false
+			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions = false
 			Expect(k8sClient.Update(context.TODO(), foundMeterBase)).Should(Succeed(), "disable SyncSystemMeterDefinitions and SyncCommunityMeterDefinitions feature flags")
 
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
@@ -1004,7 +1004,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 	Context("DeployMeterDefinitionCatalogServer feature flag", func() {
 		BeforeEach(func() {
 			_subSectionMeterBase := subSectionMeterBase.DeepCopy()
-			_subSectionMeterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = ptr.Bool(false)
+			_subSectionMeterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer = false
 			Expect(k8sClient.Create(context.TODO(), _subSectionMeterBase)).Should(Succeed(), "create sub-section meterbase")
 		})
 

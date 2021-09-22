@@ -132,7 +132,7 @@ spec:
                   description: Deployment represents the enablement of the razee deployment,
                     defaults to true when not set
                   type: boolean
-                meterDefinitionCatalogServer:
+                enableMeterDefinitionCatalogServer:
                   description: 'TODO: turn this into one bool - if nil assume true
                     MeterDefinitionCatalogServer holds feature flags for the meterdefinition
                     catalog server'

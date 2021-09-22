@@ -82,7 +82,7 @@ spec:
               type: boolean
             externalPrometheus:
               type: object
-            meterdefinitionCatalogServer:
+            meterdefinitionCatalogServerConfig:
               description: MeterdefinitionCatalogServer deployment configuration.
               properties:
                 deployMeterDefinitionCatalogServer:

@@ -94,11 +94,11 @@ type MeterBaseSpec struct {
 	// +optional
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
-	// MeterdefinitionCatalogServer deployment configuration.
+	// MeterdefinitionCatalogServerConfig holds configuration for the Meterdefinition Catalog Server.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	MeterdefinitionCatalogServer *common.MeterDefinitionCatalogServer `json:"meterdefinitionCatalogServer,omitempty"`
+	MeterdefinitionCatalogServerConfig *common.MeterDefinitionCatalogServerConfig `json:"meterdefinitionCatalogServerConfig,omitempty"`
 
 	// AdditionalConfigs are set by meter definitions and meterbase to what is available on the
 	// system.

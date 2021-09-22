@@ -97,13 +97,13 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
-	if instance.Spec.MeterdefinitionCatalogServer == nil {
+	if instance.Spec.MeterdefinitionCatalogServerConfig == nil {
 		reqLogger.Info("meterbase doesn't have file server feature flags set")
 		return reconcile.Result{}, nil
 	}
 
 	// catalog server not enabled, stop reconciling
-	if !instance.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
+	if !instance.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
 		reqLogger.Info("catalog server isn't enabled, stopping reconcile")
 		return reconcile.Result{}, nil
 	}
@@ -148,7 +148,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if isRhmSub {
 		reqLogger.Info("found Subscription with installed CSV")
 
-		if instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -160,7 +160,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			}
 		}
 
-		if instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 			reqLogger.Info("system meterdefs enabled")
 			
 			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)

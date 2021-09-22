@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -129,7 +128,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				}
 
-				return meterbaseOld.Spec.MeterdefinitionCatalogServer != meterbaseNew.Spec.MeterdefinitionCatalogServer
+				return meterbaseOld.Spec.MeterdefinitionCatalogServerConfig != meterbaseNew.Spec.MeterdefinitionCatalogServerConfig
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				return true
@@ -200,13 +199,13 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	if instance.Spec.MeterdefinitionCatalogServer == nil {
+	if instance.Spec.MeterdefinitionCatalogServerConfig == nil {
 		reqLogger.Info("meterbase doesn't have file server feature flags set")
 		return reconcile.Result{}, nil
 	}
 
 	// if SyncSystemMeterDefinitions is disabled delete all system meterdefs for csvs originating from rhm
-	if !instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+	if !instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 		isRunning := r.isDeploymentConfigRunning(reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for system meterdefs has been disabled, uninstalling system meterdefs")
@@ -222,7 +221,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	// if SyncCommunityMeterDefinitions is disabled delete all community meterdefs for csvs originating from rhm
-	if !instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+	if !instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 		isRunning := r.isDeploymentConfigRunning(reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for community meterdefs has been disabled, uninstalling system meterdefs")
@@ -237,7 +236,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	// catalog server not enabled. Uninstall deploymentconfig resources, uninstall all community & system meterdefs, and stop reconciling
-	if !instance.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
+	if !instance.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
 		result := r.uninstallFileServerDeploymentResources(reqLogger)
 		if !result.Is(Continue) {
 			result.Return()
@@ -265,20 +264,23 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 	//TODO: zach recheck for image pull failure
+	//TODO: remove requeue 
+	//TODO: combine these for loops
 	for _, c := range dc.Status.Conditions {
+		// DeploymentAvailable means the DeploymentConfig is available, ie. at least the minimum available replicas required
 		if c.Type == osappsv1.DeploymentAvailable {
 			if c.Status != corev1.ConditionTrue {
-				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+				reqLogger.Info(c.Message)
+				return reconcile.Result{}, nil
 			}
 		}
-	}
 
-	// catch the deploymentconfig as it's rolling out a new deployment and requeue until finished
-	for _, c := range dc.Status.Conditions {
+		// catch the deploymentconfig as it's rolling out a new deployment and requeue until finished
+		// DeploymentProgressing is: * True: the DeploymentConfig has been successfully deployed or is amidst getting deployed.
 		if c.Type == osappsv1.DeploymentProgressing {
 			if c.Reason != "NewReplicationControllerAvailable" || c.Status != corev1.ConditionTrue || dc.Status.LatestVersion == dc.Status.ObservedGeneration {
 				reqLogger.Info("deploymentconfig has not finished rollout, requeueing")
-				return reconcile.Result{RequeueAfter: time.Minute * 2}, nil
+				return reconcile.Result{}, nil
 			}
 		}
 	}
@@ -329,9 +331,8 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			continue
 		}
 
-		//TODO: 
-		if instance.Spec.MeterdefinitionCatalogServer != nil {
-			if instance.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions {
+		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
+			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 				err = r.syncSystemMeterDefs(csv, reqLogger)
 				if err != nil {
 					return &ExecResult{
@@ -342,8 +343,8 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			}
 		}
 
-		if instance.Spec.MeterdefinitionCatalogServer != nil {
-			if instance.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions {
+		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
+			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 				err = r.syncCommunityMeterDefs(csv, reqLogger)
 				if err != nil {
 					return &ExecResult{
@@ -719,7 +720,6 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 
 			}
 
-			reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
 			return err
 		}
 
@@ -727,117 +727,104 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 		if updated {
 			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
 			if err != nil {
-				reqLogger.Error(err, "Failed to update file server deploymentconfig")
 				return err
 			}
 	
 			reqLogger.Info("updated deploymentconfig")
-	
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err:             nil,
-			}
 		}
 
-		return err
+		return nil
 	})
+
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 	
-
-	foundfileServerService := &corev1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("meterdef file server service not found, creating")
-
-			newService, err := r.factory.NewMeterdefintionFileServerService()
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-			err = r.Client.Create(context.TODO(), newService)
-			if err != nil {
-				reqLogger.Error(err, "failed to create file server service")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("created new catalog server service")
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 20},
-				Err:             nil,
-			}
-		}
-
-		reqLogger.Error(err, "Failed to get meterdef file server service")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	foundImageStream := &osimagev1.ImageStream{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("image stream not found, creating")
-
-			newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-			err = r.Client.Create(context.TODO(), newImageStream)
-			if err != nil {
-				reqLogger.Error(err, "failed to create image stream")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("created new image stream")
-
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 20},
-				Err:             nil,
-			}
-		}
-
-		reqLogger.Error(err, "Failed to get image stream")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	imageStreamUpdated := r.factory.UpdateImageStreamOnChange(foundImageStream)
-	if imageStreamUpdated {
-		err = r.Client.Update(context.TODO(), foundImageStream)
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		foundfileServerService := &corev1.Service{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update image stream")
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err:             err,
+			if k8serrors.IsNotFound(err) {
+				reqLogger.Info("meterdef file server service not found, creating")
+	
+				newService, err := r.factory.NewMeterdefintionFileServerService()
+				if err != nil {
+					return err
+				}
+	
+				newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+	
+				err = r.Client.Create(context.TODO(), newService)
+				if err != nil {
+					reqLogger.Error(err, "failed to create file server service")
+					return err
+				}
+	
+				reqLogger.Info("created new catalog server service")
+				return err
 			}
+
+			return err
 		}
 
-		reqLogger.Info("updated ImageStream")
+		return nil
+	})
 
+	if err != nil {
+		reqLogger.Error(err, "error on reconciliation of meterdef file server service")
 		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		foundImageStream := &osimagev1.ImageStream{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				reqLogger.Info("image stream not found, creating")
+	
+				newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
+				if err != nil {
+					return err
+				}
+	
+				newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+	
+				err = r.Client.Create(context.TODO(), newImageStream)
+				if err != nil {
+					return err
+				}
+	
+				reqLogger.Info("created new image stream")
+			}
+	
+			return err
+		}
+	
+		imageStreamUpdated := r.factory.UpdateImageStreamOnChange(foundImageStream)
+		if imageStreamUpdated {
+			err = r.Client.Update(context.TODO(), foundImageStream)
+			if err != nil {
+				return err
+			}
+	
+			reqLogger.Info("updated ImageStream")
+	
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		reqLogger.Error(err, "error on reconciliation of image stream")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
 		}
 	}
 

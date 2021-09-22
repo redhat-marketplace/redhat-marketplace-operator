@@ -423,9 +423,9 @@ func (in *MeterBaseSpec) DeepCopyInto(out *MeterBaseSpec) {
 		*out = new(PrometheusSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.MeterdefinitionCatalogServer != nil {
-		in, out := &in.MeterdefinitionCatalogServer, &out.MeterdefinitionCatalogServer
-		*out = new(common.MeterDefinitionCatalogServer)
+	if in.MeterdefinitionCatalogServerConfig != nil {
+		in, out := &in.MeterdefinitionCatalogServerConfig, &out.MeterdefinitionCatalogServerConfig
+		*out = new(common.MeterDefinitionCatalogServerConfig)
 		**out = **in
 	}
 	if in.AdditionalScrapeConfigs != nil {

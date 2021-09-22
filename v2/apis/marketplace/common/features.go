@@ -35,17 +35,17 @@ type Features struct {
 	Registration *bool `json:"registration,omitempty"`
 
 	//TODO: turn this into one bool - if nil assume true
-	//MeterDefinitionCatalogServer holds feature flags for the meterdefinition catalog server
+	// EnableMeterDefinitionCatalogServer represents the enablement of the meterdefinition catalog server
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Meter Catalog Server Deployment"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable MeterDefinition Catalog Server Deployment"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +optional
-	MeterDefinitionCatalogServer *bool `json:"meterDefinitionCatalogServer,omitempty"`
+	EnableMeterDefinitionCatalogServer *bool `json:"enableMeterDefinitionCatalogServer,omitempty"`
 }
 
-// MeterDefinitionCatalogServer represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
+// MeterDefinitionCatalogServerConfig represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
 // +kubebuilder:object:generate:=true
-type MeterDefinitionCatalogServer struct {
+type MeterDefinitionCatalogServerConfig struct {
 	// SyncCommunityMeterDefinitions represents the enablement of logic that will sync community meterdefinitions from the meterdefinition catalog, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Community Meterdefinition Catalog Server?"
@@ -60,10 +60,10 @@ type MeterDefinitionCatalogServer struct {
 	// +optional
 	SyncSystemMeterDefinitions bool `json:"syncSystemMeterDefinitions,omitempty"`
 
-	// DeployFileServer controls whether the deploymentconfig controller will deploy the resources needed 
+	// DeployMeterDefinitionCatalogServer controls whether the deploymentconfig controller will deploy the resources needed 
 	// to create the Meterdefinition Catalog Server. The Catalog Server will look for changes to an image repository and pull down the latest
 	// Image when a change is detected.
-	// Setting DeployFileServer to "true" wil install a DeploymentConfig, ImageStream, and Service. 
+	// Setting DeployMeterDefinitionCatalogServer to "true" wil install a DeploymentConfig, ImageStream, and Service. 
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable License Usage Metering?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
