@@ -455,7 +455,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if userWorkloadMonitoringEnabled {
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
-			Do(r.createTokenSecret(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.installUserWorkloadMonitoring(instance)...),
@@ -484,7 +483,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 		prometheus := &monitoringv1.Prometheus{}
 		if result, _ := cc.Do(context.TODO(),
-			Do(r.createTokenSecret(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.reconcilePrometheusOperator(instance)...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
@@ -1016,8 +1014,9 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 	userWorkoadMonitoring bool,
 ) []ClientAction {
-	secretName := tokenSecretName
+	var secretName *string
 
+	pod := &corev1.Pod{}
 	metricStateDeployment := &appsv1.Deployment{}
 	metricStateService := &corev1.Service{}
 	metricStateServiceMonitor := &monitoringv1.ServiceMonitor{}
@@ -1031,6 +1030,12 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	actions := []ClientAction{
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Namespace: r.cfg.DeployedNamespace, Name: r.cfg.DeployedPodName},
+				pod,
+			),
+			OnNotFound(ReturnWithError(errors.New("pod not found")))),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateDeployment,
 			func() (runtime.Object, error) {
@@ -1049,7 +1054,12 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
-				return r.factory.MetricStateServiceMonitor(&secretName)
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Secret != nil && strings.HasPrefix(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
+						secretName = &volume.Secret.SecretName
+					}
+				}
+				return r.factory.MetricStateServiceMonitor(secretName)
 			},
 			args,
 		),
@@ -1084,21 +1094,21 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeStateMetricsServiceMonitor(&secretName)
+					return r.factory.KubeStateMetricsServiceMonitor(secretName)
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeletServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeletServiceMonitor(&secretName)
+					return r.factory.KubeletServiceMonitor(secretName)
 				},
 				args,
 			),
 		)
 	} else {
-		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(&secretName)
-		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(&secretName)
+		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(secretName)
+		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(secretName)
 
 		actions = append(actions,
 			HandleResult(
