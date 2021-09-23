@@ -45,7 +45,7 @@ type MarketplaceReportData struct {
 		This object will be merged with measuredUsage.additionalAttributes for processing.
 		See measuredUsage.additionalAttributes for details and the Additional Attributes section below.
 	*/
-	AdditionalAttributes map[string]interface{} `json:"additionalAttributes"`
+	AdditionalAttributes map[string]interface{} `json:"additionalAttributes,omitempty"`
 	/*
 		A group name indicates a chargeback/tag group for the usage coming from containerized environments.
 		This will be used to identify a namespace, the labels on the namespace and apply matching RHM tags to the usage.
@@ -67,5 +67,5 @@ type MeasuredUsage struct {
 		The additionalAttributes associated with the metric will be merged with the additionalAttributes for the event overall.
 		Priority will be give to metric level additionalAttributes
 	*/
-	AdditionalAttributes map[string]interface{} `json:"additionalAttributes"`
+	AdditionalAttributes map[string]interface{} `json:"additionalAttributes,omitempty"`
 }

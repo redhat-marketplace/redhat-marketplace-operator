@@ -61,18 +61,10 @@ func (r *Task) Run() error {
 	logger.Info("task run start")
 	logger.Info("creating reporter job")
 
-	switch r.Config.ReporterSchema {
-	case "v1alpha1":
-		return r.reportV1()
-	case "v2alpha1":
-		return r.reportV2()
-	default:
-		return errors.New(fmt.Sprintf("Unsupported reporterSchema: %s", r.Config.ReporterSchema))
-	}
-
+	return r.report()
 }
 
-func (r *Task) reportV1() error {
+func (r *Task) report() error {
 	reporter, err := NewReporter(r)
 
 	if err != nil {
@@ -146,111 +138,6 @@ func (r *Task) reportV1() error {
 					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
 					report.Status.Conditions.SetCondition(uploadCondition)
-
-					for _, err := range errorList {
-						report.Status.Errors = append(report.Status.Errors,
-							(marketplacev1alpha1.ErrorDetails{}).FromError(err),
-						)
-					}
-
-					for _, err := range warningList {
-						report.Status.Warnings = append(report.Status.Warnings,
-							(marketplacev1alpha1.ErrorDetails{}).FromError(err),
-						)
-					}
-
-					return UpdateAction(report, UpdateStatusOnly(true)), nil
-				})),
-			),
-		)
-
-		if result.Is(Error) {
-			return result
-		}
-
-		if len(errorList) != 0 {
-			return errors.Combine(errorList...)
-		}
-
-		return nil
-	}, 3)
-
-	if err != nil {
-		log.Error(err, "failed to update report status")
-	}
-
-	return nil
-}
-
-func (r *Task) reportV2() error {
-	reporter, err := NewReporterV2(r)
-
-	if err != nil {
-		return err
-	}
-
-	logger.Info("starting collection")
-	metrics, errorList, warningList, _ := reporter.CollectMetrics(r.Ctx)
-
-	for _, err := range warningList {
-		details := append(
-			[]interface{}{"cause", errors.Cause(err)},
-			errors.GetDetails(err)...)
-		logger.Info(fmt.Sprintf("warning: %v", errors.Cause(err)), details...)
-	}
-
-	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
-
-	logger.Info("writing report", "reportID", r.ReportName)
-
-	files, err := reporter.WriteReport(reportID, metrics)
-
-	if err != nil {
-		return errors.Wrap(err, "error writing report")
-	}
-
-	dirpath := filepath.Dir(files[0])
-	fileName := fmt.Sprintf("%s/../upload-%s.tar.gz", dirpath, reportID.String())
-	err = TargzFolder(dirpath, fileName)
-
-	logger.Info("tarring", "outputfile", fileName)
-
-	uploadStatuses := []*marketplacev1alpha1.UploadDetails{}
-
-	if r.Config.Upload {
-		logger.Info("starting file upload", "file name", fileName)
-
-		for _, uploader := range r.Uploaders {
-			err = uploader.UploadFile(fileName)
-
-			status := &marketplacev1alpha1.UploadDetails{
-				Target: uploader.Name(),
-			}
-
-			if err != nil {
-				logger.Error(err, "failed to upload")
-				status.Status = "failure"
-				status.Error = err.Error()
-			} else {
-				logger.Info("uploaded metrics", "metricsLength", len(metrics), "target", uploader.Name())
-				status.Status = "success"
-			}
-
-			uploadStatuses = append(uploadStatuses, status)
-		}
-	}
-
-	report := &marketplacev1alpha1.MeterReport{}
-	err = utils.Retry(func() error {
-		result, _ := r.CC.Do(
-			r.Ctx,
-			HandleResult(
-				GetAction(types.NamespacedName(r.ReportName), report),
-				OnContinue(Call(func() (ClientAction, error) {
-					report.Status.UploadStatus = uploadStatuses
-					report.Status.MetricUploadCount = ptr.Int(len(metrics))
-					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
-					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
 
 					for _, err := range errorList {
 						report.Status.Errors = append(report.Status.Errors,

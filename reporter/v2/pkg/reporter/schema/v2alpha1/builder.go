@@ -36,34 +36,29 @@ type MarketplaceReportDataBuilder struct {
 
 func (d *MarketplaceReportDataBuilder) SetClusterID(
 	clusterID string,
-) *MarketplaceReportDataBuilder {
+) {
 	d.clusterID = clusterID
-	return d
 }
 
 func (d *MarketplaceReportDataBuilder) SetAccountID(
 	accountID string,
-) *MarketplaceReportDataBuilder {
+) {
 	d.accountID = accountID
-	return d
 }
 
 func (d *MarketplaceReportDataBuilder) AddMeterDefinitionLabels(
 	meterDef *marketplacecommon.MeterDefPrometheusLabelsTemplated,
-) *MarketplaceReportDataBuilder {
+) {
 	if d.values == nil {
 		d.values = []*marketplacecommon.MeterDefPrometheusLabelsTemplated{}
 	}
 
 	d.values = append(d.values, meterDef)
-
-	return d
 }
 
-func (d *MarketplaceReportDataBuilder) SetReportInterval(start, end common.Time) *MarketplaceReportDataBuilder {
+func (d *MarketplaceReportDataBuilder) SetReportInterval(start, end common.Time) {
 	d.reportStart = start
 	d.reportEnd = end
-	return d
 }
 
 const (
@@ -74,7 +69,7 @@ const (
 	ErrNotFloat64                   = errors.Sentinel("meterdefinition value not float64")
 )
 
-func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
+func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	if len(d.values) == 0 {
 		return nil, ErrNoValuesSet
 	}
