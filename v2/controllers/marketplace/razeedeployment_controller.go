@@ -1525,7 +1525,8 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 		err = r.Client.Delete(context.TODO(), &childRRS3)
 		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
+			reqLogger.Error(err, "could not delete childRRS3")
+			return err
 		}
 		
 		return fmt.Errorf("error on deletion of childRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
@@ -1533,25 +1534,30 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	},maxRetry)
 	
 	if golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
-		accessor, err := meta.Accessor(childRRS3)
-		if err != nil {
-			return  err
-		}
-
-		if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
-			accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
-		}
-
+		reqLogger.Info("retry limit exceeded, removing finalizers on childRRS3","err",err.Error())
+		
 		err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
+			key, _ := client.ObjectKeyFromObject(&childRRS3)
+
+			err := r.Client.Get(context.TODO(), key, &childRRS3)
+			if err != nil {
+				return err
+			}
+
+			if utils.Contains(childRRS3.GetFinalizers(),utils.RRS3_FINALIZER) {
+				childRRS3.SetFinalizers(utils.RemoveKey(childRRS3.GetFinalizers(), utils.CONTROLLER_FINALIZER))
+			}
+
 			return r.Client.Update(context.TODO(), &childRRS3)
 		})
 
 		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err,"error updating childRRS3 finalizers")
 			return  err
 		}
 
 		if errors.IsNotFound(err){
-			reqLogger.Info("deletion of child rrs3 complete")
+			reqLogger.Info("removed finalizers on child rrs3")
 		}
 	}
 
@@ -1562,6 +1568,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+			return err
 		}
 
 		if err != nil && errors.IsNotFound((err)) {
@@ -1571,7 +1578,8 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 		err = r.Client.Delete(context.TODO(), &parentRRS3)
 		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRRS3", "Resource", "child")
+			reqLogger.Error(err, "could not delete parentRRS3")
+			return err
 		}
 		
 		return fmt.Errorf("error on deletion of parentRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
@@ -1579,26 +1587,30 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	},maxRetry)
 	
 	if golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
-		reqLogger.Info("removing finalizers on parentRRS3")
-		accessor, err := meta.Accessor(parentRRS3)
-		if err != nil {
-			return  err
-		}
+		reqLogger.Info("retry limit exceeded, removing finalizers on parentRRS3","err",err.Error())
 
-		if utils.Contains(accessor.GetFinalizers(),utils.RRS3_FINALIZER) {
-			accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(),utils.RRS3_FINALIZER))
-		}
+		err = retry.RetryOnConflict(retry.DefaultBackoff,func() error {
+			key, _ := client.ObjectKeyFromObject(&parentRRS3)
 
-		err = retry.RetryOnConflict(retry.DefaultBackoff,func()error {
+			err := r.Client.Get(context.TODO(), key, &parentRRS3)
+			if err != nil {
+				return err
+			}
+
+			if utils.Contains(parentRRS3.GetFinalizers(),utils.RRS3_FINALIZER) {
+				parentRRS3.SetFinalizers(utils.RemoveKey(parentRRS3.GetFinalizers(), utils.RRS3_FINALIZER))
+			}
+
 			return r.Client.Update(context.TODO(), &parentRRS3)
 		})
 
 		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err,"error updating updatingRRS3 finalizers")
 			return  err
 		}
 
 		if errors.IsNotFound(err){
-			reqLogger.Info("deletion of parent rrs3 complete")
+			reqLogger.Info("removed finlizers on parent rrs3")
 		}
 	}
 
@@ -1626,7 +1638,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
 	},maxRetry)
 	
-	if err != nil {
+	if err != nil && !golangerrors.Is(err,utils.ErrMaxRetryExceeded) {
 		reqLogger.Error(err,"error deleting rrs3 deployment resources")
 	}
 
