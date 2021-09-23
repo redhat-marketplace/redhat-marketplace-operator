@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+//TODO: in progress
 var _ = Describe("Catalog Client", func() {
 
 	var (

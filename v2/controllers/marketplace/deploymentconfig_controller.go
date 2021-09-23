@@ -16,7 +16,6 @@ package marketplace
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -286,12 +285,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	reqLogger.Info("deploymentconfig is in ready state")
-	latestVersion := dc.Status.LatestVersion
-
-	result = r.pruneDeployPods(latestVersion, request, reqLogger)
-	if !result.Is(Continue) {
-		return result.Return()
-	}
 
 	//syncs the latest meterdefinitions from the catalog with the community & system meterdefinitions on the cluster
 	result = r.sync(instance, request, reqLogger)
@@ -318,7 +311,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 	for _, csv := range csvList.Items {
 
-		fromRhm, err := r.isRhmCsv(&csv, reqLogger)
+		fromRhm, err := r.isMarketplaceCSV(&csv, reqLogger)
 		if err != nil {
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
@@ -417,7 +410,8 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv olmv1alpha1.Clus
 		if no community meterdefs are found, skip to next csv
 		if community meterdefs are found and deleted, skip to next csv
 	*/
-	//TODO: handle when the file server can't be reached - return err 
+	//TODO: handle when the file server can't be reached - return err
+	//TODO: should be handled by ListMeterdefintionsFromFileServer already
 	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, csvNamespace, reqLogger)
 	if err != nil {
 		if errors.Is(err, catalog.CatalogNoContentErr) {
@@ -471,7 +465,7 @@ var listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVers
 }
 
 //TODO: possibly rename this "isMarketplaceCSV"
-func (r *DeploymentConfigReconciler) isRhmCsv(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
+func (r *DeploymentConfigReconciler) isMarketplaceCSV(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
 	subs, err := listSubs(r.Client, csv)
 	if err != nil {
 		return false, err
@@ -487,8 +481,8 @@ func (r *DeploymentConfigReconciler) isRhmCsv(csv *olmv1alpha1.ClusterServiceVer
 		reqLogger.Info(err.Error())
 	}
 
-	isRhmCsv := matcher.CheckOperatorTag(foundSub)
-	return isRhmCsv, nil
+	isMarketplaceCSV := matcher.CheckOperatorTag(foundSub)
+	return isMarketplaceCSV, nil
 }
 
 func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog []marketplacev1beta1.MeterDefinition, csv olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
@@ -929,7 +923,7 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger
 	}
 
 	for _, csv := range csvList.Items {
-		fromRhm, err := r.isRhmCsv(&csv, reqLogger)
+		fromRhm, err := r.isMarketplaceCSV(&csv, reqLogger)
 		if !fromRhm {
 			if err != nil {
 				return err
@@ -962,7 +956,7 @@ func (r *DeploymentConfigReconciler) deleteAllCommunityMeterDefsForRhmCvs(reqLog
 	}
 
 	for _, csv := range csvList.Items {
-		fromRhm, err := r.isRhmCsv(&csv, reqLogger)
+		fromRhm, err := r.isMarketplaceCSV(&csv, reqLogger)
 		if !fromRhm {
 			if err != nil {
 				return err
@@ -1049,50 +1043,4 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string, namespace s
 	reqLogger.Info("Deleted meterdefintion", "name", mdefName, "namespace", namespace)
 
 	return nil
-}
-
-/*
-	TODO: test whether revisionHistoryLimit will handle this
-*/
-func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	reqLogger.Info("pruning old deploy pods")
-
-	latestPodName := fmt.Sprintf("rhm-meterdefinition-file-server-%d", latestVersion)
-	reqLogger.Info("Prune", "latest version", latestVersion)
-	reqLogger.Info("Prune", "latest pod name", latestPodName)
-
-	dcPodList := &corev1.PodList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(request.Namespace),
-		client.HasLabels{"openshift.io/deployer-pod-for.name"},
-	}
-
-	err := r.Client.List(context.TODO(), dcPodList, listOpts...)
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	for _, pod := range dcPodList.Items {
-		reqLogger.Info("Prune", "deploy pod", pod.Name)
-		podLabelValue := pod.GetLabels()["openshift.io/deployer-pod-for.name"]
-		if podLabelValue != latestPodName {
-
-			err := r.Client.Delete(context.TODO(), &pod)
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("Successfully pruned deploy pod", "pod name", pod.Name)
-		}
-	}
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
 }

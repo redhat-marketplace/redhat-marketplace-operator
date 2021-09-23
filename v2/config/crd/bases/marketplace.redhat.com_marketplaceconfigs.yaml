@@ -75,8 +75,8 @@ spec:
                   type: boolean
                 enableMeterDefinitionCatalogServer:
                   description: 'TODO: turn this into one bool - if nil assume true
-                    MeterDefinitionCatalogServer holds feature flags for the meterdefinition
-                    catalog server'
+                    EnableMeterDefinitionCatalogServer represents the enablement of
+                    the meterdefinition catalog server'
                   type: boolean
                 registration:
                   description: Registration represents the enablement of the registration
