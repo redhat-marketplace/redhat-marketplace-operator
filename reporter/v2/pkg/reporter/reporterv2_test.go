@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/google/uuid"
+	schemacommon "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -43,13 +44,20 @@ import (
 var _ = Describe("ReporterV2", func() {
 	var (
 		err           error
-		sut           *MarketplaceReporterV2
+		sut           *MarketplaceReporter
 		sutv1         *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		dir, dir2     string
 		uploader      Uploader
 		generatedData map[string]string
 		cfg           *Config
+		cfgv1         *Config
+
+		v1Writer  schemacommon.ReportWriter
+		v1Builder schemacommon.DataBuilder
+
+		v2Writer  schemacommon.ReportWriter
+		v2Builder schemacommon.DataBuilder
 
 		startStr = "2020-06-19T00:00:00Z"
 		endStr   = "2020-07-19T00:00:00Z"
@@ -102,9 +110,18 @@ var _ = Describe("ReporterV2", func() {
 		cfg = &Config{
 			OutputDirectory: dir,
 			MetricsPerFile:  ptr.Int(20),
+			ReporterSchema:  "v2alpha1",
 		}
 
 		cfg.SetDefaults()
+
+		cfgv1 = &Config{
+			OutputDirectory: dir,
+			MetricsPerFile:  ptr.Int(20),
+			ReporterSchema:  "v1alpha1",
+		}
+
+		cfgv1.SetDefaults()
 
 		config = &marketplacev1alpha1.MarketplaceConfig{
 			Spec: marketplacev1alpha1.MarketplaceConfigSpec{
@@ -112,6 +129,12 @@ var _ = Describe("ReporterV2", func() {
 				ClusterUUID:  "foo-id",
 			},
 		}
+
+		v2Writer, _ = ProvideWriter(cfg, config, logger)
+		v2Builder, _ = ProvideDataBuilder(cfg, logger)
+
+		v1Writer, _ = ProvideWriter(cfgv1, config, logger)
+		v1Builder, _ = ProvideDataBuilder(cfgv1, logger)
 	})
 
 	Context("with templates", func() {
@@ -157,17 +180,18 @@ var _ = Describe("ReporterV2", func() {
 			}
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
-
-			sut = &MarketplaceReporterV2{
+			sut = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 				Config:        cfg,
-				mktconfig:     config,
+				MktConfig:     config,
 				report: &marketplacev1alpha1.MeterReport{
 					Spec: marketplacev1alpha1.MeterReportSpec{
 						StartTime: metav1.Time{Time: start},
 						EndTime:   metav1.Time{Time: end},
 					},
 				},
+				reportWriter:      v2Writer,
+				schemaDataBuilder: v2Builder,
 			}
 		})
 
@@ -372,11 +396,10 @@ var _ = Describe("ReporterV2", func() {
 			}
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
-
-			sut = &MarketplaceReporterV2{
+			sut = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 				Config:        cfg,
-				mktconfig:     config,
+				MktConfig:     config,
 				meterDefinitions: MeterDefinitionReferences{
 					{
 						Name:      "foo",
@@ -390,8 +413,9 @@ var _ = Describe("ReporterV2", func() {
 						EndTime:   metav1.Time{Time: end},
 					},
 				},
+				schemaDataBuilder: v2Builder,
+				reportWriter:      v2Writer,
 			}
-
 		})
 
 		rowMatcher := MatchAllKeys(Keys{
@@ -597,10 +621,10 @@ var _ = Describe("ReporterV2", func() {
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
 
-			sut = &MarketplaceReporterV2{
+			sut = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 				Config:        cfg,
-				mktconfig:     config,
+				MktConfig:     config,
 				meterDefinitions: MeterDefinitionReferences{
 					{
 						Name:      "foo",
@@ -614,12 +638,14 @@ var _ = Describe("ReporterV2", func() {
 						EndTime:   metav1.Time{Time: end},
 					},
 				},
+				schemaDataBuilder: v2Builder,
+				reportWriter:      v2Writer,
 			}
 
 			sutv1 = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
-				Config:        cfg,
-				mktconfig:     config,
+				Config:        cfgv1,
+				MktConfig:     config,
 				meterDefinitions: MeterDefinitionReferences{
 					{
 						Name:      "foo",
@@ -633,8 +659,9 @@ var _ = Describe("ReporterV2", func() {
 						EndTime:   metav1.Time{Time: end},
 					},
 				},
+				reportWriter:      v1Writer,
+				schemaDataBuilder: v1Builder,
 			}
-
 		})
 
 		It("query, build and submit a report", func() {

@@ -72,8 +72,3 @@ var ReporterSet = wire.NewSet(
 	NewMarketplaceReporter,
 	NewRedHatInsightsUploader,
 )
-
-var ReporterSetV2 = wire.NewSet(
-	NewMarketplaceReporterV2,
-	NewRedHatInsightsUploader,
-)
