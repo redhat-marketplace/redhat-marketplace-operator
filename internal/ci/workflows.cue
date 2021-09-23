@@ -24,10 +24,10 @@ workflows: [
 		file:   "release_status.yml"
 		schema: release_status
 	},
-	{
-		file:   "sync_branches.yml"
-		schema: sync_branches
-	},
+	// {
+	// 	file:   "sync_branches.yml"
+	// 	schema: sync_branches
+	// },
 ]
 varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
 varPresetVersion:        "${{ needs.preset.outputs.version }}"
@@ -198,7 +198,7 @@ publish: _#bashWorkflow & {
 	jobs: {
 		push: _#job & {
 			name:      "Push Images to PC"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push-images') }}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -230,7 +230,7 @@ publish: _#bashWorkflow & {
 		}
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish')}}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-images')}}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -290,11 +290,7 @@ publish: _#bashWorkflow & {
 				_#getBundleRunID,
 				_#redhatConnectLogin,
 				_#checkoutCode,
-				_#retagManifestCommand & {
-					env: {
-						TARGET_TAG: "${{ env.TAG }}-${{ env.GITHUB_RUN_ID }}"
-					}
-				},
+				_#retagManifestCommand,
 				_#addRocketToComment,
 			]
 		}
@@ -1075,7 +1071,7 @@ _#retagManifestCommand: _#step & {
 		fromTo: [ for k, v in [_#manifest] {
 			pword: "\(v.pword)"
 			from:  "\(_#registry)/\(v.name):$TAG"
-			to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TARGET_TAG"
+			to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 		}]
 		manifestCopyCommandList: [ for k, v in #args.fromTo {(_#copyImage & {#args: v}).res}]
 	}

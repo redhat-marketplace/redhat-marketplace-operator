@@ -60,6 +60,7 @@ const (
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
+	RRS3_FINALIZER = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
 	CLUSTER_ROLE              = "redhat-marketplace-operator"

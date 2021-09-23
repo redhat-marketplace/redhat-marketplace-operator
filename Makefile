@@ -83,7 +83,6 @@ save-licenses: golicense
 	done
 
 cicd:
-	go generate ./gen.go
 	cd .github/workflows && go generate ./gen.go
 
 export GO_LICENSES
