@@ -30,6 +30,7 @@ func MatchCsvToSub(catalogName string, packageName string, subs []olmv1alpha1.Su
 				if s.Status.InstalledCSV == CSV.Name && s.Spec.CatalogSource == catalogName {
 					return &s, nil
 
+				// a new csv version is being installed and the subscription is updating
 				} else if strings.HasPrefix(s.Status.CurrentCSV, csvSplitName) && s.Status.InstalledCSV != CSV.Name {
 					err := fmt.Errorf("CurrentCSV: %s InstalledCSV: %s %w", s.Status.CurrentCSV, s.Status.InstalledCSV, ErrSubscriptionIsUpdating)
 					return nil, err
@@ -39,6 +40,7 @@ func MatchCsvToSub(catalogName string, packageName string, subs []olmv1alpha1.Su
 			if packageName == s.Spec.Package && s.Status.InstalledCSV == CSV.Name && s.Spec.CatalogSource == catalogName {
 				return &s, nil
 
+			// a new csv version is being installed and the subscription is updating
 			} else if packageName == s.Spec.Package && strings.HasPrefix(s.Status.CurrentCSV, csvSplitName) && s.Status.InstalledCSV != CSV.Name {
 				err := fmt.Errorf("CurrentCSV: %s InstalledCSV: %s %w", s.Status.CurrentCSV, s.Status.InstalledCSV, ErrSubscriptionIsUpdating)
 				return nil, err
@@ -74,6 +76,7 @@ func ParsePackageName(csv *olmv1alpha1.ClusterServiceVersion) (string, error) {
 	}
 
 	properties := unmarshalledProps["properties"].([]interface{})
+	// TODO: remove underscores
 	for _, _prop := range properties {
 		p, ok := _prop.(map[string]interface{})
 		if !ok {

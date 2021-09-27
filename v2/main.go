@@ -255,7 +255,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.MeterdefinitionInstallReconciler{
+	if err = (&controllers.MeterDefinitionInstallReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
 		Scheme: mgr.GetScheme(),

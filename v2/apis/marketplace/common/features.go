@@ -43,6 +43,7 @@ type Features struct {
 	EnableMeterDefinitionCatalogServer *bool `json:"enableMeterDefinitionCatalogServer,omitempty"`
 }
 
+// TODO: not using omit empty here because the dc controller looks for false to uninstall
 // MeterDefinitionCatalogServerConfig represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
 // +kubebuilder:object:generate:=true
 type MeterDefinitionCatalogServerConfig struct {
@@ -51,14 +52,14 @@ type MeterDefinitionCatalogServerConfig struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Sync Community MeterDefinitions?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +optional
-	SyncCommunityMeterDefinitions bool `json:"syncCommunityMeterDefinitions,omitempty"`
+	SyncCommunityMeterDefinitions bool `json:"syncCommunityMeterDefinitions"`
 
 	// SyncSystemMeterDefinitions represents the enablement of logic that will sync system meterdefinitions from the meterdefinition catalog, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Sync System MeterDefinitions?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +optional
-	SyncSystemMeterDefinitions bool `json:"syncSystemMeterDefinitions,omitempty"`
+	SyncSystemMeterDefinitions bool `json:"syncSystemMeterDefinitions"`
 
 	// DeployMeterDefinitionCatalogServer controls whether the deploymentconfig controller will deploy the resources needed 
 	// to create the Meterdefinition Catalog Server. The Catalog Server will look for changes to an image repository and pull down the latest
@@ -68,5 +69,5 @@ type MeterDefinitionCatalogServerConfig struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Deploy Meterdefintion Catalog Server Resources?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +optional
-	DeployMeterDefinitionCatalogServer bool `json:"deployMeterDefinitionCatalogServer,omitempty"`
+	DeployMeterDefinitionCatalogServer bool `json:"deployMeterDefinitionCatalogServer"`
 }

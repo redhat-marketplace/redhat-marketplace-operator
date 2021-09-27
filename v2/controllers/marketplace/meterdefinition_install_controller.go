@@ -22,6 +22,7 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -50,16 +51,10 @@ import (
 )
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
-var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
+var _ reconcile.Reconciler = &MeterDefinitionInstallReconciler{}
 
-const (
-	// csvProp      string = "operatorframework.io/properties"
-	versionRange string = "versionRange"
-	packageName  string = "packageName"
-)
-
-// MeterdefinitionInstallReconciler reconciles a ClusterServiceVersion object
-type MeterdefinitionInstallReconciler struct {
+// MeterDefinitionInstallReconciler reconciles a ClusterServiceVersion object
+type MeterDefinitionInstallReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
 	Client        client.Client
@@ -81,7 +76,7 @@ type MeterdefinitionInstallReconciler struct {
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and creates corresponding meter definitions if found
-func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
@@ -144,8 +139,8 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{RequeueAfter: time.Second * 5},nil
 	}
 
-	isRhmSub := matcher.CheckOperatorTag(foundSub)
-	if isRhmSub {
+	isRHMSub := matcher.CheckOperatorTag(foundSub)
+	if isRHMSub {
 		reqLogger.Info("found Subscription with installed CSV")
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
@@ -154,7 +149,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				return reconcile.Result{}, err
 			}
 
-			result := r.createMeterDefs(communityMeterdefs, csvName, csvVersion, CSV, reqLogger)
+			result := r.createMeterDefs(communityMeterdefs,CSV, reqLogger)
 			if !result.Is(Continue) {
 				return result.Return()
 			}
@@ -168,7 +163,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				return reconcile.Result{}, err
 			}
 
-			result := r.createMeterDefs(systemMeterDefs, csvName, csvVersion, CSV, reqLogger)
+			result := r.createMeterDefs(systemMeterDefs,CSV, reqLogger)
 			if !result.Is(Continue) {
 				return result.Return()
 			}
@@ -179,7 +174,10 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	return reconcile.Result{}, nil
 }
 
-func (r *MeterdefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1beta1.MeterDefinition, csvName string, csvVersion string, CSV *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
+func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1beta1.MeterDefinition, CSV *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
+	csvName := CSV.Name
+	csvVersion := CSV.Spec.Version.Version.String()
+	
 	reqLogger.Info("creating meterdefinitions", "CSV", csvName, "namespace", CSV.Namespace)
 	for _, meterDefItem := range mdefs {
 		reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name, "CSV", csvName)
@@ -220,7 +218,33 @@ func (r *MeterdefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1
 	}
 }
 
-func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+// TODO: not using this right now - relying on the olm.CopiedFrom predicate filter to noop on copies from olm
+func (r *MeterDefinitionInstallReconciler) getOperatorGroupNamespace (ogNameFromCSV string) (string,error) {
+
+		ogList := &olmv1.OperatorGroupList{}
+		// listOpts := []client.ListOption{}
+		err := r.Client.List(context.TODO(),ogList)
+		if err != nil {
+			return "",err
+		}
+
+		var foundOperatorGroup *olmv1.OperatorGroup
+		var found bool
+		for _, og := range ogList.Items {
+			if og.Name == ogNameFromCSV {
+				foundOperatorGroup = &og
+				found = true
+			}
+		}
+
+		if found {
+			return foundOperatorGroup.Namespace,nil
+		}
+
+		return "",errors.New("could not find operator group")
+}
+
+func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
 	groupVersionKind, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {
 		return err
@@ -238,8 +262,8 @@ func (r *MeterdefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion
 
 	meterDefinition.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 	meterDefinition.ObjectMeta.Namespace = csv.Namespace
-
 	meterDefName := meterDefinition.Name
+
 	err = r.Client.Create(context.TODO(), &meterDefinition)
 	if err != nil {
 		reqLogger.Error(err, "Could not create meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
@@ -265,18 +289,33 @@ func checkForCSVVersionChanges(e event.UpdateEvent) bool {
 	return oldCSV.Spec.Version.String() != newCSV.Spec.Version.String()
 }
 
+func isCopy(metaNew metav1.Object) bool {
+	labels := metaNew.GetLabels()
+	_, labelHasCopiedFromTag := labels[olmCopiedFromTag]
+
+	ann := metaNew.GetAnnotations()
+	_, annHasCopiedFromTag := ann[olmCopiedFromTag]
+
+	if !labelHasCopiedFromTag && !annHasCopiedFromTag {
+		// is not a copy from an AllNamespaces install
+		return false
+	}
+
+	// either labels or annotations has the olm.CopiedFrom tag
+	return true
+}
+
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return checkForCSVVersionChanges(e)
+		return !isCopy(e.MetaNew) && checkForCSVVersionChanges(e)
 	},
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
-
-		return true
+		return !isCopy(e.Meta)
 	},
 
 	CreateFunc: func(e event.CreateEvent) bool {
-		return true
+		return !isCopy(e.Meta)
 
 	},
 
@@ -285,23 +324,23 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	},
 }
 
-func (r *MeterdefinitionInstallReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
+func (r *MeterDefinitionInstallReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
 
-func (m *MeterdefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+func (m *MeterDefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }
 
-func (r *MeterdefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
+func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
 	r.Log.Info("catalog client")
 	r.catalogClient = catalogClient
 	return nil
 }
 
-func (r *MeterdefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
+func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(rhmCSVControllerPredicates)).
 		Complete(r)

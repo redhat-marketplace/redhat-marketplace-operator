@@ -24,7 +24,7 @@ import (
 )
 
 var _ = FDescribe("MeterDefInstallController reconcile", func() {
-	Context("Meterdefinition reconcile", func() {
+	Context("MeterDefinition Install reconcile", func() {
 
 		var memcachedSub *olmv1alpha1.Subscription
 		var catalogSource *olmv1alpha1.CatalogSource
