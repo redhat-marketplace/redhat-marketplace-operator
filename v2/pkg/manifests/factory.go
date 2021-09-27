@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/gotidy/ptr"
@@ -118,7 +119,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = append(container.Args, "--namespace", f.namespace)
+		container.Args = []string{"--namespace", "$POD_NAMESPACE"}
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -173,26 +174,47 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 
 	proxyInfo := httpproxy.FromEnvironment()
 
+	envVars := map[string]corev1.EnvVar{}
+
+	for _, env := range container.Env {
+		envVars[env.Name] = env
+	}
+
 	if proxyInfo.HTTPProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["HTTP_PROXY"] = corev1.EnvVar{
 			Name:  "HTTP_PROXY",
 			Value: proxyInfo.HTTPProxy,
-		})
+		}
+	} else {
+		delete(envVars, "HTTP_PROXY")
 	}
 
 	if proxyInfo.HTTPSProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["HTTPS_PROXY"] = corev1.EnvVar{
 			Name:  "HTTPS_PROXY",
 			Value: proxyInfo.HTTPSProxy,
-		})
+		}
+	} else {
+		delete(envVars, "HTTPS_PROXY")
 	}
 
 	if proxyInfo.NoProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["NO_PROXY"] = corev1.EnvVar{
 			Name:  "NO_PROXY",
 			Value: proxyInfo.NoProxy,
-		})
+		}
+	} else {
+		delete(envVars, "NO_PROXY")
 	}
+
+	container.Env = []corev1.EnvVar{}
+	for _, v := range envVars {
+		container.Env = append(container.Env, v)
+	}
+
+	sort.Slice(container.Env, func(a, b int) bool {
+		return container.Env[a].Name < container.Env[b].Name
+	})
 }
 
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
@@ -944,11 +966,6 @@ func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
 }
 
 func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error {
-	err := f.UpdateDeployment(MustAssetReader(RRS3ControllerDeployment), dep)
-	if err != nil {
-		return err
-	}
-
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -965,50 +982,22 @@ func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error
 		container := &dep.Spec.Template.Spec.Containers[i]
 
 		f.ReplaceImages(container)
-
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
-		}
 	}
 
 	return nil
 }
 
-func (f *Factory) NewRemoteResourceS3Deployment() *appsv1.Deployment {
-	dep := &appsv1.Deployment{}
+func (f *Factory) NewRemoteResourceS3Deployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(RRS3ControllerDeployment))
+	if err != nil {
+		return nil, err
+	}
+
 	f.UpdateRemoteResourceS3Deployment(dep)
-	return dep
+	return dep, nil
 }
 
 func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
-	err := f.UpdateDeployment(MustAssetReader(WatchKeeperDeployment), dep)
-	if err != nil {
-		return err
-	}
-
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -1025,42 +1014,19 @@ func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
 		container := &dep.Spec.Template.Spec.Containers[i]
 
 		f.ReplaceImages(container)
-
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
-		}
 	}
 
 	return nil
 }
 
-func (f *Factory) NewWatchKeeperDeployment() *appsv1.Deployment {
-	dep := &appsv1.Deployment{}
+func (f *Factory) NewWatchKeeperDeployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(WatchKeeperDeployment))
+	if err != nil {
+		return nil, err
+	}
+
 	f.UpdateWatchKeeperDeployment(dep)
-	return dep
+	return dep, nil
 }
 
 func (f *Factory) UpdateDeployment(manifest io.Reader, d *appsv1.Deployment) error {

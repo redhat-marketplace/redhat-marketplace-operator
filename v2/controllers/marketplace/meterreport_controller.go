@@ -121,7 +121,7 @@ func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 		Complete(r)
 }
 
-const rerunTime = 12 * 24 * time.Hour //12 days
+const rerunTime = 1 * 24 * time.Hour // 1 day - reducing rerun time
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec
