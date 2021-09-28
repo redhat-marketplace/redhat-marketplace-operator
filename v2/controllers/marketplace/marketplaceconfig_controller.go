@@ -121,6 +121,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.Features,
 	)
 
+	// Removing EnabledMetering field so setting them all to nil
+	// this will no longer do anything
 	if marketplaceConfig.Spec.EnableMetering != nil {
 		marketplaceConfig.Spec.EnableMetering = nil
 	}
@@ -128,8 +130,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	//Initialize enabled features if not set
 	if marketplaceConfig.Spec.Features == nil {
 		marketplaceConfig.Spec.Features = &common.Features{
-			Deployment:   ptr.Bool(true),
-			Registration: ptr.Bool(true),
+			Deployment:                         ptr.Bool(true),
+			Registration:                       ptr.Bool(true),
 			EnableMeterDefinitionCatalogServer: ptr.Bool(true),
 		}
 	} else {
@@ -157,12 +159,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 				return reconcile.Result{}, err
 			}
 
-			return reconcile.Result{Requeue: true},nil
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
-	reqLogger.Info("catalog server enabled","enabled",marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
-	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+	reqLogger.Info("catalog server enabled", "enabled", marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
 		context.TODO(),
@@ -309,37 +311,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	// 	}
 	// }
 
-	// Removing EnabledMetering field so setting them all to nil
-	// this will no longer do anything
-	// if marketplaceConfig.Spec.EnableMetering != nil {
-	// 	marketplaceConfig.Spec.EnableMetering = nil
-	// }
-
-	// //Initialize enabled features if not set
-	// if marketplaceConfig.Spec.Features == nil {
-	// 	marketplaceConfig.Spec.Features = &common.Features{
-	// 		Deployment:   ptr.Bool(true),
-	// 		Registration: ptr.Bool(true),
-	// 		MeterdefinitionCatalogServer: ptr.Bool(true),
-	// 		LicenseUsageMetering: ptr.Bool(true),
-	// 	}
-	// } else {
-	// 	if marketplaceConfig.Spec.Features.Deployment == nil {
-	// 		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
-	// 	}
-	// 	if marketplaceConfig.Spec.Features.Registration == nil {
-	// 		marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
-	// 	}
-
-	// 	if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil {
-	// 		marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
-	// 	}
-
-	// 	if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
-	// 		marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
-	// 	}
-	// }
-
 	deployedNamespace := &corev1.Namespace{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace)
 	if err != nil {
@@ -403,20 +374,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		updateInstanceSpec = true
 		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 	}
-	
-	// if !*marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer {
-	// 	if marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions != false {
-	// 		updateInstanceSpec = true
-	// 		*marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions = false
-	// 	}
-
-	// 	if marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions != false {
-	// 		updateInstanceSpec = true
-	// 		*marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions = false
-	// 	}
-		
-	// 	reqLogger.Info("latest marketplaceconfig DeployMeterDefinitionCatalogServer is disabled, updating marketplaceconfig")
-	// }	
 
 	if updateInstanceSpec {
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
@@ -550,7 +507,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("meterbase is enabled")
 	// Check if MeterBase exists, if not create one
 	if result.Is(NotFound) {
-		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
 			reqLogger.Error(err, "Failed to set controller ref")
@@ -588,10 +545,10 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("found meterbase")
 
-	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
 		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-			SyncCommunityMeterDefinitions: true,
-			SyncSystemMeterDefinitions: true,
+			SyncCommunityMeterDefinitions:      true,
+			SyncSystemMeterDefinitions:         true,
 			DeployMeterDefinitionCatalogServer: true,
 		}
 
@@ -605,9 +562,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
-		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig =  &common.MeterDefinitionCatalogServerConfig{
-			SyncCommunityMeterDefinitions: false,
-			SyncSystemMeterDefinitions: false,
+		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+			SyncCommunityMeterDefinitions:      false,
+			SyncSystemMeterDefinitions:         false,
 			DeployMeterDefinitionCatalogServer: false,
 		}
 
@@ -619,31 +576,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			return reconcile.Result{}, err
 		}
 	}
-
-	// updatedMeterBase := foundMeterBase.DeepCopy()
-	// updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncCommunityMeterDefinitions
-	// updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.SyncSystemMeterDefinitions
-	// updatedMeterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer = marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer.DeployMeterDefinitionCatalogServer
-
-	// if DeployMeterDefinitionCatalogServer is set to false, we uninstall file server deployment resources
-	// delete all meterdefs originating from the meterdefinition catalog
-	// if !*updatedMeterBase.Spec.MeterdefinitionCatalogServer.DeployMeterDefinitionCatalogServer {
-	// 	reqLogger.Info("marketplaceconfig DeployMeterDefinitionCatalogServer is set to false")
-	// 	*updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncCommunityMeterDefinitions = false
-	// 	*updatedMeterBase.Spec.MeterdefinitionCatalogServer.SyncSystemMeterDefinitions = false
-	// }
-	
-	// if !reflect.DeepEqual(foundMeterBase, updatedMeterBase) {
-
-	// 	reqLogger.Info("updating meterbase")
-
-	// 	err = r.Client.Update(context.TODO(), updatedMeterBase)
-	// 	if err != nil {
-	// 		reqLogger.Error(err, "failed to update meterbase")
-	// 		return reconcile.Result{}, err
-	// 	}
-
-	// }
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &unstructured.Unstructured{}

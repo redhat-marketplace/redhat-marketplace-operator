@@ -176,7 +176,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch;delete
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch;delete
-// +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
+// +kubebuilder:rbac:urls=/list-for-version,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/meterdef-index-label/*,verbs=get;
 // +kubebuilder:rbac:urls=/system-meterdef-index-label/*,verbs=get;
@@ -265,20 +265,20 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	//TODO: zach recheck for image pull failure
-	for _, c := range dc.Status.Conditions {	
+	for _, c := range dc.Status.Conditions {
 		// DeploymentAvailable means the DeploymentConfig has the minimum available replicas required
 		if c.Type == osappsv1.DeploymentProgressing && c.Status == corev1.ConditionFalse {
 			err = errors.New(c.Message)
-			return result.ReconcileResult,err
-			
+			return result.ReconcileResult, err
+
 		}
 
 		if c.Type == osappsv1.DeploymentReplicaFailure {
 			err = errors.New(c.Message)
-			return result.ReconcileResult,err
+			return result.ReconcileResult, err
 		}
 	}
-	
+
 	//TODO: remove requeue [x]
 	for _, c := range dc.Status.Conditions {
 		if c.Type == osappsv1.DeploymentAvailable {
@@ -313,9 +313,16 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 //TODO: zach remove ExecResult - low priority
 func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	csvList := &olmv1alpha1.ClusterServiceVersionList{}
+	// csvList := &olmv1alpha1.ClusterServiceVersionList{}
 
-	err := r.Client.List(context.TODO(), csvList)
+	// err := r.Client.List(context.TODO(), csvList)
+	// if err != nil {
+	// 	return &ExecResult{
+	// 		ReconcileResult: reconcile.Result{},
+	// 		Err:             err,
+	// 	}
+	// }
+	subs, err := listSubs(r.Client)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -323,20 +330,46 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 		}
 	}
 
-	for _, csv := range csvList.Items {
-		op, err := r.processCSV(&csv, reqLogger)
-		if !op {
-			if err != nil {
-				reqLogger.Info(err.Error())
+	for _, sub := range subs {
+		// op, err := r.processCSV(&csv, reqLogger)
+		// if !op {
+		// 	if err != nil {
+		// 		reqLogger.Info(err.Error())
+		// 	}
+
+		// 	// csv has been marked for noop - skip
+		// 	continue
+		// }
+		isRHMSub := matcher.CheckOperatorTag(&sub)
+		if !isRHMSub {
+			reqLogger.Info("subscription does not have operator tag", "sub", sub.Name)
+			continue
+		}
+
+		csv := &olmv1alpha1.ClusterServiceVersion{}
+		csvName := sub.Status.InstalledCSV
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
+				reqLogger.Info("clusterserviceversion does not exist", "name", csv.Name)
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
 			}
 
-			// csv has been marked for noop - skip
-			continue
+			reqLogger.Error(err, "Failed to get clusterserviceversion")
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
-				err = r.syncSystemMeterDefs(&csv, reqLogger)
+				// Fetch the ClusterServiceVersion instance
+				err = r.syncSystemMeterDefs(csv, reqLogger)
 				if err != nil {
 					return &ExecResult{
 						ReconcileResult: reconcile.Result{},
@@ -348,7 +381,15 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
-				err = r.syncCommunityMeterDefs(&csv, reqLogger)
+				cr := &catalog.CatalogRequest{
+					CsvName:       csvName,
+					Version:       csv.Spec.Version.Version.String(),
+					CsvNamespace:  csv.Namespace,
+					PackageName:   sub.Spec.Package,
+					CatalogSource: sub.Spec.CatalogSource,
+				}
+
+				err = r.syncCommunityMeterDefs(cr, csv, reqLogger)
 				if err != nil {
 					return &ExecResult{
 						ReconcileResult: reconcile.Result{},
@@ -393,10 +434,10 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.Cluste
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-	csvName := csv.Name
-	csvVersion := csv.Spec.Version.Version.String()
-	csvNamespace := csv.Namespace
+func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogRequest, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
+	// csvName := csv.Name
+	// csvVersion := csv.Spec.Version.Version.String()
+	// csvNamespace := csv.Namespace
 
 	/*
 		pings the file server for a map of labels we use to index meterdefintions that originated from the file server
@@ -421,7 +462,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv *olmv1alpha1.Clu
 		if community meterdefs are found and deleted, skip to next csv
 	*/
 	//TODO: handle when the file server can't be reached - return err [x]
-	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, csvNamespace, reqLogger)
+	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(cr, reqLogger)
 	if err != nil {
 		if errors.Is(err, catalog.CatalogNoContentErr) {
 			reqLogger.Info("csv has no meterdefinitions in catalog", "csv", csv.Name)
@@ -459,39 +500,39 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(csv *olmv1alpha1.Clu
 	return nil
 }
 
-/* 
+/*
 	//TODO:
 	setting this to a var so I can mock it in deploymentconfig_conttroller_test.go
 	was getting validation errors applying subs with envtest
 	mocking the return for now
 */
-var listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+var listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 	subList := &olmv1alpha1.SubscriptionList{}
-	if err := k8sclient.List(context.TODO(), subList, client.InNamespace(csv.Namespace)); err != nil {
+	if err := k8sclient.List(context.TODO(), subList); err != nil {
 		return nil, err
 	}
 
 	return subList.Items, nil
 }
 
-func (r *DeploymentConfigReconciler) processCSV (csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
-	isCopy,err := r.isOLMCopy(csv,reqLogger)
+func (r *DeploymentConfigReconciler) processCSV(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
+	isCopy, err := r.isOLMCopy(csv, reqLogger)
 	if isCopy {
 		// noop on olm copies
-		return false,err
+		return false, err
 	}
 
-	isMarketplaceCSV,err := r.isMarketplaceCSV(csv,reqLogger)
+	isMarketplaceCSV, err := r.isMarketplaceCSV(csv, reqLogger)
 	if !isMarketplaceCSV {
 		// noop on a csv not from RHM
-		return false,err
+		return false, err
 	}
 
-	return true,err
+	return true, err
 }
 
-func (r *DeploymentConfigReconciler)isMarketplaceCSV(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
-	subs, err := listSubs(r.Client, csv)
+func (r *DeploymentConfigReconciler) isMarketplaceCSV(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
+	subs, err := listSubs(r.Client)
 	if err != nil {
 		return false, err
 	}
@@ -505,12 +546,12 @@ func (r *DeploymentConfigReconciler)isMarketplaceCSV(csv *olmv1alpha1.ClusterSer
 	_ = utils.Retry(func() error {
 		foundSub, err = matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName, packageName, subs, csv)
 		// try to match again if we catch the subscription during an update
-		if err != nil && errors.Is(err,matcher.ErrSubscriptionIsUpdating){
+		if err != nil && errors.Is(err, matcher.ErrSubscriptionIsUpdating) {
 			return err
 		}
 
 		return nil
-	},3)
+	}, 3)
 
 	if foundSub == nil {
 		err = fmt.Errorf("could not find an rhm subscription to match csv: %s, namespace: %s", csv.Name, csv.Namespace)
@@ -518,33 +559,33 @@ func (r *DeploymentConfigReconciler)isMarketplaceCSV(csv *olmv1alpha1.ClusterSer
 	}
 
 	isMarketplaceCSV := matcher.CheckOperatorTag(foundSub)
-	if !isMarketplaceCSV{
+	if !isMarketplaceCSV {
 		err = fmt.Errorf("csv is not an rhm resource csv: %s, namespace: %s", csv.Name, csv.Namespace)
-		return isMarketplaceCSV,err
+		return isMarketplaceCSV, err
 	}
 
 	return isMarketplaceCSV, nil
 }
 
-func (r *DeploymentConfigReconciler) isOLMCopy (csv *olmv1alpha1.ClusterServiceVersion,reqLogger logr.Logger) (bool,error) {
-		labels := csv.GetLabels()
-		_, labelHasCopiedFromTag := labels[olmCopiedFromTag]
+func (r *DeploymentConfigReconciler) isOLMCopy(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
+	labels := csv.GetLabels()
+	_, labelHasCopiedFromTag := labels[olmCopiedFromTag]
 
-		ann := csv.GetAnnotations()
-		_, annHasCopiedFromTag := ann[olmCopiedFromTag]
-	
-		if !labelHasCopiedFromTag && !annHasCopiedFromTag {
-			// is not a copy from an AllNamespaces install
-			return false, nil
-		}
+	ann := csv.GetAnnotations()
+	_, annHasCopiedFromTag := ann[olmCopiedFromTag]
 
-		// either labels or annotations has the olm.CopiedFrom tag
-		err := fmt.Errorf("csv is a copy from an AllNamespace install,ignoring csv: %s, namespace: %s", csv.Name, csv.Namespace)
-		return true, err
+	if !labelHasCopiedFromTag && !annHasCopiedFromTag {
+		// is not a copy from an AllNamespaces install
+		return false, nil
+	}
+
+	// either labels or annotations has the olm.CopiedFrom tag
+	err := fmt.Errorf("csv is a copy from an AllNamespace install,ignoring csv: %s, namespace: %s", csv.Name, csv.Namespace)
+	return true, err
 }
 
 func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-	
+
 	for _, catalogMeterdef := range latestMeterDefsFromCatalog {
 		installedMdef := &marketplacev1beta1.MeterDefinition{}
 
@@ -572,7 +613,7 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 				//TODO: what fields should we check a diff for ?
 			*/
 			return r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
-			
+
 		})
 
 		if err != nil {
@@ -781,7 +822,7 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 			if err != nil {
 				return err
 			}
-	
+
 			reqLogger.Info("updated deploymentconfig")
 		}
 
@@ -794,27 +835,27 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 			Err:             err,
 		}
 	}
-	
+
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		foundfileServerService := &corev1.Service{}
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				reqLogger.Info("meterdef file server service not found, creating")
-	
+
 				newService, err := r.factory.NewMeterdefintionFileServerService()
 				if err != nil {
 					return err
 				}
-	
+
 				newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-	
+
 				err = r.Client.Create(context.TODO(), newService)
 				if err != nil {
 					reqLogger.Error(err, "failed to create file server service")
 					return err
 				}
-	
+
 				reqLogger.Info("created new catalog server service")
 				return err
 			}
@@ -839,34 +880,34 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				reqLogger.Info("image stream not found, creating")
-	
+
 				newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
 				if err != nil {
 					return err
 				}
-	
+
 				newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-	
+
 				err = r.Client.Create(context.TODO(), newImageStream)
 				if err != nil {
 					return err
 				}
-	
+
 				reqLogger.Info("created new image stream")
 			}
-	
+
 			return err
 		}
-	
+
 		imageStreamUpdated := r.factory.UpdateImageStreamOnChange(foundImageStream)
 		if imageStreamUpdated {
 			err = r.Client.Update(context.TODO(), foundImageStream)
 			if err != nil {
 				return err
 			}
-	
+
 			reqLogger.Info("updated ImageStream")
-	
+
 		}
 
 		return nil

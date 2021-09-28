@@ -43,7 +43,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		namespace = "default"
 
 		/* rhm csv */
-		csvName = "test-csv-1.v0.0.1"
+		csvName           = "test-csv-1.v0.0.1"
 		csvVersion        = "0.0.1"
 		subName           = "test-csv-1-sub"
 		packageName       = "test-csv-1-rhmp"
@@ -56,13 +56,13 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		nonRhmCatalogSourceName = "non-rhm-catalog-source"
 
 		/* system meterdefs */
-		systemMeterDef1Name  = csvName + "-" + "pod-count"
+		systemMeterDef1Name = csvName + "-" + "pod-count"
 		systemMeterDef2Name = csvName + "-" + "cpu-usage"
 
 		listMeterDefsForCsvPath          = "/" + catalog.ListForVersionEndpoint + "/" + csvName + "/" + csvVersion + "/" + namespace
 		indexLabelsPath                  = "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + csvName
 		systemMeterDefIndexLabelsPath    = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName
-		healthEndpoint 				     = "/" + catalog.HealthEndpoint
+		healthEndpoint                   = "/" + catalog.HealthEndpoint
 		communityMeterDefIndexLabelsBody []byte
 		systemMeterDefIndexLabelsBody    []byte
 		dcControllerMockServer           *ghttp.Server
@@ -92,13 +92,13 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Namespace: namespace,
 	}
 
-	rhmCsvKey  := types.NamespacedName{
+	rhmCsvKey := types.NamespacedName{
 		Name:      csvName,
 		Namespace: namespace,
 	}
 
 	meterBaseKey := types.NamespacedName{
-		Name: utils.METERBASE_NAME, 
+		Name:      utils.METERBASE_NAME,
 		Namespace: namespace,
 	}
 
@@ -538,13 +538,13 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				ghttp.VerifyRequest("GET", systemMeterDefIndexLabelsPath),
 				ghttp.RespondWithPtr(&Status200, &systemMeterDefIndexLabelsBody),
 			))
-		
+
 		healthBody := []byte(`status ok`)
 
 		dcControllerMockServer.RouteToHandler(
 			"GET", healthEndpoint, ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", healthEndpoint),
-				ghttp.RespondWith(http.StatusOK,healthBody),
+				ghttp.RespondWith(http.StatusOK, healthBody),
 			))
 	})
 
@@ -582,7 +582,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Create", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
 			}
 
@@ -633,7 +633,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Update", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
 			}
 
@@ -705,7 +705,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Delete", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
 			}
 
@@ -811,7 +811,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("Remove Catalog directory", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
 			}
 
@@ -870,7 +870,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("non-rhm resources", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
 			}
 
@@ -891,7 +891,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	Context("feature flags", func() {
 		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client, csv *olmv1alpha1.ClusterServiceVersion) ([]olmv1alpha1.Subscription, error) {
+			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
 			}
 

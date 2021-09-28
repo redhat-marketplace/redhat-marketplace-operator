@@ -59,7 +59,7 @@ type RelatedImages struct {
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
-	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0"`
+	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/mxpaspa/rhm-meterdefinition-file-server:sub-annotations-1.0.0"`
 }
 
 // OSRelatedImages stores open source related images for the operator
@@ -92,7 +92,6 @@ type Marketplace struct {
 type ControllerValues struct {
 	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
 	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h"`
-	RhmCatalogName string `env:"RHM_CATALOG_NAME" envDefault:"redhat-marketplace"`
 }
 
 type MeterBaseValues struct {
@@ -117,12 +116,12 @@ type MeterdefinitionCatalog struct {
 }
 
 type FileServerValues struct {
-	FileServerURL   string `env:"CATALOG_URL" envDefault:""`
+	FileServerURL string `env:"CATALOG_URL" envDefault:""`
 }
 
 type ImageStreamValues struct {
-	ImageStreamID              string `env:"IMAGE_STREAM_ID" envDefault:"rhm-meterdefinition-file-server:v1"`
-	ImageStreamTag             string `env:"IMAGE_STREAM_TAG" envDefault:"v1"`
+	ImageStreamID  string `env:"IMAGE_STREAM_ID" envDefault:"rhm-meterdefinition-file-server:v1"`
+	ImageStreamTag string `env:"IMAGE_STREAM_TAG" envDefault:"v1"`
 }
 
 func reset() {

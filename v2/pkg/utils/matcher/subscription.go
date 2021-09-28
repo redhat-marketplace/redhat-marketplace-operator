@@ -51,15 +51,13 @@ func MatchCsvToSub(catalogName string, packageName string, subs []olmv1alpha1.Su
 	return nil, nil
 }
 
-func CheckOperatorTag(foundSub *olmv1alpha1.Subscription) bool {
-	if foundSub != nil {
-		if value, ok := foundSub.GetLabels()[utils.OperatorTag]; ok {
-			if value == utils.OperatorTagValue {
-				return true
-			}
+func CheckOperatorTag(sub *olmv1alpha1.Subscription) bool {
+	if value, ok := sub.GetLabels()[utils.OperatorTag]; ok {
+		if value == utils.OperatorTagValue {
+			return true
 		}
 	}
-
+	
 	return false
 }
 

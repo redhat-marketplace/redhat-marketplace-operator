@@ -25,9 +25,11 @@ rules:
   - get
   - post
 - nonResourceURLs:
-  - /list-for-version/*
+  - /list-for-version
   verbs:
+  - create
   - get
+  - post
 - nonResourceURLs:
   - /meterdef-index-label/*
   verbs:

@@ -63,6 +63,14 @@ type CatalogClient struct {
 	RetryMax          int
 }
 
+type CatalogRequest struct {
+	CsvName       string `json:"csvName"`
+	Version       string `json:"version"`
+	CsvNamespace  string `json:"csvNamespace"`
+	PackageName   string `json:"packageName"`
+	CatalogSource string `json:"catalogSource"`
+}
+
 type Request struct {
 	body io.ReadSeeker
 	*http.Request
@@ -296,26 +304,27 @@ func (c *CatalogClient) SetTransport(reqLogger logr.Logger) error {
 	return nil
 }
 
-func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
-	reqLogger.Info("retrieving community meterdefinitions", "csvName", csvName, "csvVersion", version)
+func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *CatalogRequest, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
+	reqLogger.Info("retrieving community meterdefinitions", "csvName", catalogRequest.CsvName, "csvVersion", catalogRequest.Version)
 
-	url, err := concatPaths(c.Endpoint.String(), ListForVersionEndpoint, csvName, version, namespace)
+	url, err := concatPaths(c.Endpoint.String(), ListForVersionEndpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := c.Get(url.String(), reqLogger)
+	requestBody, err := json.Marshal(catalogRequest)
 	if err != nil {
-		reqLogger.Error(err, "Error on GET to Catalog Server")
+		return nil, err
+	}
+
+	r := bytes.NewReader(requestBody)
+	response, err := c.Post(url.String(), r, reqLogger)
+	if err != nil {
+		reqLogger.Error(err, "Error querying file server for system meter definition")
 		return nil, err
 	}
 
 	if response.StatusCode != http.StatusOK {
-
-		if response.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
-		}
-
 		if response.StatusCode == http.StatusNoContent {
 			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
 		}
@@ -323,6 +332,8 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, errors.New(fmt.Sprintf("Error querying file server for community meter definition: %s:%d", response.Status, response.StatusCode))
 
 	}
+
+	reqLogger.Info("response", "response", response)
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
@@ -334,7 +345,7 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, err
 	}
 
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&mdefSlice)
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(responseData), 100).Decode(&mdefSlice)
 	if err != nil {
 		reqLogger.Error(err, "error decoding response from ListMeterdefinitions()")
 		return nil, err
@@ -344,7 +355,6 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 }
 
 func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
-
 	reqLogger.Info("retrieving system meterdefinitions", "csvName", csv.Name)
 
 	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint)
@@ -382,7 +392,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&mdefSlice)
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(responseData), 100).Decode(&mdefSlice)
 	if err != nil {
 		reqLogger.Error(err, "error decoding response from GetSystemMeterdefinitions()")
 		return nil, err
@@ -404,7 +414,7 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, c
 		return nil, err
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		return nil, errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d", response.Status, response.StatusCode))
 	}
 
@@ -438,7 +448,7 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvN
 		return nil, err
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		return nil, errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d", response.Status, response.StatusCode))
 	}
 
