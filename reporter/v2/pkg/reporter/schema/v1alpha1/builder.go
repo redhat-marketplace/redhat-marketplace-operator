@@ -29,7 +29,7 @@ type MarketplaceReportDataBuilder struct {
 	values                          []*marketplacecommon.MeterDefPrometheusLabelsTemplated
 	reportStart, reportEnd          common.Time
 	resourceName, resourceNamespace string
-	clusterID                       string
+	accountID, clusterID            string
 	kvMap                           map[string]interface{}
 }
 
@@ -37,6 +37,12 @@ func (d *MarketplaceReportDataBuilder) SetClusterID(
 	clusterID string,
 ) {
 	d.clusterID = clusterID
+}
+
+func (d *MarketplaceReportDataBuilder) SetAccountID(
+	accountID string,
+) {
+	d.accountID = accountID
 }
 
 func (d *MarketplaceReportDataBuilder) AddMeterDefinitionLabels(

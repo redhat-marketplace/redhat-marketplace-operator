@@ -360,6 +360,10 @@ func (a MetricType) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.Quote(string(a))), nil
 }
 
+func (a MetricType) String() string {
+	return string(a)
+}
+
 type WorkloadType string
 
 func (a *WorkloadType) UnmarshalJSON(b []byte) error {

@@ -82,6 +82,7 @@ func (d DataBuilderFunc) New() SchemaMetricBuilder {
 }
 
 type SchemaMetricBuilder interface {
+	SetAccountID(accountID string)
 	SetClusterID(clusterID string)
 	AddMeterDefinitionLabels(meterDef *common.MeterDefPrometheusLabelsTemplated)
 	SetReportInterval(start, end Time)

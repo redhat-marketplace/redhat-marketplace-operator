@@ -102,6 +102,20 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		key.AdditionalAttributes["namespace"] = d.resourceNamespace
 	}
 
+	switch meterDef.MetricType {
+	case marketplacecommon.MetricTypeEmpty:
+		// grandfather old meterdefs into license
+		key.AdditionalAttributes["metricType"] = marketplacecommon.MetricTypeLicense.String()
+	case marketplacecommon.MetricTypeBillable:
+		fallthrough
+	case marketplacecommon.MetricTypeAdoption:
+		fallthrough
+	case marketplacecommon.MetricTypeLicense:
+		key.AdditionalAttributes["metricType"] = meterDef.MetricType.String()
+	default:
+		return nil, errors.New("metricType is an unknown type: " + meterDef.MetricType.String())
+	}
+
 	/* Additional well known attributes */
 	// key.AdditionalAttributes["hostname"]
 	// key.AdditionalAttributes["source"]
@@ -152,7 +166,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		}
 
 		key.MeasuredUsage = append(key.MeasuredUsage, measuredUsage)
-
 	}
 
 	if len(dupeKeys) != 0 {
