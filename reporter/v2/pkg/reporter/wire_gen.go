@@ -10,6 +10,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -50,6 +52,20 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*T
 var (
 	_wireLoggerValue = logger
 )
+
+func NewEventRecorder(ctx context.Context, erConfig *Config) (record.EventRecorder, error) {
+	scheme := provideScheme()
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	eventRecorder := provideReporterEventBroadcaster(scheme, clientset)
+	return eventRecorder, nil
+}
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	reporterConfig := task.Config

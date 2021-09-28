@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	golangErr "errors"
+
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 
@@ -532,6 +534,8 @@ func (re ReportJobError) Error() string {
 	return re.ErrorMessage
 }
 
+func (re ReportJobError) Unwrap() error { return re.Err }
+
 func provideProductionInsightsConfig(
 	ctx context.Context,
 	cc ClientCommandRunner,
@@ -555,7 +559,10 @@ func provideProductionInsightsConfig(
 	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
 
 	if !ok {
-		return nil, errors.New(".dockerconfigjson is not found in secret")
+		return nil, errors.Wrap(ReportJobError{
+			ErrorMessage: "failed to find .dockerconfigjson in secret openshift-config/pull-secret",
+			Err:          golangErr.New("report job error"),
+		}, "failed to find .dockerconfigjson in secret openshift-config/pull-secret")
 	}
 
 	var dockerObj interface{}
@@ -563,9 +570,9 @@ func provideProductionInsightsConfig(
 
 	if err != nil {
 		return nil, errors.Wrap(ReportJobError{
-			ErrorMessage: "failed to unmarshal dockerConfigJson object",
+			ErrorMessage: "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
-		}, "failed to unmarshal dockerConfigJson object")
+		}, "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret")
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")

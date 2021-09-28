@@ -276,6 +276,16 @@ rules:
       - get
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - events
+    verbs:
+      - get
+      - watch
+      - list
+      - create
+      - patch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1

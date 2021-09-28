@@ -22,6 +22,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -80,13 +81,27 @@ var ReportCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
+		recorder, err := reporter.NewEventRecorder(ctx, cfg)
+		if err != nil {
+			log.Error(err, "couldn't initialize event recorder")
+			os.
+				Exit(1)
+		}
+
 		task, err := reporter.NewTask(
 			ctx,
 			reporter.ReportName{Namespace: namespace, Name: name},
 			cfg,
 		)
 
+		report := &marketplacev1alpha1.MeterReport{}
+
 		if err != nil {
+			var comp *reporter.ReportJobError
+			if errors.As(err, &comp) {
+				log.Error(err, "report job error")
+				recorder.Event(report, "Warning", "ReportJobError", "No insights")
+			}
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)
 		}
