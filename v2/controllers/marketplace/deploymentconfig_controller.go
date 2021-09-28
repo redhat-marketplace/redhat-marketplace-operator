@@ -522,49 +522,7 @@ func (r *DeploymentConfigReconciler) processCSV(csv *olmv1alpha1.ClusterServiceV
 		return false, err
 	}
 
-	isMarketplaceCSV, err := r.isMarketplaceCSV(csv, reqLogger)
-	if !isMarketplaceCSV {
-		// noop on a csv not from RHM
-		return false, err
-	}
-
 	return true, err
-}
-
-func (r *DeploymentConfigReconciler) isMarketplaceCSV(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
-	subs, err := listSubs(r.Client)
-	if err != nil {
-		return false, err
-	}
-
-	packageName, err := matcher.ParsePackageName(csv)
-	if err != nil {
-		reqLogger.Info(err.Error())
-	}
-
-	var foundSub *olmv1alpha1.Subscription
-	_ = utils.Retry(func() error {
-		foundSub, err = matcher.MatchCsvToSub(r.cfg.ControllerValues.RhmCatalogName, packageName, subs, csv)
-		// try to match again if we catch the subscription during an update
-		if err != nil && errors.Is(err, matcher.ErrSubscriptionIsUpdating) {
-			return err
-		}
-
-		return nil
-	}, 3)
-
-	if foundSub == nil {
-		err = fmt.Errorf("could not find an rhm subscription to match csv: %s, namespace: %s", csv.Name, csv.Namespace)
-		return false, err
-	}
-
-	isMarketplaceCSV := matcher.CheckOperatorTag(foundSub)
-	if !isMarketplaceCSV {
-		err = fmt.Errorf("csv is not an rhm resource csv: %s, namespace: %s", csv.Name, csv.Namespace)
-		return isMarketplaceCSV, err
-	}
-
-	return isMarketplaceCSV, nil
 }
 
 func (r *DeploymentConfigReconciler) isOLMCopy(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
