@@ -313,15 +313,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 //TODO: zach remove ExecResult - low priority
 func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	// csvList := &olmv1alpha1.ClusterServiceVersionList{}
-
-	// err := r.Client.List(context.TODO(), csvList)
-	// if err != nil {
-	// 	return &ExecResult{
-	// 		ReconcileResult: reconcile.Result{},
-	// 		Err:             err,
-	// 	}
-	// }
 	subs, err := listSubs(r.Client)
 	if err != nil {
 		return &ExecResult{
@@ -331,15 +322,6 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	}
 
 	for _, sub := range subs {
-		// op, err := r.processCSV(&csv, reqLogger)
-		// if !op {
-		// 	if err != nil {
-		// 		reqLogger.Info(err.Error())
-		// 	}
-
-		// 	// csv has been marked for noop - skip
-		// 	continue
-		// }
 		isRHMSub := matcher.CheckOperatorTag(&sub)
 		if !isRHMSub {
 			reqLogger.Info("subscription does not have operator tag", "sub", sub.Name)
@@ -970,24 +952,26 @@ func (r *DeploymentConfigReconciler) listMeterDefsForCsvWithIndex(indexLabels ma
 }
 
 func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger logr.Logger) error {
-	csvList := &olmv1alpha1.ClusterServiceVersionList{}
-	err := r.Client.List(context.TODO(), csvList)
+	subs, err := listSubs(r.Client)
 	if err != nil {
 		return err
 	}
 
-	for _, csv := range csvList.Items {
-		op, err := r.processCSV(&csv, reqLogger)
-		if !op {
-			if err != nil {
-				reqLogger.Info(err.Error())
-			}
-
-			// csv has been marked for noop - skip
+	for _, sub := range subs {
+		isRHMSub := matcher.CheckOperatorTag(&sub)
+		if !isRHMSub {
+			reqLogger.Info("subscription is not from RHM", "sub", sub.Name)
 			continue
 		}
 
-		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, csv.Name)
+		if sub.Status.InstalledCSV == "" {
+			return fmt.Errorf("subscription does not have InstalledCSV set: %s", sub.Name)
+		}
+
+		csvName := sub.Status.InstalledCSV
+		reqLogger.Info("deleting system meterdefs for csv", "csv", csvName)
+
+		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, csvName)
 		if err != nil {
 			return err
 		}
@@ -1002,24 +986,26 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger
 }
 
 func (r *DeploymentConfigReconciler) deleteAllCommunityMeterDefsForRhmCvs(reqLogger logr.Logger) error {
-	csvList := &olmv1alpha1.ClusterServiceVersionList{}
-	err := r.Client.List(context.TODO(), csvList)
+	subs, err := listSubs(r.Client)
 	if err != nil {
 		return err
 	}
 
-	for _, csv := range csvList.Items {
-		op, err := r.processCSV(&csv, reqLogger)
-		if !op {
-			if err != nil {
-				reqLogger.Info(err.Error())
-			}
-
-			// csv has been marked for noop - skip
+	for _, sub := range subs {
+		isRHMSub := matcher.CheckOperatorTag(&sub)
+		if !isRHMSub {
+			reqLogger.Info("subscription is not from RHM", "sub", sub.Name)
 			continue
 		}
 
-		communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(reqLogger, csv.Name)
+		if sub.Status.InstalledCSV == "" {
+			return fmt.Errorf("subscription does not have InstalledCSV set: %s", sub.Name)
+		}
+
+		csvName := sub.Status.InstalledCSV
+		reqLogger.Info("deleting system meterdefs for csv", "csv", csvName)
+
+		communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(reqLogger, csvName)
 		if err != nil {
 			return err
 		}
