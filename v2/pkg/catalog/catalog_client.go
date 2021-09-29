@@ -3,31 +3,25 @@ package catalog
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"net/url"
 	"path"
 	"sync"
 	"time"
 
-	emperror "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
+	rhmotransport "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/transport"
+
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,21 +40,17 @@ var (
 	CatalogNoContentErr       error = errors.New("not found")
 	CatalogPathNotFoundStatus error = errors.New("the path to the file server wasn't found")
 	CatalogUnauthorizedErr    error = errors.New("auth error calling file server")
-	defaultRetryWaitMin             = 1 * time.Second
-	defaultRetryWaitMax             = 30 * time.Second
-	defaultRetryMax                 = 4
 )
 
 type CatalogClient struct {
 	sync.Mutex
-	Endpoint          *url.URL
-	HttpClient        *http.Client
-	K8sClient         client.Client
-	KubeInterface     kubernetes.Interface
+	Endpoint        *url.URL
+	RetryableClient *retryablehttp.Client
+	// K8sClient         client.Client
+	// KubeInterface     kubernetes.Interface
 	DeployedNamespace string
-	RetryWaitMin      time.Duration
-	RetryWaitMax      time.Duration
-	RetryMax          int
+	Logger            logr.Logger
+	IsAuthSet         bool
 }
 
 type CatalogRequest struct {
@@ -71,241 +61,36 @@ type CatalogRequest struct {
 	CatalogSource string `json:"catalogSource"`
 }
 
-type Request struct {
-	body io.ReadSeeker
-	*http.Request
-}
-
-func NewRequest(method string, url string, body io.ReadSeeker) (*Request, error) {
-	var rcBody io.ReadCloser
-	if body != nil {
-		rcBody = ioutil.NopCloser(body)
-	}
-
-	httpReq, err := http.NewRequest(method, url, rcBody)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Request{body, httpReq}, nil
-}
-
-func (c *CatalogClient) RetryOnAuthError(resp *http.Response, err error, reqLogger logr.Logger) (bool, error) {
-	if err != nil {
-		return true, err
-	}
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		return true, nil
-	}
-
-	return false, nil
-
-}
-
-func (c *CatalogClient) DefaultBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
-	mult := math.Pow(2, float64(attemptNum)) * float64(min)
-	sleep := time.Duration(mult)
-	if float64(sleep) != mult || sleep > max {
-		sleep = max
-	}
-
-	return sleep
-}
-
-func (c *CatalogClient) Do(req *Request, reqLogger logr.Logger) (*http.Response, error) {
-	reqLogger.Info("calling", "method", req.Method, "url", req.URL)
-
-	if c.HttpClient == nil {
-		reqLogger.Info("setting transport on catalog client")
-
-		err := c.SetTransport(reqLogger)
-		if err != nil {
-			err = errors.Wrap(err, "error setting transport on Catalog Client")
-			return nil, err
-		}
-	}
-
-	retryCount := 0
-
-	for retryCount < c.RetryMax {
-		var code int
-
-		//rewind the request if body is non-nil
-		if req.body != nil {
-			if _, err := req.body.Seek(0, 0); err != nil {
-				return nil, fmt.Errorf("failed to seek body: %v", err)
-			}
-		}
-
-		resp, err := c.HttpClient.Do(req.Request)
-
-		retry, checkErr := c.RetryOnAuthError(resp, err, reqLogger)
-
-		if err != nil {
-			return nil, fmt.Errorf("%s %s request failed: %v", req.Method, req.URL, err)
-		} else {
-
-		}
-
-		if !retry {
-			if checkErr != nil {
-				err = checkErr
-			}
-
-			return resp, err
-		}
-
-		if err == nil {
-			c.drainbody(resp.Body)
-		}
-
-		// check auth
-		reqLogger.Info("checking auth inside Do() wrapper")
-		err = c.SetTransport(reqLogger)
-		if err != nil {
-			err = errors.Wrap(err, "error setting transport on Catalog Client")
-			return nil, err
-		}
-
-		remaining := c.RetryMax - retryCount
-		if remaining == 0 {
-			break
-		}
-
-		wait := c.DefaultBackoff(c.RetryWaitMin, c.RetryWaitMax, retryCount, resp)
-		desc := fmt.Sprintf("%s %s", req.Method, req.URL)
-		if code > 0 {
-			desc = fmt.Sprintf("%s (status: %d)", desc, code)
-		}
-
-		reqLogger.Info("retrying call", "call description", desc, "time until next", wait, "retries remaining", remaining)
-		time.Sleep(wait)
-		retryCount++
-	}
-
-	return nil, fmt.Errorf("%s %s terminating call after %d attempts", req.Method, req.URL, c.RetryMax+1)
-}
-
-func (c *CatalogClient) drainbody(body io.ReadCloser) error {
-	defer body.Close()
-	_, err := io.Copy(ioutil.Discard, io.LimitReader(body, 100))
-	if err != nil {
-		return fmt.Errorf("error reading response body in drainBody: %v", err)
-	}
-
-	return nil
-}
-
-func (c *CatalogClient) Get(url string, reqLogger logr.Logger) (*http.Response, error) {
-	req, err := NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.Do(req, reqLogger)
-}
-
-func (c *CatalogClient) Post(url string, body io.ReadSeeker, reqLogger logr.Logger) (*http.Response, error) {
-	req, err := NewRequest("POST", url, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	return c.Do(req, reqLogger)
-}
-
-func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, kubeInterface kubernetes.Interface) (*CatalogClient, error) {
-	fileServerUrl := FileServerProductionURL
+func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, kubeInterface kubernetes.Interface, logr logr.Logger) (*CatalogClient, error) {
+	fileServerURL := FileServerProductionURL
 
 	if cfg.FileServerURL != "" {
-		fileServerUrl = cfg.FileServerURL
+		fileServerURL = cfg.FileServerURL
 	}
 
-	url, err := url.Parse(fileServerUrl)
+	url, err := url.Parse(fileServerURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CatalogClient{
+	rc := retryablehttp.NewClient()
+	rc.RetryWaitMax = 5000 * time.Millisecond
+	rc.RetryWaitMin = 3000 * time.Millisecond
+	rc.RetryMax = 5
+
+	catalogClient := &CatalogClient{
 		Endpoint:          url,
 		DeployedNamespace: cfg.DeployedNamespace,
-		KubeInterface:     kubeInterface,
-		K8sClient:         k8sClient,
-		RetryWaitMin:      defaultRetryWaitMin,
-		RetryWaitMax:      defaultRetryWaitMax,
-		RetryMax:          defaultRetryMax,
-	}, nil
+		RetryableClient:   rc,
+		Logger:            logr,
+		IsAuthSet:         false,
+	}
+
+	return catalogClient, nil
 }
 
-func (c *CatalogClient) UseInsecureClient() {
-
-	catalogServerHttpClient := &http.Client{
-		Timeout: 1 * time.Second,
-	}
-
-	c.HttpClient = catalogServerHttpClient
-
-}
-
-func (c *CatalogClient) SetTransport(reqLogger logr.Logger) error {
-	c.Lock()
-	defer c.Unlock()
-
-	service, err := c.getCatalogServerService(reqLogger)
-	if err != nil {
-		return err
-	}
-
-	cert, err := c.getCertFromConfigMap(reqLogger)
-	if err != nil {
-		return err
-	}
-
-	saClient := prom.NewServiceAccountClient(c.DeployedNamespace, c.KubeInterface)
-	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.FileServerAudience, 3600, reqLogger)
-	if err != nil {
-		return err
-	}
-
-	if service != nil && len(cert) != 0 && authToken != "" {
-		caCertPool, err := x509.SystemCertPool()
-		if err != nil {
-			return err
-		}
-
-		ok := caCertPool.AppendCertsFromPEM(cert)
-		if !ok {
-			err = emperror.New("failed to append cert to cert pool")
-			reqLogger.Error(err, "cert pool error")
-			return err
-		}
-
-		tlsConfig := &tls.Config{
-			RootCAs: caCertPool,
-		}
-
-		var transport http.RoundTripper = &http.Transport{
-			TLSClientConfig: tlsConfig,
-			Proxy:           http.ProxyFromEnvironment,
-		}
-
-		transport = WithBearerAuth(transport, authToken)
-
-		catalogServerHttpClient := &http.Client{
-			Transport: transport,
-			Timeout:   1 * time.Second,
-		}
-
-		c.HttpClient = catalogServerHttpClient
-	}
-
-	return nil
-}
-
-func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *CatalogRequest, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
-	reqLogger.Info("retrieving community meterdefinitions", "csvName", catalogRequest.CsvName, "csvVersion", catalogRequest.Version)
+func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *CatalogRequest) ([]marketplacev1beta1.MeterDefinition, error) {
+	c.Logger.Info("retrieving community meterdefinitions", "csvName", catalogRequest.CsvName, "csvVersion", catalogRequest.Version)
 
 	url, err := concatPaths(c.Endpoint.String(), ListForVersionEndpoint)
 	if err != nil {
@@ -317,23 +102,28 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *Catalo
 		return nil, err
 	}
 
-	r := bytes.NewReader(requestBody)
-	response, err := c.Post(url.String(), r, reqLogger)
+	reader := bytes.NewReader(requestBody)
+
+	if c.RetryableClient == nil {
+		fmt.Println("RETRYABLE CLIENT IS NIL")
+	}
+
+	response, err := c.RetryableClient.Post(url.String(), "application/json", reader)
 	if err != nil {
-		reqLogger.Error(err, "Error querying file server for system meter definition")
+		c.Logger.Error(err, "Error querying file server for system meter definition")
 		return nil, err
 	}
 
 	if response.StatusCode != http.StatusOK {
 		if response.StatusCode == http.StatusNoContent {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
+			return nil, fmt.Errorf("could not find meterdefinitions for csv: %s and version: %s. response status %s: %w", catalogRequest.CsvName, catalogRequest.Version, response.Status, CatalogNoContentErr)
 		}
 
 		return nil, errors.New(fmt.Sprintf("Error querying file server for community meter definition: %s:%d", response.Status, response.StatusCode))
 
 	}
 
-	reqLogger.Info("response", "response", response)
+	c.Logger.Info("response", "response", response)
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
@@ -341,21 +131,21 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *Catalo
 
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		reqLogger.Error(err, "error reading body")
+		c.Logger.Error(err, "error reading body")
 		return nil, err
 	}
 
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(responseData), 100).Decode(&mdefSlice)
 	if err != nil {
-		reqLogger.Error(err, "error decoding response from ListMeterdefinitions()")
+		c.Logger.Error(err, "error decoding response from ListMeterdefinitions()")
 		return nil, err
 	}
 
 	return mdefSlice, nil
 }
 
-func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
-	reqLogger.Info("retrieving system meterdefinitions", "csvName", csv.Name)
+func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion) ([]marketplacev1beta1.MeterDefinition, error) {
+	c.Logger.Info("retrieving system meterdefinitions", "csvName", csv.Name)
 
 	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint)
 	if err != nil {
@@ -367,10 +157,11 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 
-	r := bytes.NewReader(requestBody)
-	response, err := c.Post(url.String(), r, reqLogger)
+	reader := bytes.NewReader(requestBody)
+
+	response, err := c.RetryableClient.Post(url.String(), "application/json", reader)
 	if err != nil {
-		reqLogger.Error(err, "Error querying file server for system meter definition")
+		c.Logger.Error(err, "Error querying file server for system meter definition")
 		return nil, err
 	}
 
@@ -386,7 +177,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		reqLogger.Error(err, "error reading body")
+		c.Logger.Error(err, "error reading body")
 		return nil, err
 	}
 
@@ -394,22 +185,22 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(responseData), 100).Decode(&mdefSlice)
 	if err != nil {
-		reqLogger.Error(err, "error decoding response from GetSystemMeterdefinitions()")
+		c.Logger.Error(err, "error decoding response from GetSystemMeterdefinitions()")
 		return nil, err
 	}
 
 	return mdefSlice, nil
 }
 
-func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
-	reqLogger.Info("retrieving community meterdefinition index label")
+func (c *CatalogClient) GetCommunityMeterdefIndexLabels(csvName string) (map[string]string, error) {
+	c.Logger.Info("retrieving community meterdefinition index label")
 
 	url, err := concatPaths(c.Endpoint.String(), GetMeterdefinitionIndexLabelEndpoint, csvName)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := c.Get(url.String(), reqLogger)
+	response, err := c.RetryableClient.Get(url.String())
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +213,7 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, c
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		reqLogger.Error(err, "error reading body")
+		c.Logger.Error(err, "error reading body")
 		return nil, err
 	}
 
@@ -435,15 +226,15 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(reqLogger logr.Logger, c
 	return labels, nil
 }
 
-func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
-	reqLogger.Info("retrieving system meterdefinition index label")
+func (c *CatalogClient) GetSystemMeterDefIndexLabels(csvName string) (map[string]string, error) {
+	c.Logger.Info("retrieving system meterdefinition index label")
 
 	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterDefIndexLabelEndpoint, csvName)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := c.Get(url.String(), reqLogger)
+	response, err := c.RetryableClient.Get(url.String())
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +247,7 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(reqLogger logr.Logger, csvN
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		reqLogger.Error(err, "error reading body")
+		c.Logger.Error(err, "error reading body")
 		return nil, err
 	}
 
@@ -486,61 +277,45 @@ func concatPaths(basePath string, paths ...string) (*url.URL, error) {
 	return u, nil
 }
 
-func (c *CatalogClient) getCatalogServerService(reqLogger logr.InfoLogger) (*corev1.Service, error) {
-	service := &corev1.Service{}
+func (c *CatalogClient) UseInsecureClient() {
 
-	err := c.K8sClient.Get(context.TODO(), types.NamespacedName{Namespace: c.DeployedNamespace, Name: utils.DeploymentConfigName}, service)
-	if err != nil {
-		return nil, err
+	catalogServerHttpClient := &http.Client{
+		Timeout: 1 * time.Second,
 	}
 
-	return service, nil
-}
-
-func (c *CatalogClient) getCertFromConfigMap(reqLogger logr.Logger) ([]byte, error) {
-	cm := &corev1.ConfigMap{}
-	err := c.K8sClient.Get(context.TODO(), types.NamespacedName{Namespace: c.DeployedNamespace, Name: "serving-certs-ca-bundle"}, cm)
-	if err != nil {
-		return nil, err
-	}
-
-	reqLogger.Info("extracting cert from config map")
-
-	out, ok := cm.Data["service-ca.crt"]
-
-	if !ok {
-		err = emperror.New("Error retrieving cert from config map")
-		return nil, err
-	}
-
-	cert := []byte(out)
-	return cert, nil
+	c.RetryableClient.HTTPClient = catalogServerHttpClient
 
 }
 
-func WithBearerAuth(rt http.RoundTripper, token string) http.RoundTripper {
-	addHead := WithHeader(rt)
-	addHead.Header.Set("Authorization", "Bearer "+token)
-	return addHead
-}
+func (c *CatalogClient) SetRetryForCatalogClient(k8sclient client.Client, deployedNamespace string, ki kubernetes.Interface, reqLogger logr.Logger) error {
+	c.Lock()
+	defer c.Unlock()
 
-type withHeader struct {
-	http.Header
-	rt http.RoundTripper
-}
+	if !c.IsAuthSet {
+		reqLogger.Info("RetryableClient.HTTPClient is not set, setting")
+		httpClient, err := rhmotransport.SetTransportOnHTTPClient(k8sclient, deployedNamespace, ki, reqLogger)
+		if err != nil {
+			return err
+		}
 
-func WithHeader(rt http.RoundTripper) withHeader {
-	if rt == nil {
-		rt = http.DefaultTransport
+		c.RetryableClient.HTTPClient = httpClient
+		c.IsAuthSet = true
 	}
 
-	return withHeader{Header: make(http.Header), rt: rt}
-}
+	c.RetryableClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		ok, e := retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+		if !ok && resp.StatusCode == http.StatusUnauthorized {
+			httpClient, err := rhmotransport.SetTransportOnHTTPClient(k8sclient, deployedNamespace, ki, reqLogger)
+			if err != nil {
+				return true, err
+			}
 
-func (h withHeader) RoundTrip(req *http.Request) (*http.Response, error) {
-	for k, v := range h.Header {
-		req.Header[k] = v
+			c.RetryableClient.HTTPClient = httpClient
+			return false, nil
+		}
+
+		return ok, e
 	}
 
-	return h.rt.RoundTrip(req)
+	return nil
 }

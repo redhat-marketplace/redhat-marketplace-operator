@@ -64,11 +64,10 @@ var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
 
 const (
-	imageStreamID string = "rhm-meterdefinition-file-server:v1"
-	imageStreamTag string = "v1"
+	imageStreamID   string = "rhm-meterdefinition-file-server:v1"
+	imageStreamTag  string = "v1"
 	listenerAddress string = "127.0.0.1:2100"
 )
-
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -81,11 +80,11 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
-	os.Setenv("POD_NAMESPACE","default")
-	os.Setenv("IMAGE_STREAM_ID",imageStreamID)
-	os.Setenv("IMAGE_STREAM_TAG",imageStreamTag)
+	os.Setenv("POD_NAMESPACE", "default")
+	os.Setenv("IMAGE_STREAM_ID", imageStreamID)
+	os.Setenv("IMAGE_STREAM_TAG", imageStreamTag)
 
-	dcControllerMockServerAddr := fmt.Sprintf("%s%s","http://",listenerAddress)
+	dcControllerMockServerAddr := fmt.Sprintf("%s%s", "http://", listenerAddress)
 	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
 	By("bootstrapping test environment")
@@ -126,24 +125,24 @@ var _ = BeforeSuite(func() {
 	operatorConfig, err := config.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	factory := manifests.NewFactory(operatorConfig,k8sScheme)
-	
+	factory := manifests.NewFactory(operatorConfig, k8sScheme)
+
 	restConfig := k8sManager.GetConfig()
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	catalogClient,err := catalog.ProvideCatalogClient(k8sManager.GetClient(),operatorConfig,clientset)
+	catalogClient, err := catalog.ProvideCatalogClient(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
 
 	catalogClient.UseInsecureClient()
 
 	err = (&DeploymentConfigReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme: k8sManager.GetScheme(),
-		cfg: operatorConfig,
-		factory: factory,
+		Client:        k8sManager.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:        k8sManager.GetScheme(),
+		cfg:           operatorConfig,
+		factory:       factory,
 		CatalogClient: catalogClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -182,4 +181,3 @@ var SucceedOrAlreadyExist types.GomegaMatcher = SatisfyAny(
 )
 
 var IsNotFound types.GomegaMatcher = WithTransform(errors.IsNotFound, BeTrue())
-

@@ -64,7 +64,7 @@ const listenerAddress string = "127.0.0.1:2010"
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	catalogClientMockServerAddr := fmt.Sprintf("%s%s","http://",listenerAddress)
+	catalogClientMockServerAddr := fmt.Sprintf("%s%s", "http://", listenerAddress)
 	os.Setenv("CATALOG_URL", catalogClientMockServerAddr)
 
 	ctx, cancel = context.WithCancel(context.TODO())
@@ -107,7 +107,7 @@ var _ = BeforeSuite(func() {
 			Namespace: "",
 		})
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	k8sScheme := provideScheme()
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -122,9 +122,8 @@ var _ = BeforeSuite(func() {
 	operatorConfig, err := config.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	catalogClient,err = ProvideCatalogClient(k8sClient,operatorConfig,clientset)
+	catalogClient, err = ProvideCatalogClient(k8sClient, operatorConfig, clientset, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
-
 
 	go func() {
 		k8scache.Start(ctx.Done())

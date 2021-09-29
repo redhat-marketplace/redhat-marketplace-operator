@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,6 +59,7 @@ type MeterDefinitionInstallReconciler struct {
 	Log           logr.Logger
 	cfg           *config.OperatorConfig
 	catalogClient *catalog.CatalogClient
+	kubeInterface kubernetes.Interface
 }
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
@@ -99,6 +101,11 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, nil
 	}
 
+	err = r.catalogClient.SetRetryForCatalogClient(r.Client, r.cfg.DeployedNamespace, r.kubeInterface, reqLogger)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Fetch the subscription instance
 	sub := &olmv1alpha1.Subscription{}
 	err = r.Client.Get(context.TODO(), request.NamespacedName, sub)
@@ -122,6 +129,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger.Info("Subscription has InstalledCSV", "csv", csvName)
 
 	csv := &olmv1alpha1.ClusterServiceVersion{}
+	// try to find InstalledCSV in the same namespace as the subscription
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -134,6 +142,8 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("found csv from subscription", "csv", csv.Name)
+
 	if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 			cr := &catalog.CatalogRequest{
@@ -144,8 +154,9 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				CatalogSource: sub.Spec.CatalogSource,
 			}
 
-			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr, reqLogger)
+			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr)
 			if err != nil {
+				reqLogger.Error(err, "error listing meterdefs")
 				return reconcile.Result{}, err
 			}
 
@@ -160,8 +171,9 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 			reqLogger.Info("system meterdefs enabled")
 
-			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(csv, reqLogger)
+			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(csv)
 			if err != nil {
+				reqLogger.Error(err, "error listing system meterdefs")
 				return reconcile.Result{}, err
 			}
 
@@ -181,6 +193,7 @@ func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1
 	csvVersion := csv.Spec.Version.Version.String()
 
 	reqLogger.Info("creating meterdefinitions", "csv", csvName, "namespace", csv.Namespace)
+
 	for _, meterDefItem := range mdefs {
 		reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name, "csv", csvName)
 
@@ -293,6 +306,12 @@ func (r *MeterDefinitionInstallReconciler) InjectOperatorConfig(cfg *config.Oper
 func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
 	r.Log.Info("catalog client")
 	r.catalogClient = catalogClient
+	return nil
+}
+
+func (r *MeterDefinitionInstallReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.Log.Info("kube interface")
+	r.kubeInterface = k
 	return nil
 }
 

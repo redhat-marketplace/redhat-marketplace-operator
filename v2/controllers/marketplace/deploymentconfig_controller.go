@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/matcher"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -43,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 
@@ -72,6 +72,7 @@ type DeploymentConfigReconciler struct {
 	factory       *manifests.Factory
 	patcher       patch.Patcher
 	CatalogClient *catalog.CatalogClient
+	kubeInterface kubernetes.Interface
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -103,6 +104,12 @@ func (r *DeploymentConfigReconciler) InjectPatch(p patch.Patcher) error {
 
 func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
+	return nil
+}
+
+func (r *DeploymentConfigReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.Log.Info("kube interface")
+	r.kubeInterface = k
 	return nil
 }
 
@@ -202,6 +209,11 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	if instance.Spec.MeterdefinitionCatalogServerConfig == nil {
 		reqLogger.Info("meterbase doesn't have file server feature flags set")
 		return reconcile.Result{}, nil
+	}
+
+	err = r.CatalogClient.SetRetryForCatalogClient(r.Client, r.cfg.DeployedNamespace, r.kubeInterface, reqLogger)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// if SyncSystemMeterDefinitions is disabled delete all system meterdefs for csvs originating from rhm
@@ -304,6 +316,10 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	//syncs the latest meterdefinitions from the catalog with the community & system (templated) meterdefinitions on the cluster
 	result = r.sync(instance, request, reqLogger)
 	if !result.Is(Continue) {
+		if result.Is(Error) {
+			reqLogger.Error(err, "error on sync")
+		}
+
 		return result.Return()
 	}
 
@@ -322,7 +338,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	}
 
 	for _, sub := range subs {
-		isRHMSub := matcher.CheckOperatorTag(&sub)
+		isRHMSub := checkOperatorTag(&sub)
 		if !isRHMSub {
 			reqLogger.Info("subscription does not have operator tag", "sub", sub.Name)
 			continue
@@ -387,8 +403,18 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	}
 }
 
+func checkOperatorTag(sub *olmv1alpha1.Subscription) bool {
+	if value, ok := sub.GetLabels()[utils.OperatorTag]; ok {
+		if value == utils.OperatorTagValue {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(csv, reqLogger)
+	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(csv)
 	if err != nil {
 		return err
 	}
@@ -398,7 +424,7 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.Cluste
 		return err
 	}
 
-	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, csv.Name)
+	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csv.Name)
 	if err != nil {
 		return err
 	}
@@ -431,7 +457,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 		}
 
 	*/
-	communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(reqLogger, csv.Name)
+	communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(csv.Name)
 	if err != nil {
 		return err
 	}
@@ -444,10 +470,10 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 		if community meterdefs are found and deleted, skip to next csv
 	*/
 	//TODO: handle when the file server can't be reached - return err [x]
-	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(cr, reqLogger)
+	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(cr)
 	if err != nil {
 		if errors.Is(err, catalog.CatalogNoContentErr) {
-			reqLogger.Info("csv has no meterdefinitions in catalog", "csv", csv.Name)
+			reqLogger.Info("catalog meterdefinitions have been deleted from that catalog for csv", "csv", csv.Name)
 
 			err = r.deleteMeterdefsWithIndex(communityIndexLabels, reqLogger)
 			if err != nil {
@@ -729,33 +755,42 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 		Controller:         pointer.BoolPtr(false),
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("meterdef file server deployment config not found, creating")
+	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("meterdef file server deployment config not found, creating")
 
-				newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
-				if err != nil {
-					return err
+			newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
 				}
-
-				newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-				err = r.Client.Create(context.TODO(), newDeploymentConfig)
-				if err != nil {
-					reqLogger.Error(err, "failed to create deploymentconfig")
-					return err
-				}
-
-				reqLogger.Info("created new deploymentconfig")
-
 			}
 
-			return err
+			newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+
+			err = r.Client.Create(context.TODO(), newDeploymentConfig)
+			if err != nil {
+				reqLogger.Error(err, "failed to create deploymentconfig")
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+			reqLogger.Info("created new deploymentconfig")
+
 		}
 
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
 		if updated {
 			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
@@ -776,38 +811,71 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		foundfileServerService := &corev1.Service{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("meterdef file server service not found, creating")
+	foundfileServerService := &corev1.Service{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("meterdef file server service not found, creating")
 
-				newService, err := r.factory.NewMeterdefintionFileServerService()
-				if err != nil {
-					return err
+			newService, err := r.factory.NewMeterdefintionFileServerService()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
 				}
-
-				newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-				err = r.Client.Create(context.TODO(), newService)
-				if err != nil {
-					reqLogger.Error(err, "failed to create file server service")
-					return err
-				}
-
-				reqLogger.Info("created new catalog server service")
-				return err
 			}
 
-			return err
+			newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+
+			err = r.Client.Create(context.TODO(), newService)
+			if err != nil {
+				reqLogger.Error(err, "failed to create file server service")
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+			reqLogger.Info("created new catalog server service")
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
 
-		return nil
-	})
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 
+	foundImageStream := &osimagev1.ImageStream{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
 	if err != nil {
-		reqLogger.Error(err, "error on reconciliation of meterdef file server service")
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("image stream not found, creating")
+
+			newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+			newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+
+			err = r.Client.Create(context.TODO(), newImageStream)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+			reqLogger.Info("created new image stream")
+		}
+
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
@@ -815,30 +883,6 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		foundImageStream := &osimagev1.ImageStream{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("image stream not found, creating")
-
-				newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
-				if err != nil {
-					return err
-				}
-
-				newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-				err = r.Client.Create(context.TODO(), newImageStream)
-				if err != nil {
-					return err
-				}
-
-				reqLogger.Info("created new image stream")
-			}
-
-			return err
-		}
-
 		imageStreamUpdated := r.factory.UpdateImageStreamOnChange(foundImageStream)
 		if imageStreamUpdated {
 			err = r.Client.Update(context.TODO(), foundImageStream)
@@ -958,7 +1002,7 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger
 	}
 
 	for _, sub := range subs {
-		isRHMSub := matcher.CheckOperatorTag(&sub)
+		isRHMSub := checkOperatorTag(&sub)
 		if !isRHMSub {
 			reqLogger.Info("subscription is not from RHM", "sub", sub.Name)
 			continue
@@ -971,7 +1015,7 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger
 		csvName := sub.Status.InstalledCSV
 		reqLogger.Info("deleting system meterdefs for csv", "csv", csvName)
 
-		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(reqLogger, csvName)
+		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csvName)
 		if err != nil {
 			return err
 		}
@@ -992,7 +1036,7 @@ func (r *DeploymentConfigReconciler) deleteAllCommunityMeterDefsForRhmCvs(reqLog
 	}
 
 	for _, sub := range subs {
-		isRHMSub := matcher.CheckOperatorTag(&sub)
+		isRHMSub := checkOperatorTag(&sub)
 		if !isRHMSub {
 			reqLogger.Info("subscription is not from RHM", "sub", sub.Name)
 			continue
@@ -1005,7 +1049,7 @@ func (r *DeploymentConfigReconciler) deleteAllCommunityMeterDefsForRhmCvs(reqLog
 		csvName := sub.Status.InstalledCSV
 		reqLogger.Info("deleting system meterdefs for csv", "csv", csvName)
 
-		communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(reqLogger, csvName)
+		communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(csvName)
 		if err != nil {
 			return err
 		}
