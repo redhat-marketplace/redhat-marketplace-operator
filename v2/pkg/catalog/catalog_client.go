@@ -44,10 +44,8 @@ var (
 
 type CatalogClient struct {
 	sync.Mutex
-	Endpoint        *url.URL
-	RetryableClient *retryablehttp.Client
-	// K8sClient         client.Client
-	// KubeInterface     kubernetes.Interface
+	Endpoint          *url.URL
+	RetryableClient   *retryablehttp.Client
 	DeployedNamespace string
 	Logger            logr.Logger
 	IsAuthSet         bool
@@ -103,10 +101,6 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *Catalo
 	}
 
 	reader := bytes.NewReader(requestBody)
-
-	if c.RetryableClient == nil {
-		fmt.Println("RETRYABLE CLIENT IS NIL")
-	}
 
 	response, err := c.RetryableClient.Post(url.String(), "application/json", reader)
 	if err != nil {
