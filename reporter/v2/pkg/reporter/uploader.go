@@ -29,8 +29,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	golangErr "errors"
-
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 
@@ -530,11 +528,11 @@ type ReportJobError struct {
 	Err          error
 }
 
-func (re ReportJobError) Error() string {
+func (re *ReportJobError) Error() string {
 	return re.ErrorMessage
 }
 
-func (re ReportJobError) Unwrap() error { return re.Err }
+func (re *ReportJobError) Unwrap() error { return re.Err }
 
 func provideProductionInsightsConfig(
 	ctx context.Context,
@@ -559,9 +557,9 @@ func provideProductionInsightsConfig(
 	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
 
 	if !ok {
-		return nil, errors.Wrap(ReportJobError{
+		return nil, errors.Wrap(&ReportJobError{
 			ErrorMessage: "failed to find .dockerconfigjson in secret openshift-config/pull-secret",
-			Err:          golangErr.New("report job error"),
+			Err:          errors.New("report job error"),
 		}, "failed to find .dockerconfigjson in secret openshift-config/pull-secret")
 	}
 
@@ -569,7 +567,7 @@ func provideProductionInsightsConfig(
 	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(ReportJobError{
+		return nil, errors.Wrap(&ReportJobError{
 			ErrorMessage: "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
 		}, "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret")
@@ -578,21 +576,29 @@ func provideProductionInsightsConfig(
 	cloudAuthPath := jsonpath.New("cloudauthpath")
 	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
 
+	/*
+		if err != nil {
+			return nil, errors.WithStack(ReportJobError{
+				ErrorMessage: "failed to get jsonpath of cloud token",
+				Err:          err,
+			})
+		}
+	*/
 	if err != nil {
-		return nil, errors.Wrap(ReportJobError{
+		return nil, &ReportJobError{
 			ErrorMessage: "failed to get jsonpath of cloud token",
 			Err:          err,
-		}, "failed to get jsonpath of cloud token")
+		}
 	}
 
 	buf := new(bytes.Buffer)
 	err = cloudAuthPath.Execute(buf, dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(ReportJobError{
+		return nil, errors.WithStack(&ReportJobError{
 			ErrorMessage: "failed to get jsonpath of cloud token",
 			Err:          err,
-		}, "failed to get jsonpath of cloud token")
+		})
 	}
 
 	cloudToken := buf.String()

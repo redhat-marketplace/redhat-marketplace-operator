@@ -22,8 +22,10 @@ import (
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/spf13/cobra"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -94,13 +96,18 @@ var ReportCmd = &cobra.Command{
 			cfg,
 		)
 
-		report := &marketplacev1alpha1.MeterReport{}
+		job := &batchv1.Job{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      os.Getenv("POD_NAME"),
+				Namespace: os.Getenv("POD_NAMESPACE"),
+			},
+		}
 
 		if err != nil {
 			var comp *reporter.ReportJobError
 			if errors.As(err, &comp) {
 				log.Error(err, "report job error")
-				recorder.Event(report, "Warning", "ReportJobError", "No insights")
+				recorder.Event(job, corev1.EventTypeWarning, "ReportJobError", "No insights")
 			}
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)

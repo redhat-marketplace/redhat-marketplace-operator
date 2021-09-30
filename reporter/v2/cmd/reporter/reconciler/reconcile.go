@@ -16,13 +16,19 @@ package reconciler
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
+
+	"emperror.dev/errors"
 
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
 	"github.com/spf13/cobra"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -81,6 +87,15 @@ var ReconcileCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
+		recorder, err := reporter.NewEventRecorder(ctx, cfg)
+		if err != nil {
+			log.Error(err, "couldn't initialize event recorder")
+			os.
+				Exit(1)
+		}
+
+		job := getJob()
+
 		task, err := reporter.NewReconcileTask(
 			ctx,
 			cfg,
@@ -88,12 +103,25 @@ var ReconcileCmd = &cobra.Command{
 		)
 
 		if err != nil {
+			var comp *reporter.ReportJobError
+
+			if errors.As(err, &comp) {
+				log.Error(err, "report job error")
+				recorder.Event(job, corev1.EventTypeWarning, "ReportJobError", "No insights")
+			}
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)
 		}
 
 		err = task.Run(ctx)
 		if err != nil {
+			var comp *reporter.ReportJobError
+
+			if errors.As(err, &comp) {
+				log.Error(err, "report job error")
+				recorder.Event(job, corev1.EventTypeWarning, "ReportJobError", "No insights")
+			}
+
 			log.Error(err, "error running task")
 			os.Exit(1)
 		}
@@ -123,4 +151,22 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
 
 	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
+}
+
+func getJob() *batchv1.Job {
+
+	cl, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		log.Error(err, "failed to create client")
+		os.Exit(1)
+	}
+
+	job := &batchv1.Job{}
+	err = cl.Get(context.TODO(), types.NamespacedName{Name: os.Getenv("JOB_NAME"), Namespace: os.Getenv("POD_NAMESPACE")}, job)
+	if err != nil {
+		log.Error(err, "could not get running job")
+		os.Exit(1)
+	}
+
+	return job
 }

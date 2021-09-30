@@ -69,7 +69,8 @@ func (r *ReconcileTask) Run(ctx context.Context) error {
 	if r.CanRunUploadTask(ctx) {
 		if err := r.UploadTask(ctx); err != nil {
 			logger.Error(err, "error uploading files from data service")
-			errs = append(errs, err)
+			return err
+			// errs = append(errs, err)
 		}
 	}
 
