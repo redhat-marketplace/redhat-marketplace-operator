@@ -646,7 +646,7 @@ func (r *COSS3Uploader) UploadFile(path string) error {
 		Bucket:      aws.String(r.COSS3UploaderConfig.Bucket),
 		Key:         aws.String(filepath.Base(file.Name())),
 		Body:        file,
-		ContentType: aws.String("application/octet-stream"),
+		ContentType: aws.String("application/gzip"),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to upload file")

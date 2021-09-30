@@ -470,7 +470,7 @@ func (r *MarketplaceReporter) Process(
 						if !ok {
 							dataBuilder = r.schemaDataBuilder.New()
 							dataBuilder.SetClusterID(r.MktConfig.Spec.ClusterUUID)
-							dataBuilder.SetAccountID(r.MktConfig.Spec.ClusterUUID)
+							dataBuilder.SetAccountID(r.MktConfig.Spec.RhmAccountID)
 							dataBuilder.SetReportInterval(
 								common.Time(r.report.Spec.StartTime.Time),
 								common.Time(r.report.Spec.EndTime.Time))
