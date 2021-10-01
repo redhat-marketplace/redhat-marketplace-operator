@@ -333,10 +333,14 @@ func getMeterDefinitionReferences(
 	return
 }
 
-func provideReporterEventBroadcaster(schemeIn *runtime.Scheme, kubeclientset kubernetes.Interface) record.EventRecorder {
+func provideReporterEventBroadcaster(kubeclientset kubernetes.Interface) record.EventBroadcaster {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+	return eventBroadcaster
+}
+
+func provideReporterEventRecorder(eventBroadcaster record.EventBroadcaster, schemeIn *runtime.Scheme) record.EventRecorder {
 	recorder := eventBroadcaster.NewRecorder(schemeIn, corev1.EventSource{Component: "reporter"})
 	return recorder
 }

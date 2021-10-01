@@ -23,9 +23,6 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
 	"github.com/spf13/cobra"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -83,12 +80,14 @@ var ReportCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
-		recorder, err := reporter.NewEventRecorder(ctx, cfg)
-		if err != nil {
-			log.Error(err, "couldn't initialize event recorder")
-			os.
-				Exit(1)
-		}
+		/*
+			recorder, err := reporter.NewEventRecorder(ctx, cfg)
+			if err != nil {
+				log.Error(err, "couldn't initialize event recorder")
+				os.
+					Exit(1)
+			}
+		*/
 
 		task, err := reporter.NewTask(
 			ctx,
@@ -96,18 +95,20 @@ var ReportCmd = &cobra.Command{
 			cfg,
 		)
 
-		job := &batchv1.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      os.Getenv("POD_NAME"),
-				Namespace: os.Getenv("POD_NAMESPACE"),
-			},
-		}
+		/*
+			job := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      os.Getenv("POD_NAME"),
+					Namespace: os.Getenv("POD_NAMESPACE"),
+				},
+			}
+		*/
 
 		if err != nil {
 			var comp *reporter.ReportJobError
 			if errors.As(err, &comp) {
 				log.Error(err, "report job error")
-				recorder.Event(job, corev1.EventTypeWarning, "ReportJobError", "No insights")
+				//recorder.Event(job, corev1.EventTypeWarning, "ReportJobError", "No insights")
 			}
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)

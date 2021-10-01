@@ -48,14 +48,13 @@ func NewTask(
 	))
 }
 
-func NewEventRecorder(
+func NewEventBroadcaster(
 	ctx context.Context,
 	erConfig *Config,
-) (record.EventRecorder, error) {
+) (record.EventBroadcaster, error) {
 	panic(wire.Build(
 		config.GetConfig,
 		managers.ProvideSimpleClientSet,
-		provideScheme,
 		provideReporterEventBroadcaster,
 	))
 }
@@ -103,6 +102,7 @@ func NewUploadTask(
 func NewReconcileTask(
 	ctx context.Context,
 	config *Config,
+	broadcaster record.EventBroadcaster,
 	namespace Namespace,
 ) (*ReconcileTask, error) {
 	panic(wire.Build(
@@ -110,6 +110,7 @@ func NewReconcileTask(
 		kconfig.GetConfig,
 		wire.Struct(new(ReconcileTask), "*"),
 		provideScheme,
+		provideReporterEventRecorder,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }

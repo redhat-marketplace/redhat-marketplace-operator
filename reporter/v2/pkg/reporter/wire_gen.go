@@ -53,8 +53,7 @@ var (
 	_wireLoggerValue = logger
 )
 
-func NewEventRecorder(ctx context.Context, erConfig *Config) (record.EventRecorder, error) {
-	scheme := provideScheme()
+func NewEventBroadcaster(ctx context.Context, erConfig *Config) (record.EventBroadcaster, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -63,8 +62,8 @@ func NewEventRecorder(ctx context.Context, erConfig *Config) (record.EventRecord
 	if err != nil {
 		return nil, err
 	}
-	eventRecorder := provideReporterEventBroadcaster(scheme, clientset)
-	return eventRecorder, nil
+	eventBroadcaster := provideReporterEventBroadcaster(clientset)
+	return eventBroadcaster, nil
 }
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
@@ -163,7 +162,7 @@ var (
 	_wireLoggerValue2 = logger
 )
 
-func NewReconcileTask(ctx context.Context, config2 *Config, namespace Namespace) (*ReconcileTask, error) {
+func NewReconcileTask(ctx context.Context, config2 *Config, broadcaster record.EventBroadcaster, namespace Namespace) (*ReconcileTask, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -177,11 +176,13 @@ func NewReconcileTask(ctx context.Context, config2 *Config, namespace Namespace)
 	if err != nil {
 		return nil, err
 	}
+	eventRecorder := provideReporterEventRecorder(broadcaster, scheme)
 	reconcileTask := &ReconcileTask{
 		K8SClient: simpleClient,
 		Config:    config2,
 		K8SScheme: scheme,
 		Namespace: namespace,
+		recorder:  eventRecorder,
 	}
 	return reconcileTask, nil
 }

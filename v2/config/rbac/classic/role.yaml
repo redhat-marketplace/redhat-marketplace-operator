@@ -285,6 +285,7 @@ rules:
       - watch
       - list
       - create
+      - update
       - patch
   - apiGroups:
       - batch
