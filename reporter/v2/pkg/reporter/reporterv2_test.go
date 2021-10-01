@@ -213,7 +213,7 @@ var _ = Describe("ReporterV2", func() {
 			"end":       BeNumerically(">", 0),
 			"eventId":   BeAssignableToTypeOf(""),
 			"groupName": Equal("app.partner.metering.com"),
-			"accountId": Equal("foo-id"),
+			"accountId": Equal("foo"),
 			"measuredUsage": MatchAllElements(func(element interface{}) string {
 				data := element.(map[string]interface{})
 				return data["metricId"].(string)
@@ -437,7 +437,7 @@ var _ = Describe("ReporterV2", func() {
 			"end":       BeNumerically(">", 0),
 			"eventId":   BeAssignableToTypeOf(""),
 			"groupName": Equal("apps.partner.metering.com"),
-			"accountId": Equal("foo-id"),
+			"accountId": Equal("foo"),
 
 			"measuredUsage": MatchAllElements(func(element interface{}) string {
 				data := element.(map[string]interface{})
