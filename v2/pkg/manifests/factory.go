@@ -111,7 +111,7 @@ func NewFactory(
 	}
 }
 
-func (f *Factory) ReplaceImages(container *corev1.Container) {
+func (f *Factory) ReplaceImages(container *corev1.Container) error {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
 		container.Image = f.config.RelatedImages.KubeRbacProxy
@@ -168,6 +168,18 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.WatchKeeper
 	}
 
+	if err := f.updateProxyEnvVariables(container); err != nil {
+		return err
+	}
+
+	if err := f.updateContainerResources(container); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *Factory) updateProxyEnvVariables(container *corev1.Container) error {
 	if container.Env == nil {
 		container.Env = []corev1.EnvVar{}
 	}
@@ -215,6 +227,30 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	sort.Slice(container.Env, func(a, b int) bool {
 		return container.Env[a].Name < container.Env[b].Name
 	})
+
+	return nil
+}
+
+func (f *Factory) updateContainerResources(container *corev1.Container) error {
+	if f.operatorConfig == nil || f.operatorConfig.Config.Resources == nil {
+		return nil
+	}
+
+	if len(f.operatorConfig.Config.Resources.Containers) == 0 {
+		return nil
+	}
+
+	if r, ok := f.operatorConfig.Config.Resources.Containers[container.Name]; ok {
+		for k, v := range r.Limits {
+			container.Resources.Limits[k] = v
+		}
+
+		for k, v := range r.Requests {
+			container.Resources.Requests[k] = v
+		}
+	}
+
+	return nil
 }
 
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
@@ -420,7 +456,11 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 		container := &dep.Spec.Template.Spec.Containers[i]
 		newArgs := []string{}
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
@@ -503,7 +543,12 @@ func (f *Factory) NewPrometheusDeployment(
 	}
 
 	for i := range p.Spec.Containers {
-		f.ReplaceImages(&p.Spec.Containers[i])
+		container := &p.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return p, err
@@ -741,7 +786,12 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	}
 
 	for i := range d.Spec.Template.Spec.Containers {
-		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+		container := &d.Spec.Template.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	d.Namespace = f.namespace
@@ -981,7 +1031,11 @@ func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -1013,7 +1067,11 @@ func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
