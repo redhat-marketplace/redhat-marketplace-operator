@@ -13,25 +13,27 @@ rules:
   - create
   - get
 - nonResourceURLs:
+  - /community-meterdef-index/*
+  verbs:
+  - get
+- nonResourceURLs:
+  - /get-community-meterdefs
+  verbs:
+  - create
+  - get
+  - post
+- nonResourceURLs:
   - /get-system-meterdefs
   verbs:
   - create
   - get
   - post
 - nonResourceURLs:
-  - /get-system-meterdefs/*
+  - /global-community-meterdef-index
   verbs:
-  - create
   - get
-  - post
 - nonResourceURLs:
-  - /list-for-version
-  verbs:
-  - create
-  - get
-  - post
-- nonResourceURLs:
-  - /meterdef-index-label/*
+  - /global-system-meterdef-index
   verbs:
   - get
 - nonResourceURLs:
@@ -39,7 +41,7 @@ rules:
   verbs:
   - get
 - nonResourceURLs:
-  - /system-meterdef-index-label/*
+  - /system-meterdef-index/*
   verbs:
   - get
 - apiGroups:

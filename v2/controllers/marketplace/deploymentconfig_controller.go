@@ -32,7 +32,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -42,7 +43,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 
@@ -64,15 +64,15 @@ var _ reconcile.Reconciler = &DeploymentConfigReconciler{}
 type DeploymentConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client        client.Client
-	Scheme        *runtime.Scheme
-	Log           logr.Logger
-	CC            ClientCommandRunner
-	cfg           *config.OperatorConfig
-	factory       *manifests.Factory
-	patcher       patch.Patcher
-	CatalogClient *catalog.CatalogClient
-	kubeInterface kubernetes.Interface
+	Client            client.Client
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	CC                ClientCommandRunner
+	cfg               *config.OperatorConfig
+	factory           *manifests.Factory
+	patcher           patch.Patcher
+	CatalogClient     *catalog.CatalogClient
+	AuthBuilderConfig *rhmo_transport.AuthBuilderConfig
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -107,9 +107,9 @@ func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) InjectKubeInterface(k kubernetes.Interface) error {
-	r.Log.Info("kube interface")
-	r.kubeInterface = k
+func (r *DeploymentConfigReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmo_transport.AuthBuilderConfig) error {
+	r.Log.Info("AuthBuilder")
+	r.AuthBuilderConfig = authBuilderConfig
 	return nil
 }
 
@@ -165,7 +165,11 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(nsPred).
-		For(&marketplacev1alpha1.MeterBase{}).
+		For(&osappsv1.DeploymentConfig{}).
+		WithOptions(controller.Options{
+			Reconciler: r,
+			Log:        r.Log,
+		}).
 		Watches(
 			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
 			&handler.EnqueueRequestForObject{},
@@ -183,10 +187,12 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch;delete
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch;delete
-// +kubebuilder:rbac:urls=/list-for-version,verbs=get;post;create;
-// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
-// +kubebuilder:rbac:urls=/meterdef-index-label/*,verbs=get;
-// +kubebuilder:rbac:urls=/system-meterdef-index-label/*,verbs=get;
+// +kubebuilder:rbac:urls=/get-community-meterdefs,verbs=get;post;create;
+// +kubebuilder:rbac:urls=/get-system-meterdefs,verbs=get;post;create;
+// +kubebuilder:rbac:urls=/community-meterdef-index/*,verbs=get;
+// +kubebuilder:rbac:urls=/system-meterdef-index/*,verbs=get;
+// +kubebuilder:rbac:urls=/global-community-meterdef-index,verbs=get;
+// +kubebuilder:rbac:urls=/global-system-meterdef-index,verbs=get;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
@@ -211,7 +217,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, nil
 	}
 
-	err = r.CatalogClient.SetRetryForCatalogClient(r.Client, r.cfg.DeployedNamespace, r.kubeInterface, reqLogger)
+	err = r.CatalogClient.SetRetryForCatalogClient(r.AuthBuilderConfig, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -317,7 +323,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	result = r.sync(instance, request, reqLogger)
 	if !result.Is(Continue) {
 		if result.Is(Error) {
-			reqLogger.Error(err, "error on sync")
+			reqLogger.Error(result.GetError(), "error on sync")
 		}
 
 		return result.Return()
@@ -344,34 +350,60 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			continue
 		}
 
+		var csvName string
+		if sub.Status.InstalledCSV == "" {
+			err = fmt.Errorf("subscription does not have InstalledCSV set: %s, subscription namespace: %s", sub.Name, sub.Namespace)
+			return &ExecResult{
+				Status: ActionResultStatus(Error),
+				Err:    err,
+			}
+		}
+
+		csvName = sub.Status.InstalledCSV
+		reqLogger.Info("Subscription has InstalledCSV", "csv", csvName)
+
 		csv := &olmv1alpha1.ClusterServiceVersion{}
-		csvName := sub.Status.InstalledCSV
+
+		// find InstalledCSV in the same namespace as the subscription
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
-				reqLogger.Info("clusterserviceversion does not exist", "name", csv.Name)
+				err = fmt.Errorf("could not find csv: %s, from subscription: %s, subscription namespace: %s", csv.Name, sub.Name, sub.Namespace)
 				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
+					Status: ActionResultStatus(Error),
+					Err:    err,
 				}
 			}
 
 			reqLogger.Error(err, "Failed to get clusterserviceversion")
 			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
+				Status: ActionResultStatus(Error),
+				Err:    err,
 			}
+		}
+
+		reqLogger.Info("found installed csv from subscription", "csv", csv.Name)
+
+		cr := &catalog.CatalogRequest{
+			CSVInfo: catalog.CSVInfo{
+				Name:      csvName,
+				Namespace: csv.Namespace,
+				Version:   csv.Spec.Version.Version.String(),
+			},
+			SubInfo: catalog.SubInfo{
+				PackageName:   sub.Spec.Package,
+				CatalogSource: sub.Spec.CatalogSource,
+			},
 		}
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 				// Fetch the ClusterServiceVersion instance
-				err = r.syncSystemMeterDefs(csv, reqLogger)
+				err = r.syncSystemMeterDefs(csv, cr, reqLogger)
 				if err != nil {
 					return &ExecResult{
-						ReconcileResult: reconcile.Result{},
-						Err:             err,
+						Status: ActionResultStatus(Error),
+						Err:    err,
 					}
 				}
 			}
@@ -379,19 +411,11 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
-				cr := &catalog.CatalogRequest{
-					CsvName:       csvName,
-					Version:       csv.Spec.Version.Version.String(),
-					CsvNamespace:  csv.Namespace,
-					PackageName:   sub.Spec.Package,
-					CatalogSource: sub.Spec.CatalogSource,
-				}
-
 				err = r.syncCommunityMeterDefs(cr, csv, reqLogger)
 				if err != nil {
 					return &ExecResult{
-						ReconcileResult: reconcile.Result{},
-						Err:             err,
+						Status: ActionResultStatus(Error),
+						Err:    err,
 					}
 				}
 			}
@@ -413,8 +437,8 @@ func checkOperatorTag(sub *olmv1alpha1.Subscription) bool {
 	return false
 }
 
-func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(csv)
+func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, cr *catalog.CatalogRequest, reqLogger logr.Logger) error {
+	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(cr)
 	if err != nil {
 		return err
 	}
@@ -424,7 +448,7 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.Cluste
 		return err
 	}
 
-	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csv.Name)
+	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csv.Name, cr.PackageName, cr.CatalogSource)
 	if err != nil {
 		return err
 	}
@@ -443,38 +467,42 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.Cluste
 }
 
 func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogRequest, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-	// csvName := csv.Name
-	// csvVersion := csv.Spec.Version.Version.String()
-	// csvNamespace := csv.Namespace
-
 	/*
 		pings the file server for a map of labels we use to index meterdefintions that originated from the file server
 		these labels also get added to a meterdefinition by the file server	before it returns
-		csvName gets dynamically added on the call to get labels
 		{
 			"marketplace.redhat.com/installedOperatorNameTag": "<csvName>",
 			"marketplace.redhat.com/isCommunityMeterdefintion": "true"
+			"subscription.package": <sub.Spec.Package>
+			"subscription.name": <sub.Spec.Catalog>
 		}
 
 	*/
-	communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(csv.Name)
+	communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(csv.Name, cr.PackageName, cr.CatalogSource)
 	if err != nil {
 		return err
 	}
 
 	/*
-		csv is on the cluster but doesn't have a csv dir or doesn't have mdefs in it's catalog listing...
-		if an isv removes their catalog listing, meterdefs could be orphaned on the cluster
+		csv is on the cluster but doesn't have mdefs in the catalog
 		delete all community meterdefs for that csv
 		if no community meterdefs are found, skip to next csv
-		if community meterdefs are found and deleted, skip to next csv
+		if community meterdefs are found and deleted successfully, skip to next csv
 	*/
 	//TODO: handle when the file server can't be reached - return err [x]
 	latestCommunityMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(cr)
 	if err != nil {
-		if errors.Is(err, catalog.CatalogNoContentErr) {
+		if errors.Is(err, catalog.ErrCatalogNoContent) {
 			reqLogger.Info("catalog meterdefinitions have been deleted from that catalog for csv", "csv", csv.Name)
 
+			/*
+				deletes mdefs that match:
+				labels:
+					marketplace.redhat.com/installedOperatorNameTag: memcached-operator.v0.0.1
+					marketplace.redhat.com/isCommunityMeterdefintion: '1'
+					subscription.name: memcached-operator-rhmp
+					subscription.source: max-test-catalog
+			*/
 			err = r.deleteMeterdefsWithIndex(communityIndexLabels, reqLogger)
 			if err != nil {
 				return err
@@ -511,7 +539,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 /*
 	//TODO:
 	setting this to a var so I can mock it in deploymentconfig_conttroller_test.go
-	was getting validation errors applying subs with envtest
+	was having trouble setting the status for subscriptions created in the test env
 	mocking the return for now
 */
 var listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
@@ -996,68 +1024,43 @@ func (r *DeploymentConfigReconciler) listMeterDefsForCsvWithIndex(indexLabels ma
 }
 
 func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger logr.Logger) error {
-	subs, err := listSubs(r.Client)
+	reqLogger.Info("deleting all meterdefs community meterdefs")
+	/*
+		returns the label:
+			{
+				"marketplace.redhat.com/isCommunityMeterdefintion": "1"
+			}
+	*/
+	globalSystemIndexLabel, err := r.CatalogClient.GetGlobalSystemMeterDefIndexLabels()
 	if err != nil {
 		return err
 	}
 
-	for _, sub := range subs {
-		isRHMSub := checkOperatorTag(&sub)
-		if !isRHMSub {
-			reqLogger.Info("subscription is not from RHM", "sub", sub.Name)
-			continue
-		}
-
-		if sub.Status.InstalledCSV == "" {
-			return fmt.Errorf("subscription does not have InstalledCSV set: %s", sub.Name)
-		}
-
-		csvName := sub.Status.InstalledCSV
-		reqLogger.Info("deleting system meterdefs for csv", "csv", csvName)
-
-		systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csvName)
-		if err != nil {
-			return err
-		}
-
-		err = r.deleteMeterdefsWithIndex(systemMeterDefIndexLabels, reqLogger)
-		if err != nil {
-			return err
-		}
+	err = r.deleteMeterdefsWithIndex(globalSystemIndexLabel, reqLogger)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 func (r *DeploymentConfigReconciler) deleteAllCommunityMeterDefsForRhmCvs(reqLogger logr.Logger) error {
-	subs, err := listSubs(r.Client)
+	reqLogger.Info("deleting all meterdefs community meterdefs")
+
+	/*
+		returns the label:
+		{
+			"marketplace.redhat.com/isCommunityMeterdefintion": "1"
+		}
+	*/
+	globalCommunityIndexLabel, err := r.CatalogClient.GetGlobalCommunityMeterdefIndexLabel()
 	if err != nil {
 		return err
 	}
 
-	for _, sub := range subs {
-		isRHMSub := checkOperatorTag(&sub)
-		if !isRHMSub {
-			reqLogger.Info("subscription is not from RHM", "sub", sub.Name)
-			continue
-		}
-
-		if sub.Status.InstalledCSV == "" {
-			return fmt.Errorf("subscription does not have InstalledCSV set: %s", sub.Name)
-		}
-
-		csvName := sub.Status.InstalledCSV
-		reqLogger.Info("deleting system meterdefs for csv", "csv", csvName)
-
-		communityIndexLabels, err := r.CatalogClient.GetCommunityMeterdefIndexLabels(csvName)
-		if err != nil {
-			return err
-		}
-
-		err = r.deleteMeterdefsWithIndex(communityIndexLabels, reqLogger)
-		if err != nil {
-			return err
-		}
+	err = r.deleteMeterdefsWithIndex(globalCommunityIndexLabel, reqLogger)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -1114,7 +1117,7 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string, namespace s
 
 	reqLogger.Info("Removed owner reference from meterdefintion", "name", mdefName, "namespace", namespace)
 
-	reqLogger.Info("Deleteing MeterDefinition")
+	reqLogger.Info("Deleting MeterDefinition", "mdef", mdefName)
 
 	err = r.Client.Delete(context.TODO(), installedMeterDefn)
 	if err != nil && !k8serrors.IsNotFound(err) {

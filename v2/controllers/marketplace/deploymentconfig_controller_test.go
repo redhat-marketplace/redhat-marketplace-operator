@@ -44,7 +44,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		/* rhm csv */
 		csvName           = "test-csv-1.v0.0.1"
-		csvVersion        = "0.0.1"
 		subName           = "test-csv-1-sub"
 		packageName       = "test-csv-1-rhmp"
 		catalogSourceName = "redhat-marketplace"
@@ -59,13 +58,27 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		systemMeterDef1Name = csvName + "-" + "pod-count"
 		systemMeterDef2Name = csvName + "-" + "cpu-usage"
 
-		listMeterDefsForCsvPath          = "/" + catalog.ListForVersionEndpoint + "/" + csvName + "/" + csvVersion + "/" + namespace
-		indexLabelsPath                  = "/" + catalog.GetMeterdefinitionIndexLabelEndpoint + "/" + csvName
-		systemMeterDefIndexLabelsPath    = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName
-		healthEndpoint                   = "/" + catalog.HealthEndpoint
-		communityMeterDefIndexLabelsBody []byte
-		systemMeterDefIndexLabelsBody    []byte
-		dcControllerMockServer           *ghttp.Server
+		/* paths */
+		listMeterDefsForCsvPath                = "/" + catalog.GetCommunityMeterdefinitionsEndpoint
+		systemMeterdefsPath                    = "/" + catalog.GetSystemMeterdefinitionTemplatesEndpoint
+		indexLabelsPath                        = "/" + catalog.GetCommunityMeterdefinitionIndexLabelEndpoint + "/" + csvName + "/" + packageName + "/" + catalogSourceName
+		systemMeterDefIndexLabelsPath          = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName + "/" + packageName + "/" + catalogSourceName
+		globalCommunityMeterDefIndexLabelsPath = "/" + catalog.GetGlobalCommunityMeterdefinitionIndexLabelEndpoint
+		globalSystemMeterDefIndexLabelsPath    = "/" + catalog.GetGlobalSystemMeterDefIndexLabelEndpoint
+
+		/* return values */
+		communityMeterDefIndexLabelsBody       []byte
+		communityMeterDefIndexLabelsMap        map[string]string
+		systemMeterDefIndexLabelsBody          []byte
+		systemMeterDefIndexLabelsMap           map[string]string
+		globalCommunityMeterDefIndexLabelsBody []byte
+		globalCommunityMeterDefIndexLabelsMap  map[string]string
+		globalSystemMeterDefIndexLabelsBody    []byte
+		globalSystemMeterDefIndexLabelsMap     map[string]string
+
+		dcControllerMockServer *ghttp.Server
+
+		Status200 = 200
 	)
 
 	idFn := func(element interface{}) string {
@@ -102,6 +115,13 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Namespace: namespace,
 	}
 
+	systemMeterDefIndexLabelsMap = map[string]string{
+		"marketplace.redhat.com/installedOperatorNameTag": csvName,
+		"marketplace.redhat.com/isSystemMeterDefinition":  "1",
+		"subscription.package":                            packageName,
+		"subscription.name":                               catalogSourceName,
+	}
+
 	systemMeterDef1 := marketplacev1beta1.MeterDefinition{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "MeterDefinition",
@@ -111,12 +131,11 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Name:      systemMeterDef1Name,
 			Namespace: "default",
 			Annotations: map[string]string{
-				"versionRange": "<=0.0.1",
+				"versionRange":        "<=0.0.1",
+				"subscription.source": catalogSourceName,
+				"subscription.name":   packageName,
 			},
-			Labels: map[string]string{
-				"marketplace.redhat.com/installedOperatorNameTag": csvName,
-				"marketplace.redhat.com/isSystemMeterDefinition":  "1",
-			},
+			Labels: systemMeterDefIndexLabelsMap,
 		},
 		Spec: marketplacev1beta1.MeterDefinitionSpec{
 			Group: "apps.partner.metering.com",
@@ -160,12 +179,11 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Name:      systemMeterDef2Name,
 			Namespace: "default",
 			Annotations: map[string]string{
-				"versionRange": "<=0.0.1",
+				"subscription.versionRange": "<=0.0.1",
+				"subscription.source":       catalogSourceName,
+				"subscription.name":         packageName,
 			},
-			Labels: map[string]string{
-				"marketplace.redhat.com/installedOperatorNameTag": csvName,
-				"marketplace.redhat.com/isSystemMeterDefinition":  "1",
-			},
+			Labels: systemMeterDefIndexLabelsMap,
 		},
 		Spec: marketplacev1beta1.MeterDefinitionSpec{
 			Group: "apps.partner.metering.com",
@@ -200,6 +218,13 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		},
 	}
 
+	communityMeterDefIndexLabelsMap = map[string]string{
+		"marketplace.redhat.com/installedOperatorNameTag":  csvName,
+		"marketplace.redhat.com/isCommunityMeterdefintion": "1",
+		"subscription.package":                             packageName,
+		"subscription.name":                                catalogSourceName,
+	}
+
 	meterDef1 := marketplacev1beta1.MeterDefinition{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "MeterDefinition",
@@ -209,12 +234,11 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Name:      meterDef1Key.Name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"versionRange": "<=0.0.1",
+				"versionRange":        "<=0.0.1",
+				"subscription.source": catalogSourceName,
+				"subscription.name":   packageName,
 			},
-			Labels: map[string]string{
-				"marketplace.redhat.com/installedOperatorNameTag":  csvName,
-				"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-			},
+			Labels: communityMeterDefIndexLabelsMap,
 		},
 		Spec: marketplacev1beta1.MeterDefinitionSpec{
 			Group: "apps.partner.metering.com",
@@ -258,12 +282,11 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Name:      meterDef2Key.Name,
 			Namespace: "default",
 			Annotations: map[string]string{
-				"versionRange": "<=0.0.1",
+				"versionRange":        "<=0.0.1",
+				"subscription.source": catalogSourceName,
+				"subscription.name":   packageName,
 			},
-			Labels: map[string]string{
-				"marketplace.redhat.com/installedOperatorNameTag":  csvName,
-				"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-			},
+			Labels: communityMeterDefIndexLabelsMap,
 		},
 		Spec: marketplacev1beta1.MeterDefinitionSpec{
 			Group: "apps.partner.metering.com",
@@ -334,9 +357,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csvName,
 			Namespace: namespace,
-			Annotations: map[string]string{
-				"operatorframework.io/properties": fmt.Sprintf(`{"properties":[{"type":"olm.gvk","value":{"group":"app.joget.com","kind":"JogetDX","version":"v1alpha1"}},{"type":"olm.package","value":{"packageName":"%v","version":"0.0.1"}}]}`, packageName),
-			},
 		},
 		Spec: olmv1alpha1.ClusterServiceVersionSpec{
 			InstallStrategy: olmv1alpha1.NamedInstallStrategy{
@@ -359,9 +379,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nonRhmCsvName,
 			Namespace: namespace,
-			Annotations: map[string]string{
-				"operatorframework.io/properties": fmt.Sprintf(`{"properties":[{"type":"olm.gvk","value":{"group":"app.joget.com","kind":"JogetDX","version":"v1alpha1"}},{"type":"olm.package","value":{"packageName":"%v","version":"0.0.1"}}]}`, nonRhmPackageName),
-			},
 		},
 		Spec: olmv1alpha1.ClusterServiceVersionSpec{
 			InstallStrategy: olmv1alpha1.NamedInstallStrategy{
@@ -402,9 +419,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nonRhmSubNmae,
 				Namespace: namespace,
-				Labels: map[string]string{
-					operatorTag: "true",
-				},
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{
 				CatalogSource:          nonRhmCatalogSourceName,
@@ -416,9 +430,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			},
 		},
 	}
-
-	Status200 := 200
-	systemMeterdefsPath := "/" + catalog.GetSystemMeterdefinitionTemplatesEndpoint
 
 	BeforeEach(func() {
 		customListener, err := net.Listen("tcp", listenerAddress)
@@ -517,10 +528,10 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Expect(k8sClient.Create(context.TODO(), service)).Should(SucceedOrAlreadyExist, "create file server service")
 		Expect(k8sClient.Create(context.TODO(), catalogSource.DeepCopy())).Should(Succeed(), "create catalog source")
 
-		communityMeterDefIndexLabelsBody = []byte(fmt.Sprintf(`{
-				"marketplace.redhat.com/installedOperatorNameTag": "%v",
-				"marketplace.redhat.com/isCommunityMeterdefintion": "1"
-			}`, csvName))
+		communityMeterDefIndexLabelsBody, err = json.Marshal(communityMeterDefIndexLabelsMap)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		dcControllerMockServer.RouteToHandler(
 			"GET", indexLabelsPath, ghttp.CombineHandlers(
@@ -528,10 +539,10 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				ghttp.RespondWithPtr(&Status200, &communityMeterDefIndexLabelsBody),
 			))
 
-		systemMeterDefIndexLabelsBody = []byte(fmt.Sprintf(`{
-				"marketplace.redhat.com/installedOperatorNameTag": "%v",
-				"marketplace.redhat.com/isSystemMeterDefinition": "1"
-			}`, csvName))
+		systemMeterDefIndexLabelsBody, err = json.Marshal(systemMeterDefIndexLabelsMap)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		dcControllerMockServer.RouteToHandler(
 			"GET", systemMeterDefIndexLabelsPath, ghttp.CombineHandlers(
@@ -539,13 +550,36 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				ghttp.RespondWithPtr(&Status200, &systemMeterDefIndexLabelsBody),
 			))
 
-		healthBody := []byte(`status ok`)
+		globalCommunityMeterDefIndexLabelsMap = map[string]string{
+			"marketplace.redhat.com/isCommunityMeterdefintion": "1",
+		}
+
+		globalCommunityMeterDefIndexLabelsBody, err = json.Marshal(globalCommunityMeterDefIndexLabelsMap)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		dcControllerMockServer.RouteToHandler(
-			"GET", healthEndpoint, ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", healthEndpoint),
-				ghttp.RespondWith(http.StatusOK, healthBody),
+			"GET", globalCommunityMeterDefIndexLabelsPath, ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", globalCommunityMeterDefIndexLabelsPath),
+				ghttp.RespondWithPtr(&Status200, &globalCommunityMeterDefIndexLabelsBody),
 			))
+
+		globalSystemMeterDefIndexLabelsMap = map[string]string{
+			"marketplace.redhat.com/isSystemMeterDefinition": "1",
+		}
+
+		globalSystemMeterDefIndexLabelsBody, err = json.Marshal(globalSystemMeterDefIndexLabelsMap)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		dcControllerMockServer.RouteToHandler(
+			"GET", globalSystemMeterDefIndexLabelsPath, ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", globalSystemMeterDefIndexLabelsPath),
+				ghttp.RespondWithPtr(&Status200, &globalSystemMeterDefIndexLabelsBody),
+			))
+
 	})
 
 	AfterEach(func() {
@@ -596,8 +630,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
+				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -652,8 +686,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
+				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -730,8 +764,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
+				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -809,7 +843,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		})
 	})
 
-	Context("Remove Catalog directory", func() {
+	FContext("Remove all meterdefs from the catalog", func() {
 		BeforeEach(func() {
 			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
@@ -830,8 +864,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 			notFoundBody := []byte(`no meterdefs found`)
 			dcControllerMockServer.RouteToHandler(
-				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
+				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
 					ghttp.RespondWith(http.StatusNoContent, notFoundBody),
 				))
 
@@ -848,7 +882,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				))
 		})
 
-		It("should delete all community meterdefinitions for an rhm csv with no catalog listing", func() {
+		It("should delete all community meterdefinitions on cluster for an rhm csv with no meterdefintions in the catalog", func() {
 			Eventually(func() []marketplacev1beta1.MeterDefinition {
 
 				labelsMap := map[string]string{}
@@ -905,8 +939,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath),
+				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -1011,7 +1045,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		It("all file server resources should be deleted if DeployMeterDefinitionCatalogServer is disabled", func() {
 			Eventually(func() bool {
 				var dcNotFound bool
-				var isNotFound bool
+				var imageStreamNotFound bool
 				var serviceIsNotFound bool
 
 				dc := &osappsv1.DeploymentConfig{}
@@ -1023,7 +1057,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				is := &osimagev1.ImageStreamImage{}
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, is)
 				if k8serrors.IsNotFound(err) {
-					isNotFound = true
+					imageStreamNotFound = true
 				}
 
 				service := &corev1.Service{}
@@ -1032,7 +1066,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 					serviceIsNotFound = true
 				}
 
-				return dcNotFound && isNotFound && serviceIsNotFound
+				return dcNotFound && imageStreamNotFound && serviceIsNotFound
 			}, timeout, interval).Should(BeTrue())
 		})
 	})

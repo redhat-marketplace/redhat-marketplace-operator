@@ -30,11 +30,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -54,12 +54,69 @@ var _ reconcile.Reconciler = &MeterDefinitionInstallReconciler{}
 type MeterDefinitionInstallReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client        client.Client
-	Scheme        *runtime.Scheme
-	Log           logr.Logger
-	cfg           *config.OperatorConfig
-	catalogClient *catalog.CatalogClient
-	kubeInterface kubernetes.Interface
+	Client            client.Client
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	cfg               *config.OperatorConfig
+	catalogClient     *catalog.CatalogClient
+	AuthBuilderConfig *rhmo_transport.AuthBuilderConfig
+}
+
+func hasOperatorTag(meta metav1.Object) bool {
+	if value, ok := meta.GetLabels()[utils.OperatorTag]; ok {
+		if value == utils.OperatorTagValue {
+			return true
+		}
+	}
+
+	return false
+}
+
+var rhmSubPredicates predicate.Funcs = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return hasOperatorTag(e.MetaNew)
+	},
+
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return hasOperatorTag(e.Meta)
+	},
+
+	CreateFunc: func(e event.CreateEvent) bool {
+		return hasOperatorTag(e.Meta)
+
+	},
+
+	GenericFunc: func(e event.GenericEvent) bool {
+		return hasOperatorTag(e.Meta)
+	},
+}
+
+func (r *MeterDefinitionInstallReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *MeterDefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	r.cfg = cfg
+	return nil
+}
+
+func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
+	r.Log.Info("catalog client")
+	r.catalogClient = catalogClient
+	return nil
+}
+
+func (r *MeterDefinitionInstallReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmo_transport.AuthBuilderConfig) error {
+	r.Log.Info("AuthBuilder")
+	r.AuthBuilderConfig = authBuilderConfig
+	return nil
+}
+
+func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&olmv1alpha1.Subscription{}, builder.WithPredicates(rhmSubPredicates)).
+		Complete(r)
 }
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
@@ -68,7 +125,7 @@ type MeterDefinitionInstallReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
-// +kubebuilder:rbac:urls=/list-for-version,verbs=get;post;create;
+// +kubebuilder:rbac:urls=/get-community-meterdefs,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/get-system-meterdefs,verbs=get;post;create;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
@@ -101,7 +158,10 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, nil
 	}
 
-	err = r.catalogClient.SetRetryForCatalogClient(r.Client, r.cfg.DeployedNamespace, r.kubeInterface, reqLogger)
+	/*
+		AuthBuilderConfig has a method FindAuthOnCluster and is an interface of AuthBuilder
+	*/
+	err = r.catalogClient.SetRetryForCatalogClient(r.AuthBuilderConfig, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -128,13 +188,12 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	csvName := sub.Status.InstalledCSV
 	reqLogger.Info("Subscription has InstalledCSV", "csv", csvName)
 
-	csv := &olmv1alpha1.ClusterServiceVersion{}
 	// try to find InstalledCSV in the same namespace as the subscription
+	csv := &olmv1alpha1.ClusterServiceVersion{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
-			reqLogger.Info("no csv found for InstalledCSV", "csv", csvName)
+			reqLogger.Info("no csv found for InstalledCSV", "csv", csvName, "sub", sub.Name, "sub namespace", sub.Namespace)
 			return reconcile.Result{}, nil
 		}
 
@@ -142,21 +201,25 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("found csv from subscription", "csv", csv.Name)
+	reqLogger.Info("found csv from subscription", "csv", csv.Name, "csv namespace", csv.Namespace)
+
+	cr := &catalog.CatalogRequest{
+		CSVInfo: catalog.CSVInfo{
+			Name:      csvName,
+			Namespace: csv.Namespace,
+			Version:   csv.Spec.Version.Version.String(),
+		},
+		SubInfo: catalog.SubInfo{
+			PackageName:   sub.Spec.Package,
+			CatalogSource: sub.Spec.CatalogSource,
+		},
+	}
 
 	if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
-			cr := &catalog.CatalogRequest{
-				CsvName:       csvName,
-				Version:       csv.Spec.Version.Version.String(),
-				CsvNamespace:  csv.Namespace,
-				PackageName:   sub.Spec.Package,
-				CatalogSource: sub.Spec.CatalogSource,
-			}
-
 			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr)
 			if err != nil {
-				reqLogger.Error(err, "error listing meterdefs")
+				reqLogger.Error(err, "error getting community meterdefs")
 				return reconcile.Result{}, err
 			}
 
@@ -170,10 +233,9 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 			reqLogger.Info("system meterdefs enabled")
-
-			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(csv)
+			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(cr)
 			if err != nil {
-				reqLogger.Error(err, "error listing system meterdefs")
+				reqLogger.Error(err, "error getting system meterdefs")
 				return reconcile.Result{}, err
 			}
 
@@ -262,61 +324,4 @@ func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion
 	reqLogger.Info("Created meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
 
 	return nil
-}
-
-func hasOperatorTag(meta metav1.Object) bool {
-	if value, ok := meta.GetLabels()[utils.OperatorTag]; ok {
-		if value == utils.OperatorTagValue {
-			return true
-		}
-	}
-
-	return false
-}
-
-var rhmSubPredicates predicate.Funcs = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return hasOperatorTag(e.MetaNew)
-	},
-
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return hasOperatorTag(e.Meta)
-	},
-
-	CreateFunc: func(e event.CreateEvent) bool {
-		return hasOperatorTag(e.Meta)
-
-	},
-
-	GenericFunc: func(e event.GenericEvent) bool {
-		return hasOperatorTag(e.Meta)
-	},
-}
-
-func (r *MeterDefinitionInstallReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *MeterDefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
-}
-
-func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
-	r.Log.Info("catalog client")
-	r.catalogClient = catalogClient
-	return nil
-}
-
-func (r *MeterDefinitionInstallReconciler) InjectKubeInterface(k kubernetes.Interface) error {
-	r.Log.Info("kube interface")
-	r.kubeInterface = k
-	return nil
-}
-
-func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&olmv1alpha1.Subscription{}, builder.WithPredicates(rhmSubPredicates)).
-		Complete(r)
 }

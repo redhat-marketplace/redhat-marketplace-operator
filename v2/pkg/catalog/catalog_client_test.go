@@ -15,8 +15,6 @@
 package catalog
 
 import (
-	"context"
-	"encoding/json"
 	"log"
 	"net"
 	"net/http"
@@ -25,119 +23,43 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 
 	. "github.com/onsi/gomega"
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_query"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 //TODO: in progress
 var _ = Describe("Catalog Client", func() {
 
 	var (
-		catalogClientMockServer      *ghttp.Server
-		systemMeterdefsPath = "/" + GetSystemMeterdefinitionTemplatesEndpoint
-		namespace = "default"
-		systemMeterDef1Name  = "system-meterdef" + "-" + "pod-count"
-		Status200 = http.StatusOK
+		catalogClientMockServer *ghttp.Server
+		communityMeterDefPath   = "/" + GetCommunityMeterdefinitionsEndpoint
 	)
 
 	const (
-		timeout = time.Second * 100
+		timeout  = time.Second * 100
 		interval = time.Second * 3
-
 	)
 
-	serviceKey := types.NamespacedName{Name: utils.DeploymentConfigName,Namespace: namespace}
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: serviceKey.Name,
-			Namespace: serviceKey.Namespace,
+	cr := &CatalogRequest{
+		CSVInfo: CSVInfo{
+			Name:      "memcached-operator.v0.0.1",
+			Namespace: "openshift-redhat-marketplace",
+			Version:   "0.0.1",
 		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "foo",
-					Port:       int32(8180),
-					TargetPort: intstr.FromString("foo"),
-				},
-			},
-		},
-	}
-
-	servingCertsCMKey := types.NamespacedName{Name: "serving-certs-cs-bundle",Namespace: namespace}
-	servingCertsCm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: servingCertsCMKey.Name,
-			Namespace: servingCertsCMKey.Namespace,
-		},
-		Data: map[string]string{
-			"ca.cert" : "test",
-		},
-	}
-
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-serviceaccount",
-			Namespace: namespace,
-		},
-	}
-
-	// systemMeterDef1Key := types.NamespacedName{
-	// 	Name:      systemMeterDef1Name,
-	// 	Namespace: namespace,
-	// }
-	systemMeterDef1 := marketplacev1beta1.MeterDefinition{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "MeterDefinition",
-			APIVersion: "marketplace.redhat.com/v1beta1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      systemMeterDef1Name,
-			Namespace: "default",
-			Annotations: map[string]string{
-				"versionRange": "<=0.0.1",
-			},
-			Labels: map[string]string{
-				"marketplace.redhat.com/installedOperatorNameTag": "csv-1",
-				"marketplace.redhat.com/isSystemMeterDefinition":  "1",
-			},
-		},
-		Spec: marketplacev1beta1.MeterDefinitionSpec{
-			Group: "apps.partner.metering.com",
-			Kind:  "App",
-			ResourceFilters: []marketplacev1beta1.ResourceFilter{
-				{
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
-					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-						GroupVersionKind: common.GroupVersionKind{
-							APIVersion: "test_package_1.com/v2",
-							Kind:       "test_package_1Cluster",
-						},
-					},
-					Namespace: &marketplacev1beta1.NamespaceFilter{
-						UseOperatorGroup: true,
-					},
-				},
-			},
-			Meters: []marketplacev1beta1.MeterWorkload{
-				{
-					Aggregation: "sum",
-					GroupBy:     []string{"namespace"},
-					Period: &metav1.Duration{
-						Duration: time.Duration(time.Hour * 1),
-					},
-					Query:        "kube_service_labels{}",
-					Metric:       "test_package_1_cluster_count",
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
-					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
-				},
-			},
+		SubInfo: SubInfo{
+			PackageName:   "memcached-operator-rhmp",
+			CatalogSource: "test-catalog-source",
 		},
 	}
 
@@ -149,33 +71,261 @@ var _ = Describe("Catalog Client", func() {
 		catalogClientMockServer.HTTPTestServer.Listener.Close()
 		catalogClientMockServer.HTTPTestServer.Listener = customListener
 		catalogClientMockServer.SetAllowUnhandledRequests(true)
-		catalogClientMockServer.Start()
 
-		Expect(k8sClient.Create(context.TODO(),servingCertsCm)).Should(Succeed())
-		Expect(k8sClient.Create(context.TODO(),service)).Should(Succeed())
-		Expect(k8sClient.Create(context.TODO(),&serviceAccount)).Should(Succeed())
-
-		returnedSystemMeterDefSlice := []marketplacev1beta1.MeterDefinition{*systemMeterDef1.DeepCopy()}
-		systemMeterDefBody, err := json.Marshal(returnedSystemMeterDefSlice)
+		_, serverTLSConf, _, err := certsetup()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		catalogClientMockServer.RouteToHandler(
-			"POST", systemMeterdefsPath, ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", systemMeterdefsPath),
-				ghttp.RespondWithPtr(&Status200, &systemMeterDefBody),
-			))
-
+		catalogClientMockServer.HTTPTestServer.TLS = serverTLSConf
+		catalogClientMockServer.Start()
 	})
 
-	AfterEach(func(){
+	AfterEach(func() {
 		catalogClientMockServer.Close()
 	})
 
-	It("should query a range", func() {
-		// Eventually(func() string {
-		// 	out, err := catalogClient.GetSystemMeterdefs()
-		// }, timeout, interval).Should(Equal(systemMeterDef1.Name))
+	Context("Set Transport", func() {
+		It("Should set transport and kube service auth in default scenario", func() {
+			reqLogger := ctrl.Log
+
+			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(catalogClient.UseSecureClient).To(Equal(true))
+			Expect(catalogClient.IsTransportSet).To(Equal(true))
+		})
 	})
+
+	Context("Retry 401", func() {
+		BeforeEach(func() {
+			unauthorizedBody := []byte(`Unauthorized`)
+
+			catalogClientMockServer.RouteToHandler(
+				"POST", communityMeterDefPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefPath),
+					ghttp.RespondWith(http.StatusUnauthorized, unauthorizedBody),
+				))
+
+			reqLogger := ctrl.Log
+
+			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
+			if err != nil {
+				utils.PrettyPrint(err)
+			}
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should retry on Auth errors and propagate the error when all retry attempts fail", func() {
+
+			_, err := catalogClient.ListMeterdefintionsFromFileServer(cr)
+			utils.PrettyPrint(err.Error())
+			Expect(err.Error()).To(ContainSubstring("giving up after 6 attempt(s): auth error on call to meterdefinition catalog server. Call returned with: 401 Unauthorized"))
+		})
+	})
+
+	Context("Retry 500", func() {
+		BeforeEach(func() {
+			internalServerErrorBody := []byte(`internal server error`)
+
+			catalogClientMockServer.RouteToHandler(
+				"POST", communityMeterDefPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefPath),
+					ghttp.RespondWith(http.StatusInternalServerError, internalServerErrorBody),
+				))
+
+			reqLogger := ctrl.Log
+
+			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
+			if err != nil {
+				utils.PrettyPrint(err)
+			}
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should retry on 500 errors and propagate the original error when all retry attempts fail", func() {
+			_, err := catalogClient.ListMeterdefintionsFromFileServer(cr)
+			utils.PrettyPrintWithLog(err.Error(), "500 retry error:")
+			Expect(err.Error()).To(ContainSubstring("giving up after 6 attempt(s): unexpected HTTP status 500 Internal Server Error"))
+		})
+	})
+
+	Context("arbitrary error", func() {
+		BeforeEach(func() {
+			arbitraryErrorBody := []byte(`arbitrary error`)
+
+			catalogClientMockServer.RouteToHandler(
+				"POST", communityMeterDefPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefPath),
+					ghttp.RespondWith(http.StatusBadRequest, arbitraryErrorBody),
+				))
+
+			reqLogger := ctrl.Log
+
+			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
+			if err != nil {
+				utils.PrettyPrint(err)
+			}
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should not retry on arbitrary errors and return the error", func() {
+			_, err := catalogClient.ListMeterdefintionsFromFileServer(cr)
+			Expect(err.Error()).To(ContainSubstring("Error querying file server for community meter definitions: 400 Bad Request"))
+		})
+	})
+
 })
+
+func (m *MockAuthBuilderConfig) FindAuthOffCluster() (*rhmo_transport.AuthValues, error) {
+	certBytes, _, _, err := certsetup()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &rhmo_transport.AuthValues{
+		ServiceFound: true,
+		Cert:         certBytes,
+		AuthToken:    "test token",
+	}, nil
+}
+
+/*
+	TODO: this is copied from: https://gist.github.com/shaneutt/5e1995295cff6721c89a71d13a71c251
+	MIT License
+
+	Copyright (c) 2020 Shane Utt
+
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in all
+	copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	SOFTWARE.
+*/
+func certsetup() (caBundle []byte, serverTLSConf *tls.Config, clientTLSConf *tls.Config, err error) {
+	// set up our CA certificate
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(2019),
+		Subject: pkix.Name{
+			Organization:  []string{"Company, INC."},
+			Country:       []string{"US"},
+			Province:      []string{""},
+			Locality:      []string{"San Francisco"},
+			StreetAddress: []string{"Golden Gate Bridge"},
+			PostalCode:    []string{"94016"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	// create our private and public key
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// create the CA
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// pem encode
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caBytes,
+	})
+
+	caPrivKeyPEM := new(bytes.Buffer)
+	pem.Encode(caPrivKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
+	})
+
+	// set up our server certificate
+	cert := &x509.Certificate{
+		SerialNumber: big.NewInt(2019),
+		Subject: pkix.Name{
+			Organization:  []string{"Company, INC."},
+			Country:       []string{"US"},
+			Province:      []string{""},
+			Locality:      []string{"San Francisco"},
+			StreetAddress: []string{"Golden Gate Bridge"},
+			PostalCode:    []string{"94016"},
+		},
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(10, 0, 0),
+		SubjectKeyId: []byte{1, 2, 3, 4, 6},
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+
+	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, ca, &certPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	certPEM := new(bytes.Buffer)
+	pem.Encode(certPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	})
+
+	caBundle = certPEM.Bytes()
+
+	certPrivKeyPEM := new(bytes.Buffer)
+	pem.Encode(certPrivKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(certPrivKey),
+	})
+
+	serverCert, err := tls.X509KeyPair(certPEM.Bytes(), certPrivKeyPEM.Bytes())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	serverTLSConf = &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+	}
+
+	var transport http.RoundTripper = &http.Transport{
+		TLSClientConfig: serverTLSConf,
+		Proxy:           http.ProxyFromEnvironment,
+	}
+
+	transport = rhmo_transport.WithBearerAuth(transport, "test token")
+
+	certpool := x509.NewCertPool()
+	certpool.AppendCertsFromPEM(caPEM.Bytes())
+	clientTLSConf = &tls.Config{
+		RootCAs: certpool,
+	}
+
+	return
+}

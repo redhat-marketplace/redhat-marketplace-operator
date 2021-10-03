@@ -12,6 +12,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -74,14 +75,18 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,
 	}
-	catalogClient, err := catalog.ProvideCatalogClient(client, operatorConfig, clientset, logger)
+	catalogClient, err := catalog.ProvideCatalogClient(client, operatorConfig, logger)
 	if err != nil {
 		return injectorDependencies{}, err
 	}
 	catalogClientInjector := &CatalogClientInjector{
 		CatalogClient: catalogClient,
 	}
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, catalogClientInjector)
+	authBuilderConfig := rhmo_transport.ProvideAuthBuilder(client, operatorConfig, clientset, logger)
+	authBuilderConfigInjector := &AuthBuilderConfigInjector{
+		AuthBuilderConfig: authBuilderConfig,
+	}
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, catalogClientInjector, authBuilderConfigInjector)
 	injectInjectorDependencies := injectorDependencies{
 		Runnables:   runnablesRunnables,
 		Injectables: injectables,

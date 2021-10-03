@@ -124,13 +124,13 @@ func FindMeterdefSliceDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefin
 	for _, installedMeterdef := range catalogMdefsOnCluster {
 		found := false
 		for _, meterdefFromCatalog := range latestMeterdefsFromCatalog {
-			
+
 			if installedMeterdef.Name == meterdefFromCatalog.Name {
 				found = true
 				break
 			}
 		}
-	
+
 		if !found {
 			deleteList = append(deleteList, installedMeterdef)
 		}
@@ -276,6 +276,17 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
 	println(string(out))
+}
+
+func PrettyPrintWithLog(in interface{}, message string) {
+	indented, _ := json.MarshalIndent(in, "", "    ")
+
+	if message != "" {
+		out := fmt.Sprintf("%s\n%s", message, indented)
+		fmt.Println(string(out))
+	} else {
+		fmt.Println(string(indented))
+	}
 }
 
 func TruncateTime(t time.Time, loc *time.Location) time.Time {

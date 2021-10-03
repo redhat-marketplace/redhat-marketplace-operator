@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	// +kubebuilder:scaffold:imports
 	osconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -58,9 +60,29 @@ var ctx context.Context
 var cancel context.CancelFunc
 var k8scache cache.Cache
 var catalogClient *CatalogClient
+var mockAuthBuilderConfig *MockAuthBuilderConfig
 
 const listenerAddress string = "127.0.0.1:2010"
 
+type MockAuthBuilderConfig struct {
+	K8sclient         client.Client
+	DeployedNamespace string
+	KubeInterface     kubernetes.Interface
+	Logger            logr.Logger
+	*AuthValues
+	Error error
+}
+
+type AuthValues struct {
+	ServiceFound bool
+	Cert         []byte
+	AuthToken    string
+}
+
+/*
+	TODO:
+	there is some superfluous code here
+*/
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -83,12 +105,16 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
+
 	err = v1alpha1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
+
 	err = v1beta1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
+
 	err = osconfigv1.Install(scheme)
 	Expect(err).NotTo(HaveOccurred())
+
 	err = clientgoscheme.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -119,10 +145,22 @@ var _ = BeforeSuite(func() {
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
 
+	// +kubebuilder:scaffold:scheme
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sClient).ToNot(BeNil())
+
 	operatorConfig, err := config.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	catalogClient, err = ProvideCatalogClient(k8sClient, operatorConfig, clientset, ctrl.Log)
+	mockAuthBuilderConfig = &MockAuthBuilderConfig{
+		K8sclient:         k8sClient,
+		DeployedNamespace: operatorConfig.DeployedNamespace,
+		KubeInterface:     clientset,
+		Logger:            ctrl.Log,
+	}
+
+	catalogClient, err = ProvideCatalogClient(k8sClient, operatorConfig, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -140,14 +178,5 @@ var _ = AfterSuite(func() {
 func provideScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	// utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
-	// utilruntime.Must(olmv1.AddToScheme(scheme))
-	// utilruntime.Must(opsrcv1.AddToScheme(scheme))
-	// utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
-	// utilruntime.Must(monitoringv1.AddToScheme(scheme))
-	// utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
-	// utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
-	// utilruntime.Must(osappsv1.AddToScheme(scheme))
-	// utilruntime.Must(osimagev1.AddToScheme(scheme))
 	return scheme
 }

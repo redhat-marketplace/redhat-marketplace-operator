@@ -31,6 +31,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -48,6 +49,7 @@ import (
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -128,22 +130,24 @@ var _ = BeforeSuite(func() {
 	factory := manifests.NewFactory(operatorConfig, k8sScheme)
 
 	restConfig := k8sManager.GetConfig()
-
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	catalogClient, err := catalog.ProvideCatalogClient(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
+	authBuilderConfig := rhmo_transport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
+
+	catalogClient, err := catalog.ProvideCatalogClient(k8sManager.GetClient(), operatorConfig, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
 
 	catalogClient.UseInsecureClient()
 
 	err = (&DeploymentConfigReconciler{
-		Client:        k8sManager.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:        k8sManager.GetScheme(),
-		cfg:           operatorConfig,
-		factory:       factory,
-		CatalogClient: catalogClient,
+		Client:            k8sManager.GetClient(),
+		Log:               ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:            k8sManager.GetScheme(),
+		cfg:               operatorConfig,
+		factory:           factory,
+		CatalogClient:     catalogClient,
+		AuthBuilderConfig: authBuilderConfig,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

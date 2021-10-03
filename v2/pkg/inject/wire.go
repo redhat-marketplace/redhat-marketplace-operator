@@ -20,13 +20,14 @@ package inject
 
 import (
 	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 )
 
 func initializeInjectDependencies(
@@ -38,6 +39,7 @@ func initializeInjectDependencies(
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
 		catalog.ProvideCatalogClient,
+		rhmo_transport.ProvideAuthBuilder,
 		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
 		wire.Struct(new(ClientCommandInjector), "*"),
@@ -46,6 +48,7 @@ func initializeInjectDependencies(
 		wire.Struct(new(FactoryInjector), "*"),
 		wire.Struct(new(KubeInterfaceInjector), "*"),
 		wire.Struct(new(CatalogClientInjector), "*"),
+		wire.Struct(new(AuthBuilderConfigInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,

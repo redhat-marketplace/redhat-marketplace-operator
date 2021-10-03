@@ -25,6 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,8 +42,9 @@ func ProvideInjectables(
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
 	i6 *CatalogClientInjector,
+	i7 *AuthBuilderConfigInjector,
 ) Injectables {
-	return []types.Injectable{i1, i2, i3, i4, i5,i6}
+	return []types.Injectable{i1, i2, i3, i4, i5, i6, i7}
 }
 
 type Injector struct {
@@ -190,7 +192,7 @@ func (a *MarketplaceClientBuilderInjector) SetCustomFields(i interface{}) error 
 }
 
 type CatalogClient interface {
-	InjectCatalogClient(*catalog.CatalogClient)error
+	InjectCatalogClient(*catalog.CatalogClient) error
 }
 
 type CatalogClientInjector struct {
@@ -200,6 +202,21 @@ type CatalogClientInjector struct {
 func (a *CatalogClientInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(CatalogClient); ok {
 		return ii.InjectCatalogClient(a.CatalogClient)
+	}
+	return nil
+}
+
+type AuthBuilderConfig interface {
+	InjectAuthBuilderConfig(*rhmo_transport.AuthBuilderConfig) error
+}
+
+type AuthBuilderConfigInjector struct {
+	AuthBuilderConfig *rhmo_transport.AuthBuilderConfig
+}
+
+func (a *AuthBuilderConfigInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(AuthBuilderConfig); ok {
+		return ii.InjectAuthBuilderConfig(a.AuthBuilderConfig)
 	}
 	return nil
 }
