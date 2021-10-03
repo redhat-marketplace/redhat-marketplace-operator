@@ -26,7 +26,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
@@ -39,7 +39,7 @@ func initializeInjectDependencies(
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
 		catalog.ProvideCatalogClient,
-		rhmo_transport.ProvideAuthBuilder,
+		rhmotransport.ProvideAuthBuilder,
 		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
 		wire.Struct(new(ClientCommandInjector), "*"),

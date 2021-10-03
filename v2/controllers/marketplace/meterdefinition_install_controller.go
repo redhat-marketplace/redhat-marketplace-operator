@@ -30,7 +30,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,7 +59,7 @@ type MeterDefinitionInstallReconciler struct {
 	Log               logr.Logger
 	cfg               *config.OperatorConfig
 	catalogClient     *catalog.CatalogClient
-	AuthBuilderConfig *rhmo_transport.AuthBuilderConfig
+	AuthBuilderConfig *rhmotransport.AuthBuilderConfig
 }
 
 func hasOperatorTag(meta metav1.Object) bool {
@@ -107,7 +107,7 @@ func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *ca
 	return nil
 }
 
-func (r *MeterDefinitionInstallReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmo_transport.AuthBuilderConfig) error {
+func (r *MeterDefinitionInstallReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmotransport.AuthBuilderConfig) error {
 	r.Log.Info("AuthBuilder")
 	r.AuthBuilderConfig = authBuilderConfig
 	return nil

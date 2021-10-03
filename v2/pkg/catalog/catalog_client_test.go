@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"bytes"
@@ -180,13 +180,13 @@ var _ = Describe("Catalog Client", func() {
 
 })
 
-func (m *MockAuthBuilderConfig) FindAuthOffCluster() (*rhmo_transport.AuthValues, error) {
+func (m *MockAuthBuilderConfig) FindAuthOffCluster() (*rhmotransport.AuthValues, error) {
 	certBytes, _, _, err := certsetup()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return &rhmo_transport.AuthValues{
+	return &rhmotransport.AuthValues{
 		ServiceFound: true,
 		Cert:         certBytes,
 		AuthToken:    "test token",
@@ -319,7 +319,7 @@ func certsetup() (caBundle []byte, serverTLSConf *tls.Config, clientTLSConf *tls
 		Proxy:           http.ProxyFromEnvironment,
 	}
 
-	transport = rhmo_transport.WithBearerAuth(transport, "test token")
+	transport = rhmotransport.WithBearerAuth(transport, "test token")
 
 	certpool := x509.NewCertPool()
 	certpool.AppendCertsFromPEM(caPEM.Bytes())

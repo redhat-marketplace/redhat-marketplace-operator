@@ -32,7 +32,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -72,7 +72,7 @@ type DeploymentConfigReconciler struct {
 	factory           *manifests.Factory
 	patcher           patch.Patcher
 	CatalogClient     *catalog.CatalogClient
-	AuthBuilderConfig *rhmo_transport.AuthBuilderConfig
+	AuthBuilderConfig *rhmotransport.AuthBuilderConfig
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -107,7 +107,7 @@ func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmo_transport.AuthBuilderConfig) error {
+func (r *DeploymentConfigReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmotransport.AuthBuilderConfig) error {
 	r.Log.Info("AuthBuilder")
 	r.AuthBuilderConfig = authBuilderConfig
 	return nil

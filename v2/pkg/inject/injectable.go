@@ -25,7 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -207,11 +207,11 @@ func (a *CatalogClientInjector) SetCustomFields(i interface{}) error {
 }
 
 type AuthBuilderConfig interface {
-	InjectAuthBuilderConfig(*rhmo_transport.AuthBuilderConfig) error
+	InjectAuthBuilderConfig(*rhmotransport.AuthBuilderConfig) error
 }
 
 type AuthBuilderConfigInjector struct {
-	AuthBuilderConfig *rhmo_transport.AuthBuilderConfig
+	AuthBuilderConfig *rhmotransport.AuthBuilderConfig
 }
 
 func (a *AuthBuilderConfigInjector) SetCustomFields(i interface{}) error {

@@ -12,7 +12,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -82,7 +82,7 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	catalogClientInjector := &CatalogClientInjector{
 		CatalogClient: catalogClient,
 	}
-	authBuilderConfig := rhmo_transport.ProvideAuthBuilder(client, operatorConfig, clientset, logger)
+	authBuilderConfig := rhmotransport.ProvideAuthBuilder(client, operatorConfig, clientset, logger)
 	authBuilderConfigInjector := &AuthBuilderConfigInjector{
 		AuthBuilderConfig: authBuilderConfig,
 	}

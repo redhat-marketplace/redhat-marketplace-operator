@@ -49,7 +49,7 @@ import (
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -133,7 +133,7 @@ var _ = BeforeSuite(func() {
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	authBuilderConfig := rhmo_transport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
+	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
 
 	catalogClient, err := catalog.ProvideCatalogClient(k8sManager.GetClient(), operatorConfig, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())

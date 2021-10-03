@@ -21,7 +21,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
-	rhmotransport "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmo_transport"
+	rhmotransport "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -369,6 +369,28 @@ func (c *CatalogClient) UseInsecureClient() {
 	c.HTTPClient = catalogServerHttpClient
 	c.UseSecureClient = false
 }
+
+// type RetryFunc interface {
+// 	RetryOnUnauthorized(ctx context.Context, resp *http.Response, err error) (bool, error)
+// }
+
+// func (c *CatalogClient) RetryOnUnauthorized (ctx context.Context, resp *http.Response, err error) (bool, error) {
+// 	ok, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+// 	if !ok && resp.StatusCode == http.StatusUnauthorized {
+// 		httpClient, err := rhmotransport.SetTransportForKubeServiceAuth(authBuilder, reqLogger)
+// 		if err != nil {
+// 			return true, err
+// 		}
+
+// 		c.HTTPClient = httpClient
+// 		// retry after setting auth
+// 		// set return err if all retry attempts fail
+// 		err = fmt.Errorf("%w. Call returned with: %s", ErrCatalogUnauthorized, resp.Status)
+// 		return true, err
+// 	}
+
+// 	return ok, err
+// }
 
 // initializes the httpclient on the retryablehttp and defines what conditions we need to retry on
 // default retry will retry on connection errors or if a 500-range response code is received (except 501)
