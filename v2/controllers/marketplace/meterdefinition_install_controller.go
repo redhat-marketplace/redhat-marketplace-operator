@@ -238,6 +238,10 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				reqLogger.Error(err, "error getting system meterdefs")
 			}
 
+			for _, m := range systemMeterDefs {
+				reqLogger.Info("system meterdef names", "name", m.Name)
+			}
+
 			if err == nil {
 				err = r.createMeterDefs(systemMeterDefs, csv, reqLogger)
 				if err != nil {
@@ -256,35 +260,35 @@ func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1
 	csvName := csv.Name
 	csvVersion := csv.Spec.Version.Version.String()
 
-	reqLogger.Info("creating meterdefinitions", "csv", csvName, "namespace", csv.Namespace)
+	reqLogger.Info("creating meterdefinitions for csv", "csv", csvName, "namespace", csv.Namespace)
 
 	for _, meterDefItem := range mdefs {
-		reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name, "csv", csvName)
+		reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name)
 
 		meterdef := &marketplacev1beta1.MeterDefinition{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name, Namespace: csv.Namespace}, meterdef)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "csv", csv.Name, "csv namespace", csv.Namespace)
+				reqLogger.Info("meterdefinition not found, creating", "meterdef", meterDefItem.Name)
 
-				err = r.createMeterdefWithOwnerRef(csvVersion, meterDefItem, csv, reqLogger)
+				err = r.createMeterdefWithOwnerRef(csvVersion, &meterDefItem, csv)
 				if err != nil {
-					return fmt.Errorf("error while creating meterdef, meterdef name: %s, csv: %s, csv version: %s", meterDefItem.Name, csvName, csvVersion)
+					return fmt.Errorf("error while creating meterdef: %w, meterdef name: %s", err, meterDefItem.Name)
 				}
 
 				reqLogger.Info("created meterdefinition", "meterdef name", meterDefItem.Name, "csv", csv.Name)
-				return err
+				continue
+
 			}
 
 			return fmt.Errorf("%w Failed to get meterdefinition: %s, for csv: %s", err, meterDefItem.Name, csvName)
-
 		}
 	}
 
 	return nil
 }
 
-func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion string, meterDefinition *marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion) error {
 	groupVersionKind, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {
 		return err
@@ -302,15 +306,11 @@ func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion
 
 	meterDefinition.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 	meterDefinition.ObjectMeta.Namespace = csv.Namespace
-	meterDefName := meterDefinition.Name
 
-	err = r.Client.Create(context.TODO(), &meterDefinition)
+	err = r.Client.Create(context.TODO(), meterDefinition)
 	if err != nil {
-		reqLogger.Error(err, "Could not create meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
 		return err
 	}
-
-	reqLogger.Info("Created meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
 
 	return nil
 }

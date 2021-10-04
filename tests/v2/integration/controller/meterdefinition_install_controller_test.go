@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = FDescribe("MeterDefInstallController reconcile", func() {
+var _ = Describe("MeterDefInstallController reconcile", func() {
 	Context("MeterDefinition Install reconcile", func() {
 
 		var (

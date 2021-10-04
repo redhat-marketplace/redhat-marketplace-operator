@@ -217,14 +217,9 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, nil
 	}
 
-	err = r.CatalogClient.SetRetryForCatalogClient(r.AuthBuilderConfig, reqLogger)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	// if SyncSystemMeterDefinitions is disabled delete all system meterdefs for csvs originating from rhm
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
-		isRunning := r.isDeploymentConfigRunning(reqLogger)
+		isRunning := isDeploymentConfigRunning(r.Client, r.cfg.DeployedNamespace, reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for system meterdefs has been disabled, uninstalling system meterdefs")
 
@@ -240,7 +235,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	// if SyncCommunityMeterDefinitions is disabled delete all community meterdefs for csvs originating from rhm
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
-		isRunning := r.isDeploymentConfigRunning(reqLogger)
+		isRunning := isDeploymentConfigRunning(r.Client, r.cfg.DeployedNamespace, reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for community meterdefs has been disabled, uninstalling system meterdefs")
 
@@ -318,6 +313,11 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	reqLogger.Info("deploymentconfig is in ready state")
+
+	err = r.CatalogClient.SetRetryForCatalogClient(r.AuthBuilderConfig, reqLogger)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	//syncs the latest meterdefinitions from the catalog with the community & system (templated) meterdefinitions on the cluster
 	result = r.sync(instance, request, reqLogger)
@@ -584,9 +584,9 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) isDeploymentConfigRunning(reqLogger logr.Logger) bool {
+func isDeploymentConfigRunning(client client.Client, deployedNamespace string, reqLogger logr.Logger) bool {
 	dc := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, dc)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: deployedNamespace}, dc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("deployment config not found, ignoring")
