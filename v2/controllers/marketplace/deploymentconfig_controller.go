@@ -398,13 +398,9 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
-				// Fetch the ClusterServiceVersion instance
 				err = r.syncSystemMeterDefs(csv, cr, reqLogger)
 				if err != nil {
-					return &ExecResult{
-						Status: ActionResultStatus(Error),
-						Err:    err,
-					}
+					reqLogger.Info(err.Error())
 				}
 			}
 		}
@@ -413,10 +409,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 				err = r.syncCommunityMeterDefs(cr, csv, reqLogger)
 				if err != nil {
-					return &ExecResult{
-						Status: ActionResultStatus(Error),
-						Err:    err,
-					}
+					reqLogger.Info(err.Error())
 				}
 			}
 		}
@@ -438,12 +431,12 @@ func checkOperatorTag(sub *olmv1alpha1.Subscription) bool {
 }
 
 func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, cr *catalog.CatalogRequest, reqLogger logr.Logger) error {
-	latestSystemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(cr)
+	latestSystemMeterDefsFromCatalog, err := r.CatalogClient.GetSystemMeterdefs(cr)
 	if err != nil {
 		return err
 	}
 
-	err = r.createOrUpdate(latestSystemMeterDefs, csv, reqLogger)
+	err = r.createOrUpdate(latestSystemMeterDefsFromCatalog, csv, reqLogger)
 	if err != nil {
 		return err
 	}
@@ -458,7 +451,7 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.Cluste
 		return err
 	}
 
-	err = r.deleteOnDiff(systemMeterDefsOnCluster.Items, latestSystemMeterDefs, reqLogger)
+	err = r.deleteOnDiff(systemMeterDefsOnCluster.Items, latestSystemMeterDefsFromCatalog, reqLogger)
 	if err != nil {
 		return err
 	}

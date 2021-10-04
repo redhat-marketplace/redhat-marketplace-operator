@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
@@ -29,7 +28,7 @@ import (
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -219,13 +218,14 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr)
 			if err != nil {
-				reqLogger.Error(err, "error getting community meterdefs")
-				return reconcile.Result{}, err
+				reqLogger.Info(err.Error())
 			}
 
-			result := r.createMeterDefs(communityMeterdefs, csv, reqLogger)
-			if !result.Is(Continue) {
-				return result.Return()
+			if err == nil {
+				err = r.createMeterDefs(communityMeterdefs, csv, reqLogger)
+				if err != nil {
+					reqLogger.Info(err.Error())
+				}
 			}
 		}
 	}
@@ -236,13 +236,15 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(cr)
 			if err != nil {
 				reqLogger.Error(err, "error getting system meterdefs")
-				return reconcile.Result{}, err
 			}
 
-			result := r.createMeterDefs(systemMeterDefs, csv, reqLogger)
-			if !result.Is(Continue) {
-				return result.Return()
+			if err == nil {
+				err = r.createMeterDefs(systemMeterDefs, csv, reqLogger)
+				if err != nil {
+					reqLogger.Info(err.Error())
+				}
 			}
+
 		}
 	}
 
@@ -250,7 +252,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	return reconcile.Result{}, nil
 }
 
-func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
+func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
 	csvName := csv.Name
 	csvVersion := csv.Spec.Version.Version.String()
 
@@ -267,32 +269,19 @@ func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1
 
 				err = r.createMeterdefWithOwnerRef(csvVersion, meterDefItem, csv, reqLogger)
 				if err != nil {
-					msg := fmt.Sprintf("error while creating meterdef, meterdef name: %s, csv: %s, csv version: %s", meterDefItem.Name, csvName, csvVersion)
-					return &ExecResult{
-						ReconcileResult: reconcile.Result{},
-						Err:             emperrors.Wrap(err, msg),
-					}
+					return fmt.Errorf("error while creating meterdef, meterdef name: %s, csv: %s, csv version: %s", meterDefItem.Name, csvName, csvVersion)
 				}
 
 				reqLogger.Info("created meterdefinition", "meterdef name", meterDefItem.Name, "csv", csv.Name)
-
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{Requeue: true},
-					Err:             nil,
-				}
+				return err
 			}
 
-			reqLogger.Error(err, "Failed to get meterdefinition", "meterdef name", meterDefItem.Name, "csv", csv.Name)
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
+			return fmt.Errorf("%w Failed to get meterdefinition: %s, for csv: %s", err, meterDefItem.Name, csvName)
+
 		}
 	}
 
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return nil
 }
 
 func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
