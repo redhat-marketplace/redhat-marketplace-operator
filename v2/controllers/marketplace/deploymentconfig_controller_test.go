@@ -843,7 +843,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		})
 	})
 
-	FContext("Remove all meterdefs from the catalog", func() {
+	Context("Remove all meterdefs from the catalog", func() {
 		BeforeEach(func() {
 			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil

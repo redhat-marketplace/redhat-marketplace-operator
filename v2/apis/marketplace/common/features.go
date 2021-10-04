@@ -43,7 +43,7 @@ type Features struct {
 	EnableMeterDefinitionCatalogServer *bool `json:"enableMeterDefinitionCatalogServer,omitempty"`
 }
 
-// TODO: not using omit empty here because the dc controller looks for false to uninstall
+// TODO: not using omit empty here, we don't want these to default to false because the dc controller looks for false to uninstall
 // MeterDefinitionCatalogServerConfig represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
 // +kubebuilder:object:generate:=true
 type MeterDefinitionCatalogServerConfig struct {
@@ -61,10 +61,10 @@ type MeterDefinitionCatalogServerConfig struct {
 	// +optional
 	SyncSystemMeterDefinitions bool `json:"syncSystemMeterDefinitions"`
 
-	// DeployMeterDefinitionCatalogServer controls whether the deploymentconfig controller will deploy the resources needed 
+	// DeployMeterDefinitionCatalogServer controls whether the deploymentconfig controller will deploy the resources needed
 	// to create the Meterdefinition Catalog Server. The Catalog Server will look for changes to an image repository and pull down the latest
 	// Image when a change is detected.
-	// Setting DeployMeterDefinitionCatalogServer to "true" wil install a DeploymentConfig, ImageStream, and Service. 
+	// Setting DeployMeterDefinitionCatalogServer to "true" wil install a DeploymentConfig, ImageStream, and Service.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Deploy Meterdefintion Catalog Server Resources?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"

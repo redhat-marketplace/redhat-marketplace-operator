@@ -533,7 +533,6 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 	//TODO:
 	setting this to a var so I can mock it in deploymentconfig_conttroller_test.go
 	was having trouble setting the status for subscriptions created in the test env
-	mocking the return for now
 */
 var listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 	subList := &olmv1alpha1.SubscriptionList{}
@@ -542,33 +541,6 @@ var listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error)
 	}
 
 	return subList.Items, nil
-}
-
-func (r *DeploymentConfigReconciler) processCSV(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
-	isCopy, err := r.isOLMCopy(csv, reqLogger)
-	if isCopy {
-		// noop on olm copies
-		return false, err
-	}
-
-	return true, err
-}
-
-func (r *DeploymentConfigReconciler) isOLMCopy(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (bool, error) {
-	labels := csv.GetLabels()
-	_, labelHasCopiedFromTag := labels[olmCopiedFromTag]
-
-	ann := csv.GetAnnotations()
-	_, annHasCopiedFromTag := ann[olmCopiedFromTag]
-
-	if !labelHasCopiedFromTag && !annHasCopiedFromTag {
-		// is not a copy from an AllNamespaces install
-		return false, nil
-	}
-
-	// either labels or annotations has the olm.CopiedFrom tag
-	err := fmt.Errorf("csv is a copy from an AllNamespace install,ignoring csv: %s, namespace: %s", csv.Name, csv.Namespace)
-	return true, err
 }
 
 func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
