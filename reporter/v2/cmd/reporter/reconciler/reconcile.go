@@ -85,6 +85,7 @@ var ReconcileCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrap(err, "couldn't initialize event broadcaster")
 		}
+		defer stopBroadcast()
 
 		task, err := reporter.NewReconcileTask(
 			ctx,
@@ -92,7 +93,6 @@ var ReconcileCmd = &cobra.Command{
 			broadcaster,
 			reporter.Namespace(namespace),
 		)
-		defer stopBroadcast()
 
 		if err != nil {
 			return errors.Wrap(err, "couldn't initialize task")
