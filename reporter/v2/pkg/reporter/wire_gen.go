@@ -53,17 +53,19 @@ var (
 	_wireLoggerValue = logger
 )
 
-func NewEventBroadcaster(ctx context.Context, erConfig *Config) (record.EventBroadcaster, error) {
+func NewEventBroadcaster(ctx context.Context, erConfig *Config) (record.EventBroadcaster, func(), error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	eventBroadcaster := provideReporterEventBroadcaster(clientset)
-	return eventBroadcaster, nil
+	eventBroadcaster, cleanup := provideReporterEventBroadcaster(clientset)
+	return eventBroadcaster, func() {
+		cleanup()
+	}, nil
 }
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {

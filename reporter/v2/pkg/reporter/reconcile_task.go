@@ -16,6 +16,7 @@ package reporter
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -175,8 +176,6 @@ func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
 
 	if errors.As(err, &comp) {
 
-		logger.Error(err, "ReportJobError")
-
 		job := &batchv1.Job{}
 		err = r.K8SClient.Get(ctx, types.NamespacedName{Name: os.Getenv("JOB_NAME"), Namespace: os.Getenv("POD_NAMESPACE")}, job)
 		if err != nil {
@@ -188,8 +187,7 @@ func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
 			return err
 		}
 
-		r.recorder.Event(jobref, corev1.EventTypeWarning, "ReportJobError", "No insights")
-		logger.Info("ReportJobError event send")
+		r.recorder.Event(jobref, corev1.EventTypeWarning, "ReportJobError", fmt.Sprintf("Report Job Error: %v", comp.Error()))
 	}
 
 	return nil

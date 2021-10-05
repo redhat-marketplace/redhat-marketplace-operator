@@ -80,36 +80,13 @@ var ReportCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
-		/*
-			recorder, err := reporter.NewEventRecorder(ctx, cfg)
-			if err != nil {
-				log.Error(err, "couldn't initialize event recorder")
-				os.
-					Exit(1)
-			}
-		*/
-
 		task, err := reporter.NewTask(
 			ctx,
 			reporter.ReportName{Namespace: namespace, Name: name},
 			cfg,
 		)
 
-		/*
-			job := &batchv1.Job{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      os.Getenv("POD_NAME"),
-					Namespace: os.Getenv("POD_NAMESPACE"),
-				},
-			}
-		*/
-
 		if err != nil {
-			var comp *reporter.ReportJobError
-			if errors.As(err, &comp) {
-				log.Error(err, "report job error")
-				//recorder.Event(job, corev1.EventTypeWarning, "ReportJobError", "No insights")
-			}
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)
 		}

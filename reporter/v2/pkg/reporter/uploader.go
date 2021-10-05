@@ -557,38 +557,30 @@ func provideProductionInsightsConfig(
 	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
 
 	if !ok {
-		return nil, errors.Wrap(&ReportJobError{
+		return nil, errors.WithStack(&ReportJobError{
 			ErrorMessage: "failed to find .dockerconfigjson in secret openshift-config/pull-secret",
 			Err:          errors.New("report job error"),
-		}, "failed to find .dockerconfigjson in secret openshift-config/pull-secret")
+		})
 	}
 
 	var dockerObj interface{}
 	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(&ReportJobError{
+		return nil, errors.WithStack(&ReportJobError{
 			ErrorMessage: "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
-		}, "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret")
+		})
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")
 	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
 
-	/*
-		if err != nil {
-			return nil, errors.WithStack(ReportJobError{
-				ErrorMessage: "failed to get jsonpath of cloud token",
-				Err:          err,
-			})
-		}
-	*/
 	if err != nil {
-		return nil, &ReportJobError{
-			ErrorMessage: "failed to get jsonpath of cloud token",
+		return nil, errors.WithStack(&ReportJobError{
+			ErrorMessage: "failed to parse auth token in .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
-		}
+		})
 	}
 
 	buf := new(bytes.Buffer)
@@ -596,7 +588,7 @@ func provideProductionInsightsConfig(
 
 	if err != nil {
 		return nil, errors.WithStack(&ReportJobError{
-			ErrorMessage: "failed to get jsonpath of cloud token",
+			ErrorMessage: "failed to template auth token in .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
 		})
 	}

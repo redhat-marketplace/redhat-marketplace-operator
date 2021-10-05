@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
@@ -333,11 +334,19 @@ func getMeterDefinitionReferences(
 	return
 }
 
-func provideReporterEventBroadcaster(kubeclientset kubernetes.Interface) record.EventBroadcaster {
+// Stop() and Sleep to allow queue to write out events.
+// Calling Broadcaster Shutdown() otherwise is a risk of panic and lost event
+// Until we are using a newer k8s api-machinery version
+// https://github.com/kubernetes/kubernetes/issues/94906
+func provideReporterEventBroadcaster(kubeclientset kubernetes.Interface) (record.EventBroadcaster, func()) {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
-	return eventBroadcaster
+	shutdownInterface := eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+	return eventBroadcaster, func() {
+		shutdownInterface.Stop()
+		logger.Info("Wait for event broadcaster to stop...")
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func provideReporterEventRecorder(eventBroadcaster record.EventBroadcaster, schemeIn *runtime.Scheme) record.EventRecorder {

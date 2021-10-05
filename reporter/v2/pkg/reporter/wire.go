@@ -51,7 +51,7 @@ func NewTask(
 func NewEventBroadcaster(
 	ctx context.Context,
 	erConfig *Config,
-) (record.EventBroadcaster, error) {
+) (record.EventBroadcaster, func(), error) {
 	panic(wire.Build(
 		config.GetConfig,
 		managers.ProvideSimpleClientSet,

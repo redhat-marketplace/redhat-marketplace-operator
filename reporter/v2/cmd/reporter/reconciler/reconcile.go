@@ -82,11 +82,12 @@ var ReconcileCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
-		broadcaster, err := reporter.NewEventBroadcaster(ctx, cfg)
+		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(ctx, cfg)
 		if err != nil {
 			log.Error(err, "couldn't initialize event broadcaster")
 			os.Exit(1)
 		}
+		//defer stopBroadcast()
 
 		task, err := reporter.NewReconcileTask(
 			ctx,
@@ -97,18 +98,18 @@ var ReconcileCmd = &cobra.Command{
 
 		if err != nil {
 			log.Error(err, "couldn't initialize task")
-			broadcaster.Shutdown()
+			stopBroadcast()
 			os.Exit(1)
 		}
 
 		err = task.Run(ctx)
 		if err != nil {
 			log.Error(err, "error running task")
-			broadcaster.Shutdown()
+			stopBroadcast()
 			os.Exit(1)
 		}
 
-		broadcaster.Shutdown()
+		stopBroadcast()
 		os.Exit(0)
 	},
 }
@@ -135,24 +136,3 @@ func init() {
 
 	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
 }
-
-/*
-
-func getJob() *batchv1.Job {
-
-	cl, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		log.Error(err, "failed to create client")
-		os.Exit(1)
-	}
-
-	job := &batchv1.Job{}
-	err = cl.Get(context.TODO(), types.NamespacedName{Name: os.Getenv("JOB_NAME"), Namespace: os.Getenv("POD_NAMESPACE")}, job)
-	if err != nil {
-		log.Error(err, "could not get running job")
-		os.Exit(1)
-	}
-
-	return job
-}
-*/
