@@ -10,6 +10,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -50,6 +52,21 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*T
 var (
 	_wireLoggerValue = logger
 )
+
+func NewEventBroadcaster(ctx context.Context, erConfig *Config) (record.EventBroadcaster, func(), error) {
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	eventBroadcaster, cleanup := provideReporterEventBroadcaster(clientset)
+	return eventBroadcaster, func() {
+		cleanup()
+	}, nil
+}
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	reporterConfig := task.Config
@@ -147,7 +164,7 @@ var (
 	_wireLoggerValue2 = logger
 )
 
-func NewReconcileTask(ctx context.Context, config2 *Config, namespace Namespace) (*ReconcileTask, error) {
+func NewReconcileTask(ctx context.Context, config2 *Config, broadcaster record.EventBroadcaster, namespace Namespace) (*ReconcileTask, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -161,11 +178,13 @@ func NewReconcileTask(ctx context.Context, config2 *Config, namespace Namespace)
 	if err != nil {
 		return nil, err
 	}
+	eventRecorder := provideReporterEventRecorder(broadcaster, scheme)
 	reconcileTask := &ReconcileTask{
 		K8SClient: simpleClient,
 		Config:    config2,
 		K8SScheme: scheme,
 		Namespace: namespace,
+		recorder:  eventRecorder,
 	}
 	return reconcileTask, nil
 }

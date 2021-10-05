@@ -16,11 +16,19 @@ package reporter
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"emperror.dev/errors"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,9 +37,26 @@ type ReconcileTask struct {
 	Config    *Config
 	K8SScheme *runtime.Scheme
 	Namespace
+	recorder record.EventRecorder
 }
 
 func (r *ReconcileTask) Run(ctx context.Context) error {
+
+	err := r.run(ctx)
+
+	if err != nil {
+		terr := r.recordTaskError(ctx, err)
+		if terr != nil {
+			logger.Error(terr, "error recording task error to events")
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (r *ReconcileTask) run(ctx context.Context) error {
 	logger.Info("reconcile run start")
 	meterReports := marketplacev1alpha1.MeterReportList{}
 
@@ -69,7 +94,7 @@ func (r *ReconcileTask) Run(ctx context.Context) error {
 	if r.CanRunUploadTask(ctx) {
 		if err := r.UploadTask(ctx); err != nil {
 			logger.Error(err, "error uploading files from data service")
-			errs = append(errs, err)
+			return err
 		}
 	}
 
@@ -139,6 +164,29 @@ func (r *ReconcileTask) UploadTask(ctx context.Context) error {
 	if err != nil {
 		logger.Error(err, "error running task")
 		return err
+	}
+
+	return nil
+}
+
+func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
+
+	var comp *ReportJobError
+
+	if errors.As(err, &comp) {
+
+		job := &batchv1.Job{}
+		err = r.K8SClient.Get(ctx, types.NamespacedName{Name: os.Getenv("JOB_NAME"), Namespace: os.Getenv("POD_NAMESPACE")}, job)
+		if err != nil {
+			return err
+		}
+
+		jobref, err := reference.GetReference(r.K8SScheme, job)
+		if err != nil {
+			return err
+		}
+
+		r.recorder.Event(jobref, corev1.EventTypeWarning, "ReportJobError", fmt.Sprintf("Report Job Error: %v", comp.Error()))
 	}
 
 	return nil

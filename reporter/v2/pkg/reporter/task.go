@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
@@ -29,6 +30,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +44,10 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -329,6 +334,26 @@ func getMeterDefinitionReferences(
 	return
 }
 
+// Stop() and Sleep to allow queue to write out events.
+// Calling Broadcaster Shutdown() otherwise is a risk of panic and lost event
+// Until we are using a newer k8s api-machinery version
+// https://github.com/kubernetes/kubernetes/issues/94906
+func provideReporterEventBroadcaster(kubeclientset kubernetes.Interface) (record.EventBroadcaster, func()) {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(0)
+	shutdownInterface := eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+	return eventBroadcaster, func() {
+		shutdownInterface.Stop()
+		logger.Info("Wait for event broadcaster to stop...")
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func provideReporterEventRecorder(eventBroadcaster record.EventBroadcaster, schemeIn *runtime.Scheme) record.EventRecorder {
+	recorder := eventBroadcaster.NewRecorder(schemeIn, corev1.EventSource{Component: "reporter"})
+	return recorder
+}
+
 func provideScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -339,5 +364,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(batchv1.AddToScheme(scheme))
 	return scheme
 }

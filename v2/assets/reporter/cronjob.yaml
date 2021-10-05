@@ -19,3 +19,12 @@ spec:
               # additional args are added in factory
               args:
                 - 'reconcile'
+              env:
+              - name: JOB_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['job-name']
+              - name: POD_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace

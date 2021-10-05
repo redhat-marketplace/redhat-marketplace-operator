@@ -16,9 +16,10 @@ package reconciler
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
+
+	"emperror.dev/errors"
 
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
@@ -40,10 +41,9 @@ var retry int
 var ReconcileCmd = &cobra.Command{
 	Use:   "reconcile",
 	Short: "Runs and uploads reports",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if namespace == "" {
-			log.Error(errors.New("namespace not provided"), "namespace not provided")
-			os.Exit(1)
+			return errors.New("namespace not provided")
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -81,24 +81,29 @@ var ReconcileCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
+		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(ctx, cfg)
+		if err != nil {
+			return errors.Wrap(err, "couldn't initialize event broadcaster")
+		}
+		defer stopBroadcast()
+
 		task, err := reporter.NewReconcileTask(
 			ctx,
 			cfg,
+			broadcaster,
 			reporter.Namespace(namespace),
 		)
 
 		if err != nil {
-			log.Error(err, "couldn't initialize task")
-			os.Exit(1)
+			return errors.Wrap(err, "couldn't initialize task")
 		}
 
 		err = task.Run(ctx)
 		if err != nil {
-			log.Error(err, "error running task")
-			os.Exit(1)
+			return errors.Wrap(err, "error running task")
 		}
 
-		os.Exit(0)
+		return nil
 	},
 }
 

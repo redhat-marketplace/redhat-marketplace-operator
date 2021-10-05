@@ -528,9 +528,11 @@ type ReportJobError struct {
 	Err          error
 }
 
-func (re ReportJobError) Error() string {
+func (re *ReportJobError) Error() string {
 	return re.ErrorMessage
 }
+
+func (re *ReportJobError) Unwrap() error { return re.Err }
 
 func provideProductionInsightsConfig(
 	ctx context.Context,
@@ -555,37 +557,40 @@ func provideProductionInsightsConfig(
 	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
 
 	if !ok {
-		return nil, errors.New(".dockerconfigjson is not found in secret")
+		return nil, errors.WithStack(&ReportJobError{
+			ErrorMessage: "failed to find .dockerconfigjson in secret openshift-config/pull-secret",
+			Err:          errors.New("report job error"),
+		})
 	}
 
 	var dockerObj interface{}
 	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(ReportJobError{
-			ErrorMessage: "failed to unmarshal dockerConfigJson object",
+		return nil, errors.WithStack(&ReportJobError{
+			ErrorMessage: "failed to unmarshal .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
-		}, "failed to unmarshal dockerConfigJson object")
+		})
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")
 	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
 
 	if err != nil {
-		return nil, errors.Wrap(ReportJobError{
-			ErrorMessage: "failed to get jsonpath of cloud token",
+		return nil, errors.WithStack(&ReportJobError{
+			ErrorMessage: "failed to parse auth token in .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
-		}, "failed to get jsonpath of cloud token")
+		})
 	}
 
 	buf := new(bytes.Buffer)
 	err = cloudAuthPath.Execute(buf, dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(ReportJobError{
-			ErrorMessage: "failed to get jsonpath of cloud token",
+		return nil, errors.WithStack(&ReportJobError{
+			ErrorMessage: "failed to template auth token in .dockerconfigjson from secret openshift-config/pull-secret",
 			Err:          err,
-		}, "failed to get jsonpath of cloud token")
+		})
 	}
 
 	cloudToken := buf.String()
