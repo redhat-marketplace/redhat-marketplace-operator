@@ -60,6 +60,15 @@ import (
 // blank assignment to verify that DeploymentConfigReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &DeploymentConfigReconciler{}
 
+type ConditionMap struct {
+	ConditionErrors []ConditionError
+}
+
+type ConditionError struct {
+	dcEror  error
+	errType osappsv1.DeploymentConditionType
+}
+
 // DeploymentConfigReconciler reconciles the DataService of a MeterBase object
 type DeploymentConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
@@ -278,38 +287,44 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	//TODO: zach recheck for image pull failure
+	//TODO: remove requeue [x]
+	conditionMap := ConditionMap{}
 	for _, c := range dc.Status.Conditions {
-		// DeploymentAvailable means the DeploymentConfig has the minimum available replicas required
+		if c.Type == osappsv1.DeploymentAvailable && c.Status == corev1.ConditionFalse {
+			err = errors.New(c.Message)
+			conditionMap.ConditionErrors = append(conditionMap.ConditionErrors, ConditionError{
+				errType: osappsv1.DeploymentAvailable,
+				dcEror:  err,
+			})
+		}
+
 		if c.Type == osappsv1.DeploymentProgressing && c.Status == corev1.ConditionFalse {
 			err = errors.New(c.Message)
-			return result.ReconcileResult, err
-
+			conditionMap.ConditionErrors = append(conditionMap.ConditionErrors, ConditionError{
+				errType: osappsv1.DeploymentProgressing,
+				dcEror:  err,
+			})
 		}
 
 		if c.Type == osappsv1.DeploymentReplicaFailure {
 			err = errors.New(c.Message)
-			return result.ReconcileResult, err
+			conditionMap.ConditionErrors = append(conditionMap.ConditionErrors, ConditionError{
+				errType: osappsv1.DeploymentReplicaFailure,
+				dcEror:  err,
+			})
 		}
 	}
 
-	//TODO: remove requeue [x]
-	for _, c := range dc.Status.Conditions {
-		if c.Type == osappsv1.DeploymentAvailable {
-			if c.Status != corev1.ConditionTrue {
-				err = errors.New(c.Message)
-				return reconcile.Result{}, err
-			}
-		}
+	if progressing := conditionMap.GetCondition(osappsv1.DeploymentAvailable); progressing != nil {
+		return result.ReconcileResult, progressing.dcEror
+	}
 
-		// catch the deploymentconfig as it's rolling out a new deployment and requeue until finished
-		// DeploymentProgressing is: * True: the DeploymentConfig has been successfully deployed or is currently getting deployed.
-		// TODO: re-test this and see if we can remove this
-		if c.Type == osappsv1.DeploymentProgressing {
-			if c.Reason != "NewReplicationControllerAvailable" || c.Status != corev1.ConditionTrue || dc.Status.LatestVersion == dc.Status.ObservedGeneration {
-				err = errors.New(c.Message)
-				return reconcile.Result{}, err
-			}
-		}
+	if repFailure := conditionMap.GetCondition(osappsv1.DeploymentProgressing); repFailure != nil {
+		return result.ReconcileResult, repFailure.dcEror
+	}
+
+	if aval := conditionMap.GetCondition(osappsv1.DeploymentAvailable); aval != nil {
+		return result.ReconcileResult, aval.dcEror
 	}
 
 	reqLogger.Info("deploymentconfig is in ready state")
@@ -331,6 +346,15 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
+}
+
+func (m *ConditionMap) GetCondition(t osappsv1.DeploymentConditionType) *ConditionError {
+	for _, ce := range m.ConditionErrors {
+		if ce.errType == t {
+			return &ce
+		}
+	}
+	return nil
 }
 
 //TODO: zach remove ExecResult - low priority
@@ -550,35 +574,27 @@ func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog [
 
 		reqLogger.Info("finding meterdefintion", catalogMeterdef.Name, catalogMeterdef.Namespace)
 
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
-			if err != nil {
-				if k8serrors.IsNotFound(err) {
-					reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
-					err := r.createMeterdefWithOwnerRef(catalogMeterdef, csv, reqLogger)
-					if err != nil {
-						return err
-					}
-
-					return nil
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
+				err := r.createMeterdefWithOwnerRef(catalogMeterdef, csv, reqLogger)
+				if err != nil {
+					return err
 				}
 
-				return err
+				return nil
 			}
 
-			/*
-				update a meterdef for a csv if a meterdef from the catalog is also on the cluster
-				&& the meterdef from the catalog contains an update to .Spec or .Annotations
-				//TODO: what fields should we check a diff for ?
-			*/
-			return r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
-
-		})
-
-		if err != nil {
-			//TODO: should we create meterdefs here on IsNotFound errs ? or keep as is
 			return err
 		}
+
+		/*
+			update a meterdef for a csv if a meterdef from the catalog is also on the cluster
+			&& the meterdef from the catalog contains an update to .Spec or .Annotations
+			//TODO: what fields should we check a diff for ?
+		*/
+		return r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
 	}
 
 	return nil
@@ -911,13 +927,24 @@ func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef *marketplacev1
 
 	if !reflect.DeepEqual(updatedMeterdefinition, installedMdef) {
 		reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "name", installedMdef.Name)
-		err := r.Client.Update(context.TODO(), updatedMeterdefinition)
+
+		//TODO: moved the retry here - was still getting conflict errors when I was wrapping the GET and UDDATE in createOrUpdate()
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			err := r.Client.Update(context.TODO(), updatedMeterdefinition)
+			if err != nil {
+				reqLogger.Error(err, "Failed updating meter definition", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+				return err
+			}
+
+			return nil
+		})
+
 		if err != nil {
-			reqLogger.Error(err, "Failed updating meter definition", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
 			return err
 		}
 
-		reqLogger.Info("Updated meterdefintion", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+		reqLogger.Info("UPDATE: updated meterdefintion", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+
 	}
 
 	return nil
@@ -949,7 +976,7 @@ func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition 
 		return nil
 	}
 
-	reqLogger.Info("Created meterdefinition", "mdef", meterDefinition.Name, "CSV", csv.Name)
+	reqLogger.Info("CREATE: created meterdefinition", "mdef", meterDefinition.Name, "CSV", csv.Name)
 
 	return nil
 }
@@ -1090,7 +1117,7 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string, namespace s
 		return err
 	}
 
-	reqLogger.Info("Deleted meterdefintion", "name", mdefName, "namespace", namespace)
+	reqLogger.Info("DELETE: deleted meterdefintion", "name", mdefName, "namespace", namespace)
 
 	return nil
 }
