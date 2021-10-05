@@ -95,7 +95,6 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 		if err := r.UploadTask(ctx); err != nil {
 			logger.Error(err, "error uploading files from data service")
 			return err
-			// errs = append(errs, err)
 		}
 	}
 

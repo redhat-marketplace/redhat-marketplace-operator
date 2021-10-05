@@ -87,7 +87,6 @@ var ReconcileCmd = &cobra.Command{
 			log.Error(err, "couldn't initialize event broadcaster")
 			os.Exit(1)
 		}
-		//defer stopBroadcast()
 
 		task, err := reporter.NewReconcileTask(
 			ctx,
