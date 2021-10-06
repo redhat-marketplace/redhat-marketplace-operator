@@ -23,7 +23,7 @@ rules:
   - get
   - post
 - nonResourceURLs:
-  - /get-system-meterdefs
+  - /get-system-meterdefs/*
   verbs:
   - create
   - get

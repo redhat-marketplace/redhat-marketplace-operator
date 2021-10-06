@@ -189,7 +189,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch;delete
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch;delete
 // +kubebuilder:rbac:urls=/get-community-meterdefs,verbs=get;post;create;
-// +kubebuilder:rbac:urls=/get-system-meterdefs,verbs=get;post;create;
+// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/community-meterdef-index/*,verbs=get;
 // +kubebuilder:rbac:urls=/system-meterdef-index/*,verbs=get;
 // +kubebuilder:rbac:urls=/global-community-meterdef-index,verbs=get;
@@ -278,7 +278,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	//TODO: zach recheck for image pull failure
-	//TODO: remove requeue [x]
+	//TODO: remove requeue
 	conditionMap := ConditionMap{}
 	for _, c := range dc.Status.Conditions {
 		if c.Type == osappsv1.DeploymentAvailable && c.Status == corev1.ConditionFalse {
@@ -310,12 +310,12 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return result.ReconcileResult, progressing.dcEror
 	}
 
-	if repFailure := conditionMap.GetCondition(osappsv1.DeploymentProgressing); repFailure != nil {
-		return result.ReconcileResult, repFailure.dcEror
+	if replicationFailure := conditionMap.GetCondition(osappsv1.DeploymentProgressing); replicationFailure != nil {
+		return result.ReconcileResult, replicationFailure.dcEror
 	}
 
-	if aval := conditionMap.GetCondition(osappsv1.DeploymentAvailable); aval != nil {
-		return result.ReconcileResult, aval.dcEror
+	if available := conditionMap.GetCondition(osappsv1.DeploymentAvailable); available != nil {
+		return result.ReconcileResult, available.dcEror
 	}
 
 	reqLogger.Info("deploymentconfig is in ready state")
@@ -360,18 +360,18 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			continue
 		}
 
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		errFromRetry := utils.Retry(func() error {
 			if sub.Status.InstalledCSV == "" {
 				err = fmt.Errorf("subscription does not have InstalledCSV set: %s, subscription namespace: %s", sub.Name, sub.Namespace)
 				return err
 			}
 
 			return nil
-		})
+		}, 5)
 
-		if err != nil {
-			reqLogger.Error(err, "could not find InstalledCSV")
-			// skipping since we can't get the csv name
+		if errFromRetry != nil {
+			reqLogger.Error(errFromRetry, "could not find InstalledCSV")
+			// skip if we can't get the csv name
 			continue
 		}
 
@@ -381,20 +381,20 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 		csv := &olmv1alpha1.ClusterServiceVersion{}
 
 		// find InstalledCSV in the same namespace as the subscription
+		// TODO: should we return an error here ?
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				err = fmt.Errorf("could not find csv: %s, from subscription: %s, subscription namespace: %s", csv.Name, sub.Name, sub.Namespace)
 				return &ExecResult{
-					Status: ActionResultStatus(Error),
-					Err:    err,
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
 				}
 			}
 
-			reqLogger.Error(err, "Failed to get clusterserviceversion")
 			return &ExecResult{
-				Status: ActionResultStatus(Error),
-				Err:    err,
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
 			}
 		}
 
@@ -414,7 +414,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 		if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
-				err = r.syncSystemMeterDefs(csv, cr, reqLogger)
+				err = r.syncSystemMeterDefs(csv, sub.Spec.Package, sub.Spec.CatalogSource, reqLogger)
 				if err != nil {
 					reqLogger.Error(err, "error syncing system meterdefinitions")
 				}
@@ -446,18 +446,20 @@ func checkOperatorTag(sub *olmv1alpha1.Subscription) bool {
 	return false
 }
 
-func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, cr *catalog.CatalogRequest, reqLogger logr.Logger) error {
-	latestSystemMeterDefsFromCatalog, err := r.CatalogClient.GetSystemMeterdefs(cr)
+func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.ClusterServiceVersion, packageName string, catalogSource string, reqLogger logr.Logger) error {
+	reqLogger.Info("syncing system meterdefinitions")
+
+	latestSystemMeterDefsFromCatalog, err := r.CatalogClient.GetSystemMeterdefs(csv, packageName, catalogSource)
 	if err != nil {
 		return err
 	}
 
-	err = r.createOrUpdate(latestSystemMeterDefsFromCatalog, csv, reqLogger)
+	err = r.createOrUpdateCatalogMeterDef(latestSystemMeterDefsFromCatalog, csv, reqLogger)
 	if err != nil {
 		return err
 	}
 
-	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csv.Name, cr.PackageName, cr.CatalogSource)
+	systemMeterDefIndexLabels, err := r.CatalogClient.GetSystemMeterDefIndexLabels(csv.Name, packageName, catalogSource)
 	if err != nil {
 		return err
 	}
@@ -476,6 +478,7 @@ func (r *DeploymentConfigReconciler) syncSystemMeterDefs(csv *olmv1alpha1.Cluste
 }
 
 func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogRequest, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
+	reqLogger.Info("syncing community meterdefinitions")
 	/*
 		pings the file server for a map of labels we use to index meterdefintions that originated from the file server
 		these labels also get added to a meterdefinition by the file server	before it returns
@@ -524,7 +527,7 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 		return err
 	}
 
-	err = r.createOrUpdate(latestCommunityMeterDefsFromCatalog, csv, reqLogger)
+	err = r.createOrUpdateCatalogMeterDef(latestCommunityMeterDefsFromCatalog, csv, reqLogger)
 	if err != nil {
 		return err
 	}
@@ -559,34 +562,41 @@ var listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error)
 	return subList.Items, nil
 }
 
-func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
-
+func (r *DeploymentConfigReconciler) createOrUpdateCatalogMeterDef(latestMeterDefsFromCatalog []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
 	for _, catalogMeterdef := range latestMeterDefsFromCatalog {
 		installedMdef := &marketplacev1beta1.MeterDefinition{}
 
 		reqLogger.Info("finding meterdefintion", catalogMeterdef.Name, catalogMeterdef.Namespace)
 
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
-				err := r.createMeterdefWithOwnerRef(catalogMeterdef, csv, reqLogger)
-				if err != nil {
-					return err
+		errorFromRetry := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
+					err := r.createMeterdefWithOwnerRef(catalogMeterdef, csv, reqLogger)
+					if err != nil {
+						return err
+					}
+
+					return nil
 				}
 
-				return nil
+				return err
 			}
 
-			return err
+			err = r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if errorFromRetry != nil {
+			return errorFromRetry
 		}
 
-		/*
-			update a meterdef for a csv if a meterdef from the catalog is also on the cluster
-			&& the meterdef from the catalog contains an update to .Spec or .Annotations
-			//TODO: what fields should we check a diff for ?
-		*/
-		return r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
+		// no error GET and UPDATE, continue to next catalog meterdef
 	}
 
 	return nil
@@ -909,34 +919,27 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
-
 }
 
-func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef *marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) error {
-	updatedMeterdefinition := installedMdef.DeepCopy()
-	updatedMeterdefinition.Spec = catalogMdef.Spec
-	updatedMeterdefinition.ObjectMeta.Annotations = catalogMdef.ObjectMeta.Annotations
+/*
+	// currently checking for a diff on Spec and Annoations
+	//TODO: what fields should we check a diff for ?
+*/
+func (r *DeploymentConfigReconciler) updateMeterdef(onClusterMeterDef *marketplacev1beta1.MeterDefinition, catalogMeterDef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) error {
+	updatedMeterdefinition := onClusterMeterDef.DeepCopy()
+	updatedMeterdefinition.Spec = catalogMeterDef.Spec
+	updatedMeterdefinition.ObjectMeta.Annotations = catalogMeterDef.ObjectMeta.Annotations
 
-	if !reflect.DeepEqual(updatedMeterdefinition, installedMdef) {
-		reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "name", installedMdef.Name)
-
-		//TODO: moved the retry here - was still getting conflict errors when I was wrapping the GET and UDDATE in createOrUpdate()
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			err := r.Client.Update(context.TODO(), updatedMeterdefinition)
-			if err != nil {
-				reqLogger.Error(err, "Failed updating meter definition", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
-				return err
-			}
-
-			return nil
-		})
-
+	if !reflect.DeepEqual(updatedMeterdefinition, onClusterMeterDef) {
+		reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "name", onClusterMeterDef.Name)
+		err := r.Client.Update(context.TODO(), updatedMeterdefinition)
 		if err != nil {
+			reqLogger.Error(err, "Failed updating meter definition", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
 			return err
 		}
 
 		reqLogger.Info("UPDATE: updated meterdefintion", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
-
+		return nil
 	}
 
 	return nil
@@ -974,7 +977,7 @@ func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition 
 }
 
 func (r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) error {
-	reqLogger.Info("delete on diff")
+	reqLogger.Info("running delete on diff")
 
 	deleteList := utils.FindMeterdefSliceDiff(catalogMdefsOnCluster, latestMeterdefsFromCatalog)
 	if len(deleteList) != 0 {

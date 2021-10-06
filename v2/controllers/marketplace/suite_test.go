@@ -135,19 +135,18 @@ var _ = BeforeSuite(func() {
 
 	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
 
-	catalogClient, err := catalog.ProvideCatalogClient(k8sManager.GetClient(), operatorConfig, ctrl.Log)
+	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
 
 	catalogClient.UseInsecureClient()
 
 	err = (&DeploymentConfigReconciler{
-		Client:            k8sManager.GetClient(),
-		Log:               ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:            k8sManager.GetScheme(),
-		cfg:               operatorConfig,
-		factory:           factory,
-		CatalogClient:     catalogClient,
-		AuthBuilderConfig: authBuilderConfig,
+		Client:        k8sManager.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:        k8sManager.GetScheme(),
+		cfg:           operatorConfig,
+		factory:       factory,
+		CatalogClient: catalogClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

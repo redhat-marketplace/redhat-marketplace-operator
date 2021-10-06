@@ -15,8 +15,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/goph/emperror"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/pkg/errors"
-
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 
@@ -160,20 +160,20 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *Catalo
 	return mdefSlice, nil
 }
 
-func (c *CatalogClient) GetSystemMeterdefs(catalogRequest *CatalogRequest) ([]marketplacev1beta1.MeterDefinition, error) {
-	c.Logger.Info("retrieving system meterdefinitions for csv", "csv", catalogRequest.Name)
+func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, packageName string, catalogSource string) ([]marketplacev1beta1.MeterDefinition, error) {
+	c.Logger.Info("retrieving system meterdefinitions for csv", "csv", csv.Name)
 
 	err := c.init()
 	if err != nil {
 		return nil, err
 	}
 
-	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint)
+	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint, packageName, catalogSource)
 	if err != nil {
 		return nil, err
 	}
 
-	requestBody, err := json.Marshal(catalogRequest)
+	requestBody, err := json.Marshal(csv)
 	if err != nil {
 		return nil, err
 	}

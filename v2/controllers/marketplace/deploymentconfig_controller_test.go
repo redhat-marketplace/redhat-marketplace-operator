@@ -60,7 +60,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 		/* paths */
 		listMeterDefsForCsvPath                = "/" + catalog.GetCommunityMeterdefinitionsEndpoint
-		systemMeterdefsPath                    = "/" + catalog.GetSystemMeterdefinitionTemplatesEndpoint
+		systemMeterdefsPath                    = "/" + catalog.GetSystemMeterdefinitionTemplatesEndpoint + "/" + packageName + "/" + catalogSourceName
 		indexLabelsPath                        = "/" + catalog.GetCommunityMeterdefinitionIndexLabelEndpoint + "/" + csvName + "/" + packageName + "/" + catalogSourceName
 		systemMeterDefIndexLabelsPath          = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName + "/" + packageName + "/" + catalogSourceName
 		globalCommunityMeterDefIndexLabelsPath = "/" + catalog.GetGlobalCommunityMeterdefinitionIndexLabelEndpoint

@@ -17,6 +17,7 @@ package marketplace
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -34,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -118,7 +120,7 @@ func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager)
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:urls=/get-community-meterdefs,verbs=get;post;create;
-// +kubebuilder:rbac:urls=/get-system-meterdefs,verbs=get;post;create;
+// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
@@ -203,12 +205,15 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr)
 			if err != nil {
-				// TODO: use reqLogger.Error() for all these
 				reqLogger.Error(err, "error getting community meterdefs()")
 			}
 
+			for _, m := range communityMeterdefs {
+				reqLogger.Info("community meterdef returned from file server", "name", m.Name)
+			}
+
 			if err == nil {
-				err = r.createMeterDefs(communityMeterdefs, csv, reqLogger)
+				err = r.createOrUpdateMeterDefs(communityMeterdefs, csv, reqLogger)
 				if err != nil {
 					reqLogger.Error(err, "error creating meterdefs")
 				}
@@ -219,7 +224,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 			reqLogger.Info("system meterdefs enabled")
-			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(cr)
+			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(csv, sub.Spec.Package, sub.Spec.CatalogSource)
 			if err != nil {
 				reqLogger.Error(err, "error getting system meterdefs")
 			}
@@ -229,7 +234,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			}
 
 			if err == nil {
-				err = r.createMeterDefs(systemMeterDefs, csv, reqLogger)
+				err = r.createOrUpdateMeterDefs(systemMeterDefs, csv, reqLogger)
 				if err != nil {
 					reqLogger.Error(err, "error creating meterdefs")
 				}
@@ -242,33 +247,67 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 }
 
 // TODO: handle updates
-func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+func (r *MeterDefinitionInstallReconciler) createOrUpdateMeterDefs(catalogMeterDefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
 	csvName := csv.Name
 	csvVersion := csv.Spec.Version.Version.String()
 
 	reqLogger.Info("creating meterdefinitions for csv", "csv", csvName, "namespace", csv.Namespace)
 
-	for _, meterDefItem := range mdefs {
-		reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name)
+	for _, catalogMeterDef := range catalogMeterDefs {
+		errorFromRetry := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			clusterMeterdef := &marketplacev1beta1.MeterDefinition{}
+			err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterDef.Name, Namespace: csv.Namespace}, clusterMeterdef)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					reqLogger.Info("meterdefinition not found, creating", "meterdef", catalogMeterDef.Name)
 
-		meterdef := &marketplacev1beta1.MeterDefinition{}
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name, Namespace: csv.Namespace}, meterdef)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				reqLogger.Info("meterdefinition not found, creating", "meterdef", meterDefItem.Name)
+					err = r.createMeterdefWithOwnerRef(csvVersion, &catalogMeterDef, csv)
+					if err != nil {
+						return fmt.Errorf("error while creating meterdef: %w, meterdef name: %s", err, catalogMeterDef.Name)
+					}
 
-				err = r.createMeterdefWithOwnerRef(csvVersion, &meterDefItem, csv)
-				if err != nil {
-					return fmt.Errorf("error while creating meterdef: %w, meterdef name: %s", err, meterDefItem.Name)
+					reqLogger.Info("CREATE: created meterdefinition", "meterdef name", catalogMeterDef.Name, "csv", csv.Name)
+					// exit retry
+					return nil
+
 				}
 
-				reqLogger.Info("created meterdefinition", "meterdef name", meterDefItem.Name, "csv", csv.Name)
-				continue
-
+				return err
 			}
 
-			return fmt.Errorf("%w Failed to get meterdefinition: %s, for csv: %s", err, meterDefItem.Name, csvName)
+			reqLogger.Info("meterdefinition already present, checking for updates", "meterdef", clusterMeterdef.Name)
+			err = r.updateMeterdef(clusterMeterdef, catalogMeterDef, reqLogger)
+			if err != nil {
+				return err
+			}
+
+			// exit retry
+			return nil
+		})
+
+		if errorFromRetry != nil {
+			return errorFromRetry
 		}
+	}
+
+	return nil
+}
+
+func (r *MeterDefinitionInstallReconciler) updateMeterdef(onClusterMeterDef *marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) error {
+	updatedMeterdefinition := onClusterMeterDef.DeepCopy()
+	updatedMeterdefinition.Spec = catalogMdef.Spec
+	updatedMeterdefinition.ObjectMeta.Annotations = catalogMdef.ObjectMeta.Annotations
+
+	if !reflect.DeepEqual(updatedMeterdefinition, onClusterMeterDef) {
+		reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "name", onClusterMeterDef.Name)
+		err := r.Client.Update(context.TODO(), updatedMeterdefinition)
+		if err != nil {
+			reqLogger.Error(err, "Failed updating meter definition", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+			return err
+		}
+
+		reqLogger.Info("UPDATE: updated meterdefintion", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+		return nil
 	}
 
 	return nil
