@@ -15,10 +15,13 @@
 package utils
 
 import (
+	"errors"
 	"time"
 
 	"github.com/jpillora/backoff"
 )
+
+var ErrMaxRetryExceeded = errors.New("Max retry limit exceeded")
 
 func Retry(f func() error, retry int) error {
 	var err error

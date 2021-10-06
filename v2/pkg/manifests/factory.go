@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/gotidy/ptr"
@@ -110,7 +111,7 @@ func NewFactory(
 	}
 }
 
-func (f *Factory) ReplaceImages(container *corev1.Container) {
+func (f *Factory) ReplaceImages(container *corev1.Container) error {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
 		container.Image = f.config.RelatedImages.KubeRbacProxy
@@ -118,7 +119,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = append(container.Args, "--namespace", f.namespace)
+		container.Args = []string{"--namespace", "$POD_NAMESPACE"}
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -167,32 +168,89 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.WatchKeeper
 	}
 
+	if err := f.updateProxyEnvVariables(container); err != nil {
+		return err
+	}
+
+	if err := f.updateContainerResources(container); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *Factory) updateProxyEnvVariables(container *corev1.Container) error {
 	if container.Env == nil {
 		container.Env = []corev1.EnvVar{}
 	}
 
 	proxyInfo := httpproxy.FromEnvironment()
 
+	envVars := map[string]corev1.EnvVar{}
+
+	for _, env := range container.Env {
+		envVars[env.Name] = env
+	}
+
 	if proxyInfo.HTTPProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["HTTP_PROXY"] = corev1.EnvVar{
 			Name:  "HTTP_PROXY",
 			Value: proxyInfo.HTTPProxy,
-		})
+		}
+	} else {
+		delete(envVars, "HTTP_PROXY")
 	}
 
 	if proxyInfo.HTTPSProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["HTTPS_PROXY"] = corev1.EnvVar{
 			Name:  "HTTPS_PROXY",
 			Value: proxyInfo.HTTPSProxy,
-		})
+		}
+	} else {
+		delete(envVars, "HTTPS_PROXY")
 	}
 
 	if proxyInfo.NoProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["NO_PROXY"] = corev1.EnvVar{
 			Name:  "NO_PROXY",
 			Value: proxyInfo.NoProxy,
-		})
+		}
+	} else {
+		delete(envVars, "NO_PROXY")
 	}
+
+	container.Env = []corev1.EnvVar{}
+	for _, v := range envVars {
+		container.Env = append(container.Env, v)
+	}
+
+	sort.Slice(container.Env, func(a, b int) bool {
+		return container.Env[a].Name < container.Env[b].Name
+	})
+
+	return nil
+}
+
+func (f *Factory) updateContainerResources(container *corev1.Container) error {
+	if f.operatorConfig == nil || f.operatorConfig.Config.Resources == nil {
+		return nil
+	}
+
+	if len(f.operatorConfig.Config.Resources.Containers) == 0 {
+		return nil
+	}
+
+	if r, ok := f.operatorConfig.Config.Resources.Containers[container.Name]; ok {
+		for k, v := range r.Limits {
+			container.Resources.Limits[k] = v
+		}
+
+		for k, v := range r.Requests {
+			container.Resources.Requests[k] = v
+		}
+	}
+
+	return nil
 }
 
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
@@ -398,7 +456,11 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 		container := &dep.Spec.Template.Spec.Containers[i]
 		newArgs := []string{}
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
@@ -481,7 +543,12 @@ func (f *Factory) NewPrometheusDeployment(
 	}
 
 	for i := range p.Spec.Containers {
-		f.ReplaceImages(&p.Spec.Containers[i])
+		container := &p.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return p, err
@@ -719,7 +786,12 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	}
 
 	for i := range d.Spec.Template.Spec.Containers {
-		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+		container := &d.Spec.Template.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	d.Namespace = f.namespace
@@ -944,11 +1016,6 @@ func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
 }
 
 func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error {
-	err := f.UpdateDeployment(MustAssetReader(RRS3ControllerDeployment), dep)
-	if err != nil {
-		return err
-	}
-
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -964,51 +1031,27 @@ func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
 
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (f *Factory) NewRemoteResourceS3Deployment() *appsv1.Deployment {
-	dep := &appsv1.Deployment{}
+func (f *Factory) NewRemoteResourceS3Deployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(RRS3ControllerDeployment))
+	if err != nil {
+		return nil, err
+	}
+
 	f.UpdateRemoteResourceS3Deployment(dep)
-	return dep
+	return dep, nil
 }
 
 func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
-	err := f.UpdateDeployment(MustAssetReader(WatchKeeperDeployment), dep)
-	if err != nil {
-		return err
-	}
-
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -1024,43 +1067,24 @@ func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
 
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (f *Factory) NewWatchKeeperDeployment() *appsv1.Deployment {
-	dep := &appsv1.Deployment{}
+func (f *Factory) NewWatchKeeperDeployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(WatchKeeperDeployment))
+	if err != nil {
+		return nil, err
+	}
+
 	f.UpdateWatchKeeperDeployment(dep)
-	return dep
+	return dep, nil
 }
 
 func (f *Factory) UpdateDeployment(manifest io.Reader, d *appsv1.Deployment) error {
