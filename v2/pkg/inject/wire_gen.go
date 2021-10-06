@@ -75,14 +75,14 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,
 	}
-	catalogClient, err := catalog.ProvideCatalogClient(client, operatorConfig, logger)
+	authBuilderConfig := rhmotransport.ProvideAuthBuilder(client, operatorConfig, clientset, logger)
+	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, logger)
 	if err != nil {
 		return injectorDependencies{}, err
 	}
 	catalogClientInjector := &CatalogClientInjector{
 		CatalogClient: catalogClient,
 	}
-	authBuilderConfig := rhmotransport.ProvideAuthBuilder(client, operatorConfig, clientset, logger)
 	authBuilderConfigInjector := &AuthBuilderConfigInjector{
 		AuthBuilderConfig: authBuilderConfig,
 	}

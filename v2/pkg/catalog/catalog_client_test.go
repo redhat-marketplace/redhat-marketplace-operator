@@ -24,7 +24,6 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"bytes"
 	"crypto/rand"
@@ -67,6 +66,7 @@ var _ = Describe("Catalog Client", func() {
 		customListener, err := net.Listen("tcp", listenerAddress)
 		Expect(err).ToNot(HaveOccurred())
 
+		//TODO: use NewTlsServer()*
 		catalogClientMockServer = ghttp.NewUnstartedServer()
 		catalogClientMockServer.HTTPTestServer.Listener.Close()
 		catalogClientMockServer.HTTPTestServer.Listener = customListener
@@ -87,11 +87,6 @@ var _ = Describe("Catalog Client", func() {
 
 	Context("Set Transport", func() {
 		It("Should set transport and kube service auth in default scenario", func() {
-			reqLogger := ctrl.Log
-
-			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
-			Expect(err).NotTo(HaveOccurred())
-
 			Expect(catalogClient.UseSecureClient).To(Equal(true))
 			Expect(catalogClient.IsTransportSet).To(Equal(true))
 		})
@@ -106,15 +101,6 @@ var _ = Describe("Catalog Client", func() {
 					ghttp.VerifyRequest("POST", communityMeterDefPath),
 					ghttp.RespondWith(http.StatusUnauthorized, unauthorizedBody),
 				))
-
-			reqLogger := ctrl.Log
-
-			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
-			if err != nil {
-				utils.PrettyPrint(err)
-			}
-
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should retry on Auth errors and propagate the error when all retry attempts fail", func() {
@@ -134,15 +120,6 @@ var _ = Describe("Catalog Client", func() {
 					ghttp.VerifyRequest("POST", communityMeterDefPath),
 					ghttp.RespondWith(http.StatusInternalServerError, internalServerErrorBody),
 				))
-
-			reqLogger := ctrl.Log
-
-			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
-			if err != nil {
-				utils.PrettyPrint(err)
-			}
-
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should retry on 500 errors and propagate the original error when all retry attempts fail", func() {
@@ -161,15 +138,6 @@ var _ = Describe("Catalog Client", func() {
 					ghttp.VerifyRequest("POST", communityMeterDefPath),
 					ghttp.RespondWith(http.StatusBadRequest, arbitraryErrorBody),
 				))
-
-			reqLogger := ctrl.Log
-
-			err := catalogClient.SetRetryForCatalogClient(mockAuthBuilderConfig, reqLogger)
-			if err != nil {
-				utils.PrettyPrint(err)
-			}
-
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should not retry on arbitrary errors and return the error", func() {

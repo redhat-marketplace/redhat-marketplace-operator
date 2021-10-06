@@ -29,7 +29,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,12 +53,11 @@ var _ reconcile.Reconciler = &MeterDefinitionInstallReconciler{}
 type MeterDefinitionInstallReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client            client.Client
-	Scheme            *runtime.Scheme
-	Log               logr.Logger
-	cfg               *config.OperatorConfig
-	catalogClient     *catalog.CatalogClient
-	AuthBuilderConfig *rhmotransport.AuthBuilderConfig
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	cfg           *config.OperatorConfig
+	catalogClient *catalog.CatalogClient
 }
 
 func hasOperatorTag(meta metav1.Object) bool {
@@ -106,12 +105,6 @@ func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *ca
 	return nil
 }
 
-func (r *MeterDefinitionInstallReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmotransport.AuthBuilderConfig) error {
-	r.Log.Info("AuthBuilder")
-	r.AuthBuilderConfig = authBuilderConfig
-	return nil
-}
-
 func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.Subscription{}, builder.WithPredicates(rhmSubPredicates)).
@@ -155,14 +148,6 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
 		reqLogger.Info("catalog server isn't enabled, stopping reconcile")
 		return reconcile.Result{}, nil
-	}
-
-	/*
-		AuthBuilderConfig has a method FindAuthOnCluster and is an interface of AuthBuilder
-	*/
-	err = r.catalogClient.SetRetryForCatalogClient(r.AuthBuilderConfig, reqLogger)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	// Fetch the subscription instance
@@ -218,13 +203,14 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr)
 			if err != nil {
-				reqLogger.Info(err.Error())
+				// TODO: use reqLogger.Error() for all these
+				reqLogger.Error(err, "error getting community meterdefs()")
 			}
 
 			if err == nil {
 				err = r.createMeterDefs(communityMeterdefs, csv, reqLogger)
 				if err != nil {
-					reqLogger.Info(err.Error())
+					reqLogger.Error(err, "error creating meterdefs")
 				}
 			}
 		}
@@ -239,16 +225,15 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			}
 
 			for _, m := range systemMeterDefs {
-				reqLogger.Info("system meterdef names", "name", m.Name)
+				reqLogger.Info("system meterdef returned from file server", "name", m.Name)
 			}
 
 			if err == nil {
 				err = r.createMeterDefs(systemMeterDefs, csv, reqLogger)
 				if err != nil {
-					reqLogger.Info(err.Error())
+					reqLogger.Error(err, "error creating meterdefs")
 				}
 			}
-
 		}
 	}
 
@@ -256,6 +241,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	return reconcile.Result{}, nil
 }
 
+// TODO: handle updates
 func (r *MeterDefinitionInstallReconciler) createMeterDefs(mdefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
 	csvName := csv.Name
 	csvVersion := csv.Spec.Version.Version.String()

@@ -40,6 +40,7 @@ func initializeInjectDependencies(
 		reconcileutils.NewClientCommand,
 		catalog.ProvideCatalogClient,
 		rhmotransport.ProvideAuthBuilder,
+		wire.Bind(new(rhmotransport.IAuthBuilder), new(*rhmotransport.AuthBuilderConfig)),
 		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
 		wire.Struct(new(ClientCommandInjector), "*"),

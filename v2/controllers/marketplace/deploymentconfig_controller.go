@@ -32,7 +32,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -73,15 +72,14 @@ type ConditionError struct {
 type DeploymentConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client            client.Client
-	Scheme            *runtime.Scheme
-	Log               logr.Logger
-	CC                ClientCommandRunner
-	cfg               *config.OperatorConfig
-	factory           *manifests.Factory
-	patcher           patch.Patcher
-	CatalogClient     *catalog.CatalogClient
-	AuthBuilderConfig *rhmotransport.AuthBuilderConfig
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	CC            ClientCommandRunner
+	cfg           *config.OperatorConfig
+	factory       *manifests.Factory
+	patcher       patch.Patcher
+	CatalogClient *catalog.CatalogClient
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -113,12 +111,6 @@ func (r *DeploymentConfigReconciler) InjectPatch(p patch.Patcher) error {
 
 func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
-	return nil
-}
-
-func (r *DeploymentConfigReconciler) InjectAuthBuilderConfig(authBuilderConfig *rhmotransport.AuthBuilderConfig) error {
-	r.Log.Info("AuthBuilder")
-	r.AuthBuilderConfig = authBuilderConfig
 	return nil
 }
 
@@ -238,7 +230,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 			}
 
 			reqLogger.Info("done removing system meterdefinitions")
-
 		}
 	}
 
@@ -329,11 +320,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	reqLogger.Info("deploymentconfig is in ready state")
 
-	err = r.CatalogClient.SetRetryForCatalogClient(r.AuthBuilderConfig, reqLogger)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	//syncs the latest meterdefinitions from the catalog with the community & system (templated) meterdefinitions on the cluster
 	result = r.sync(instance, request, reqLogger)
 	if !result.Is(Continue) {
@@ -374,16 +360,22 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			continue
 		}
 
-		var csvName string
-		if sub.Status.InstalledCSV == "" {
-			err = fmt.Errorf("subscription does not have InstalledCSV set: %s, subscription namespace: %s", sub.Name, sub.Namespace)
-			return &ExecResult{
-				Status: ActionResultStatus(Error),
-				Err:    err,
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if sub.Status.InstalledCSV == "" {
+				err = fmt.Errorf("subscription does not have InstalledCSV set: %s, subscription namespace: %s", sub.Name, sub.Namespace)
+				return err
 			}
+
+			return nil
+		})
+
+		if err != nil {
+			reqLogger.Error(err, "could not find InstalledCSV")
+			// skipping since we can't get the csv name
+			continue
 		}
 
-		csvName = sub.Status.InstalledCSV
+		csvName := sub.Status.InstalledCSV
 		reqLogger.Info("Subscription has InstalledCSV", "csv", csvName)
 
 		csv := &olmv1alpha1.ClusterServiceVersion{}
@@ -424,7 +416,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 				err = r.syncSystemMeterDefs(csv, cr, reqLogger)
 				if err != nil {
-					reqLogger.Info(err.Error())
+					reqLogger.Error(err, "error syncing system meterdefinitions")
 				}
 			}
 		}
@@ -433,7 +425,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
 				err = r.syncCommunityMeterDefs(cr, csv, reqLogger)
 				if err != nil {
-					reqLogger.Info(err.Error())
+					reqLogger.Error(err, "error syncing community meterdefinitions")
 				}
 			}
 		}

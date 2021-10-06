@@ -160,7 +160,7 @@ var _ = BeforeSuite(func() {
 		Logger:            ctrl.Log,
 	}
 
-	catalogClient, err = ProvideCatalogClient(k8sClient, operatorConfig, ctrl.Log)
+	catalogClient, err = ProvideCatalogClient(mockAuthBuilderConfig, operatorConfig, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {

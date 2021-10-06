@@ -546,6 +546,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("found meterbase")
 
 	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
+		reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
 		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
 			SyncCommunityMeterDefinitions:      true,
 			SyncSystemMeterDefinitions:         true,
@@ -562,6 +563,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
+
 		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
 			SyncCommunityMeterDefinitions:      false,
 			SyncSystemMeterDefinitions:         false,

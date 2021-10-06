@@ -24,7 +24,6 @@ import (
 	rhmotransport "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -50,6 +49,7 @@ type CatalogClient struct {
 	sync.Mutex
 	Endpoint *url.URL
 	*retryablehttp.Client
+	authBuilder       rhmotransport.IAuthBuilder
 	DeployedNamespace string
 	IsTransportSet    bool
 	UseSecureClient   bool
@@ -75,7 +75,7 @@ type CSVInfo struct {
 	Version   string `json:"version"`
 }
 
-func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, logr logr.Logger) (*CatalogClient, error) {
+func ProvideCatalogClient(authBuilderInterface rhmotransport.IAuthBuilder, cfg *config.OperatorConfig, logr logr.Logger) (*CatalogClient, error) {
 	fileServerURL := FileServerProductionURL
 
 	if cfg.FileServerURL != "" {
@@ -96,6 +96,7 @@ func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, l
 		Endpoint:          url,
 		DeployedNamespace: cfg.DeployedNamespace,
 		Client:            rc,
+		authBuilder:       authBuilderInterface,
 		Logger:            logr,
 		UseSecureClient:   true,
 		IsTransportSet:    false,
@@ -106,6 +107,11 @@ func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, l
 
 func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *CatalogRequest) ([]marketplacev1beta1.MeterDefinition, error) {
 	c.Logger.Info("retrieving community meterdefinitions", "csvName", catalogRequest.Name, "csvVersion", catalogRequest.Version)
+
+	err := c.init()
+	if err != nil {
+		return nil, err
+	}
 
 	url, err := concatPaths(c.Endpoint.String(), GetCommunityMeterdefinitionsEndpoint)
 	if err != nil {
@@ -157,6 +163,11 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *Catalo
 func (c *CatalogClient) GetSystemMeterdefs(catalogRequest *CatalogRequest) ([]marketplacev1beta1.MeterDefinition, error) {
 	c.Logger.Info("retrieving system meterdefinitions for csv", "csv", catalogRequest.Name)
 
+	err := c.init()
+	if err != nil {
+		return nil, err
+	}
+
 	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint)
 	if err != nil {
 		return nil, err
@@ -205,6 +216,11 @@ func (c *CatalogClient) GetSystemMeterdefs(catalogRequest *CatalogRequest) ([]ma
 func (c *CatalogClient) GetCommunityMeterdefIndexLabels(csvName string, packageName string, catalogSourceName string) (map[string]string, error) {
 	c.Logger.Info("retrieving community meterdefinition index label")
 
+	err := c.init()
+	if err != nil {
+		return nil, err
+	}
+
 	url, err := concatPaths(c.Endpoint.String(), GetCommunityMeterdefinitionIndexLabelEndpoint, csvName, packageName, catalogSourceName)
 	if err != nil {
 		return nil, err
@@ -238,6 +254,11 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(csvName string, packageN
 
 func (c *CatalogClient) GetSystemMeterDefIndexLabels(csvName string, packageName string, catalogSourceName string) (map[string]string, error) {
 	c.Logger.Info("retrieving system meterdefinition index label")
+
+	err := c.init()
+	if err != nil {
+		return nil, err
+	}
 
 	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterDefIndexLabelEndpoint, csvName, packageName, catalogSourceName)
 	if err != nil {
@@ -275,6 +296,11 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(csvName string, packageName
 func (c *CatalogClient) GetGlobalCommunityMeterdefIndexLabel() (map[string]string, error) {
 	c.Logger.Info("retrieving community meterdefinition index label")
 
+	err := c.init()
+	if err != nil {
+		return nil, err
+	}
+
 	url, err := concatPaths(c.Endpoint.String(), GetGlobalCommunityMeterdefinitionIndexLabelEndpoint)
 	if err != nil {
 		return nil, err
@@ -308,6 +334,11 @@ func (c *CatalogClient) GetGlobalCommunityMeterdefIndexLabel() (map[string]strin
 
 func (c *CatalogClient) GetGlobalSystemMeterDefIndexLabels() (map[string]string, error) {
 	c.Logger.Info("retrieving global system meterdefinition index label")
+
+	err := c.init()
+	if err != nil {
+		return nil, err
+	}
 
 	url, err := concatPaths(c.Endpoint.String(), GetGlobalSystemMeterDefIndexLabelEndpoint)
 	if err != nil {
@@ -393,18 +424,20 @@ func (c *CatalogClient) UseInsecureClient() {
 // }
 
 // initializes the httpclient on the retryablehttp and defines what conditions we need to retry on
-// default retry will retry on connection errors or if a 500-range response code is received (except 501)
-func (c *CatalogClient) SetRetryForCatalogClient(authBuilder rhmotransport.IAuthBuilder, reqLogger logr.Logger) error {
+// default retry will retry on connection errors, or if a 500-range response code is received (except 501)
+// add authbuilder to CatalogClient, make this an init function that gets called on client call functions
+func (c *CatalogClient) init() error {
 	c.Lock()
 	defer c.Unlock()
 
 	if c.UseSecureClient {
-		// TODO: was having trouble hitting a condition to determine if transport has been set by us or not, using a flag for now
+		// TODO: was having trouble hitting a nil condition to determine if transport has been set by us or not, using a flag for now
 		if !c.IsTransportSet {
-			reqLogger.Info("RetryableClient.HTTPClient is not set, setting")
+			c.Logger.Info("RetryableClient.HTTPClient is not set, setting")
 
-			httpClient, err := rhmotransport.SetTransportForKubeServiceAuth(authBuilder, reqLogger)
+			httpClient, err := rhmotransport.SetTransportForKubeServiceAuth(c.authBuilder, c.Logger)
 			if err != nil {
+				c.Logger.Error(err, "error setting transport")
 				return err
 			}
 
@@ -415,7 +448,7 @@ func (c *CatalogClient) SetRetryForCatalogClient(authBuilder rhmotransport.IAuth
 		c.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 			ok, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
 			if !ok && resp.StatusCode == http.StatusUnauthorized {
-				httpClient, err := rhmotransport.SetTransportForKubeServiceAuth(authBuilder, reqLogger)
+				httpClient, err := rhmotransport.SetTransportForKubeServiceAuth(c.authBuilder, c.Logger)
 				if err != nil {
 					return true, err
 				}
@@ -430,7 +463,7 @@ func (c *CatalogClient) SetRetryForCatalogClient(authBuilder rhmotransport.IAuth
 			return ok, err
 		}
 	} else if !c.UseSecureClient {
-		reqLogger.Info("using insecure client skipping auth configuration")
+		c.Logger.Info("using insecure client skipping auth configuration")
 	}
 
 	return nil
