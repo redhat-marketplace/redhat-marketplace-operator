@@ -474,6 +474,7 @@ branch_build: _#bashWorkflow & {
 			needs: ["test", "base"]
 			env: {
 				VERSION: "${{ needs.test.outputs.tag }}"
+        GO_VERSION: _#goVersion
 			}
 			strategy: matrix: {
 				project: ["operator", "authchecker", "metering", "reporter", "airgap"]
@@ -915,7 +916,7 @@ _#turnStyleStep: _#step & {
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
 }
 
-_#archs: ["amd64", "ppc64le", "s390x"]
+_#archs: ["amd64", "ppc64le", "s390x", "arm64"]
 _#registry:           "quay.io/rh-marketplace"
 _#goVersion:          "1.16.8"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
@@ -959,6 +960,7 @@ _#reporter: _#image & {
 }
 
 _#authchecker: _#image & {
+
 	name:  "redhat-marketplace-authcheck"
 	ospid: "ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
@@ -971,8 +973,6 @@ _#manifest: _#image & {
 	pword: "pcPasswordOperatorManifest"
 	url:   _#projectURLs["bundle"]
 }
-
-_#archs: ["amd64", "ppc64le", "s390x"]
 
 _#images: [
 	_#operator,

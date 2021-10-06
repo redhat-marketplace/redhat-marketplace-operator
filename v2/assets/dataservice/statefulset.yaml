@@ -40,7 +40,7 @@ spec:
           args:
             [
               '-c',
-              'if [ "$POD_NAME" != "rhm-data-service-0" ]; then DQLITE_JOIN="--join rhm-data-service-0.rhm-data-service.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /opt/main --ca-cert /etc/tls/private/ca.crt --tls-cert /etc/tls/private/tls.crt --tls-key /etc/tls/private/tls.key --api 127.0.0.1:8003 --db $POD_NAME.rhm-data-service.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN',
+              'if [ "$POD_NAME" != "rhm-data-service-0" ]; then DQLITE_JOIN="--join rhm-data-service-0.rhm-data-service.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /usr/local/bin/entrypoint --ca-cert /etc/tls/private/ca.crt --tls-cert /etc/tls/private/tls.crt --tls-key /etc/tls/private/tls.key --api 127.0.0.1:8003 --db $POD_NAME.rhm-data-service.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN',
             ]
           env:
             - name: POD_IP
