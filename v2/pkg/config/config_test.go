@@ -17,11 +17,15 @@ package config
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	osconfigv1 "github.com/openshift/api/config/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 )
@@ -64,6 +68,47 @@ var _ = Describe("Config", func() {
 			Expect(cfg).ToNot(BeNil())
 			Expect(cfg.Features.IBMCatalog).To(BeFalse())
 			Expect(cfg.RelatedImages.MetricState).To(Equal("foo"))
+		})
+	})
+
+	Context("with limits", func() {
+		BeforeEach(func() {
+			resources := EnvConfig{
+				Resources: &Resources{
+					Containers: map[string]v1.ResourceRequirements{
+						"system": {
+							Limits: v1.ResourceList{
+								v1.ResourceCPU: resource.MustParse("500m"),
+							},
+						},
+						"system2": {
+							Limits: v1.ResourceList{
+								v1.ResourceCPU: resource.MustParse("1000m"),
+							},
+						},
+					},
+				},
+			}
+			data, err := json.Marshal(&resources)
+			Expect(err).To(Succeed())
+			fmt.Println(string(data))
+			os.Setenv("CONFIG", string(data))
+		})
+
+		AfterEach(func() {
+			os.Unsetenv("CONFIG")
+		})
+
+		It("should parse resources", func() {
+			cfg, err := ProvideConfig()
+
+			Expect(err).To(Succeed())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.Config.Resources.Containers).To(HaveLen(2))
+			v, ok := cfg.Config.Resources.Containers["system"]
+			Expect(ok).To(BeTrue())
+			r := resource.MustParse("500m")
+			Expect(v.Limits.Cpu()).To(Equal(&r))
 		})
 	})
 

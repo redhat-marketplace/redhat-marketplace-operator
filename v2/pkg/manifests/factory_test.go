@@ -18,6 +18,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/assets"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var files = []string{
@@ -65,5 +68,51 @@ var _ = Describe("FactoryTest", func() {
 			_, err := assets.ReadFile(file)
 			Expect(err).ToNot(HaveOccurred(), file)
 		}
+	})
+
+	It("should replace resources", func() {
+		factory := Factory{
+			operatorConfig: &config.OperatorConfig{
+				Config: config.EnvConfig{
+					Resources: &config.Resources{
+						Containers: map[string]v1.ResourceRequirements{
+							"test": {
+								Limits: v1.ResourceList{
+									v1.ResourceCPU: resource.MustParse("100m"),
+								},
+								Requests: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("600Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		container := v1.Container{
+			Name: "test",
+			Resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse("50m"),
+					v1.ResourceMemory: resource.MustParse("1000Mi"),
+				},
+				Requests: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse("25m"),
+					v1.ResourceMemory: resource.MustParse("500Mi"),
+				},
+			},
+		}
+
+		Expect(factory.updateContainerResources(&container)).To(Succeed())
+
+		r := resource.MustParse("100m")
+		Expect(container.Resources.Limits.Cpu()).To(Equal(&r))
+		r = resource.MustParse("1000Mi")
+		Expect(container.Resources.Limits.Memory()).To(Equal(&r))
+		r = resource.MustParse("25m")
+		Expect(container.Resources.Requests.Cpu()).To(Equal(&r))
+		r = resource.MustParse("600Mi")
+		Expect(container.Resources.Requests.Memory()).To(Equal(&r))
 	})
 })

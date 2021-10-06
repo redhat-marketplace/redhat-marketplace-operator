@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"time"
 
+	golangerrors "errors"
+
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -447,9 +449,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if !rrs3DeploymentEnabled {
 		//razee deployment disabled - if the deployment was found, delete it
 
-		res, err := r.removeRazeeDeployments(instance)
-		if res != nil {
-			return *res, err
+		err := r.removeRazeeDeployments(instance)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 
 		//Deployment is disabled - update status
@@ -1500,69 +1502,147 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketp
 //Undeploy the razee deployment and parent
 func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	req *marketplacev1alpha1.RazeeDeployment,
-) (*reconcile.Result, error) {
+) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Starting full uninstall of razee")
+	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3, RRS3 deployment")
 
-	reqLogger.Info("Listing chjildRRS3")
+	maxRetry := 3
+
 	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
+	err := utils.Retry(func() error {
+		reqLogger.Info("Listing childRRS3")
 
-	needReconcile := false
-
-	if err == nil || err != nil && !errors.IsNotFound(err) {
-		reqLogger.Info("Deleteing childRRS3")
-		err := r.Client.Delete(context.TODO(), &childRRS3)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+			return err
 		}
-		needReconcile = true
+
+		if err != nil && errors.IsNotFound((err)) {
+			reqLogger.Info("ChildRRS3 deleted")
+			return nil
+		}
+
+		err = r.Client.Delete(context.TODO(), &childRRS3)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete childRRS3")
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of childRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+
+	}, maxRetry)
+
+	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+		reqLogger.Info("retry limit exceeded, removing finalizers on childRRS3", "err", err.Error())
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			key, _ := client.ObjectKeyFromObject(&childRRS3)
+
+			err := r.Client.Get(context.TODO(), key, &childRRS3)
+			if err != nil {
+				return err
+			}
+
+			if utils.Contains(childRRS3.GetFinalizers(), utils.RRS3_FINALIZER) {
+				childRRS3.SetFinalizers(utils.RemoveKey(childRRS3.GetFinalizers(), utils.CONTROLLER_FINALIZER))
+			}
+
+			return r.Client.Update(context.TODO(), &childRRS3)
+		})
+
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "error updating childRRS3 finalizers")
+			return err
+		}
+
+		if errors.IsNotFound(err) {
+			reqLogger.Info("removed finalizers on child rrs3")
+		}
 	}
 
-	reqLogger.Info("Listing parentRRS3")
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
+	err = utils.Retry(func() error {
+		reqLogger.Info("Listing parentRRS3")
 
-	if err == nil {
-		reqLogger.Info("Deleteing parentRRS3")
-		err := r.Client.Delete(context.TODO(), &parentRRS3)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+			return err
 		}
-		needReconcile = true
-	}
 
-	//Only reconcile once after deleting both child and parent RRS3 resource
-	if needReconcile {
-		return &reconcile.Result{RequeueAfter: time.Second * 2}, err
+		if err != nil && errors.IsNotFound((err)) {
+			reqLogger.Info("ParentRRS3 deleted")
+			return nil
+		}
+
+		err = r.Client.Delete(context.TODO(), &parentRRS3)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete parentRRS3")
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of parentRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+
+	}, maxRetry)
+
+	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+		reqLogger.Info("retry limit exceeded, removing finalizers on parentRRS3", "err", err.Error())
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			key, _ := client.ObjectKeyFromObject(&parentRRS3)
+
+			err := r.Client.Get(context.TODO(), key, &parentRRS3)
+			if err != nil {
+				return err
+			}
+
+			if utils.Contains(parentRRS3.GetFinalizers(), utils.RRS3_FINALIZER) {
+				parentRRS3.SetFinalizers(utils.RemoveKey(parentRRS3.GetFinalizers(), utils.RRS3_FINALIZER))
+			}
+
+			return r.Client.Update(context.TODO(), &parentRRS3)
+		})
+
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "error updating updatingRRS3 finalizers")
+			return err
+		}
+
+		if errors.IsNotFound(err) {
+			reqLogger.Info("removed finlizers on parent rrs3")
+		}
 	}
 
 	//Delete the deployment
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-			Namespace: *req.Spec.TargetNamespace,
-		},
-	}
-	reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-	err = r.Client.Delete(context.TODO(), deployment)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("deployment already deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-			return nil, nil
+	err = utils.Retry(func() error {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				Namespace: *req.Spec.TargetNamespace,
+			},
 		}
-		reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+
+		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+		err = r.Client.Delete(context.TODO(), deployment)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return nil
+			}
+
+			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+	}, maxRetry)
+
+	if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+		reqLogger.Error(err, "error deleting rrs3 deployment resources")
 	}
 
-	//deployment deleted - requeue
-	return &reconcile.Result{Requeue: true}, nil
+	return nil
 }
 
 //Undeploy the watchkeeper deployment
@@ -1595,7 +1675,7 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Starting full uninstall of razee")
+	reqLogger.Info("Starting full uninstall of razee resources")
 
 	if req.Spec.TargetNamespace == nil {
 		if req.Status.RazeeJobInstall != nil {
@@ -1606,9 +1686,9 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 	}
 
 	//Remove razee deployments and reconcile if requested
-	res, err := r.removeRazeeDeployments(req)
-	if res != nil {
-		return *res, err
+	err := r.removeRazeeDeployments(req)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	configMaps := []string{
@@ -1653,6 +1733,8 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 
 	//remove the watchkeeper deployment
 	r.removeWatchkeeperDeployment(req)
+
+	reqLogger.Info("Removing finalizers on razee cr")
 
 	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.Client.Update(context.TODO(), req)
@@ -1806,61 +1888,75 @@ func (r *RazeeDeploymentReconciler) uninstallLegacyResources(
 func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
-	rrs3Deployment := r.factory.NewRemoteResourceS3Deployment()
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	rrs3Deployment, err := r.factory.NewRemoteResourceS3Deployment()
+
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
 			r.factory.SetControllerReference(instance, rrs3Deployment)
 			return r.factory.UpdateRemoteResourceS3Deployment(rrs3Deployment)
 		})
 		return err
 	})
+
 	if err != nil {
 		return reconcile.Result{}, err
-	} else {
-		if instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
-			Message: "RemoteResourceS3 deployment enabled",
-		}) {
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Status().Update(context.TODO(), instance)
-			})
-			if err != nil {
-				return reconcile.Result{}, err
-			}
+	}
+
+	if instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+		Message: "RemoteResourceS3 deployment enabled",
+	}) {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Status().Update(context.TODO(), instance)
+		})
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 	}
+
 	return reconcile.Result{}, nil
 }
 
 func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
-	watchKeeperDeployment := r.factory.NewWatchKeeperDeployment()
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	watchKeeperDeployment, err := r.factory.NewWatchKeeperDeployment()
+
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
 			r.factory.SetControllerReference(instance, watchKeeperDeployment)
 			return r.factory.UpdateWatchKeeperDeployment(watchKeeperDeployment)
 		})
 		return err
 	})
+
 	if err != nil {
 		return reconcile.Result{}, err
-	} else {
-		if instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRhmRegistrationWatchkeeperEnabled,
-			Message: "Registration deployment enabled",
-		}) {
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Status().Update(context.TODO(), instance)
-			})
-			if err != nil {
-				return reconcile.Result{}, err
-			}
+	}
+
+	if instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonRhmRegistrationWatchkeeperEnabled,
+		Message: "Registration deployment enabled",
+	}) {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Status().Update(context.TODO(), instance)
+		})
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 	}
+
 	return reconcile.Result{}, nil
 }
