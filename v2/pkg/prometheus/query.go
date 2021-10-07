@@ -72,7 +72,7 @@ func NewPromQueryFromLabels(
 		Type:   workloadType,
 		MeterDef: types.NamespacedName{
 			Name:      meterDefLabels.MeterDefName,
-			Namespace: meterDefLabels.MeterDefNamespace,
+			Namespace: getMeterDefNamespace(meterDefLabels),
 		},
 		Query:         meterDefLabels.MetricQuery,
 		Start:         start,
@@ -109,7 +109,7 @@ func PromQueryFromLabels(
 		Type:   workloadType,
 		MeterDef: types.NamespacedName{
 			Name:      meterDefLabels.MeterDefName,
-			Namespace: meterDefLabels.MeterDefNamespace,
+			Namespace: getMeterDefNamespace(meterDefLabels),
 		},
 		Query:         meterDefLabels.MetricQuery,
 		Start:         start,
@@ -407,4 +407,13 @@ func (p *PrometheusAPI) MeterDefLabelValues() (model.LabelValues, v1.Warnings, e
 	}
 
 	return labelValues, warnings, nil
+}
+
+// UserWorkloadMonitoring will exported_ overlapping labels
+func getMeterDefNamespace(meterDefLabels *common.MeterDefPrometheusLabels) string {
+	if len(meterDefLabels.ExportedMeterDefNamespace) != 0 {
+		return meterDefLabels.ExportedMeterDefNamespace
+	} else {
+		return meterDefLabels.MeterDefNamespace
+	}
 }
