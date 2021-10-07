@@ -207,6 +207,15 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 	return result, nil
 }
 
+// UserWorkloadMonitoring will exported_ overlapping labels
+func (m *MeterDefPrometheusLabels) Namespace() string {
+	if len(m.ExportedMeterDefNamespace) != 0 {
+		return m.ExportedMeterDefNamespace
+	} else {
+		return m.MeterDefNamespace
+	}
+}
+
 // MeterDefPrometheusLabelsTemplated is the values of a meter definition
 // templated and with values set ready to be added.
 type MeterDefPrometheusLabelsTemplated struct {
