@@ -37,10 +37,10 @@ const (
 type MeterDefPrometheusLabels struct {
 	UID               string `json:"meter_definition_uid" mapstructure:"meter_definition_uid"`
 	MeterDefName      string `json:"name" mapstructure:"name"`
-	MeterDefNamespace string `json:"namespace,omitempty" mapstructure:"namespace"`
+	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
 	// UserWorkloadMonitoring will exported_ overlapping labels
-	ExportedMeterDefNamespace string `json:"exported_namespace" mapstructure:"exported_namespace"`
+	ExportedMeterDefNamespace string `json:"exported_namespace,omitempty" mapstructure:"exported_namespace"`
 
 	// Deprecated: metric is now the primary name
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name" template:""`
