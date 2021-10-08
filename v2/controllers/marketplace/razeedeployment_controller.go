@@ -189,9 +189,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 300)},
 			),
 		}).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
@@ -1455,41 +1453,6 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 	}, instance)
-
-	/*
-		return &marketplacev1alpha1.RemoteResourceS3{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.PARENT_RRS3_RESOURCE_NAME,
-				Namespace: *instance.Spec.TargetNamespace,
-			},
-			Spec: marketplacev1alpha1.RemoteResourceS3Spec{
-				Auth: marketplacev1alpha1.Auth{
-					Iam: &marketplacev1alpha1.Iam{
-						ResponseType: "cloud_iam",
-						GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
-						URL:          "https://iam.cloud.ibm.com/identity/token",
-						APIKeyRef: marketplacev1alpha1.APIKeyRef{
-							ValueFrom: marketplacev1alpha1.ValueFrom{
-								SecretKeyRef: corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: utils.COS_READER_KEY_NAME,
-									},
-									Key: "accesskey",
-								},
-							},
-						},
-					},
-				},
-				Requests: []marketplacev1alpha1.Request{
-					{
-						Options: marketplacev1alpha1.S3Options{
-							URL: *instance.Spec.ChildUrl,
-						},
-					},
-				},
-			},
-		}
-	*/
 }
 
 func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *marketplacev1alpha1.RemoteResourceS3, instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
