@@ -50,7 +50,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 
 					ResourceFilters: []v1beta1.ResourceFilter{
 						{
-							WorkloadType: v1beta1.WorkloadTypePod,
+							WorkloadType: common.WorkloadTypePod,
 							Label: &v1beta1.LabelFilter{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
@@ -68,7 +68,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 							},
 							Query:        "kube_pod_info{} or on() vector(0)",
 							Metric:       "meterdef_controller_test_query",
-							WorkloadType: v1beta1.WorkloadTypePod,
+							WorkloadType: common.WorkloadTypePod,
 							Name:         "meterdef_controller_test_query",
 						},
 					},

@@ -1806,7 +1806,7 @@ func (r *RazeeDeploymentReconciler) uninstallLegacyResources(
 func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
-	rrs3Deployment := r.factory.NewRemoteResourceS3Deployment()
+	rrs3Deployment, _ := r.factory.NewRemoteResourceS3Deployment()
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
 			r.factory.SetControllerReference(instance, rrs3Deployment)
@@ -1837,7 +1837,7 @@ func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
-	watchKeeperDeployment := r.factory.NewWatchKeeperDeployment()
+	watchKeeperDeployment, _ := r.factory.NewWatchKeeperDeployment()
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
 			r.factory.SetControllerReference(instance, watchKeeperDeployment)

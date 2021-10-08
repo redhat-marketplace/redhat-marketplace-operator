@@ -6,7 +6,8 @@ metadata:
     capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
-    description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
+    description: The Red Hat Marketplace Operator provides cluster management, metering
+      and operator installation for Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
@@ -25,27 +26,32 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
+    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
+        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       displayName: Marketplace Config
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+        This is an internal resource not meant to be modified directly.
       displayName: Meter Base
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
       version: v1beta1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
       version: v1alpha1
-    - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+    - description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
       displayName: Razee Deployment
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
@@ -137,27 +143,4 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  relatedImages:
-  - image: $(METRIC_STATE_IMAGE_MARKER)
-    name: RELATED_IMAGE_METRIC_STATE
-  - image: $(REPORTER_IMAGE_MARKER)
-    name: RELATED_IMAGE_REPORTER
-  - image: $(AUTHCHECK_IMAGE_MARKER)
-    name: RELATED_IMAGE_AUTHCHECK
-  - image: quay.io/razee/remoteresources3:0.9.3
-    name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-  - image: quay.io/razee/watch-keeper:0.7.7
-    name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-  - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
-    name: RELATED_IMAGE_PROMETHEUS
-  - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
-    name: RELATED_IMAGE_OAUTH_PROXY
-  - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
-    name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-  - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
-    name: RELATED_IMAGE_CONFIGMAP_RELOADER
-  - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
-    name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-  - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-    name: RELATED_IMAGE_KUBE_RBAC_PROXY
   version: 0.0.0

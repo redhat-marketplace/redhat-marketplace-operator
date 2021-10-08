@@ -16,28 +16,20 @@ package reporter
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
-	"github.com/meirf/gopart"
+
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
-	schemav1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/v1alpha1"
 	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -69,38 +61,44 @@ var warningsFilter = map[error]interface{}{
 // Upload to insights
 //
 // Update the CR status for each report and queue
-
 type MarketplaceReporter struct {
 	PrometheusAPI
-	mktconfig        *marketplacev1alpha1.MarketplaceConfig
+	MktConfig        *marketplacev1alpha1.MarketplaceConfig
 	report           *marketplacev1alpha1.MeterReport
 	meterDefinitions MeterDefinitionReferences
 	*Config
+	schemaDataBuilder common.DataBuilder
+	reportWriter      common.ReportWriter
 }
 
 type ReportName types.NamespacedName
+type Namespace string
 
 func NewMarketplaceReporter(
 	config *Config,
 	report *marketplacev1alpha1.MeterReport,
-	mktconfig *marketplacev1alpha1.MarketplaceConfig,
+	MktConfig *marketplacev1alpha1.MarketplaceConfig,
 	api *PrometheusAPI,
 	meterDefinitions MeterDefinitionReferences,
+	schemaDataBuilder common.DataBuilder,
+	reportWriter common.ReportWriter,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
-		PrometheusAPI:    *api,
-		mktconfig:        mktconfig,
-		report:           report,
-		Config:           config,
-		meterDefinitions: meterDefinitions,
+		PrometheusAPI:     *api,
+		MktConfig:         MktConfig,
+		report:            report,
+		Config:            config,
+		meterDefinitions:  meterDefinitions,
+		schemaDataBuilder: schemaDataBuilder,
+		reportWriter:      reportWriter,
 	}, nil
 }
 
-func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]*schemav1alpha1.MarketplaceReportDataBuilder, []error, []error, error) {
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]common.SchemaMetricBuilder, []error, []error, error) {
 	ctx, cancel := context.WithCancel(ctxIn)
 	defer cancel()
 
-	resultsMap := make(map[string]*schemav1alpha1.MarketplaceReportDataBuilder)
+	resultsMap := make(map[string]common.SchemaMetricBuilder)
 	var resultsMapMutex sync.Mutex
 
 	errorList := []error{}
@@ -193,7 +191,7 @@ type meterDefPromModel struct {
 	mdef *meterDefPromQuery
 	model.Value
 	MetricName string
-	Type       marketplacev1beta1.WorkloadType
+	Type       marketplacecommon.WorkloadType
 }
 
 type meterDefPromQuery struct {
@@ -274,7 +272,7 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 		return err
 	}
 
-	for key, _ := range definitionSet {
+	for key := range definitionSet {
 		logger.Info("meter definitions provided", "key", key)
 	}
 
@@ -296,6 +294,13 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	}
 
 	return nil
+}
+
+func (r *MarketplaceReporter) WriteReport(
+	reportID uuid.UUID,
+	metrics map[string]common.SchemaMetricBuilder,
+) ([]string, error) {
+	return r.reportWriter.WriteReport(reportID, metrics, r.Config.OutputDirectory, *r.Config.MetricsPerFile)
 }
 
 func (r *MarketplaceReporter) getBackedUpMeterDefinitions() (map[types.NamespacedName][]*meterDefPromQuery, error) {
@@ -411,7 +416,7 @@ func (r *MarketplaceReporter) Query(
 func (r *MarketplaceReporter) Process(
 	ctx context.Context,
 	inPromModels <-chan meterDefPromModel,
-	results map[string]*schemav1alpha1.MarketplaceReportDataBuilder,
+	results map[string]common.SchemaMetricBuilder,
 	mutex sync.Locker,
 	done chan bool,
 	errorsch chan error,
@@ -463,11 +468,12 @@ func (r *MarketplaceReporter) Process(
 						dataBuilder, ok := results[record.Hash()]
 
 						if !ok {
-							dataBuilder = (&schemav1alpha1.MarketplaceReportDataBuilder{}).
-								SetClusterID(r.mktconfig.Spec.ClusterUUID).
-								SetReportInterval(
-									common.Time(r.report.Spec.StartTime.Time),
-									common.Time(r.report.Spec.EndTime.Time))
+							dataBuilder = r.schemaDataBuilder.New()
+							dataBuilder.SetClusterID(r.MktConfig.Spec.ClusterUUID)
+							dataBuilder.SetAccountID(r.MktConfig.Spec.RhmAccountID)
+							dataBuilder.SetReportInterval(
+								common.Time(r.report.Spec.StartTime.Time),
+								common.Time(r.report.Spec.EndTime.Time))
 							results[record.Hash()] = dataBuilder
 						}
 
@@ -488,114 +494,6 @@ func (r *MarketplaceReporter) Process(
 			syncProcess(pmodel, pmodel.MetricName, pmodel.Value)
 		}
 	})
-}
-
-func (r *MarketplaceReporter) WriteReport(
-	source uuid.UUID,
-	metrics map[string]*schemav1alpha1.MarketplaceReportDataBuilder,
-) ([]string, error) {
-
-	env := common.ReportProductionEnv
-	envAnnotation, ok := r.mktconfig.Annotations["marketplace.redhat.com/environment"]
-
-	if ok && envAnnotation == common.ReportSandboxEnv.String() {
-		env = common.ReportSandboxEnv
-	}
-
-	metadata := schemav1alpha1.SourceMetadata{
-		RhmAccountID:   r.mktconfig.Spec.RhmAccountID,
-		RhmClusterID:   r.mktconfig.Spec.ClusterUUID,
-		RhmEnvironment: env,
-		Version:        version.Version,
-		ReportVersion:  schemav1alpha1.Version,
-	}
-
-	reportMetadata := schemav1alpha1.ReportMetadata{
-		ReportID:       source,
-		Source:         source,
-		SourceMetadata: metadata,
-		ReportSlices:   map[common.ReportSliceKey]schemav1alpha1.ReportSlicesValue{},
-	}
-
-	var partitionSize = *r.MetricsPerFile
-
-	metricsArr := make([]*schemav1alpha1.MarketplaceReportDataBuilder, 0, len(metrics))
-
-	filedir := filepath.Join(r.Config.OutputDirectory, source.String())
-	err := os.Mkdir(filedir, 0755)
-
-	if err != nil && !errors.Is(err, os.ErrExist) {
-		return []string{}, errors.Wrap(err, "error creating directory")
-	}
-
-	for _, v := range metrics {
-		metricsArr = append(metricsArr, v)
-	}
-
-	filenames := []string{}
-	reportErrors := []error{}
-
-	for idxRange := range gopart.Partition(len(metricsArr), partitionSize) {
-		metricReport := &schemav1alpha1.MarketplaceReportSlice{}
-		metricReport.ReportSliceID = common.ReportSliceKey(uuid.New())
-
-		if r.Config.UploaderTarget != UploaderTargetRedHatInsights {
-			metricReport.Metadata = &metadata
-		}
-
-		for _, builder := range metricsArr[idxRange.Low:idxRange.High] {
-			metric, err := builder.Build()
-
-			if err != nil {
-				reportErrors = append(reportErrors, err)
-			}
-
-			metricReport.Metrics = append(metricReport.Metrics, metric)
-		}
-
-		reportMetadata.ReportSlices[metricReport.ReportSliceID] = schemav1alpha1.ReportSlicesValue{
-			NumberMetrics: len(metricReport.Metrics),
-		}
-
-		marshallBytes, err := json.Marshal(metricReport)
-		logger.V(4).Info(string(marshallBytes))
-		if err != nil {
-			logger.Error(err, "failed to marshal metrics report", "report", metricReport)
-			return nil, err
-		}
-		filename := filepath.Join(
-			filedir,
-			fmt.Sprintf("%s.json", metricReport.ReportSliceID.String()))
-
-		err = ioutil.WriteFile(
-			filename,
-			marshallBytes,
-			0600)
-
-		if err != nil {
-			logger.Error(err, "failed to write file", "file", filename)
-			return nil, errors.Wrap(err, "failed to write file")
-		}
-
-		filenames = append(filenames, filename)
-	}
-
-	marshallBytes, err := json.Marshal(reportMetadata)
-	if err != nil {
-		logger.Error(err, "failed to marshal report metadata", "metadata", reportMetadata)
-		return nil, err
-	}
-
-	filename := filepath.Join(filedir, "metadata.json")
-	err = ioutil.WriteFile(filename, marshallBytes, 0600)
-	if err != nil {
-		logger.Error(err, "failed to write file", "file", filename)
-		return nil, err
-	}
-
-	filenames = append(filenames, filename)
-
-	return filenames, errors.Combine(reportErrors...)
 }
 
 func getKeysFromMetric(metric model.Metric, labels []model.LabelName) []interface{} {

@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/google/uuid"
+	schemacommon "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -49,6 +50,9 @@ var _ = Describe("Reporter", func() {
 		uploader      Uploader
 		generatedData map[string]string
 		cfg           *Config
+
+		v1Writer  schemacommon.ReportWriter
+		v1Builder schemacommon.DataBuilder
 
 		startStr = "2020-06-19T00:00:00Z"
 		endStr   = "2020-07-19T00:00:00Z"
@@ -98,6 +102,7 @@ var _ = Describe("Reporter", func() {
 		cfg = &Config{
 			OutputDirectory: dir,
 			MetricsPerFile:  ptr.Int(20),
+			ReporterSchema:  "v1alpha1",
 		}
 
 		cfg.SetDefaults()
@@ -108,6 +113,9 @@ var _ = Describe("Reporter", func() {
 				ClusterUUID:  "foo-id",
 			},
 		}
+
+		v1Writer, _ = ProvideWriter(cfg, config, logger)
+		v1Builder, _ = ProvideDataBuilder(cfg, logger)
 	})
 
 	Context("with templates", func() {
@@ -135,7 +143,7 @@ var _ = Describe("Reporter", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -144,7 +152,7 @@ var _ = Describe("Reporter", func() {
 								Query:        "simple_query",
 								Metric:       "rpc_durations_seconds",
 								Label:        "{{ .Label.meter_query }}",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 								Description:  "{{ .Label.meter_domain | lower }} description",
 							},
 						},
@@ -157,13 +165,15 @@ var _ = Describe("Reporter", func() {
 			sut = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 				Config:        cfg,
-				mktconfig:     config,
+				MktConfig:     config,
 				report: &marketplacev1alpha1.MeterReport{
 					Spec: marketplacev1alpha1.MeterReportSpec{
 						StartTime: metav1.Time{Time: start},
 						EndTime:   metav1.Time{Time: end},
 					},
 				},
+				reportWriter:      v1Writer,
+				schemaDataBuilder: v1Builder,
 			}
 		})
 
@@ -279,6 +289,10 @@ var _ = Describe("Reporter", func() {
 
 					Expect(data).To(MatchAllKeys(Keys{
 						"report_slice_id": Not(BeEmpty()),
+						"metadata": MatchKeys(IgnoreExtras, Keys{
+							"reportVersion": Equal("v1alpha1"),
+							"version":       BeAssignableToTypeOf(""),
+						}),
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": rowMatcher,
 						}),
@@ -326,7 +340,7 @@ var _ = Describe("Reporter", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -335,7 +349,7 @@ var _ = Describe("Reporter", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "rpc_durations_seconds_sum",
 								Label:        "rpc_durations_seconds_sum",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 							{
 
@@ -343,7 +357,7 @@ var _ = Describe("Reporter", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "my_query",
 								Label:        "rpc_durations_seconds_count",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 					},
@@ -365,7 +379,7 @@ var _ = Describe("Reporter", func() {
 										Kind:       "App",
 									},
 								},
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 						Meters: []v1beta1.MeterWorkload{
@@ -374,7 +388,7 @@ var _ = Describe("Reporter", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "rpc_durations_seconds_sum",
 								Label:        "rpc_durations_seconds_sum",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 							{
 
@@ -382,7 +396,7 @@ var _ = Describe("Reporter", func() {
 								Metric:       "rpc_durations_seconds",
 								Query:        "my_query",
 								Label:        "rpc_durations_seconds_count",
-								WorkloadType: v1beta1.WorkloadTypePod,
+								WorkloadType: common.WorkloadTypePod,
 							},
 						},
 					},
@@ -394,7 +408,7 @@ var _ = Describe("Reporter", func() {
 			sut = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 				Config:        cfg,
-				mktconfig:     config,
+				MktConfig:     config,
 				meterDefinitions: MeterDefinitionReferences{
 					{
 						Name:      "foo",
@@ -408,6 +422,8 @@ var _ = Describe("Reporter", func() {
 						EndTime:   metav1.Time{Time: end},
 					},
 				},
+				reportWriter:      v1Writer,
+				schemaDataBuilder: v1Builder,
 			}
 		})
 
@@ -522,6 +538,10 @@ var _ = Describe("Reporter", func() {
 					Expect(firstRow).To(rowMatcher)
 					Expect(data).To(MatchAllKeys(Keys{
 						"report_slice_id": Not(BeEmpty()),
+						"metadata": MatchKeys(IgnoreExtras, Keys{
+							"reportVersion": Equal("v1alpha1"),
+							"version":       BeAssignableToTypeOf(""),
+						}),
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": rowMatcher,
 						}),

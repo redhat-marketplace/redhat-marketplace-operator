@@ -31,6 +31,8 @@ import (
 
 const timeout = time.Second * 100
 const longTimeout = time.Second * 200
+const jobTimeout = time.Second * 500
+const dataServiceTimeout = time.Second * 1200
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {

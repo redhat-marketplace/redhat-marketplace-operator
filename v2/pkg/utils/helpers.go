@@ -42,6 +42,7 @@ var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
 var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
 
 var ParsedVersion460, _ = semver.Make("4.6.0")
+var ParsedVersion480, _ = semver.Make("4.8.0")
 
 func IsNil(i interface{}) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()

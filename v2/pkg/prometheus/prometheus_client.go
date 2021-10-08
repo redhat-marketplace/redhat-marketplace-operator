@@ -27,10 +27,8 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/log"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type PrometheusSecureClientConfig struct {
@@ -52,6 +50,7 @@ type UserAuth struct {
 type PrometheusAPISetup struct {
 	Report        *v1alpha1.MeterReport
 	PromService   *corev1.Service
+	PromPort      *corev1.ServicePort
 	CertFilePath  string
 	TokenFilePath string
 	RunLocal      bool
@@ -59,10 +58,11 @@ type PrometheusAPISetup struct {
 
 func NewPromAPI(
 	promService *corev1.Service,
+	targetPort *corev1.ServicePort,
 	caCert *[]byte,
 	token string,
 ) (*PrometheusAPI, error) {
-	promAPI, err := providePrometheusAPI(promService, caCert, token)
+	promAPI, err := providePrometheusAPI(promService, targetPort, caCert, token)
 	if err != nil {
 		return nil, err
 	}
@@ -83,35 +83,17 @@ func NewPrometheusAPIForReporter(
 
 func providePrometheusAPI(
 	promService *corev1.Service,
+	targetPort *corev1.ServicePort,
 	caCert *[]byte,
 	token string,
 ) (v1.API, error) {
-
-	var port int32
-	if promService == nil {
+	if promService == nil || targetPort == nil {
 		return nil, errors.New("Prometheus service not defined")
 	}
 
 	name := promService.Name
 	namespace := promService.Namespace
-	var targetPort intstr.IntOrString
-
-	if namespace == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE && name == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME {
-		targetPort = intstr.FromString("metrics")
-	} else {
-		targetPort = intstr.FromString("rbac")
-	}
-
-	switch {
-	case targetPort.Type == intstr.Int:
-		port = targetPort.IntVal
-	default:
-		for _, p := range promService.Spec.Ports {
-			if p.Name == targetPort.StrVal {
-				port = p.Port
-			}
-		}
-	}
+	port := targetPort.Port
 
 	conf, err := NewSecureClientFromCert(&PrometheusSecureClientConfig{
 		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
@@ -138,6 +120,13 @@ func providePrometheusAPIForReporter(
 	setup *PrometheusAPISetup,
 ) (v1.API, error) {
 
+	if setup.PromService == nil {
+		return nil, errors.New("prom service is not provided")
+	}
+	if setup.PromPort == nil {
+		return nil, errors.New("prom port is not provided")
+	}
+
 	if setup.RunLocal {
 		client, err := api.NewClient(api.Config{
 			Address: "http://127.0.0.1:9090",
@@ -146,25 +135,14 @@ func providePrometheusAPIForReporter(
 		if err != nil {
 			return nil, err
 		}
+
 		localClient := v1.NewAPI(client)
 		return localClient, nil
 	}
 
-	var port int32
 	name := setup.PromService.Name
 	namespace := setup.PromService.Namespace
-	targetPort := setup.Report.Spec.PrometheusService.TargetPort
-
-	switch {
-	case targetPort.Type == intstr.Int:
-		port = targetPort.IntVal
-	default:
-		for _, p := range setup.PromService.Spec.Ports {
-			if p.Name == targetPort.StrVal {
-				port = p.Port
-			}
-		}
-	}
+	port := setup.PromPort.Port
 
 	var auth = ""
 	if setup.TokenFilePath != "" {

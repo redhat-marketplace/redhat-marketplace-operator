@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rhm-meter-report-upload
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccount: redhat-marketplace-operator
+          restartPolicy: Never
+          containers:
+            - name: reporter
+              image: redhat-markplace-reporter
+              imagePullPolicy: Always
+              # additional args are added in factory
+              args:
+                - 'reconcile'
+              env:
+              - name: JOB_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['job-name']
+              - name: POD_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace

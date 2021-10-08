@@ -1,0 +1,6 @@
+address: https://localhost:8002
+tls: true
+insecure: true
+serverName: rhm-data-service.openshift-redhat-marketplace.svc.cluster.local
+ca-path: /Users/ztaylor/ibm/repos/redhat-marketplace/redhat-marketplace-operator/airgap/v2/ca.crt
+service-cert-path: /Users/ztaylor/ibm/repos/redhat-marketplace/redhat-marketplace-operator/airgap/v2/service.crt

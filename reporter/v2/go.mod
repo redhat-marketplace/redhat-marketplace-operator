@@ -4,10 +4,11 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/IBM/ibm-cos-sdk-go v1.7.0 // indirect
 	github.com/cespare/xxhash v1.1.0
-	github.com/go-logr/logr v0.3.0
-	github.com/google/uuid v1.1.2
-	github.com/google/wire v0.5.0
+	github.com/go-logr/logr v0.4.0
+	github.com/google/uuid v1.2.0
+	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
@@ -19,11 +20,14 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.46.0
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.15.0
+	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-00010101000000-000000000000
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-00010101000000-000000000000
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
-	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
-	golang.org/x/net v0.0.0-20210510120150-4163338589ed
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	google.golang.org/grpc v1.39.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.20.1
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v12.0.0+incompatible
@@ -33,6 +37,7 @@ require (
 
 replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
+	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2

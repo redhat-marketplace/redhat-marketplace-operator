@@ -34,7 +34,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -45,10 +45,13 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.1
+        version=2.3.2
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_darwin_amd64.tar.gz
+        # 3.0 + versions will not be tar.gz
+        curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuilder_${version}_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
@@ -109,7 +112,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -120,10 +123,13 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.1
+        version=2.3.2
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_darwin_amd64.tar.gz
+        # 3.0 + versions will not be tar.gz
+        curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuilder_${version}_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
@@ -150,13 +156,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
-    - name: Cache Docker Buildx
-      uses: actions/cache@v2
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-base1-${{ github.sha }}
-        restore-keys: ${{ runner.os }}-buildx-base1-
+        go-version: 1.16.8
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
     - id: buildx
@@ -198,7 +198,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
     - id: buildx
@@ -210,20 +210,17 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
         restore-keys: ${{ runner.os }}-go-
-    - name: Cache Docker Buildx
-      uses: actions/cache@v2
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ matrix.project }}-${{ github.sha }}
-        restore-keys: ${{ runner.os }}-buildx-${{ matrix.project }}-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.1
+        version=2.3.2
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_darwin_amd64.tar.gz
+        # 3.0 + versions will not be tar.gz
+        curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuilder_${version}_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
@@ -269,11 +266,13 @@ jobs:
         - authchecker
         - metering
         - reporter
+        - airgap
         include:
         - project: operator
         - project: authchecker
         - project: metering
         - project: reporter
+        - project: airgap
   deploy:
     name: Deploy
     needs:
@@ -298,7 +297,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.7
+        go-version: 1.16.8
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
     - id: buildx
@@ -314,10 +313,13 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.1
+        version=2.3.2
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
+        # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_darwin_amd64.tar.gz
+        # 3.0 + versions will not be tar.gz
+        curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuilder_${version}_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)

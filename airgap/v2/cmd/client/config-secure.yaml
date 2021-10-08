@@ -1,0 +1,3 @@
+address: rhm-data-service-openshift-redhat-marketplace.apps.cluster.domain:443
+insecure: false
+certificate-path: ca.crt

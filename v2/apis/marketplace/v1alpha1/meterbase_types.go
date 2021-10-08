@@ -107,14 +107,28 @@ type MeterBaseSpec struct {
 	// +optional
 	AdditionalScrapeConfigs *corev1.SecretKeySelector `json:"additionalScrapeConfigs,omitempty"`
 
+	// DataServiceEnabled is the flag that controls if the DataService will be created.
+	// Setting enabled to "true" will install DataService components.
+	// False will delete the DataServicecomponents.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	DataServiceEnabled *bool `json:"dataServiceEnabled,omitempty"`
+
 	// UserWorkloadMonitoringEnabled controls whether to attempt to use
 	// Openshift user-defined workload monitoring as the Prometheus provider
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	UserWorkloadMonitoringEnabled *bool `json:"userWorkloadMonitoringEnabled,omitempty"`
+}
 
-	ExternalPrometheus `json:"externalPrometheus,omitempty"`
+func (m *MeterBaseSpec) IsDataServiceEnabled() bool {
+	if m.DataServiceEnabled == nil {
+		return true
+	}
+
+	return *m.DataServiceEnabled
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
@@ -215,12 +229,16 @@ const (
 	// ConditionUserWorkloadMonitoringEnabled means UWM is actively used as the prometheus provider
 	ConditionUserWorkloadMonitoringEnabled status.ConditionType = "UserWorkloadMonitoringEnabled"
 
-	ReasonUserWorkloadMonitoringEnabled         status.ConditionReason = "UserWorkloadMonitoringEnabled"
-	ReasonUserWorkloadMonitoringSpecDisabled    status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
-	ReasonUserWorkloadMonitoringClusterDisabled status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
-	ReasonUserWorkloadMonitoringTransitioning   status.ConditionReason = "UserWorkloadMonitoringTransitioning"
+	ReasonUserWorkloadMonitoringEnabled                             status.ConditionReason = "UserWorkloadMonitoringEnabled"
+	ReasonUserWorkloadMonitoringSpecDisabled                        status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
+	ReasonUserWorkloadMonitoringClusterDisabled                     status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
+	ReasonUserWorkloadMonitoringInsufficientStorage                  status.ConditionReason = "UserWorkloadMonitoringInsufficientStorage"
+	ReasonUserWorkloadMonitoringRetentionTime                       status.ConditionReason = "UserWorkloadMonitoringRetentionTime"
+	ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration      status.ConditionReason = "UserWorkloadMonitoringParseUserWorkloadConfiguration"
+	ReasonUserWorkloadMonitoringConfigNotFound                      status.ConditionReason = "UserWorkloadMonitoringConfigNotFound"
+	ReasonUserWorkloadMonitoringTransitioning                       status.ConditionReason = "UserWorkloadMonitoringTransitioning"
 
-	MessageUserWorkloadMonitoringEnabled         string = "UserWorkloadMonitoring is enabled in the Meterbase Spec and on the Cluster"
+	MessageUserWorkloadMonitoringEnabled         string = "UserWorkloadMonitoring is enabled in the Meterbase Spec, is enabled on the Cluster, and user-workload-monitoring configmap is configured correctly"
 	MessageUserWorkloadMonitoringSpecDisabled    string = "UserWorkloadMonitoring is disabled in the Meterbase Spec"
 	MessageUserWorkloadMonitoringClusterDisabled string = "UserWorkloadMonitoring is unavailable or disabled on the Cluster"
 	MessageUserWorkloadMonitoringTransitioning   string = "Transitioning between UserWorkloadMonitoring and RHM prometheus provider"

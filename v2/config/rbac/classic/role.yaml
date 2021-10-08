@@ -20,8 +20,22 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
       - update
-      - patch
+    resourceNames:
+      - meterdefinitions.marketplace.redhat.com
+  - apiGroups:
+      - 'route.openshift.io'
+    resources:
+      - routes
+    verbs:
+      - get
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -38,11 +52,14 @@ rules:
   - apiGroups:
       - apiextensions.k8s.io
     resourceNames:
+      - alertmanagerconfigs.monitoring.coreos.com
       - alertmanagers.monitoring.coreos.com
       - podmonitors.monitoring.coreos.com
+      - probes.monitoring.coreos.com
       - prometheuses.monitoring.coreos.com
       - prometheusrules.monitoring.coreos.com
       - servicemonitors.monitoring.coreos.com
+      - thanosrulers.monitoring.coreos.com
     resources:
       - customresourcedefinitions
     verbs:
@@ -185,12 +202,6 @@ metadata:
   namespace: system
 rules:
   - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - apiGroups:
       - ''
     resources:
       - pods
@@ -259,6 +270,25 @@ rules:
       - get
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - events
+    verbs:
+      - get
+      - watch
+      - list
+      - create
+      - update
+      - patch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - watch
+      - list
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -284,7 +314,7 @@ rules:
   - apiGroups:
       - 'marketplace.redhat.com'
     resources:
-      - "meterreports"
+      - 'meterreports'
     verbs:
       - get
       - list
@@ -292,8 +322,8 @@ rules:
   - apiGroups:
       - 'marketplace.redhat.com'
     resources:
-      - "meterdefinitions"
-      - "meterdefinitions/status"
+      - 'meterdefinitions'
+      - 'meterdefinitions/status'
     verbs:
       - get
       - list
@@ -318,3 +348,9 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+      - delete
+      - get
+      - list
+      - update
+      - patch
+      - watch

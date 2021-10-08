@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -40,9 +41,11 @@ const (
 	WATCH_KEEPER_LIMITPOLL_NAME            = "watch-keeper-limit-poll"
 	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
+	DATA_SERVICE_NAME                      = "rhm-data-service"
 	METERBASE_PROMETHEUS_NAME              = "rhm-prometheus-meterbase"
 	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
+	RHM_COS_UPLOADER_SECRET                = "rhm-cos-uploader-secret"
 
 	/* RHOS Monitoring Resource Names */
 	OPENSHIFT_MONITORING_NAMESPACE                              = "openshift-monitoring"
@@ -99,10 +102,10 @@ const (
 	RazeeWatchLevelLite   = "lite"
 	RazeeWatchLevelDetail = "detail"
 
-	DeploymentConfigName                 = "rhm-meterdefinition-file-server"
+	DeploymentConfigName = "rhm-meterdefinition-file-server"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
-	OperatorTag = "marketplace.redhat.com/operator"
+	OperatorTag      = "marketplace.redhat.com/operator"
 	OperatorTagValue = "true"
 
 	/* Time and Date */
@@ -110,10 +113,11 @@ const (
 	METER_REPORT_PREFIX = "meter-report-"
 
 	/* Auth */
-	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	//TODO: use the pattern for prom and data service below
 	FileServerAudience = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
 
-
+	/* Certificate */
+	DQLITE_COMMONNAME_PREFIX = "*.rhm-data-service" // wildcard.ServiceName
 )
 
 var (
@@ -123,6 +127,13 @@ var (
 	/* Labels*/
 	LABEL_RHM_OPERATOR_WATCH = []string{"marketplace.redhat.com/watch", "true"}
 )
+
+func PrometheusAudience(ns string) string {
+	return fmt.Sprintf("rhm-prometheus-meterbase.%s.svc", ns)
+}
+func DataServiceAudience(ns string) string {
+	return fmt.Sprintf("rhm-data-service.%s.svc", ns)
+}
 
 // Getenv will return the value for the passed key (which is typically an environment variable)
 // If it is not found, return the fallback

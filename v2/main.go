@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -81,6 +82,7 @@ func init() {
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(osimagev1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -139,6 +141,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.DeploymentConfigReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.MeterDefinitionInstallReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.ClusterRegistrationReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ClusterRegistration"),
@@ -172,6 +192,15 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterBase")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.DataServiceReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DataService"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataService")
 		os.Exit(1)
 	}
 
@@ -246,21 +275,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DeploymentConfigReconciler{
+	doneChan := make(chan struct{})
+	reportCreatorReconciler := &controllers.MeterReportCreatorReconciler{
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
 		Scheme: mgr.GetScheme(),
-	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
-		os.Exit(1)
 	}
-
-	if err = (&controllers.MeterDefinitionInstallReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
-		Scheme: mgr.GetScheme(),
-	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
+	reportCreatorReconciler.Inject(injector)
+	if err := reportCreatorReconciler.SetupWithManager(mgr, doneChan); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
 		os.Exit(1)
 	}
 
@@ -304,6 +327,7 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+	close(doneChan)
 }
 
 var onlyOneSignalHandler = make(chan struct{})

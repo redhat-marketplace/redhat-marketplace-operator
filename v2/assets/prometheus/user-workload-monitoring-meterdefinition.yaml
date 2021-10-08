@@ -7,16 +7,16 @@ spec:
   group: marketplace.redhat.com
   kind: Pod
   meters:
-  - aggregation: avg
-    metricId: prometheus-user-workload-uptime
-    name: prometheus-user-workload-uptime
-    period: 5m
-    query: avg_over_time(up{job="prometheus-user-workload"}[5m])
-    workloadType: Pod
+    - aggregation: avg
+      metricId: prometheus-user-workload-uptime
+      name: prometheus-user-workload-uptime
+      period: 1h
+      query: avg_over_time(up{job="prometheus-user-workload"}[5m])
+      workloadType: Pod
   resourceFilters:
-  - label:
-      labelSelector:
-        matchLabels:
-          app: prometheus
-          prometheus: user-workload
-    workloadType: Pod
+    - label:
+        labelSelector:
+          matchLabels:
+            app: prometheus
+            prometheus: user-workload
+      workloadType: Pod

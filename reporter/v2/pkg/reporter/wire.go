@@ -25,8 +25,10 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	kconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func NewTask(
@@ -37,13 +39,23 @@ func NewTask(
 	panic(wire.Build(
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideSimpleClientSet,
-		wire.FieldsOf(new(*Config), "UploaderTarget"),
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
-		ProvideUploader,
+		ProvideUploaders,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+		kconfig.GetConfig,
+	))
+}
+
+func NewEventBroadcaster(
+	ctx context.Context,
+	erConfig *Config,
+) (record.EventBroadcaster, func(), error) {
+	panic(wire.Build(
 		config.GetConfig,
+		managers.ProvideSimpleClientSet,
+		provideReporterEventBroadcaster,
 	))
 }
 
@@ -59,9 +71,46 @@ func NewReporter(
 		wire.InterfaceValue(new(logr.Logger), logger),
 		getMarketplaceReport,
 		getPrometheusService,
+		getPrometheusPort,
 		getMarketplaceConfig,
 		getMeterDefinitionReferences,
+		ProvideWriter,
+		ProvideDataBuilder,
 		ReporterSet,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+	))
+}
+
+func NewUploadTask(
+	ctx context.Context,
+	config *Config,
+) (*UploadTask, error) {
+	panic(wire.Build(
+		reconcileutils.CommandRunnerProviderSet,
+		managers.ProvideSimpleClientSet,
+		kconfig.GetConfig,
+		wire.Struct(new(UploadTask), "*"),
+		wire.InterfaceValue(new(logr.Logger), logger),
+		ProvideDownloader,
+		ProvideUploaders,
+		ProvideAdmin,
+		provideScheme,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+	))
+}
+
+func NewReconcileTask(
+	ctx context.Context,
+	config *Config,
+	broadcaster record.EventBroadcaster,
+	namespace Namespace,
+) (*ReconcileTask, error) {
+	panic(wire.Build(
+		managers.ProvideSimpleClientSet,
+		kconfig.GetConfig,
+		wire.Struct(new(ReconcileTask), "*"),
+		provideScheme,
+		provideReporterEventRecorder,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }

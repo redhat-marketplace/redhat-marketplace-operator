@@ -21,19 +21,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,14 +43,16 @@ import (
 	"github.com/onsi/gomega/types"
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
-	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -60,10 +60,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var cfg *rest.Config
+var operatorCfg *config.OperatorConfig
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
+var factory *manifests.Factory
+var doneChan chan struct{}
 
 const (
 	imageStreamID   string = "rhm-meterdefinition-file-server:v1"
@@ -89,10 +92,13 @@ var _ = BeforeSuite(func() {
 	dcControllerMockServerAddr := fmt.Sprintf("%s%s", "http://", listenerAddress)
 	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
+	doneChan = make(chan struct{})
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:  []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "tests", "v2", "testdata"),
+		}, KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
 	var err error
@@ -101,11 +107,16 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = marketplaceredhatcomv1alpha1.AddToScheme(k8sScheme)
-	Expect(err).NotTo(HaveOccurred())
+	operatorCfg, err = config.GetConfig()
+	Expect(err).To(Succeed())
+	operatorCfg.ReportController.PollTime = 5 * time.Second
 
-	err = marketplaceredhatcomv1beta1.AddToScheme(k8sScheme)
-	Expect(err).NotTo(HaveOccurred())
+	operatorCfg.DeployedNamespace = "openshift-redhat-marketplace"
+
+	// factory := manifests.NewFactory(
+	// 	operatorCfg,
+	// 	scheme,
+	// )
 
 	// +kubebuilder:scaffold:scheme
 	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})
@@ -118,46 +129,32 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&RemoteResourceS3Reconciler{
-		Client: k8sManager.GetClient(),
+		Client: k8sClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
-		Scheme: k8sManager.GetScheme(),
+		Scheme: k8sScheme,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	operatorConfig, err := config.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
-
-	factory := manifests.NewFactory(operatorConfig, k8sScheme)
-
-	restConfig := k8sManager.GetConfig()
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
-
-	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, ctrl.Log)
-	Expect(err).NotTo(HaveOccurred())
-
-	catalogClient.UseInsecureClient()
-
-	err = (&DeploymentConfigReconciler{
-		Client:        k8sManager.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:        k8sManager.GetScheme(),
-		cfg:           operatorConfig,
-		factory:       factory,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	// err = (&MeterBaseReconciler{
+	// 	Client:  k8sClient,
+	// 	Scheme:  scheme,
+	// 	Log:     ctrl.Log.WithName("controllers").WithName("MeterBase"),
+	// 	cfg:     operatorCfg,
+	// 	factory: factory,
+	// 	CC:      reconcileutils.NewClientCommand(k8sManager.GetClient(), scheme, ctrl.Log),
+	// 	patcher: patch.RHMDefaultPatcher,
+	// }).SetupWithManager(k8sManager)
+	// Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		fmt.Println(err)
+		// fmt.Println(err)
 		Expect(err).ToNot(HaveOccurred())
 	}()
-}, 60)
+})
 
 var _ = AfterSuite(func() {
+	close(doneChan)
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())

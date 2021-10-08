@@ -7,6 +7,10 @@ metadata:
   name: manager-role
 rules:
 - nonResourceURLs:
+  - '*'
+  verbs:
+  - create
+- nonResourceURLs:
   - /api/v1/query
   - /api/v1/query_range
   verbs:
@@ -119,6 +123,14 @@ rules:
   verbs:
   - delete
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
@@ -171,30 +183,27 @@ rules:
   - list
   - watch
 - apiGroups:
-  - apps.openshift.io
-  resources:
-  - deploymentconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
   - authentication.k8s.io
   resources:
   - tokenreviews
   verbs:
   - create
-  - get
 - apiGroups:
   - authorization.k8s.io
   resources:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - batch
   - extensions
@@ -434,6 +443,14 @@ rules:
   verbs:
   - delete
 - apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - storage.k8s.io
   resources:
   - storageclasses
@@ -559,9 +576,22 @@ rules:
   - patch
   - update
 - apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - batch
   - extensions
   resources:
+  - cronjobs
   - jobs
   verbs:
   - create
@@ -715,3 +745,23 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resourceNames:
+  - rhm-data-service
+  resources:
+  - routes
+  verbs:
+  - delete
+  - get
+  - patch
+  - update

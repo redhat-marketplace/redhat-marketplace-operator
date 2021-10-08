@@ -20,11 +20,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"strings"
+	"time"
 
 	"github.com/gotidy/ptr"
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -34,6 +37,7 @@ import (
 	"golang.org/x/net/http/httpproxy"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -64,9 +68,9 @@ const (
 	PrometheusServiceMonitor         = "prometheus/service-monitor.yaml"
 	PrometheusMeterDefinition        = "prometheus/meterdefinition.yaml"
 
-	ReporterJob                       = "reporter/job.yaml"
-	ReporterUserWorkloadMonitoringJob = "reporter/user-workload-monitoring-job.yaml"
-	ReporterMeterDefinition           = "reporter/meterdefinition.yaml"
+	ReporterJob             = "reporter/job.yaml"
+	ReporterCronJob         = "reporter/cronjob.yaml"
+	ReporterMeterDefinition = "reporter/meterdefinition.yaml"
 
 	MetricStateDeployment        = "metric-state/deployment.yaml"
 	MetricStateServiceMonitorV45 = "metric-state/service-monitor-v4.5.yaml"
@@ -83,12 +87,17 @@ const (
 	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
-	RRS3ControllerDeployment              = "razee/rrs3-controller-deployment.yaml"
-	WatchKeeperDeployment                 = "razee/watch-keeper-deployment.yaml"
-
 	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
-	MeterdefinitionFileServerService = "catalog-server/service.yaml"
-	MeterdefinitionFileServerImageStream = "catalog-server/image-stream.yaml"
+	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
+	MeterdefinitionFileServerImageStream      = "catalog-server/image-stream.yaml"
+
+	RRS3ControllerDeployment = "razee/rrs3-controller-deployment.yaml"
+	WatchKeeperDeployment    = "razee/watch-keeper-deployment.yaml"
+
+	DataServiceStatefulSet = "dataservice/statefulset.yaml"
+	DataServiceService     = "dataservice/service.yaml"
+	DataServiceRoute       = "dataservice/route.yaml"
+	DataServiceTLSSecret   = "dataservice/secret.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -116,6 +125,15 @@ func NewFactory(
 	}
 }
 
+func find(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 func (f *Factory) ReplaceImages(container *corev1.Container) {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
@@ -124,7 +142,16 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = append(container.Args, "--namespace", f.namespace)
+
+		if container.Args == nil {
+			container.Args = []string{"--namespace", f.namespace}
+		} else {
+			_, argFound := find(container.Args, "--namespace")
+			if !argFound {
+				container.Args = append(container.Args, "--namespace", f.namespace)
+			}
+		}
+
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -145,28 +172,14 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 			InitialDelaySeconds: 5,
 			PeriodSeconds:       10,
 		}
-		container.Env = []v1.EnvVar{
-			{
-				Name: "POD_NAMESPACE",
-				ValueFrom: &v1.EnvVarSource{
-					FieldRef: &v1.ObjectFieldSelector{
-						FieldPath: "metadata.namespace",
-					},
-				},
-			},
-			{
-				Name: "POD_NAME",
-				ValueFrom: &v1.EnvVarSource{
-					FieldRef: &v1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
-				},
-			},
-		}
+	case container.Name == "reporter":
+		container.Image = f.config.RelatedImages.Reporter
 	case container.Name == "prometheus-operator":
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	case container.Name == "rhm-data-service":
+		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
 		container.Image = f.config.RelatedImages.RemoteResourceS3
 	case container.Name == "watch-keeper":
@@ -174,7 +187,6 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	case container.Name == "rhm-meterdefinition-file-server":
 		container.Image = f.config.RelatedImages.DeploymentConfig
 	}
-	
 
 	if container.Env == nil {
 		container.Env = []corev1.EnvVar{}
@@ -236,6 +248,27 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	return d, nil
 }
 
+func (f *Factory) NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d, err := NewStatefulSet(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	return d, nil
+}
+
 func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	d, err := NewService(manifest)
 	if err != nil {
@@ -288,6 +321,157 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	return j, nil
 }
 
+func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+	j, err := NewCronJob(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.GetNamespace() == "" {
+		j.SetNamespace(f.namespace)
+	}
+
+	return j, nil
+}
+
+type dataServiceRef struct {
+	Service, Namespace, PortName string
+}
+
+func (d *dataServiceRef) ToPrometheusArgs() []string {
+	return []string{
+		fmt.Sprintf("--prometheus-service=%s", d.Service),
+		fmt.Sprintf("--prometheus-namespace=%s", d.Namespace),
+		fmt.Sprintf("--prometheus-port=%s", d.PortName),
+	}
+}
+
+var (
+	marketplacePrometheus = &dataServiceRef{
+		Service:  "rhm-prometheus-meterbase",
+		PortName: "rbac",
+	}
+	thanosQuerier = &dataServiceRef{
+		Service:   "thanos-querier",
+		Namespace: "openshift-monitoring",
+		PortName:  "web",
+	}
+)
+
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.CronJob, error) {
+	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
+	if err != nil {
+		return nil, err
+	}
+
+	if j.Spec.Schedule == "" {
+		j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(15))
+	}
+
+	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit
+	container := &j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+	f.ReplaceImages(container)
+
+	dataServiceArgs := []string{
+		"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",
+		"--dataServiceTokenFile=/etc/data-service-sa/data-service-token",
+		"--cafile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",
+	}
+
+	if userWorkloadEnabled {
+		dataServiceArgs = append(dataServiceArgs, thanosQuerier.ToPrometheusArgs()...)
+	} else {
+		ref := marketplacePrometheus
+		ref.Namespace = f.namespace
+		dataServiceArgs = append(dataServiceArgs, ref.ToPrometheusArgs()...)
+	}
+
+	container.Args = append(container.Args, "--namespace", f.namespace)
+	container.Args = append(container.Args, dataServiceArgs...)
+
+	if len(f.operatorConfig.ReportController.UploadTargetsOverride) != 0 {
+		container.Args = append(container.Args, "--uploadTargets", strings.Join(f.operatorConfig.ReportController.UploadTargetsOverride, ","))
+	}
+
+	if f.operatorConfig.ReportController.ReporterSchema != "" {
+		container.Args = append(container.Args, "--reporterSchema", f.operatorConfig.ReportController.ReporterSchema)
+	}
+
+	dataServiceVolumeMounts := []v1.VolumeMount{
+		{
+			Name:      "serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+			ReadOnly:  false,
+		},
+		{
+			Name:      "data-service-token-vol",
+			ReadOnly:  true,
+			MountPath: "/etc/data-service-sa",
+		},
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
+
+	dataServiceTokenVols := []v1.Volume{
+		{
+			Name: "serving-certs-ca-bundle",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: "serving-certs-ca-bundle",
+					},
+				},
+			},
+		},
+		{
+			Name: "data-service-token-vol",
+			VolumeSource: v1.VolumeSource{
+				Projected: &v1.ProjectedVolumeSource{
+					Sources: []v1.VolumeProjection{
+						{
+							ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+								Audience:          utils.DataServiceAudience(f.namespace),
+								ExpirationSeconds: ptr.Int64(3600),
+								Path:              "data-service-token",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	volumes := &j.Spec.JobTemplate.Spec.Template.Spec.Volumes
+	*volumes = append(*volumes, dataServiceTokenVols...)
+
+	// Keep last 3 days of data
+	j.Spec.JobTemplate.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
+
+	return j, nil
+}
+
+func (f *Factory) NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r, err := NewRoute(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.GetNamespace() == "" {
+		r.SetNamespace(f.namespace)
+	}
+
+	return r, nil
+}
+
+func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(r)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (f *Factory) NewPrometheus(
 	manifest io.Reader,
 ) (*monitoringv1.Prometheus, error) {
@@ -318,7 +502,7 @@ func (f *Factory) NewMeterDefinition(
 	return m, nil
 }
 
-func (f *Factory) NewImageStream (manifest io.Reader) (*osimagev1.ImageStream, error) {
+func (f *Factory) NewImageStream(manifest io.Reader) (*osimagev1.ImageStream, error) {
 	is, err := NewImageStream(manifest)
 	if err != nil {
 		return nil, err
@@ -364,20 +548,20 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentC
 	return d, nil
 }
 
-func(f *Factory)ReplaceDeploymentConfigValues(dc *osappsv1.DeploymentConfig)(){
+func (f *Factory) ReplaceDeploymentConfigValues(dc *osappsv1.DeploymentConfig) {
 	triggers := osappsv1.DeploymentTriggerPolicies(dc.Spec.Triggers)
 	trigger := triggers[1]
 
 	trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
 }
 
-func(f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream){
+func (f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream) {
 	is.Spec.Tags[0].Annotations["openshift.io/imported-from"] = f.config.RelatedImages.DeploymentConfig
 	is.Spec.Tags[0].From.Name = f.config.RelatedImages.DeploymentConfig
 	is.Spec.Tags[0].Name = f.operatorConfig.ImageStreamTag
 }
 
-func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig)(updated bool){
+func (f *Factory) UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig) (updated bool) {
 	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
 
 	triggers := osappsv1.DeploymentTriggerPolicies(clusterDC.Spec.Triggers)
@@ -386,8 +570,8 @@ func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentCon
 	if trigger.ImageChangeParams != nil {
 		if trigger.ImageChangeParams.From.Name != f.operatorConfig.ImageStreamID {
 			logger.Info("DeploymentConfig docker image reference needs to be updated")
-			logger.Info("ImageStreamID found on cluster","imagestream ID",trigger.ImageChangeParams.From.Name)
-			logger.Info("ImageStreamID found in config","imagestream ID",f.operatorConfig.ImageStreamID)
+			logger.Info("ImageStreamID found on cluster", "imagestream ID", trigger.ImageChangeParams.From.Name)
+			logger.Info("ImageStreamID found in config", "imagestream ID", f.operatorConfig.ImageStreamID)
 			trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
 			updated = true
 		}
@@ -396,29 +580,29 @@ func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentCon
 	return updated
 }
 
-func(f *Factory)UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream)(updated bool){
+func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (updated bool) {
 	logger := log.WithValues("func", "UpdateImageStreamOnChange")
-	for _,tag := range clusterIS.Spec.Tags {
+	for _, tag := range clusterIS.Spec.Tags {
 		if tag.From.Name != f.config.RelatedImages.DeploymentConfig {
 			logger.Info("ImageStream docker image reference needs to be updated")
-			logger.Info("Docker image reference found on cluster","image",tag.From.Name)
-			logger.Info("Docker image reference found in config","image",f.config.RelatedImages.DeploymentConfig)
+			logger.Info("Docker image reference found on cluster", "image", tag.From.Name)
+			logger.Info("Docker image reference found in config", "image", f.config.RelatedImages.DeploymentConfig)
 			tag.From.Name = f.config.RelatedImages.DeploymentConfig
 			updated = true
 		}
 
 		if tag.Name != f.operatorConfig.ImageStreamTag {
 			logger.Info("ImageStream tag needs to be updated")
-			logger.Info("ImageStream tag found on cluster","tag",tag.Name)
-			logger.Info("ImageStream tag found in config","tag",f.operatorConfig.ImageStreamTag)
+			logger.Info("ImageStream tag found on cluster", "tag", tag.Name)
+			logger.Info("ImageStream tag found in config", "tag", f.operatorConfig.ImageStreamTag)
 			tag.Name = f.operatorConfig.ImageStreamTag
 			updated = true
 		}
 
 		if tag.Annotations["openshift.io/imported-from"] != f.config.RelatedImages.DeploymentConfig {
 			logger.Info("ImageStream imported-from annotation needs to be updated")
-			logger.Info("ImageStream imported-from annotation on cluster","value",tag.Annotations["openshift.io/imported-from"])
-			logger.Info("ImageStream imported-from annotation in config","value",f.config.RelatedImages.DeploymentConfig)
+			logger.Info("ImageStream imported-from annotation on cluster", "value", tag.Annotations["openshift.io/imported-from"])
+			logger.Info("ImageStream imported-from annotation in config", "value", f.config.RelatedImages.DeploymentConfig)
 			tag.Annotations["openshift.io/imported-from"] = f.config.RelatedImages.DeploymentConfig
 			updated = true
 		}
@@ -553,7 +737,7 @@ func (f *Factory) NewPrometheusDeployment(
 
 	p.Spec.Image = &f.config.RelatedImages.Prometheus
 
-	if cr.Spec.Prometheus.Replicas != nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Replicas != nil {
 		p.Spec.Replicas = cr.Spec.Prometheus.Replicas
 	}
 
@@ -562,33 +746,34 @@ func (f *Factory) NewPrometheusDeployment(
 	}
 
 	//Set empty dir if present in the CR, will override a pvc specified (per prometheus docs)
-	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.EmptyDir != nil {
 		p.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
 	}
 
 	storageClass := ptr.String("")
-	if cr.Spec.Prometheus.Storage.Class != nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class != nil {
 		storageClass = cr.Spec.Prometheus.Storage.Class
 	}
 
-	quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
-	quanBytes.Sub(resource.MustParse("2Gi"))
-	replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
-	storageSize := replacer.Replace(quanBytes.String())
-	p.Spec.RetentionSize = storageSize
+	if cr.Spec.Prometheus != nil {
+		quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
+		quanBytes.Sub(resource.MustParse("2Gi"))
+		replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
+		storageSize := replacer.Replace(quanBytes.String())
+		p.Spec.RetentionSize = storageSize
 
-	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
-		ObjectMeta: &metav1.ObjectMeta{
-			Name: "storage-volume",
-		},
-		StorageClass: storageClass,
-		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
-	})
+		pvc, _ := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
+			ObjectMeta: &metav1.ObjectMeta{
+				Name: "storage-volume",
+			},
+			StorageClass: storageClass,
+			StorageSize:  &cr.Spec.Prometheus.Storage.Size,
+		})
 
-	p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
-		Spec: pvc.Spec,
+		p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
+			Spec: pvc.Spec,
+		}
 	}
-
 	if cfg != nil {
 		p.Spec.AdditionalScrapeConfigs = &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
@@ -729,6 +914,7 @@ func (f *Factory) UserWorkloadMonitoringMeterDefinition() (*marketplacev1beta1.M
 func (f *Factory) ReporterJob(
 	report *marketplacev1alpha1.MeterReport,
 	backoffLimit *int32,
+	uploadTarget string,
 ) (*batchv1.Job, error) {
 	j, err := f.NewJob(MustAssetReader(ReporterJob))
 
@@ -737,35 +923,9 @@ func (f *Factory) ReporterJob(
 	}
 
 	j.Spec.BackoffLimit = backoffLimit
-	container := j.Spec.Template.Spec.Containers[0]
+	container := &j.Spec.Template.Spec.Containers[0]
 	container.Image = f.config.RelatedImages.Reporter
-
-	proxyInfo := httpproxy.FromEnvironment()
-
-	if container.Env == nil {
-		container.Env = []corev1.EnvVar{}
-	}
-
-	if proxyInfo.HTTPProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  "HTTP_PROXY",
-			Value: proxyInfo.HTTPProxy,
-		})
-	}
-
-	if proxyInfo.HTTPSProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  "HTTPS_PROXY",
-			Value: proxyInfo.HTTPSProxy,
-		})
-	}
-
-	if proxyInfo.NoProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  "NO_PROXY",
-			Value: proxyInfo.NoProxy,
-		})
-	}
+	f.ReplaceImages(container)
 
 	j.Name = report.GetName()
 	container.Args = append(container.Args,
@@ -779,42 +939,60 @@ func (f *Factory) ReporterJob(
 		container.Args = append(container.Args, report.Spec.ExtraArgs...)
 	}
 
-	// Keep last 3 days of data
-	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
-	j.Spec.Template.Spec.Containers[0] = container
+	if uploadTarget == "data-service" {
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
 
-	return j, nil
-}
+		container.Args = append(container.Args, dataServiceArgs...)
 
-func (f *Factory) ReporterUserWorkloadMonitoringJob(
-	report *marketplacev1alpha1.MeterReport,
-	backoffLimit *int32,
-) (*batchv1.Job, error) {
-	j, err := f.NewJob(MustAssetReader(ReporterUserWorkloadMonitoringJob))
+		dataServiceVolumeMounts := []v1.VolumeMount{
+			{
+				Name:      "data-service-token-vol",
+				ReadOnly:  true,
+				MountPath: "/etc/data-service-sa",
+			},
+			{
+				Name:      "serving-certs-ca-bundle",
+				MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+				ReadOnly:  false,
+			},
+		}
 
-	if err != nil {
-		return nil, err
+		container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
+
+		dataServiceTokenVols := []v1.Volume{
+			{
+				Name: "serving-certs-ca-bundle",
+				VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "serving-certs-ca-bundle",
+						},
+					},
+				},
+			},
+			{
+				Name: "data-service-token-vol",
+				VolumeSource: v1.VolumeSource{
+					Projected: &v1.ProjectedVolumeSource{
+						Sources: []v1.VolumeProjection{
+							{
+								ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+									Audience:          utils.DataServiceAudience(f.namespace),
+									ExpirationSeconds: ptr.Int64(3600),
+									Path:              "data-service-token",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
 	}
 
-	j.Spec.BackoffLimit = backoffLimit
-	container := j.Spec.Template.Spec.Containers[0]
-	container.Image = f.config.RelatedImages.Reporter
-
-	j.Name = report.GetName()
-	container.Args = append(container.Args,
-		"--name",
-		report.Name,
-		"--namespace",
-		report.Namespace,
-	)
-
-	if len(report.Spec.ExtraArgs) > 0 {
-		container.Args = append(container.Args, report.Spec.ExtraArgs...)
-	}
-
 	// Keep last 3 days of data
 	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
-	j.Spec.Template.Spec.Containers[0] = container
 
 	return j, nil
 }
@@ -845,12 +1023,10 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	return d, nil
 }
 
-func (f *Factory) MetricStateServiceMonitor(pod *corev1.Pod) (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	fileName := MetricStateServiceMonitorV45
-	isValidOpenShiftVersion := false
 	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		fileName = MetricStateServiceMonitorV46
-		isValidOpenShiftVersion = true
 	}
 
 	sm, err := f.NewServiceMonitor(MustAssetReader(fileName))
@@ -859,32 +1035,25 @@ func (f *Factory) MetricStateServiceMonitor(pod *corev1.Pod) (*monitoringv1.Serv
 	}
 
 	sm.Namespace = f.namespace
-
-	var secretName *string
-
-	if isValidOpenShiftVersion && pod != nil {
-		for _, volume := range pod.Spec.Volumes {
-			if volume.Secret != nil && strings.Contains(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
-				secretName = &volume.Secret.SecretName
-			}
-		}
-	}
-
 	for i := range sm.Spec.Endpoints {
 		endpoint := &sm.Spec.Endpoints[i]
 		endpoint.TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
 
-		if secretName != nil {
-			endpoint.BearerTokenSecret = corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: *secretName,
-				},
-				Key: "token",
-			}
+		if secretName != nil && endpoint.BearerTokenFile == "" {
+			addBearerToken(endpoint, *secretName)
 		}
 	}
 
 	return sm, nil
+}
+
+func addBearerToken(endpoint *monitoringv1.Endpoint, secretName string) {
+	endpoint.BearerTokenSecret = corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: secretName,
+		},
+		Key: "token",
+	}
 }
 
 func (f *Factory) MetricStateMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
@@ -909,7 +1078,7 @@ func (f *Factory) KubeStateMetricsService() (*corev1.Service, error) {
 	return s, nil
 }
 
-func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) KubeStateMetricsServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := f.NewServiceMonitor(MustAssetReader(KubeStateMetricsServiceMonitor))
 	if err != nil {
 		return nil, err
@@ -917,16 +1086,32 @@ func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor
 
 	sm.Namespace = f.namespace
 
+	for i := range sm.Spec.Endpoints {
+		endpoint := &sm.Spec.Endpoints[i]
+
+		if secretName != nil && endpoint.BearerTokenFile == "" {
+			addBearerToken(endpoint, *secretName)
+		}
+	}
+
 	return sm, nil
 }
 
-func (f *Factory) KubeletServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) KubeletServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := f.NewServiceMonitor(MustAssetReader(KubeletServiceMonitor))
 	if err != nil {
 		return nil, err
 	}
 
 	sm.Namespace = f.namespace
+
+	for i := range sm.Spec.Endpoints {
+		endpoint := &sm.Spec.Endpoints[i]
+
+		if secretName != nil && endpoint.BearerTokenFile == "" {
+			addBearerToken(endpoint, *secretName)
+		}
+	}
 
 	return sm, nil
 }
@@ -940,6 +1125,71 @@ func (f *Factory) MetricStateService() (*v1.Service, error) {
 	s.Namespace = f.namespace
 
 	return s, nil
+}
+
+func (f *Factory) NewDataServiceService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(DataServiceService))
+}
+
+func (f *Factory) UpdateDataServiceService(s *corev1.Service) error {
+	s2, err := f.NewDataServiceService()
+	if err != nil {
+		return err
+	}
+
+	s.Spec.Ports = s2.Spec.Ports
+	s.Spec.Selector = s2.Spec.Selector
+	s.Annotations = s2.Annotations
+
+	return nil
+}
+
+func (f *Factory) NewDataServiceStatefulSet() (*appsv1.StatefulSet, error) {
+	sts, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+	if err != nil {
+		return nil, err
+	}
+
+	f.UpdateDataServiceStatefulSet(sts)
+
+	return sts, nil
+}
+
+func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
+	sts2, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+	if err != nil {
+		return err
+	}
+
+	sts.Spec = sts2.Spec
+
+	replacer := strings.NewReplacer(
+		"{{NAMESPACE}}", f.namespace,
+	)
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		container := &sts.Spec.Template.Spec.Containers[i]
+		newArgs := []string{}
+
+		f.ReplaceImages(container)
+
+		for _, arg := range container.Args {
+			newArg := replacer.Replace(arg)
+			newArgs = append(newArgs, newArg)
+		}
+
+		container.Args = newArgs
+	}
+
+	return nil
+}
+
+func (f *Factory) NewDataServiceRoute() (*routev1.Route, error) {
+	return f.NewRoute(MustAssetReader(DataServiceRoute))
+}
+
+func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
+	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
 }
 
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
@@ -967,6 +1217,16 @@ func NewMeterDefinition(manifest io.Reader) (*marketplacev1beta1.MeterDefinition
 
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d := appsv1.Deployment{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
+}
+
+func NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d := appsv1.StatefulSet{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
 	if err != nil {
 		return nil, err
@@ -1023,6 +1283,24 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	return &j, nil
 }
 
+func NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+	j := batchv1beta1.CronJob{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+	return &j, nil
+}
+
+func NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r := routev1.Route{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
 func NewImageStream(manifest io.Reader) (*osimagev1.ImageStream, error) {
 	is := osimagev1.ImageStream{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&is)
@@ -1074,15 +1352,15 @@ func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error)
 	return &sm, nil
 }
 
-func (f *Factory) NewMeterdefintionFileServerDeploymentConfig()(*osappsv1.DeploymentConfig,error){
+func (f *Factory) NewMeterdefintionFileServerDeploymentConfig() (*osappsv1.DeploymentConfig, error) {
 	return f.NewDeploymentConfig(MustAssetReader(MeterdefinitionFileServerDeploymentConfig))
 }
 
-func (f *Factory) NewMeterdefintionFileServerImageStream()(*osimagev1.ImageStream,error){
+func (f *Factory) NewMeterdefintionFileServerImageStream() (*osimagev1.ImageStream, error) {
 	return f.NewImageStream(MustAssetReader(MeterdefinitionFileServerImageStream))
 }
 
-func(f *Factory)NewMeterdefintionFileServerService()(*corev1.Service,error){
+func (f *Factory) NewMeterdefintionFileServerService() (*corev1.Service, error) {
 	return f.NewService(MustAssetReader(MeterdefinitionFileServerService))
 }
 
@@ -1097,11 +1375,6 @@ func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
 }
 
 func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error {
-	err := f.UpdateDeployment(MustAssetReader(RRS3ControllerDeployment), dep)
-	if err != nil {
-		return err
-	}
-
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -1116,52 +1389,22 @@ func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error
 
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
-
 		f.ReplaceImages(container)
-
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
-		}
 	}
 
 	return nil
 }
 
-func (f *Factory) NewRemoteResourceS3Deployment() *appsv1.Deployment {
-	dep := &appsv1.Deployment{}
-	f.UpdateRemoteResourceS3Deployment(dep)
-	return dep
+func (f *Factory) NewRemoteResourceS3Deployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(RRS3ControllerDeployment))
+	if err != nil {
+		return nil, err
+	}
+	err = f.UpdateRemoteResourceS3Deployment(dep)
+	return dep, err
 }
 
 func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
-	err := f.UpdateDeployment(MustAssetReader(WatchKeeperDeployment), dep)
-	if err != nil {
-		return err
-	}
-
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -1176,51 +1419,47 @@ func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
 
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
-
 		f.ReplaceImages(container)
-
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
-		}
 	}
 
 	return nil
 }
 
-func (f *Factory) NewWatchKeeperDeployment() *appsv1.Deployment {
-	dep := &appsv1.Deployment{}
-	f.UpdateWatchKeeperDeployment(dep)
-	return dep
-}
-
-func (f *Factory) UpdateDeployment(manifest io.Reader, d *appsv1.Deployment) error {
-	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+func (f *Factory) NewWatchKeeperDeployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(WatchKeeperDeployment))
 	if err != nil {
-		return err
+		return nil, err
+	}
+	err = f.UpdateWatchKeeperDeployment(dep)
+	return dep, err
+}
+
+func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(DataServiceTLSSecret))
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	nameParts := []string{commonNamePrefix, f.namespace, "svc", "cluster", "local"}
+	commonName := strings.Join(nameParts, ".")
+
+	caCertPEM, caKeyPEM, serverKeyPEM, serverCertPEM, err := newCertificateBundleSecret(commonName)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Data == nil {
+		s.Data = make(map[string][]byte)
+	}
+
+	s.Data["ca.crt"] = caCertPEM
+	s.Data["ca.key"] = caKeyPEM
+	s.Data["tls.crt"] = serverKeyPEM
+	s.Data["tls.key"] = serverCertPEM
+
+	return s, nil
+}
+
+func init() {
+	mathrand.Seed(time.Now().UnixNano())
 }

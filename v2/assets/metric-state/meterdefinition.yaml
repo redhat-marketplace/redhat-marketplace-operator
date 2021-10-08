@@ -6,15 +6,15 @@ spec:
   group: marketplace.redhat.com
   kind: Pod
   meters:
-  - aggregation: avg
-    metricId: rhm-metric-state-uptime
-    name: rhm-metric-state-uptime
-    period: 5m
-    query: avg_over_time(up{job="rhm-metric-state-service"}[5m])
-    workloadType: Pod
+    - aggregation: avg
+      metricId: rhm-metric-state-uptime
+      name: rhm-metric-state-uptime
+      period: 1h
+      query: avg_over_time(up{job="rhm-metric-state-service"}[5m])
+      workloadType: Pod
   resourceFilters:
-  - label:
-      labelSelector:
-        matchLabels:
-          app.kubernetes.io/name: rhm-metric-state
-    workloadType: Pod
+    - label:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: rhm-metric-state
+      workloadType: Pod
