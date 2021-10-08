@@ -17,6 +17,7 @@ limitations under the License.
 package marketplace
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,6 +39,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/onsi/gomega/types"
+	osappsv1 "github.com/openshift/api/apps/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -61,6 +68,12 @@ var k8sScheme *runtime.Scheme
 var factory *manifests.Factory
 var doneChan chan struct{}
 
+const (
+	imageStreamID   string = "rhm-meterdefinition-file-server:v1"
+	imageStreamTag  string = "v1"
+	listenerAddress string = "127.0.0.1:2100"
+)
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -72,6 +85,12 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
+	os.Setenv("POD_NAMESPACE", "default")
+	os.Setenv("IMAGE_STREAM_ID", imageStreamID)
+	os.Setenv("IMAGE_STREAM_TAG", imageStreamTag)
+
+	dcControllerMockServerAddr := fmt.Sprintf("%s%s", "http://", listenerAddress)
+	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
 	doneChan = make(chan struct{})
 	By("bootstrapping test environment")
@@ -82,9 +101,8 @@ var _ = BeforeSuite(func() {
 		}, KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
-	k8sScheme = provideScheme()
-
 	var err error
+	k8sScheme = provideScheme()
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
@@ -152,5 +170,14 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	utilruntime.Must(osimagev1.AddToScheme(scheme))
 	return scheme
 }
+
+var SucceedOrAlreadyExist types.GomegaMatcher = SatisfyAny(
+	Succeed(),
+	WithTransform(errors.IsAlreadyExists, BeTrue()),
+)
+
+var IsNotFound types.GomegaMatcher = WithTransform(errors.IsNotFound, BeTrue())

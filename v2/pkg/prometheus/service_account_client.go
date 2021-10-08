@@ -16,6 +16,8 @@ package prometheus
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -48,7 +50,7 @@ func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName s
 	tr := s.newTokenRequest(audience, expireSecs)
 
 	if s.Token == nil {
-		reqLogger.Info("auth token from service account found")
+		reqLogger.Info("auth token from service account not found")
 
 		return s.getToken(targetServiceAccountName, s.Client, tr, opts)
 	}
@@ -89,7 +91,8 @@ func (s *ServiceAccountClient) newTokenRequest(audience string, expireSeconds in
 func (s *ServiceAccountClient) getToken(targetServiceAccount string, client typedv1.ServiceAccountInterface, tr *authv1.TokenRequest, opts metav1.CreateOptions) (string, error) {
 	tr, err := client.CreateToken(context.TODO(), targetServiceAccount, tr, opts)
 	if err != nil {
-		return "", err
+		e := fmt.Sprintf("create token error %s",err)
+		return "", errors.New(e)
 	}
 
 	s.Token = &Token{

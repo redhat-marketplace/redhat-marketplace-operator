@@ -102,11 +102,19 @@ const (
 	RazeeWatchLevelLite   = "lite"
 	RazeeWatchLevelDetail = "detail"
 
+	DeploymentConfigName = "rhm-meterdefinition-file-server"
+
 	LicenseServerTag = "marketplace.redhat.com/operator"
+	OperatorTag      = "marketplace.redhat.com/operator"
+	OperatorTagValue = "true"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
+
+	/* Auth */
+	//TODO: use the pattern for prom and data service below
+	FileServerAudience = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
 
 	/* Certificate */
 	DQLITE_COMMONNAME_PREFIX = "*.rhm-data-service" // wildcard.ServiceName

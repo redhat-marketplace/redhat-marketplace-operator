@@ -94,6 +94,12 @@ type MeterBaseSpec struct {
 	// +optional
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
+	// MeterdefinitionCatalogServerConfig holds configuration for the Meterdefinition Catalog Server.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	MeterdefinitionCatalogServerConfig *common.MeterDefinitionCatalogServerConfig `json:"meterdefinitionCatalogServerConfig,omitempty"`
+
 	// AdditionalConfigs are set by meter definitions and meterbase to what is available on the
 	// system.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -138,6 +144,12 @@ type MeterBaseStatus struct {
 	// +optional
 	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
 
+	// MeterdefinitionCatalogServerStatus is the most recent observed status of the Meterdefinition Catalog Server. Read-only. Not
+	// included when requesting from the apiserver, only from the Prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	MeterdefinitionCatalogServerStatus *MeterdefinitionCatalogServerStatus `json:"meterdefinitionCatalogServerStatus,omitempty"`
+
 	// Total number of non-terminated pods targeted by this Prometheus deployment
 	// (their labels match the selector).
 	// +optional
@@ -156,6 +168,16 @@ type MeterBaseStatus struct {
 	// Targets is a list of prometheus activeTargets
 	// +optional
 	Targets []common.Target `json:"targets,omitempty"`
+}
+
+// MeterdefinitionCatalogServerStatus defines the observed state of the MeterdefinitionCatalogServer.
+// +k8s:openapi-gen=true
+type MeterdefinitionCatalogServerStatus struct {
+	// MeterdefinitionCatalogServerConditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
+	
 }
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.

@@ -201,15 +201,32 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	//Initialize enabled features if not set
 	if marketplaceConfig.Spec.Features == nil {
 		marketplaceConfig.Spec.Features = &common.Features{
-			Deployment:   ptr.Bool(true),
-			Registration: ptr.Bool(true),
+			Deployment:                         ptr.Bool(true),
+			Registration:                       ptr.Bool(true),
+			EnableMeterDefinitionCatalogServer: ptr.Bool(true),
 		}
 	} else {
+		var updateMarketplaceConfig bool
+
 		if marketplaceConfig.Spec.Features.Deployment == nil {
 			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
 		}
 		if marketplaceConfig.Spec.Features.Registration == nil {
 			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil {
+			reqLogger.Info("updating marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer")
+			updateMarketplaceConfig = true
+			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(true)
+		}
+		if updateMarketplaceConfig {
+			err = r.Client.Update(context.TODO(), marketplaceConfig)
+			if err != nil {
+				reqLogger.Error(err, "failed to update marketplaceconfig")
+				return reconcile.Result{}, err
+			}
+
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -395,7 +412,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
 	if k8serrors.IsNotFound(err) {
-		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
 			reqLogger.Error(err, "Failed to set controller ref")
@@ -431,6 +448,41 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("found meterbase")
+
+	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
+		reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
+		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+			SyncCommunityMeterDefinitions:      true,
+			SyncSystemMeterDefinitions:         true,
+			DeployMeterDefinitionCatalogServer: true,
+		}
+
+		reqLogger.Info("setting MeterdefinitionCatalog features")
+
+		err = r.Client.Update(context.TODO(), foundMeterBase)
+		if err != nil {
+			reqLogger.Error(err, "failed to update meterbase")
+			return reconcile.Result{}, err
+		}
+	}
+
+	if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
+
+		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+			SyncCommunityMeterDefinitions:      false,
+			SyncSystemMeterDefinitions:         false,
+			DeployMeterDefinitionCatalogServer: false,
+		}
+
+		reqLogger.Info("disabling MeterdefinitionCatalog features")
+
+		err = r.Client.Update(context.TODO(), foundMeterBase)
+		if err != nil {
+			reqLogger.Error(err, "failed to update meterbase")
+			return reconcile.Result{}, err
+		}
+	}
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &unstructured.Unstructured{}
