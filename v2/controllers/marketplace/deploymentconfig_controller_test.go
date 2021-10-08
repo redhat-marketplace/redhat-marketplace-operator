@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("DeploymentConfig Controller Test", func() {
+var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
 		namespace = "default"
@@ -142,7 +142,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Kind:  "App",
 			ResourceFilters: []marketplacev1beta1.ResourceFilter{
 				{
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
 						GroupVersionKind: common.GroupVersionKind{
 							APIVersion: "test_package_1.com/v2",
@@ -163,7 +163,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 					},
 					Query:        "kube_service_labels{}",
 					Metric:       "test_package_1_cluster_count",
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
 				},
 			},
@@ -190,7 +190,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Kind:  "App",
 			ResourceFilters: []marketplacev1beta1.ResourceFilter{
 				{
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
 						GroupVersionKind: common.GroupVersionKind{
 							APIVersion: "test_package_1.com/v2",
@@ -211,7 +211,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 					},
 					Query:        "kube_service_labels{}",
 					Metric:       "test_package_1_cluster_count",
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
 				},
 			},
@@ -245,7 +245,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Kind:  "App",
 			ResourceFilters: []marketplacev1beta1.ResourceFilter{
 				{
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
 						GroupVersionKind: common.GroupVersionKind{
 							APIVersion: "test_package_1.com/v2",
@@ -266,7 +266,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 					},
 					Query:        "kube_service_labels{}",
 					Metric:       "test_package_1_cluster_count",
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
 				},
 			},
@@ -293,7 +293,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			Kind:  "App",
 			ResourceFilters: []marketplacev1beta1.ResourceFilter{
 				{
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
 						GroupVersionKind: common.GroupVersionKind{
 							APIVersion: "test_package_1.com/v2",
@@ -314,7 +314,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 					},
 					Query:        "kube_service_labels{}",
 					Metric:       "test_package_1_cluster_count",
-					WorkloadType: marketplacev1beta1.WorkloadTypeService,
+					WorkloadType: common.WorkloadTypeService,
 					Without:      []string{"label_test_package_1_cluster", "label_app", "label_operator_test_package_1_com_version"},
 				},
 			},

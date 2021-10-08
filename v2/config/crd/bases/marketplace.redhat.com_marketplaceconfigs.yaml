@@ -72,6 +72,11 @@ spec:
                     description: Deployment represents the enablement of the razee
                       deployment, defaults to true when not set
                     type: boolean
+                  enableMeterDefinitionCatalogServer:
+                    description: 'TODO: turn this into one bool - if nil assume true
+                      EnableMeterDefinitionCatalogServer represents the enablement
+                      of the meterdefinition catalog server'
+                    type: boolean
                   registration:
                     description: Registration represents the enablement of the registration
                       watchkeeper deployment, defaults to true when not set
