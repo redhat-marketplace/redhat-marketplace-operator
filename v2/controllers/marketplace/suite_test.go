@@ -44,14 +44,16 @@ import (
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// +kubebuilder:scaffold:imports
 )
@@ -145,6 +147,32 @@ var _ = BeforeSuite(func() {
 	// 	patcher: patch.RHMDefaultPatcher,
 	// }).SetupWithManager(k8sManager)
 	// Expect(err).ToNot(HaveOccurred())
+
+	operatorConfig, err := config.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+
+	factory := manifests.NewFactory(operatorConfig, k8sScheme)
+
+	restConfig := k8sManager.GetConfig()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
+
+	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, ctrl.Log)
+	Expect(err).NotTo(HaveOccurred())
+
+	catalogClient.UseInsecureClient()
+
+	err = (&DeploymentConfigReconciler{
+		Client:        k8sManager.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:        k8sManager.GetScheme(),
+		cfg:           operatorConfig,
+		factory:       factory,
+		CatalogClient: catalogClient,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())

@@ -1,3 +1,17 @@
+// Copyright 2021 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package marketplace
 
 import (
@@ -349,7 +363,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		Spec: olmv1alpha1.CatalogSourceSpec{
 			SourceType: olmv1alpha1.SourceType(olmv1alpha1.SourceTypeGrpc),
-			Image:      "quay.io/mxpaspa/memcached-ansible-index:1.0.1",
+			Image:      "quay.io/foo/bar",
 		},
 	}
 
@@ -629,6 +643,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				log.Fatal(err)
 			}
 
+			// TODO: this takes a CatalogRequest in controller code - not verifying the request body here
 			dcControllerMockServer.RouteToHandler(
 				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
@@ -648,7 +663,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				))
 		})
 
-		It("Should create community defs if listed in the catalog", func() {
+		It("Should create community meterdefs if listed in the catalog", func() {
 			Eventually(func() string {
 				found := &marketplacev1beta1.MeterDefinition{}
 				k8sClient.Get(context.TODO(), meterDef1Key, found)
