@@ -39,6 +39,9 @@ type MeterDefPrometheusLabels struct {
 	MeterDefName      string `json:"name" mapstructure:"name"`
 	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
+	// UserWorkloadMonitoring will exported_ overlapping labels
+	ExportedMeterDefNamespace string `json:"exported_namespace,omitempty" mapstructure:"exported_namespace"`
+
 	// Deprecated: metric is now the primary name
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name" template:""`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
@@ -202,6 +205,15 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 	result.IntervalEnd = intervalEnd
 
 	return result, nil
+}
+
+// UserWorkloadMonitoring will exported_ overlapping labels
+func (m *MeterDefPrometheusLabels) Namespace() string {
+	if len(m.ExportedMeterDefNamespace) != 0 {
+		return m.ExportedMeterDefNamespace
+	} else {
+		return m.MeterDefNamespace
+	}
 }
 
 // MeterDefPrometheusLabelsTemplated is the values of a meter definition

@@ -72,7 +72,7 @@ func NewPromQueryFromLabels(
 		Type:   workloadType,
 		MeterDef: types.NamespacedName{
 			Name:      meterDefLabels.MeterDefName,
-			Namespace: meterDefLabels.MeterDefNamespace,
+			Namespace: meterDefLabels.Namespace(),
 		},
 		Query:         meterDefLabels.MetricQuery,
 		Start:         start,
@@ -109,7 +109,7 @@ func PromQueryFromLabels(
 		Type:   workloadType,
 		MeterDef: types.NamespacedName{
 			Name:      meterDefLabels.MeterDefName,
-			Namespace: meterDefLabels.MeterDefNamespace,
+			Namespace: meterDefLabels.Namespace(),
 		},
 		Query:         meterDefLabels.MetricQuery,
 		Start:         start,
