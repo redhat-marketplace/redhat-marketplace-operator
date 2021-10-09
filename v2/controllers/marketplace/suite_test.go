@@ -17,6 +17,7 @@ limitations under the License.
 package marketplace
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,10 +41,14 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	osappsv1 "github.com/openshift/api/apps/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -61,6 +67,12 @@ var k8sScheme *runtime.Scheme
 var factory *manifests.Factory
 var doneChan chan struct{}
 
+const (
+	imageStreamID   string = "rhm-meterdefinition-file-server:v1"
+	imageStreamTag  string = "v1"
+	listenerAddress string = "127.0.0.1:2100"
+)
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -72,6 +84,12 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
+	os.Setenv("POD_NAMESPACE", "default")
+	os.Setenv("IMAGE_STREAM_ID", imageStreamID)
+	os.Setenv("IMAGE_STREAM_TAG", imageStreamTag)
+
+	dcControllerMockServerAddr := fmt.Sprintf("%s%s", "http://", listenerAddress)
+	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
 	doneChan = make(chan struct{})
 	By("bootstrapping test environment")
@@ -128,6 +146,32 @@ var _ = BeforeSuite(func() {
 	// }).SetupWithManager(k8sManager)
 	// Expect(err).ToNot(HaveOccurred())
 
+	operatorConfig, err := config.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+
+	factory := manifests.NewFactory(operatorConfig, k8sScheme)
+
+	restConfig := k8sManager.GetConfig()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
+
+	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, ctrl.Log)
+	Expect(err).NotTo(HaveOccurred())
+
+	catalogClient.UseInsecureClient()
+
+	err = (&DeploymentConfigReconciler{
+		Client:        k8sManager.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:        k8sManager.GetScheme(),
+		cfg:           operatorConfig,
+		factory:       factory,
+		CatalogClient: catalogClient,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		// fmt.Println(err)
@@ -152,5 +196,7 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	utilruntime.Must(osimagev1.AddToScheme(scheme))
 	return scheme
 }

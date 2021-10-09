@@ -17,7 +17,35 @@ rules:
   - create
   - get
 - nonResourceURLs:
+  - /community-meterdef-index/*
+  verbs:
+  - get
+- nonResourceURLs:
+  - /get-community-meterdefs
+  verbs:
+  - create
+  - get
+  - post
+- nonResourceURLs:
+  - /get-system-meterdefs/*
+  verbs:
+  - create
+  - get
+  - post
+- nonResourceURLs:
+  - /global-community-meterdef-index
+  verbs:
+  - get
+- nonResourceURLs:
+  - /global-system-meterdef-index
+  verbs:
+  - get
+- nonResourceURLs:
   - /metrics
+  verbs:
+  - get
+- nonResourceURLs:
+  - /system-meterdef-index/*
   verbs:
   - get
 - apiGroups:
@@ -155,17 +183,30 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apps.openshift.io
+  resources:
+  - deploymentconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - authentication.k8s.io
   resources:
   - tokenreviews
   verbs:
   - create
+  - get
 - apiGroups:
   - authorization.k8s.io
   resources:
   - subjectaccessreviews
   verbs:
   - create
+  - get
 - apiGroups:
   - batch
   - extensions
@@ -220,6 +261,17 @@ rules:
   - delete
   - get
   - list
+- apiGroups:
+  - image.openshift.io
+  resources:
+  - imagestreams
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:

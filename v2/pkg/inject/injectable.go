@@ -16,6 +16,7 @@ package inject
 
 import (
 	"github.com/pkg/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -24,6 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,8 +41,10 @@ func ProvideInjectables(
 	i3 *PatchInjector,
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
+	i6 *CatalogClientInjector,
+	i7 *AuthBuilderConfigInjector,
 ) Injectables {
-	return []types.Injectable{i1, i2, i3, i4, i5}
+	return []types.Injectable{i1, i2, i3, i4, i5, i6, i7}
 }
 
 type Injector struct {
@@ -183,6 +187,37 @@ type MarketplaceClientBuilderInjector struct {
 func (a *MarketplaceClientBuilderInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(MarketplaceClientBuilder); ok {
 		return ii.InjectMarketplaceClientBuilder(a.MarketplaceClientBuilder)
+	}
+	return nil
+}
+
+type CatalogClient interface {
+	InjectCatalogClient(*catalog.CatalogClient) error
+}
+
+type CatalogClientInjector struct {
+	CatalogClient *catalog.CatalogClient
+}
+
+func (a *CatalogClientInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(CatalogClient); ok {
+		return ii.InjectCatalogClient(a.CatalogClient)
+	}
+	return nil
+}
+
+//TODO: does this need to be an injector ?
+type AuthBuilderConfig interface {
+	InjectAuthBuilderConfig(*rhmotransport.AuthBuilderConfig) error
+}
+
+type AuthBuilderConfigInjector struct {
+	AuthBuilderConfig *rhmotransport.AuthBuilderConfig
+}
+
+func (a *AuthBuilderConfigInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(AuthBuilderConfig); ok {
+		return ii.InjectAuthBuilderConfig(a.AuthBuilderConfig)
 	}
 	return nil
 }

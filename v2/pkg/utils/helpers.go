@@ -26,6 +26,7 @@ import (
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/blang/semver"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -254,9 +255,39 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 	return true
 }
 
+func FindMeterdefSliceDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition) (deleteList []marketplacev1beta1.MeterDefinition) {
+	for _, installedMeterdef := range catalogMdefsOnCluster {
+		found := false
+		for _, meterdefFromCatalog := range latestMeterdefsFromCatalog {
+
+			if installedMeterdef.Name == meterdefFromCatalog.Name {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			deleteList = append(deleteList, installedMeterdef)
+		}
+	}
+
+	return deleteList
+}
+
 func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
 	println(string(out))
+}
+
+func PrettyPrintWithLog(in interface{}, message string) {
+	indented, _ := json.MarshalIndent(in, "", "    ")
+
+	if message != "" {
+		out := fmt.Sprintf("%s\n%s", message, indented)
+		fmt.Println(string(out))
+	} else {
+		fmt.Println(string(indented))
+	}
 }
 
 func TruncateTime(t time.Time, loc *time.Location) time.Time {
