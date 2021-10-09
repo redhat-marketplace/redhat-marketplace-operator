@@ -155,7 +155,7 @@ var _ = BeforeSuite(func() {
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sManager.GetClient(), operatorConfig, clientset, ctrl.Log)
+	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sClient, operatorConfig, clientset, ctrl.Log)
 
 	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
@@ -163,9 +163,9 @@ var _ = BeforeSuite(func() {
 	catalogClient.UseInsecureClient()
 
 	err = (&DeploymentConfigReconciler{
-		Client:        k8sManager.GetClient(),
+		Client:        k8sClient,
 		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:        k8sManager.GetScheme(),
+		Scheme:        k8sScheme,
 		cfg:           operatorConfig,
 		factory:       factory,
 		CatalogClient: catalogClient,

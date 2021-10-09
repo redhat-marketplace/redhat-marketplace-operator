@@ -1,3 +1,17 @@
+// Copyright 2021 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package marketplace
 
 import (
@@ -342,17 +356,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		},
 	}
 
-	// catalogSource := &olmv1alpha1.CatalogSource{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      catalogSourceName,
-	// 		Namespace: namespace,
-	// 	},
-	// 	Spec: olmv1alpha1.CatalogSourceSpec{
-	// 		SourceType: olmv1alpha1.SourceType(olmv1alpha1.SourceTypeGrpc),
-	// 		Image:      "quay.io/mxpaspa/memcached-ansible-index:1.0.1",
-	// 	},
-	// }
-
 	csvOnCluster := olmv1alpha1.ClusterServiceVersion{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csvName,
@@ -526,7 +529,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Expect(k8sClient.Create(context.TODO(), dc)).Should(Succeed(), "create test deploymentconfig")
 		Expect(k8sClient.Create(context.TODO(), is)).Should(Succeed(), "create test image stream")
 		Expect(k8sClient.Create(context.TODO(), service)).Should(Succeed(), "create file server service")
-		// Expect(k8sClient.Create(context.TODO(), catalogSource.DeepCopy())).Should(Succeed(), "create catalog source")
 
 		communityMeterDefIndexLabelsBody, err = json.Marshal(communityMeterDefIndexLabelsMap)
 		if err != nil {
@@ -597,33 +599,29 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, service)
 		k8sClient.Delete(context.TODO(), service)
 
-		_meterDef1 := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), meterDef1Key, _meterDef1)
-		k8sClient.Delete(context.TODO(), _meterDef1)
+		meterDef1 := &marketplacev1beta1.MeterDefinition{}
+		k8sClient.Get(context.TODO(), meterDef1Key, meterDef1)
+		k8sClient.Delete(context.TODO(), meterDef1)
 
-		_meterDef2 := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), meterDef2Key, _meterDef2)
-		k8sClient.Delete(context.TODO(), _meterDef2)
+		meterDef2 := &marketplacev1beta1.MeterDefinition{}
+		k8sClient.Get(context.TODO(), meterDef2Key, meterDef2)
+		k8sClient.Delete(context.TODO(), meterDef2)
 
-		_systemMeterDef1 := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), systemMeterDef1Key, _systemMeterDef1)
-		k8sClient.Delete(context.TODO(), _systemMeterDef1)
+		systemMeterDef1 := &marketplacev1beta1.MeterDefinition{}
+		k8sClient.Get(context.TODO(), systemMeterDef1Key, systemMeterDef1)
+		k8sClient.Delete(context.TODO(), systemMeterDef1)
 
-		_systemMeterDef2 := &marketplacev1beta1.MeterDefinition{}
-		k8sClient.Get(context.TODO(), systemMeterDef2Key, _systemMeterDef2)
-		k8sClient.Delete(context.TODO(), _systemMeterDef2)
+		systemMeterDef2 := &marketplacev1beta1.MeterDefinition{}
+		k8sClient.Get(context.TODO(), systemMeterDef2Key, systemMeterDef2)
+		k8sClient.Delete(context.TODO(), systemMeterDef2)
 
-		_csv := &olmv1alpha1.ClusterServiceVersion{}
-		k8sClient.Get(context.TODO(), rhmCsvKey, _csv)
-		k8sClient.Delete(context.TODO(), _csv)
+		csv := &olmv1alpha1.ClusterServiceVersion{}
+		k8sClient.Get(context.TODO(), rhmCsvKey, csv)
+		k8sClient.Delete(context.TODO(), csv)
 
-		_meterBase := &marketplacev1alpha1.MeterBase{}
-		Expect(k8sClient.Get(context.TODO(), meterBaseKey, _meterBase)).Should(Succeed(), "get meterbase")
-		k8sClient.Delete(context.TODO(), _meterBase)
-
-		// _catalogSource := &olmv1alpha1.CatalogSource{}
-		// Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: catalogSourceName, Namespace: namespace}, _catalogSource)).Should(Succeed(), "get catalogsource")
-		// k8sClient.Delete(context.TODO(), _catalogSource)
+		meterBase := &marketplacev1alpha1.MeterBase{}
+		Expect(k8sClient.Get(context.TODO(), meterBaseKey, meterBase)).Should(Succeed(), "get meterbase")
+		k8sClient.Delete(context.TODO(), meterBase)
 	})
 
 	Context("Create", func() {
