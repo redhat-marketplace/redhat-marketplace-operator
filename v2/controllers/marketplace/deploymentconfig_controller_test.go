@@ -51,7 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("DeploymentConfig Controller Test", func() {
+var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
 		namespace = "default"
@@ -73,7 +73,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		systemMeterDef2Name = csvName + "-" + "cpu-usage"
 
 		/* paths */
-		listMeterDefsForCsvPath                = "/" + catalog.GetCommunityMeterdefinitionsEndpoint
+		communityMeterDefsPath                 = "/" + catalog.GetCommunityMeterdefinitionsEndpoint
 		systemMeterdefsPath                    = "/" + catalog.GetSystemMeterdefinitionTemplatesEndpoint + "/" + packageName + "/" + catalogSourceName
 		indexLabelsPath                        = "/" + catalog.GetCommunityMeterdefinitionIndexLabelEndpoint + "/" + csvName + "/" + packageName + "/" + catalogSourceName
 		systemMeterDefIndexLabelsPath          = "/" + catalog.GetSystemMeterDefIndexLabelEndpoint + "/" + csvName + "/" + packageName + "/" + catalogSourceName
@@ -640,8 +640,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
+				"POST", communityMeterDefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefsPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -696,8 +696,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
+				"POST", communityMeterDefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefsPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -774,8 +774,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
+				"POST", communityMeterDefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefsPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 
@@ -874,8 +874,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 			notFoundBody := []byte(`no meterdefs found`)
 			dcControllerMockServer.RouteToHandler(
-				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
+				"POST", communityMeterDefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefsPath),
 					ghttp.RespondWith(http.StatusNoContent, notFoundBody),
 				))
 
@@ -949,8 +949,8 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 			}
 
 			dcControllerMockServer.RouteToHandler(
-				"POST", listMeterDefsForCsvPath, ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", listMeterDefsForCsvPath),
+				"POST", communityMeterDefsPath, ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", communityMeterDefsPath),
 					ghttp.RespondWithPtr(&Status200, &communityMeterDefsBody),
 				))
 

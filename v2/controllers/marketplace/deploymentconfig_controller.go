@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -75,10 +74,8 @@ type DeploymentConfigReconciler struct {
 	Client        client.Client
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
-	CC            ClientCommandRunner
 	cfg           *config.OperatorConfig
 	factory       *manifests.Factory
-	patcher       patch.Patcher
 	CatalogClient *catalog.CatalogClient
 }
 
@@ -92,20 +89,9 @@ func (r *DeploymentConfigReconciler) InjectOperatorConfig(cfg *config.OperatorCo
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.Log.Info("command runner")
-	r.CC = ccp
-	return nil
-}
-
 func (r *DeploymentConfigReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
 	r.Log.Info("catalog client")
 	r.CatalogClient = catalogClient
-	return nil
-}
-
-func (r *DeploymentConfigReconciler) InjectPatch(p patch.Patcher) error {
-	r.patcher = p
 	return nil
 }
 
@@ -248,7 +234,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
-	// catalog server not enabled. Uninstall deploymentconfig resources, uninstall all community & system meterdefs, and stop reconciling
+	// catalog server not enabled. Uninstall deploymentconfig resources
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
 		result := r.uninstallFileServerDeploymentResources(reqLogger)
 		if !result.Is(Continue) {

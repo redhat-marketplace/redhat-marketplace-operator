@@ -65,6 +65,9 @@ var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
 var factory *manifests.Factory
+var clientset *kubernetes.Clientset
+var authBuilderConfig *rhmotransport.AuthBuilderConfig
+var catalogClient *catalog.CatalogClient
 var doneChan chan struct{}
 
 const (
@@ -146,18 +149,14 @@ var _ = BeforeSuite(func() {
 	// }).SetupWithManager(k8sManager)
 	// Expect(err).ToNot(HaveOccurred())
 
-	operatorConfig, err := config.GetConfig()
+	factory = manifests.NewFactory(operatorCfg, k8sScheme)
+
+	clientset, err = kubernetes.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	factory := manifests.NewFactory(operatorConfig, k8sScheme)
+	authBuilderConfig = rhmotransport.ProvideAuthBuilder(k8sClient, operatorCfg, clientset, ctrl.Log)
 
-	restConfig := k8sManager.GetConfig()
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	authBuilderConfig := rhmotransport.ProvideAuthBuilder(k8sClient, operatorConfig, clientset, ctrl.Log)
-
-	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, operatorConfig, ctrl.Log)
+	catalogClient, err = catalog.ProvideCatalogClient(authBuilderConfig, operatorCfg, ctrl.Log)
 	Expect(err).NotTo(HaveOccurred())
 
 	catalogClient.UseInsecureClient()
@@ -166,8 +165,17 @@ var _ = BeforeSuite(func() {
 		Client:        k8sClient,
 		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
 		Scheme:        k8sScheme,
-		cfg:           operatorConfig,
+		cfg:           operatorCfg,
 		factory:       factory,
+		CatalogClient: catalogClient,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&MeterDefinitionInstallReconciler{
+		Client:        k8sClient,
+		Log:           ctrl.Log.WithName("controllers").WithName("MeterDefinitionInstallReconciler"),
+		Scheme:        k8sScheme,
+		cfg:           operatorCfg,
 		CatalogClient: catalogClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

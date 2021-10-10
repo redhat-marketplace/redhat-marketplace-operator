@@ -59,7 +59,7 @@ type MeterDefinitionInstallReconciler struct {
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 	cfg           *config.OperatorConfig
-	catalogClient *catalog.CatalogClient
+	CatalogClient *catalog.CatalogClient
 }
 
 func hasOperatorTag(meta metav1.Object) bool {
@@ -103,7 +103,7 @@ func (r *MeterDefinitionInstallReconciler) InjectOperatorConfig(cfg *config.Oper
 
 func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
 	r.Log.Info("catalog client")
-	r.catalogClient = catalogClient
+	r.CatalogClient = catalogClient
 	return nil
 }
 
@@ -203,7 +203,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 	if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
-			communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(cr)
+			communityMeterdefs, err := r.CatalogClient.ListMeterdefintionsFromFileServer(cr)
 			if err != nil {
 				reqLogger.Error(err, "error getting community meterdefs()")
 			}
@@ -224,7 +224,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if instance.Spec.MeterdefinitionCatalogServerConfig != nil {
 		if instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
 			reqLogger.Info("system meterdefs enabled")
-			systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(csv, sub.Spec.Package, sub.Spec.CatalogSource)
+			systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(csv, sub.Spec.Package, sub.Spec.CatalogSource)
 			if err != nil {
 				reqLogger.Error(err, "error getting system meterdefs")
 			}

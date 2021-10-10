@@ -37,6 +37,7 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -206,7 +207,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 	} else {
 		var updateMarketplaceConfig bool
-
 		if marketplaceConfig.Spec.Features.Deployment == nil {
 			updateMarketplaceConfig = true
 			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
@@ -223,7 +223,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 
 		if updateMarketplaceConfig {
-			err = r.Client.Update(context.TODO(), marketplaceConfig)
+			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return r.Client.Update(context.TODO(), marketplaceConfig)
+			})
 			if err != nil {
 				reqLogger.Error(err, "failed to update marketplaceconfig")
 				return reconcile.Result{}, err
@@ -453,24 +455,51 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 	reqLogger.Info("found meterbase")
 
-	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
-		reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
-		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-			SyncCommunityMeterDefinitions:      true,
-			SyncSystemMeterDefinitions:         true,
-			DeployMeterDefinitionCatalogServer: true,
+	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+		// meterbase doesn't have MeterdefinitionCatalogServerConfig on MeterBase.Spec.
+		// Set the stuct and set all flags to true
+		if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
+			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
+			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+				SyncCommunityMeterDefinitions: true,
+				//TODO: are we setting this to false in production ?
+				SyncSystemMeterDefinitions:         true,
+				DeployMeterDefinitionCatalogServer: true,
+			}
+
+			reqLogger.Info("setting MeterdefinitionCatalog features")
+
+			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return r.Client.Update(context.TODO(), foundMeterBase)
+			})
+			if err != nil {
+				reqLogger.Error(err, "failed to update meterbase")
+				return reconcile.Result{}, err
+			}
 		}
 
-		reqLogger.Info("setting MeterdefinitionCatalog features")
+		// foundMeterBase.Spec.MeterdefinitionCatalogServerConfig already exists
+		// just allow for toggling the deployment of the file server - leave individual sync flags alone
+		if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !foundMeterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
+			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
+			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+				DeployMeterDefinitionCatalogServer: true,
+			}
 
-		err = r.Client.Update(context.TODO(), foundMeterBase)
-		if err != nil {
-			reqLogger.Error(err, "failed to update meterbase")
-			return reconcile.Result{}, err
+			reqLogger.Info("setting MeterdefinitionCatalog features")
+
+			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return r.Client.Update(context.TODO(), foundMeterBase)
+			})
+			if err != nil {
+				reqLogger.Error(err, "failed to update meterbase")
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
-	if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+	// meterdef catalog server disabled, set all flags to false. This will remove file server resources and all community & system meterdefs
+	if !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
 		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
 
 		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
@@ -481,7 +510,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 		reqLogger.Info("disabling MeterdefinitionCatalog features")
 
-		err = r.Client.Update(context.TODO(), foundMeterBase)
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Update(context.TODO(), foundMeterBase)
+		})
 		if err != nil {
 			reqLogger.Error(err, "failed to update meterbase")
 			return reconcile.Result{}, err
