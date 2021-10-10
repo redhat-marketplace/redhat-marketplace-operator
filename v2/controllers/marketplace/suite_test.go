@@ -110,6 +110,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
+	err = marketplaceredhatcomv1alpha1.AddToScheme(k8sScheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = marketplaceredhatcomv1beta1.AddToScheme(k8sScheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	operatorCfg, err = config.GetConfig()
 	Expect(err).To(Succeed())
 	operatorCfg.ReportController.PollTime = 5 * time.Second
@@ -152,12 +158,12 @@ var _ = BeforeSuite(func() {
 	factory = manifests.NewFactory(operatorCfg, k8sScheme)
 
 	clientset, err = kubernetes.NewForConfig(cfg)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	authBuilderConfig = rhmotransport.ProvideAuthBuilder(k8sClient, operatorCfg, clientset, ctrl.Log)
 
 	catalogClient, err = catalog.ProvideCatalogClient(authBuilderConfig, operatorCfg, ctrl.Log)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	catalogClient.UseInsecureClient()
 
@@ -171,14 +177,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&MeterDefinitionInstallReconciler{
-		Client:        k8sClient,
-		Log:           ctrl.Log.WithName("controllers").WithName("MeterDefinitionInstallReconciler"),
-		Scheme:        k8sScheme,
-		cfg:           operatorCfg,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	// err = (&MeterDefinitionInstallReconciler{
+	// 	Client:        k8sClient,
+	// 	Log:           ctrl.Log.WithName("controllers").WithName("MeterDefinitionInstallReconciler"),
+	// 	Scheme:        k8sScheme,
+	// 	cfg:           operatorCfg,
+	// 	CatalogClient: catalogClient,
+	// }).SetupWithManager(k8sManager)
+	// Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())

@@ -45,7 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("MeterDefinitionInstall Controller Test", func() {
+var _ = Describe("MeterDefinitionInstall Controller Test", func() {
 
 	var (
 		namespace = "default"
@@ -318,7 +318,7 @@ var _ = FDescribe("MeterDefinitionInstall Controller Test", func() {
 		k8sClient.Delete(context.TODO(), meterBase)
 	})
 
-	FContext("Create", func() {
+	Context("Create", func() {
 		BeforeEach(func() {
 			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil

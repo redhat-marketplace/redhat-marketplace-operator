@@ -51,7 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("DeploymentConfig Controller Test", func() {
+var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	var (
 		namespace = "default"
@@ -624,7 +624,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		k8sClient.Delete(context.TODO(), meterBase)
 	})
 
-	Context("Create", func() {
+	FContext("Create", func() {
 		BeforeEach(func() {
 			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
@@ -658,7 +658,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				))
 		})
 
-		It("Should create community defs if listed in the catalog", func() {
+		FIt("Should create community defs if listed in the catalog", func() {
 			Eventually(func() string {
 				found := &marketplacev1beta1.MeterDefinition{}
 				k8sClient.Get(context.TODO(), meterDef1Key, found)
