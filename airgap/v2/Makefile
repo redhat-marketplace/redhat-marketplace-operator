@@ -2,7 +2,7 @@ VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
 export VERSION
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
-IMAGE_NAME = redhat-marketplace-dqlite
+IMAGE_NAME = redhat-marketplace-data-service
 IMAGE_TAG ?= $(VERSION)
 QUAY_EXPIRATION?=never
 
@@ -40,7 +40,7 @@ docker-build:
 	--build-arg path=./airgap/v2/ \
 	--build-arg name=\"DataService\" \
 	--build-arg exec=./cmd/ \
-	--build-arg bin=redhat-marketplace-dqlite \
+	--build-arg bin=redhat-marketplace-data-service \
 	--build-arg app_version=\"$(VERSION)\" \
 	--build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
 	$(ARGS) \

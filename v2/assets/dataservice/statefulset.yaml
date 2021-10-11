@@ -57,7 +57,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-          image: redhat-marketplace-dqlite
+          image: redhat-marketplace-data-service
           imagePullPolicy: IfNotPresent
           name: rhm-data-service
           ports:
