@@ -26,16 +26,17 @@ import (
 	"github.com/blang/semver"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/onsi/gomega/ghttp"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/gotidy/ptr"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
@@ -54,8 +55,6 @@ import (
 var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
-		namespace = operatorNamespace
-
 		/* rhm csv */
 		csvName           = "test-csv-1.v0.0.1"
 		subName           = "test-csv-1-sub"
@@ -101,32 +100,32 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	meterDef1Key := types.NamespacedName{
 		Name:      "meterdef-1",
-		Namespace: namespace,
+		Namespace: operatorNamespace,
 	}
 
 	meterDef2Key := types.NamespacedName{
 		Name:      "meterdef-2",
-		Namespace: namespace,
+		Namespace: operatorNamespace,
 	}
 
 	systemMeterDef1Key := types.NamespacedName{
 		Name:      systemMeterDef1Name,
-		Namespace: namespace,
+		Namespace: operatorNamespace,
 	}
 
 	systemMeterDef2Key := types.NamespacedName{
 		Name:      systemMeterDef2Name,
-		Namespace: namespace,
+		Namespace: operatorNamespace,
 	}
 
 	rhmCsvKey := types.NamespacedName{
 		Name:      csvName,
-		Namespace: namespace,
+		Namespace: operatorNamespace,
 	}
 
 	meterBaseKey := types.NamespacedName{
 		Name:      utils.METERBASE_NAME,
-		Namespace: namespace,
+		Namespace: operatorNamespace,
 	}
 
 	systemMeterDefIndexLabelsMap = map[string]string{
@@ -143,7 +142,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      systemMeterDef1Name,
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 			Annotations: map[string]string{
 				"versionRange":        "<=0.0.1",
 				"subscription.source": catalogSourceName,
@@ -191,7 +190,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      systemMeterDef2Name,
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 			Annotations: map[string]string{
 				"subscription.versionRange": "<=0.0.1",
 				"subscription.source":       catalogSourceName,
@@ -246,7 +245,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterDef1Key.Name,
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 			Annotations: map[string]string{
 				"versionRange":        "<=0.0.1",
 				"subscription.source": catalogSourceName,
@@ -294,7 +293,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterDef2Key.Name,
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 			Annotations: map[string]string{
 				"versionRange":        "<=0.0.1",
 				"subscription.source": catalogSourceName,
@@ -338,7 +337,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 	subSectionMeterBase := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.METERBASE_NAME,
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 		},
 		Spec: marketplacev1alpha1.MeterBaseSpec{
 			Enabled: false,
@@ -359,7 +358,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 	csvOnCluster := olmv1alpha1.ClusterServiceVersion{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csvName,
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 		},
 		Spec: olmv1alpha1.ClusterServiceVersionSpec{
 			InstallStrategy: olmv1alpha1.NamedInstallStrategy{
@@ -382,14 +381,14 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      subName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 				Labels: map[string]string{
 					operatorTag: "true",
 				},
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{
 				CatalogSource:          catalogSourceName,
-				CatalogSourceNamespace: namespace,
+				CatalogSourceNamespace: operatorNamespace,
 				Package:                packageName,
 			},
 			Status: olmv1alpha1.SubscriptionStatus{
@@ -399,11 +398,11 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nonRhmSubNmae,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{
 				CatalogSource:          nonRhmCatalogSourceName,
-				CatalogSourceNamespace: namespace,
+				CatalogSourceNamespace: operatorNamespace,
 				Package:                nonRhmPackageName,
 			},
 			Status: olmv1alpha1.SubscriptionStatus{
@@ -425,7 +424,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		dc := &osappsv1.DeploymentConfig{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.DeploymentConfigName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Spec: osappsv1.DeploymentConfigSpec{
 				Triggers: osappsv1.DeploymentTriggerPolicies{
@@ -459,7 +458,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		is := &osimagev1.ImageStream{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.DeploymentConfigName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Spec: osimagev1.ImageStreamSpec{
 				LookupPolicy: osimagev1.ImageLookupPolicy{
@@ -491,7 +490,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.DeploymentConfigName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{
@@ -504,7 +503,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 			},
 		}
 
-		Expect(k8sClient.Create(context.TODO(), dc.DeepCopy())).Should(Succeed(), "create test deploymentconfig")
+		Expect(k8sClient.Create(context.TODO(), dc)).Should(Succeed(), "create test deploymentconfig")
 		Expect(k8sClient.Create(context.TODO(), is.DeepCopy())).Should(Succeed(), "create test image stream")
 		Expect(k8sClient.Create(context.TODO(), service.DeepCopy())).Should(Succeed(), "create file server service")
 
@@ -565,16 +564,23 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 	AfterEach(func() {
 		dcControllerMockServer.Close()
 
+		// deleting meterbase should remove the dc, image stream, and service
+		meterBase := &marketplacev1alpha1.MeterBase{}
+		Expect(k8sClient.Get(context.TODO(), meterBaseKey, meterBase)).Should(Succeed(), "get meterbase")
+		k8sClient.Delete(context.TODO(), meterBase)
+
 		dc := &osappsv1.DeploymentConfig{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, dc)
+		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: operatorNamespace}, dc)
+		dc.OwnerReferences = []metav1.OwnerReference{}
+		k8sClient.Update(context.TODO(), dc)
 		k8sClient.Delete(context.TODO(), dc)
 
 		is := &osimagev1.ImageStream{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, is)
+		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: operatorNamespace}, is)
 		k8sClient.Delete(context.TODO(), is)
 
 		service := &corev1.Service{}
-		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, service)
+		k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: operatorNamespace}, service)
 		k8sClient.Delete(context.TODO(), service)
 
 		meterDef1 := &marketplacev1beta1.MeterDefinition{}
@@ -596,10 +602,6 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		csv := &olmv1alpha1.ClusterServiceVersion{}
 		k8sClient.Get(context.TODO(), rhmCsvKey, csv)
 		k8sClient.Delete(context.TODO(), csv)
-
-		meterBase := &marketplacev1alpha1.MeterBase{}
-		Expect(k8sClient.Get(context.TODO(), meterBaseKey, meterBase)).Should(Succeed(), "get meterbase")
-		k8sClient.Delete(context.TODO(), meterBase)
 	})
 
 	Context("Create", func() {
@@ -1016,19 +1018,19 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				var serviceIsNotFound bool
 
 				dc := &osappsv1.DeploymentConfig{}
-				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, dc)
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: operatorNamespace}, dc)
 				if k8serrors.IsNotFound(err) {
 					dcNotFound = true
 				}
 
 				is := &osimagev1.ImageStreamImage{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, is)
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: operatorNamespace}, is)
 				if k8serrors.IsNotFound(err) {
 					imageStreamNotFound = true
 				}
 
 				service := &corev1.Service{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: namespace}, service)
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: operatorNamespace}, service)
 				if k8serrors.IsNotFound(err) {
 					serviceIsNotFound = true
 				}
