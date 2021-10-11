@@ -52,7 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("DeploymentConfig Controller Test", func() {
+var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	var (
 		/* rhm csv */
@@ -411,6 +411,88 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 	}
 
+	dc := &osappsv1.DeploymentConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.DeploymentConfigName,
+			Namespace: operatorNamespace,
+		},
+		Spec: osappsv1.DeploymentConfigSpec{
+			Triggers: osappsv1.DeploymentTriggerPolicies{
+				{
+					Type: osappsv1.DeploymentTriggerOnConfigChange,
+					ImageChangeParams: &osappsv1.DeploymentTriggerImageChangeParams{
+						Automatic:      true,
+						ContainerNames: []string{"rhm-meterdefinition-file-server"},
+						From: corev1.ObjectReference{
+							Kind: "ImageStreamTag",
+							Name: "rhm-meterdefinition-file-server:v1",
+						},
+					},
+				},
+			},
+		},
+		Status: osappsv1.DeploymentConfigStatus{
+			LatestVersion: 1,
+			Conditions: []osappsv1.DeploymentCondition{
+				{
+					Type:               osappsv1.DeploymentConditionType(osappsv1.DeploymentAvailable),
+					Reason:             "NewReplicationControllerAvailable",
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+					LastUpdateTime:     metav1.Now(),
+				},
+			},
+		},
+	}
+
+	is := &osimagev1.ImageStream{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.DeploymentConfigName,
+			Namespace: operatorNamespace,
+		},
+		Spec: osimagev1.ImageStreamSpec{
+			LookupPolicy: osimagev1.ImageLookupPolicy{
+				Local: false,
+			},
+			Tags: []osimagev1.TagReference{
+				{
+					Annotations: map[string]string{
+						"openshift.io/imported-from": "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+					},
+					From: &corev1.ObjectReference{
+						Name: "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+						Kind: "DockerImage",
+					},
+					ImportPolicy: osimagev1.TagImportPolicy{
+						Insecure:  true,
+						Scheduled: true,
+					},
+					Name: "v1",
+					ReferencePolicy: osimagev1.TagReferencePolicy{
+						Type: osimagev1.SourceTagReferencePolicy,
+					},
+					Generation: ptr.Int64(1),
+				},
+			},
+		},
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.DeploymentConfigName,
+			Namespace: operatorNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "foo",
+					Port:       int32(8180),
+					TargetPort: intstr.FromString("foo"),
+				},
+			},
+		},
+	}
+
 	BeforeEach(func() {
 		customListener, err := net.Listen("tcp", listenerAddress)
 		Expect(err).ToNot(HaveOccurred())
@@ -421,89 +503,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		dcControllerMockServer.SetAllowUnhandledRequests(true)
 		dcControllerMockServer.Start()
 
-		dc := &osappsv1.DeploymentConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.DeploymentConfigName,
-				Namespace: operatorNamespace,
-			},
-			Spec: osappsv1.DeploymentConfigSpec{
-				Triggers: osappsv1.DeploymentTriggerPolicies{
-					{
-						Type: osappsv1.DeploymentTriggerOnConfigChange,
-						ImageChangeParams: &osappsv1.DeploymentTriggerImageChangeParams{
-							Automatic:      true,
-							ContainerNames: []string{"rhm-meterdefinition-file-server"},
-							From: corev1.ObjectReference{
-								Kind: "ImageStreamTag",
-								Name: "rhm-meterdefinition-file-server:v1",
-							},
-						},
-					},
-				},
-			},
-			Status: osappsv1.DeploymentConfigStatus{
-				LatestVersion: 1,
-				Conditions: []osappsv1.DeploymentCondition{
-					{
-						Type:               osappsv1.DeploymentConditionType(osappsv1.DeploymentAvailable),
-						Reason:             "NewReplicationControllerAvailable",
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: metav1.Now(),
-						LastUpdateTime:     metav1.Now(),
-					},
-				},
-			},
-		}
-
-		is := &osimagev1.ImageStream{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.DeploymentConfigName,
-				Namespace: operatorNamespace,
-			},
-			Spec: osimagev1.ImageStreamSpec{
-				LookupPolicy: osimagev1.ImageLookupPolicy{
-					Local: false,
-				},
-				Tags: []osimagev1.TagReference{
-					{
-						Annotations: map[string]string{
-							"openshift.io/imported-from": "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
-						},
-						From: &corev1.ObjectReference{
-							Name: "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
-							Kind: "DockerImage",
-						},
-						ImportPolicy: osimagev1.TagImportPolicy{
-							Insecure:  true,
-							Scheduled: true,
-						},
-						Name: "v1",
-						ReferencePolicy: osimagev1.TagReferencePolicy{
-							Type: osimagev1.SourceTagReferencePolicy,
-						},
-						Generation: ptr.Int64(1),
-					},
-				},
-			},
-		}
-
-		service := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.DeploymentConfigName,
-				Namespace: operatorNamespace,
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name:       "foo",
-						Port:       int32(8180),
-						TargetPort: intstr.FromString("foo"),
-					},
-				},
-			},
-		}
-
-		Expect(k8sClient.Create(context.TODO(), dc)).Should(Succeed(), "create test deploymentconfig")
+		Expect(k8sClient.Create(context.TODO(), dc.DeepCopy())).Should(Succeed(), "create test deploymentconfig")
 		Expect(k8sClient.Create(context.TODO(), is.DeepCopy())).Should(Succeed(), "create test image stream")
 		Expect(k8sClient.Create(context.TODO(), service.DeepCopy())).Should(Succeed(), "create file server service")
 
