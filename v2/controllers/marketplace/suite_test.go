@@ -17,6 +17,7 @@ limitations under the License.
 package marketplace
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,6 +50,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -71,9 +74,10 @@ var catalogClient *catalog.CatalogClient
 var doneChan chan struct{}
 
 const (
-	imageStreamID   string = "rhm-meterdefinition-file-server:v1"
-	imageStreamTag  string = "v1"
-	listenerAddress string = "127.0.0.1:2100"
+	imageStreamID     string = "rhm-meterdefinition-file-server:v1"
+	imageStreamTag    string = "v1"
+	listenerAddress   string = "127.0.0.1:2100"
+	operatorNamespace string = "openshift-redhat-marketplace"
 )
 
 func TestAPIs(t *testing.T) {
@@ -110,17 +114,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = marketplaceredhatcomv1alpha1.AddToScheme(k8sScheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = marketplaceredhatcomv1beta1.AddToScheme(k8sScheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	operatorCfg, err = config.GetConfig()
 	Expect(err).To(Succeed())
 	operatorCfg.ReportController.PollTime = 5 * time.Second
 
-	operatorCfg.DeployedNamespace = "openshift-redhat-marketplace"
+	operatorCfg.DeployedNamespace = operatorNamespace
 
 	// factory := manifests.NewFactory(
 	// 	operatorCfg,
@@ -136,6 +134,14 @@ var _ = BeforeSuite(func() {
 		Scheme: k8sScheme,
 	})
 	Expect(err).ToNot(HaveOccurred())
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: operatorNamespace,
+		},
+	}
+
+	Expect(k8sClient.Create(context.TODO(), ns)).Should(Succeed(), "create operator namespace")
 
 	err = (&RemoteResourceS3Reconciler{
 		Client: k8sClient,
@@ -212,5 +218,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	utilruntime.Must(osimagev1.AddToScheme(scheme))
+	// utilruntime.Must(corev1.AddToScheme(scheme))
 	return scheme
 }

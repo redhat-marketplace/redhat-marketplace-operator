@@ -54,7 +54,7 @@ import (
 var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
-		namespace = "default"
+		namespace = operatorNamespace
 
 		/* rhm csv */
 		csvName           = "test-csv-1.v0.0.1"
@@ -143,7 +143,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      systemMeterDef1Name,
-			Namespace: "default",
+			Namespace: namespace,
 			Annotations: map[string]string{
 				"versionRange":        "<=0.0.1",
 				"subscription.source": catalogSourceName,
@@ -191,7 +191,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      systemMeterDef2Name,
-			Namespace: "default",
+			Namespace: namespace,
 			Annotations: map[string]string{
 				"subscription.versionRange": "<=0.0.1",
 				"subscription.source":       catalogSourceName,
@@ -294,7 +294,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterDef2Key.Name,
-			Namespace: "default",
+			Namespace: namespace,
 			Annotations: map[string]string{
 				"versionRange":        "<=0.0.1",
 				"subscription.source": catalogSourceName,
@@ -425,7 +425,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		dc := &osappsv1.DeploymentConfig{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.DeploymentConfigName,
-				Namespace: "default",
+				Namespace: namespace,
 			},
 			Spec: osappsv1.DeploymentConfigSpec{
 				Triggers: osappsv1.DeploymentTriggerPolicies{
@@ -459,7 +459,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		is := &osimagev1.ImageStream{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.DeploymentConfigName,
-				Namespace: "default",
+				Namespace: namespace,
 			},
 			Spec: osimagev1.ImageStreamSpec{
 				LookupPolicy: osimagev1.ImageLookupPolicy{
@@ -504,9 +504,9 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 			},
 		}
 
-		Expect(k8sClient.Create(context.TODO(), dc)).Should(Succeed(), "create test deploymentconfig")
-		Expect(k8sClient.Create(context.TODO(), is)).Should(Succeed(), "create test image stream")
-		Expect(k8sClient.Create(context.TODO(), service)).Should(Succeed(), "create file server service")
+		Expect(k8sClient.Create(context.TODO(), dc.DeepCopy())).Should(Succeed(), "create test deploymentconfig")
+		Expect(k8sClient.Create(context.TODO(), is.DeepCopy())).Should(Succeed(), "create test image stream")
+		Expect(k8sClient.Create(context.TODO(), service.DeepCopy())).Should(Succeed(), "create file server service")
 
 		communityMeterDefIndexLabelsBody, err = json.Marshal(communityMeterDefIndexLabelsMap)
 		if err != nil {
