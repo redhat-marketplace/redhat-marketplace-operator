@@ -52,7 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("DeploymentConfig Controller Test", func() {
+var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
 		/* rhm csv */
