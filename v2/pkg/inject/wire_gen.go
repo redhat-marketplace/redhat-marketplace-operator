@@ -83,10 +83,7 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	catalogClientInjector := &CatalogClientInjector{
 		CatalogClient: catalogClient,
 	}
-	authBuilderConfigInjector := &AuthBuilderConfigInjector{
-		AuthBuilderConfig: authBuilderConfig,
-	}
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, catalogClientInjector, authBuilderConfigInjector)
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, catalogClientInjector)
 	injectInjectorDependencies := injectorDependencies{
 		Runnables:   runnablesRunnables,
 		Injectables: injectables,

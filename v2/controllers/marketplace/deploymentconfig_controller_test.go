@@ -51,7 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("DeploymentConfig Controller Test", func() {
+var _ = Describe("DeploymentConfig Controller Test", func() {
 
 	var (
 		namespace = "default"
@@ -378,28 +378,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		Status: olmv1alpha1.ClusterServiceVersionStatus{},
 	}
 
-	nonRhmCsv := olmv1alpha1.ClusterServiceVersion{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      nonRhmCsvName,
-			Namespace: namespace,
-		},
-		Spec: olmv1alpha1.ClusterServiceVersionSpec{
-			InstallStrategy: olmv1alpha1.NamedInstallStrategy{
-				StrategySpec: olmv1alpha1.StrategyDetailsDeployment{
-					DeploymentSpecs: []olmv1alpha1.StrategyDeploymentSpec{},
-				},
-			},
-			Version: version.OperatorVersion{
-				Version: semver.Version{
-					Major: 0,
-					Minor: 0,
-					Patch: 1,
-				},
-			},
-		},
-		Status: olmv1alpha1.ClusterServiceVersionStatus{},
-	}
-
 	subs := []olmv1alpha1.Subscription{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -624,7 +602,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 		k8sClient.Delete(context.TODO(), meterBase)
 	})
 
-	FContext("Create", func() {
+	Context("Create", func() {
 		BeforeEach(func() {
 			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 				return subs, nil
@@ -658,7 +636,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 				))
 		})
 
-		FIt("Should create community defs if listed in the catalog", func() {
+		It("Should create community defs if listed in the catalog", func() {
 			Eventually(func() string {
 				found := &marketplacev1beta1.MeterDefinition{}
 				k8sClient.Get(context.TODO(), meterDef1Key, found)
@@ -906,27 +884,6 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 				mdefList := &marketplacev1beta1.MeterDefinitionList{}
 				k8sClient.List(context.TODO(), mdefList, listOts...)
-
-				return mdefList.Items
-			}, timeout, interval).Should(HaveLen(0))
-		})
-	})
-
-	Context("non-rhm resources", func() {
-		BeforeEach(func() {
-			listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
-				return subs, nil
-			}
-
-			Expect(k8sClient.Create(context.TODO(), nonRhmCsv.DeepCopy())).Should(Succeed(), "create non-rhm-csv")
-			Expect(k8sClient.Create(context.TODO(), subSectionMeterBase.DeepCopy())).Should(Succeed(), "create sub-section meterbase")
-
-		})
-
-		It("it should not create meterdefs for non-rhm resources", func() {
-			Eventually(func() []marketplacev1beta1.MeterDefinition {
-				mdefList := &marketplacev1beta1.MeterDefinitionList{}
-				k8sClient.List(context.TODO(), mdefList)
 
 				return mdefList.Items
 			}, timeout, interval).Should(HaveLen(0))

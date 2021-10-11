@@ -49,7 +49,6 @@ func initializeInjectDependencies(
 		wire.Struct(new(FactoryInjector), "*"),
 		wire.Struct(new(KubeInterfaceInjector), "*"),
 		wire.Struct(new(CatalogClientInjector), "*"),
-		wire.Struct(new(AuthBuilderConfigInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,
