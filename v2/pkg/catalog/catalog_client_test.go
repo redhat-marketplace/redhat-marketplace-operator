@@ -86,9 +86,8 @@ var _ = Describe("Catalog Client", func() {
 	})
 
 	Context("Set Transport", func() {
-		It("Should set transport and kube service auth in default scenario", func() {
+		It("Should use secure client unless overridden", func() {
 			Expect(catalogClient.UseSecureClient).To(Equal(true))
-			Expect(catalogClient.IsTransportSet).To(Equal(true))
 		})
 	})
 
@@ -103,7 +102,7 @@ var _ = Describe("Catalog Client", func() {
 				))
 		})
 
-		It("Should retry on Auth errors and propagate the error when all retry attempts fail", func() {
+		It("Should retry on Auth errors", func() {
 
 			_, err := catalogClient.ListMeterdefintionsFromFileServer(cr)
 			utils.PrettyPrint(err.Error())
@@ -122,7 +121,7 @@ var _ = Describe("Catalog Client", func() {
 				))
 		})
 
-		It("Should retry on 500 errors and propagate the original error when all retry attempts fail", func() {
+		It("Should retry on 500 range errors", func() {
 			_, err := catalogClient.ListMeterdefintionsFromFileServer(cr)
 			utils.PrettyPrintWithLog(err.Error(), "500 retry error:")
 			Expect(err.Error()).To(ContainSubstring("giving up after 6 attempt(s): unexpected HTTP status 500 Internal Server Error"))
