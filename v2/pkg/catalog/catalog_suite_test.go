@@ -24,8 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 
 	// +kubebuilder:scaffold:imports
 	osconfigv1 "github.com/openshift/api/config/v1"
@@ -80,8 +78,7 @@ type AuthValues struct {
 }
 
 /*
-	TODO:
-	there is some superfluous code here
+	TODO: do I need testEnv for this test ?
 */
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -106,16 +103,7 @@ var _ = BeforeSuite(func() {
 
 	scheme := runtime.NewScheme()
 
-	err = v1alpha1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = v1beta1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = osconfigv1.Install(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = clientgoscheme.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})

@@ -37,7 +37,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//TODO: in progress
 var _ = Describe("Catalog Client", func() {
 
 	var (
@@ -66,7 +65,9 @@ var _ = Describe("Catalog Client", func() {
 		customListener, err := net.Listen("tcp", listenerAddress)
 		Expect(err).ToNot(HaveOccurred())
 
-		//TODO: use NewTlsServer()*
+		/*
+			TODO: @zach: I was having trouble using the cert created by NewTLSserver(), left the manual cert creation in for now
+		*/
 		catalogClientMockServer = ghttp.NewUnstartedServer()
 		catalogClientMockServer.HTTPTestServer.Listener.Close()
 		catalogClientMockServer.HTTPTestServer.Listener = customListener

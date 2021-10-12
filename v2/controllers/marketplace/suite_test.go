@@ -91,7 +91,7 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
-	os.Setenv("POD_NAMESPACE", "default")
+	os.Setenv("POD_NAMESPACE", operatorNamespace)
 	os.Setenv("IMAGE_STREAM_ID", imageStreamID)
 	os.Setenv("IMAGE_STREAM_TAG", imageStreamTag)
 
@@ -183,15 +183,6 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	// err = (&MeterDefinitionInstallReconciler{
-	// 	Client:        k8sClient,
-	// 	Log:           ctrl.Log.WithName("controllers").WithName("MeterDefinitionInstallReconciler"),
-	// 	Scheme:        k8sScheme,
-	// 	cfg:           operatorCfg,
-	// 	CatalogClient: catalogClient,
-	// }).SetupWithManager(k8sManager)
-	// Expect(err).ToNot(HaveOccurred())
-
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		// fmt.Println(err)
@@ -218,6 +209,5 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	utilruntime.Must(osimagev1.AddToScheme(scheme))
-	// utilruntime.Must(corev1.AddToScheme(scheme))
 	return scheme
 }

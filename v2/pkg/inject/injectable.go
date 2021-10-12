@@ -41,7 +41,6 @@ func ProvideInjectables(
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
 	i6 *CatalogClientInjector,
-	// i7 *AuthBuilderConfigInjector,
 ) Injectables {
 	return []types.Injectable{i1, i2, i3, i4, i5, i6}
 }
