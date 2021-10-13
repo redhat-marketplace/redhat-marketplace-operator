@@ -282,8 +282,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		),
 	)
 
-	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "test event")
-
 	if !result.Is(Continue) {
 		if result.Is(NotFound) {
 			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
@@ -455,6 +453,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if userWorkloadMonitoringEnabled {
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
+			Do(r.checkUWMDefaultStorageClassPrereq(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.installUserWorkloadMonitoring(instance)...),
@@ -1121,6 +1120,25 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	return actions
+}
+
+// Record a DefaultClassNotFound Event, but do not err
+// User could possibly, but less likely, set up UWM storage without a default
+func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(
+	instance *marketplacev1alpha1.MeterBase,
+) []ClientAction {
+	return []ClientAction{
+		Call(func() (ClientAction, error) {
+			_, err := utils.GetDefaultStorageClass(r.Client)
+			if err != nil {
+				if errors.Is(err, operrors.DefaultStorageClassNotFound) {
+					r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
+				} else {
+					return nil, err
+				}
+			}
+			return nil, nil
+		})}
 }
 
 func (r *MeterBaseReconciler) installUserWorkloadMonitoring(
