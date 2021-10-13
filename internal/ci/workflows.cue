@@ -1010,7 +1010,7 @@ echo "::endgroup::"
 """
 }
 
-_#scanImage: {
+_#scanImageWithArch: {
 	#args: {
 		ospid: string
 		from:  string
@@ -1029,6 +1029,24 @@ echo "::endgroup::"
 """
 }
 
+_#scanImage: {
+	#args: {
+		ospid: string
+		from:  string
+		tag:   string
+	}
+	res: """
+echo "::group::Scan \(#args.from)"
+id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/\(#args.ospid)" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+digest=$(skopeo --override-os=linux inspect docker://\(#args.from):\(#args.tag) --raw | jq -r '.Digest')
+curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \\
+--header 'Content-Type: application/json' \\
+--header "X-API-KEY: $REDHAT_TOKEN" \\
+--data-raw "{\\"pull_spec\\": \\"\(#args.from)@$digest\\",\\"tag\\": \\"\(#args.tag)\\"}"
+echo "::endgroup::"
+"""
+}
+
 _#scanCommand: {
 	#args: {
 		fromTo: [ for k, v in _#images {
@@ -1036,7 +1054,7 @@ _#scanCommand: {
 			from:  "\(_#registry)/\(v.name)"
 			tag:   "$TAG"
 		}]
-		scanCommandList: [ for #arch in _#archs {[ for k, v in #args.fromTo {(_#scanImage & {#args: v & {arch: #arch}}).res}]}]
+		scanCommandList: [ for k, v in #args.fromTo {(_#scanImage & {#args: v }).res}]
 	}
 	res: _#step & {
 		id:    "mirror"
