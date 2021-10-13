@@ -8,10 +8,10 @@ ARG OS=${TARGETOS:-linux}
 ENV VERSION=${VERSION} OS=${OS} ARCH=${ARCH}
 
 RUN dnf -y install git make yum gzip \
-  && dnf update \
+  && dnf -y update \
   && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
-  && yum clean all \
-  && dnf clean all \
+  && yum -y clean all \
+  && dnf -y clean all \
   && rm -rf /var/cache/yum
 
 
