@@ -202,7 +202,7 @@ type MeterWorkload struct {
 	// Aggregation to use with the query
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:avg"
-	// +kubebuilder:validation:Enum:=sum;min;max;avg
+	// +kubebuilder:validation:Enum:=sum;min;max;avg;group
 	Aggregation string `json:"aggregation"`
 
 	// Period is the amount of time to segment the data into. Default is 1h.
