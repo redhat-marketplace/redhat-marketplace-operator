@@ -226,6 +226,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#scanCommand.res,
 				_#addRocketToComment,
+        _#addFailureComment,
 			]
 		}
 		publish: _#job & {
@@ -259,6 +260,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#publishOperatorImages,
 				_#addRocketToComment,
+        _#addFailureComment,
 			]
 		}
 		"push-operator": _#job & {
@@ -292,6 +294,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#retagManifestCommand,
 				_#addRocketToComment,
+        _#addFailureComment,
 			]
 		}
 		"publish-operator": _#job & {
@@ -325,6 +328,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#publishOperator,
 				_#addRocketToComment,
+        _#addFailureComment,
 			]
 		}
 	}
@@ -1038,7 +1042,7 @@ _#scanImage: {
 	res: """
 echo "::group::Scan \(#args.from)"
 id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/\(#args.ospid)" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
-digest=$(skopeo --override-os=linux inspect docker://\(#args.from):\(#args.tag) --raw | jq -r '.Digest')
+digest=$(skopeo --override-os=linux inspect docker://\(#args.from):\(#args.tag) | jq -r '.Digest')
 curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \\
 --header 'Content-Type: application/json' \\
 --header "X-API-KEY: $REDHAT_TOKEN" \\
@@ -1059,7 +1063,6 @@ _#scanCommand: {
 	res: _#step & {
 		id:    "mirror"
 		name:  "Scan images"
-		shell: "bash {0}"
 		env: {
 			"REDHAT_TOKEN": "${{ secrets.redhat_api_key }}"
 		}
@@ -1385,5 +1388,14 @@ _#addRocketToComment: _#step & {
 	with: {
 		"comment-id": "${{github.event.comment.id}}"
 		reactions:    "rocket"
+	}
+}
+
+_#addFailureComment: _#step & {
+	uses: "peter-evans/create-or-update-comment@v1"
+  if: "${{ failure() }}"
+	with: {
+		"comment-id": "${{github.event.comment.id}}"
+		reactions:    "-1"
 	}
 }
