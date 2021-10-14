@@ -25,13 +25,15 @@ import (
 	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("authvalid_cmd")
 
 type PrometheusSecureClientConfig struct {
 	Address string
@@ -86,7 +88,6 @@ func providePrometheusAPI(
 	caCert *[]byte,
 	token string,
 ) (v1.API, error) {
-
 	var port int32
 	if promService == nil {
 		return nil, errors.New("Prometheus service not defined")
@@ -113,8 +114,12 @@ func providePrometheusAPI(
 		}
 	}
 
+	url := fmt.Sprintf("%s.%s.svc.cluster.local:%v", name, namespace, port)
+
+	log.Info("calling prometheus service", "url", url, "name", name, "namespace", namespace, "port", port)
+
 	conf, err := NewSecureClientFromCert(&PrometheusSecureClientConfig{
-		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
+		Address: fmt.Sprintf("https://%s", url),
 		Token:   token,
 		CaCert:  caCert,
 	})
