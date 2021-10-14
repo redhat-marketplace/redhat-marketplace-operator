@@ -799,6 +799,12 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	return d, nil
 }
 
+func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
+	s, err := NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
+	s.Namespace = f.namespace
+	return s, err
+}
+
 func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
 	fileName := MetricStateServiceMonitorV45
 	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {

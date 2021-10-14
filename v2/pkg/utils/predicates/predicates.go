@@ -15,8 +15,14 @@
 package predicates
 
 import (
+	"sync"
+	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func NamespacePredicate(targetNamespace string) predicate.Funcs {
@@ -35,4 +41,85 @@ func NamespacePredicate(targetNamespace string) predicate.Funcs {
 			return e.Meta.GetNamespace() == targetNamespace
 		},
 	}
+}
+
+type SyncedMapHandler struct {
+	exists func(types.NamespacedName) bool
+	data   map[types.NamespacedName]types.NamespacedName
+	mutex  sync.Mutex
+}
+
+func NewSyncedMapHandler(exists func(types.NamespacedName) bool) *SyncedMapHandler {
+	return &SyncedMapHandler{exists: exists, data: map[types.NamespacedName]types.NamespacedName{}}
+}
+
+var _ handler.Mapper = &SyncedMapHandler{}
+
+func (s *SyncedMapHandler) Start(done <-chan struct{}) error {
+	exit := make(chan struct{})
+	ticker := time.NewTicker(60 * time.Second)
+
+	go func() {
+		defer close(exit)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				s.Cleanup()
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	<-exit
+	return nil
+}
+
+func (s *SyncedMapHandler) AddOrUpdate(from types.NamespacedName, to types.NamespacedName) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.data[from] = to
+}
+
+func (s *SyncedMapHandler) Cleanup() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	deleteKeys := []types.NamespacedName{}
+
+	for key, value := range s.data {
+		if !s.exists(key) || !s.exists(value) {
+			deleteKeys = append(deleteKeys, key)
+		}
+	}
+
+	for _, key := range deleteKeys {
+		delete(s.data, key)
+	}
+}
+
+func (s *SyncedMapHandler) Map(in handler.MapObject) []reconcile.Request {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if in.Meta == nil {
+		return nil
+	}
+
+	name := types.NamespacedName{Name: in.Meta.GetName(), Namespace: in.Meta.GetNamespace()}
+
+	if v, ok := s.data[name]; ok {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name:      v.Name,
+					Namespace: v.Namespace,
+				},
+			}}
+	}
+
+	return nil
 }
