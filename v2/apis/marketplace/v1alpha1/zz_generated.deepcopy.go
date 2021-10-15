@@ -428,6 +428,11 @@ func (in *MeterBaseSpec) DeepCopyInto(out *MeterBaseSpec) {
 		*out = new(corev1.SecretKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DataServiceEnabled != nil {
+		in, out := &in.DataServiceEnabled, &out.DataServiceEnabled
+		*out = new(bool)
+		**out = **in
+	}
 	if in.UserWorkloadMonitoringEnabled != nil {
 		in, out := &in.UserWorkloadMonitoringEnabled, &out.UserWorkloadMonitoringEnabled
 		*out = new(bool)
