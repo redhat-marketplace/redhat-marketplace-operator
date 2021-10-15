@@ -189,6 +189,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       VERSION: ${{ needs.test.outputs.tag }}
+      GO_VERSION: 1.16.8
     defaults:
       run:
         shell: bash

@@ -26,8 +26,6 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
-ARCHS ?= amd64 ppc64le s390x
-
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
