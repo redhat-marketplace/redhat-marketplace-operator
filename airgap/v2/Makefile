@@ -32,25 +32,12 @@ endif
 
 # Build the docker image
 docker-build:
-	$(DOCKERCMD) build \
-	-f ./Dockerfile \
-	--tag $(IMAGE) \
-  --build-arg ARCH=$(ARCH) \
-	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
-	--build-arg path=./airgap/v2/ \
-	--build-arg name=\"DataService\" \
-	--build-arg exec=./cmd/ \
-	--build-arg bin=redhat-marketplace-dqlite \
-	--build-arg app_version=\"$(VERSION)\" \
-	--build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
-	$(ARGS) \
-	../..
+	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,,redhat-marketplace-dqlite,../..)
 
 # Push the docker image
 docker-push:
 	docker push ${IMG}
 
-ARCHS ?= amd64 ppc64le s390x
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))

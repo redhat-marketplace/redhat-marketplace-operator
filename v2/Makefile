@@ -166,7 +166,6 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
-ARCHS ?= amd64 ppc64le s390x
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
@@ -215,7 +214,7 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 .PHONY: bundle-build
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.5-v4.8" \
+	--label com.redhat.openshift.versions="v4.6" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	--push \
@@ -253,7 +252,7 @@ opm-builder-base: opm
 	.
 
 .PHONY:  bundle-dev-index-multiarch
- bundle-dev-index-multiarch: opm
+ bundle-dev-index-multiarch: opm opm-builder-base
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \

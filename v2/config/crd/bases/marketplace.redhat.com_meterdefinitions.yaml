@@ -249,6 +249,7 @@ spec:
                             - min
                             - max
                             - avg
+                            - group
                             type: string
                           label:
                             description: Label is the name of the meter
@@ -493,6 +494,7 @@ spec:
                       - min
                       - max
                       - avg
+                      - group
                       type: string
                     dateLabelOverride:
                       description: DateLabelOverride provides a means of overriding

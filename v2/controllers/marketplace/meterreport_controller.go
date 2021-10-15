@@ -49,7 +49,7 @@ var _ reconcile.Reconciler = &MeterReportReconciler{}
 // +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs;jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range,verbs=get;create
+// +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range;/api/v1/targets,verbs=get;create
 
 // MeterReportReconciler reconciles a MeterReport object
 type MeterReportReconciler struct {
@@ -93,7 +93,7 @@ func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 		Complete(r)
 }
 
-const rerunTime = 12 * 24 * time.Hour //12 days
+const rerunTime = 1 * 24 * time.Hour // 1 day - reducing rerun time
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec

@@ -13,6 +13,7 @@ rules:
 - nonResourceURLs:
   - /api/v1/query
   - /api/v1/query_range
+  - /api/v1/targets
   verbs:
   - create
   - get

@@ -3,7 +3,8 @@ space :=
 space +=
 
 BINDIR ?= ./bin
-ARCHS ?= amd64 ppc64le s390x
+GO_VERSION ?= 1.16.8
+ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
 IMAGE_PUSH ?= true
@@ -160,6 +161,7 @@ $(DOCKER_BUILD) \
 $(DOCKER_EXTRA_ARGS) \
 --build-arg ARCHS='$(ARCHS)' \
 --build-arg REGISTRY=$(IMAGE_REGISTRY) \
+--build-arg GO_VERSION=$(GO_VERSION) \
 --build-arg name=$(2) \
 --build-arg path=$(3) \
 --build-arg exec=$(4) \

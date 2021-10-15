@@ -122,7 +122,7 @@ var _ = Describe("MeterbaseController", func() {
 			name             = utils.METERBASE_NAME
 			namespace        = "openshift-redhat-marketplace"
 			createdMeterBase *marketplacev1alpha1.MeterBase
-			now              = time.Now()
+			now              = time.Now().UTC()
 		)
 
 		key := types.NamespacedName{

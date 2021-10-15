@@ -43,6 +43,9 @@ type MeterDefPrometheusLabels struct {
 	MeterDefName      string `json:"name" mapstructure:"name"`
 	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
+	// UserWorkloadMonitoring will exported_ overlapping labels
+	ExportedMeterDefNamespace string `json:"exported_namespace,omitempty" mapstructure:"exported_namespace"`
+
 	// Deprecated: metric is now the primary name
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name" template:""`
 	WorkloadType      WorkloadType  `json:"workload_type" mapstructure:"workload_type"`
@@ -199,14 +202,27 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 			t = t2
 		}
 
-		intervalStart = t
-		intervalEnd = t.Add(result.MetricPeriod.Duration)
+		// Get the Clock() HMS from original intervalStart and combine with DateLabelOverride YMD
+		year, month, day := t.Date()
+		hour, minute, second := intervalStart.Clock()
+
+		intervalStart = time.Date(year, month, day, hour, minute, second, 0, time.UTC)
+		intervalEnd = intervalStart.Add(result.MetricPeriod.Duration)
 	}
 
 	result.IntervalStart = intervalStart
 	result.IntervalEnd = intervalEnd
 
 	return result, nil
+}
+
+// UserWorkloadMonitoring will exported_ overlapping labels
+func (m *MeterDefPrometheusLabels) Namespace() string {
+	if len(m.ExportedMeterDefNamespace) != 0 {
+		return m.ExportedMeterDefNamespace
+	} else {
+		return m.MeterDefNamespace
+	}
 }
 
 // MeterDefPrometheusLabelsTemplated is the values of a meter definition

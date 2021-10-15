@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	mathrand "math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -133,7 +134,7 @@ func find(slice []string, val string) (int, bool) {
 	return -1, false
 }
 
-func (f *Factory) ReplaceImages(container *corev1.Container) {
+func (f *Factory) ReplaceImages(container *corev1.Container) error {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
 		container.Image = f.config.RelatedImages.KubeRbacProxy
@@ -141,16 +142,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-
-		if container.Args == nil {
-			container.Args = []string{"--namespace", f.namespace}
-		} else {
-			_, argFound := find(container.Args, "--namespace")
-			if !argFound {
-				container.Args = append(container.Args, "--namespace", f.namespace)
-			}
-		}
-
+		container.Args = []string{}
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -187,32 +179,89 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.DeploymentConfig
 	}
 
+	if err := f.updateProxyEnvVariables(container); err != nil {
+		return err
+	}
+
+	if err := f.updateContainerResources(container); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *Factory) updateProxyEnvVariables(container *corev1.Container) error {
 	if container.Env == nil {
 		container.Env = []corev1.EnvVar{}
 	}
 
 	proxyInfo := httpproxy.FromEnvironment()
 
+	envVars := map[string]corev1.EnvVar{}
+
+	for _, env := range container.Env {
+		envVars[env.Name] = env
+	}
+
 	if proxyInfo.HTTPProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["HTTP_PROXY"] = corev1.EnvVar{
 			Name:  "HTTP_PROXY",
 			Value: proxyInfo.HTTPProxy,
-		})
+		}
+	} else {
+		delete(envVars, "HTTP_PROXY")
 	}
 
 	if proxyInfo.HTTPSProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["HTTPS_PROXY"] = corev1.EnvVar{
 			Name:  "HTTPS_PROXY",
 			Value: proxyInfo.HTTPSProxy,
-		})
+		}
+	} else {
+		delete(envVars, "HTTPS_PROXY")
 	}
 
 	if proxyInfo.NoProxy != "" {
-		container.Env = append(container.Env, corev1.EnvVar{
+		envVars["NO_PROXY"] = corev1.EnvVar{
 			Name:  "NO_PROXY",
 			Value: proxyInfo.NoProxy,
-		})
+		}
+	} else {
+		delete(envVars, "NO_PROXY")
 	}
+
+	container.Env = []corev1.EnvVar{}
+	for _, v := range envVars {
+		container.Env = append(container.Env, v)
+	}
+
+	sort.Slice(container.Env, func(a, b int) bool {
+		return container.Env[a].Name < container.Env[b].Name
+	})
+
+	return nil
+}
+
+func (f *Factory) updateContainerResources(container *corev1.Container) error {
+	if f.operatorConfig == nil || f.operatorConfig.Config.Resources == nil {
+		return nil
+	}
+
+	if len(f.operatorConfig.Config.Resources.Containers) == 0 {
+		return nil
+	}
+
+	if r, ok := f.operatorConfig.Config.Resources.Containers[container.Name]; ok {
+		for k, v := range r.Limits {
+			container.Resources.Limits[k] = v
+		}
+
+		for k, v := range r.Requests {
+			container.Resources.Requests[k] = v
+		}
+	}
+
+	return nil
 }
 
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
@@ -699,7 +748,11 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 		container := &dep.Spec.Template.Spec.Containers[i]
 		newArgs := []string{}
 
-		f.ReplaceImages(container)
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
@@ -783,7 +836,12 @@ func (f *Factory) NewPrometheusDeployment(
 	}
 
 	for i := range p.Spec.Containers {
-		f.ReplaceImages(&p.Spec.Containers[i])
+		container := &p.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return p, err
@@ -1014,12 +1072,23 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	}
 
 	for i := range d.Spec.Template.Spec.Containers {
-		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+		container := &d.Spec.Template.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	d.Namespace = f.namespace
 
 	return d, nil
+}
+
+func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
+	s, err := NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
+	s.Namespace = f.namespace
+	return s, err
 }
 
 func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
