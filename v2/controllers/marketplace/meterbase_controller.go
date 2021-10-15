@@ -85,6 +85,10 @@ var (
 	ErrUserWorkloadMonitoringConfigNotFound = errors.New("user-workload-monitoring-config config map not found on cluster")
 )
 
+var (
+	secretMapHandler *predicates.SyncedMapHandler
+)
+
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterBaseReconciler{}
 
@@ -170,6 +174,19 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
+	secretMapHandler = predicates.NewSyncedMapHandler(func(in types.NamespacedName) bool {
+		secret := corev1.Secret{}
+		err := mgr.GetClient().Get(context.Background(), in, &secret)
+
+		if err != nil {
+			return false
+		}
+
+		return true
+	})
+
+	mgr.Add(secretMapHandler)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
@@ -206,6 +223,12 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: secretMapHandler,
+			},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
@@ -269,8 +292,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			),
 		),
 	)
-
-	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "test event")
 
 	if !result.Is(Continue) {
 		if result.Is(NotFound) {
@@ -443,6 +464,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if userWorkloadMonitoringEnabled {
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
+			Do(r.checkUWMDefaultStorageClassPrereq(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.installUserWorkloadMonitoring(instance)...),
@@ -636,7 +658,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	// Provide Status on Prometheus ActiveTargets
 	targets, err := r.healthBadActiveTargets(cc, userWorkloadMonitoringEnabled, reqLogger)
 	if err != nil {
-		return reconcile.Result{RequeueAfter: time.Minute * 1}, err
+		return reconcile.Result{}, err
 	}
 
 	var condition status.Condition
@@ -950,9 +972,9 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 	userWorkoadMonitoring bool,
 ) []ClientAction {
-	var secretName *string
-
 	pod := &corev1.Pod{}
+	secret := &corev1.Secret{}
+	secretList := &corev1.SecretList{}
 	metricStateDeployment := &appsv1.Deployment{}
 	metricStateService := &corev1.Service{}
 	metricStateServiceMonitor := &monitoringv1.ServiceMonitor{}
@@ -965,6 +987,63 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		Patcher: r.patcher,
 	}
 
+	secretAction := Do(
+		HandleResult(
+			ListAction(
+				secretList, client.InNamespace(r.cfg.DeployedNamespace), client.MatchingLabels{
+					"name": "redhat-marketplace-service-account-token",
+				}),
+			OnContinue(Call(func() (ClientAction, error) {
+				if secretList == nil || len(secretList.Items) == 0 {
+					return manifests.CreateIfNotExistsFactoryItem(secret, func() (runtime.Object, error) {
+						return r.factory.ServiceAccountPullSecret()
+					}, CreateWithAddOwner(pod)), nil
+				}
+
+				if len(secretList.Items) > 1 {
+					actions := []ClientAction{}
+
+					for _, secret := range secretList.Items {
+						actions = append(actions, DeleteAction(&secret))
+					}
+
+					return Do(actions...), nil
+				}
+
+				secret = &secretList.Items[0]
+
+				secretMapHandler.AddOrUpdate(
+					types.NamespacedName{
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
+					},
+					types.NamespacedName{
+						Name:      instance.Name,
+						Namespace: instance.Namespace,
+					},
+				)
+				return nil, nil
+			}))),
+		Call(func() (ClientAction, error) {
+			if secret == nil {
+				return nil, errors.New("secret -l name=redhat-marketplace-service-account-token secret not found")
+			}
+
+			secretMapHandler.AddOrUpdate(
+				types.NamespacedName{
+					Name:      secret.Name,
+					Namespace: secret.Namespace,
+				},
+				types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				},
+			)
+
+			return nil, nil
+		}),
+	)
+
 	actions := []ClientAction{
 		HandleResult(
 			GetAction(
@@ -972,6 +1051,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 				pod,
 			),
 			OnNotFound(ReturnWithError(errors.New("pod not found")))),
+		secretAction,
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateDeployment,
 			func() (runtime.Object, error) {
@@ -986,16 +1066,10 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			},
 			args,
 		),
-
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
-				for _, volume := range pod.Spec.Volumes {
-					if volume.Secret != nil && strings.HasPrefix(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
-						secretName = &volume.Secret.SecretName
-					}
-				}
-				return r.factory.MetricStateServiceMonitor(secretName)
+				return r.factory.MetricStateServiceMonitor(&secret.Name)
 			},
 			args,
 		),
@@ -1027,24 +1101,25 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 
 	if !userWorkoadMonitoring {
 		actions = append(actions,
+			secretAction,
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeStateMetricsServiceMonitor(secretName)
+					return r.factory.KubeStateMetricsServiceMonitor(&secret.Name)
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeletServiceMonitor,
 				func() (runtime.Object, error) {
-					return r.factory.KubeletServiceMonitor(secretName)
+					return r.factory.KubeletServiceMonitor(&secret.Name)
 				},
 				args,
 			),
 		)
 	} else {
-		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(secretName)
-		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(secretName)
+		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(nil)
+		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(nil)
 
 		actions = append(actions,
 			HandleResult(
@@ -1057,6 +1132,25 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	return actions
+}
+
+// Record a DefaultClassNotFound Event, but do not err
+// User could possibly, but less likely, set up UWM storage without a default
+func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(
+	instance *marketplacev1alpha1.MeterBase,
+) []ClientAction {
+	return []ClientAction{
+		Call(func() (ClientAction, error) {
+			_, err := utils.GetDefaultStorageClass(r.Client)
+			if err != nil {
+				if errors.Is(err, operrors.DefaultStorageClassNotFound) {
+					r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
+				} else {
+					return nil, err
+				}
+			}
+			return nil, nil
+		})}
 }
 
 func (r *MeterBaseReconciler) installUserWorkloadMonitoring(

@@ -208,6 +208,12 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 				ToRequests: mapFn,
 			},
 			builder.WithPredicates(pp)).
+		Watches(
+			&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}},
+			&handler.EnqueueRequestForOwner{
+				OwnerType: &marketplacev1alpha1.RazeeDeployment{},
+			},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
@@ -1072,59 +1078,33 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	//Only create the parent s3 resource when the razee deployment is enabled
 	if rrs3DeploymentEnabled {
 
-		parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
-			Namespace: *instance.Spec.TargetNamespace},
-			parentRRS3)
+		var op controllerutil.OperationResult
+		parentRRS3 := r.makeParentRemoteResourceS3(instance)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			op, err = controllerutil.CreateOrUpdate(context.TODO(), r.Client, parentRRS3, func() error {
+				r.updateParentRemoteResourceS3(parentRRS3, instance)
+				return r.factory.SetOwnerReference(instance, parentRRS3)
+			})
+			return err
+		})
 		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.V(0).Info("Resource does not exist", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-				parentRRS3 := r.makeParentRemoteResourceS3(instance)
-
-				err = r.Client.Create(context.TODO(), parentRRS3)
-				if err != nil {
-					reqLogger.Info("Failed to create resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-					return reconcile.Result{}, err
-				}
-				message := "ParentRRS3 install finished"
-				instance.Status.Conditions.SetCondition(status.Condition{
-					Type:    marketplacev1alpha1.ConditionInstalling,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
-					Message: message,
-				})
-
-				_ = r.Client.Status().Update(context.TODO(), instance)
-
-				reqLogger.Info("Resource created successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-				return reconcile.Result{Requeue: true}, nil
-			} else {
-				reqLogger.Info("Failed to get resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-				return reconcile.Result{}, err
-			}
+			return reconcile.Result{}, err
 		}
 
-		reqLogger.V(0).Info("Resource already exists", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		reqLogger.Info(fmt.Sprintf("Resource %v successfully", op), "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 
-		newParentValues := r.makeParentRemoteResourceS3(instance)
-		updatedParentRRS3 := parentRRS3.DeepCopy()
-		updatedParentRRS3.Spec = newParentValues.Spec
+		if op == controllerutil.OperationResultCreated {
+			message := "ParentRRS3 install finished"
+			instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
+				Message: message,
+			})
 
-		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
-			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
-
-			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
-			err = r.Client.Update(context.TODO(), updatedParentRRS3)
-			if err != nil {
-				reqLogger.Info("Failed to update resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Resource updated successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+			_ = r.Client.Status().Update(context.TODO(), instance)
 			return reconcile.Result{Requeue: true}, nil
 		}
-
-		reqLogger.V(0).Info("No change detected on resource", "resource", updatedParentRRS3.GetName())
 
 		razeePrereqs = append(razeePrereqs, utils.PARENT_RRS3_RESOURCE_NAME)
 
@@ -1464,39 +1444,47 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 }
 
 // Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
-func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
-	return &marketplacev1alpha1.RemoteResourceS3{
+func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
+	instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
+
+	return r.updateParentRemoteResourceS3(&marketplacev1alpha1.RemoteResourceS3{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
-		Spec: marketplacev1alpha1.RemoteResourceS3Spec{
-			Auth: marketplacev1alpha1.Auth{
-				Iam: &marketplacev1alpha1.Iam{
-					ResponseType: "cloud_iam",
-					GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
-					URL:          "https://iam.cloud.ibm.com/identity/token",
-					APIKeyRef: marketplacev1alpha1.APIKeyRef{
-						ValueFrom: marketplacev1alpha1.ValueFrom{
-							SecretKeyRef: corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: utils.COS_READER_KEY_NAME,
-								},
-								Key: "accesskey",
+	}, instance)
+}
+
+func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *marketplacev1alpha1.RemoteResourceS3, instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
+
+	parentRRS3.Spec = marketplacev1alpha1.RemoteResourceS3Spec{
+		Auth: marketplacev1alpha1.Auth{
+			Iam: &marketplacev1alpha1.Iam{
+				ResponseType: "cloud_iam",
+				GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
+				URL:          "https://iam.cloud.ibm.com/identity/token",
+				APIKeyRef: marketplacev1alpha1.APIKeyRef{
+					ValueFrom: marketplacev1alpha1.ValueFrom{
+						SecretKeyRef: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: utils.COS_READER_KEY_NAME,
 							},
+							Key: "accesskey",
 						},
 					},
 				},
 			},
-			Requests: []marketplacev1alpha1.Request{
-				{
-					Options: marketplacev1alpha1.S3Options{
-						URL: *instance.Spec.ChildUrl,
-					},
+		},
+		Requests: []marketplacev1alpha1.Request{
+			{
+				Options: marketplacev1alpha1.S3Options{
+					URL: *instance.Spec.ChildUrl,
 				},
 			},
 		},
 	}
+
+	return parentRRS3
 }
 
 //Undeploy the razee deployment and parent
