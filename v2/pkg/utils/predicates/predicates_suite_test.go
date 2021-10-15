@@ -1,4 +1,4 @@
-// Copyright 2020 IBM Corp.
+// Copyright 2021 IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,44 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package predicates_test
 
 import (
-	"errors"
-	"time"
+	"testing"
 
-	"github.com/jpillora/backoff"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-var ErrMaxRetryExceeded = errors.New("Max retry limit exceeded")
-
-func Retry(f func() error, retry int) error {
-	var err error
-
-	jitter := &backoff.Backoff{
-		Jitter: true,
-	}
-
-	err = f()
-
-	if err == nil {
-		return nil
-	}
-
-	for i := 0; i < retry; i++ {
-		err = f()
-
-		if err == nil {
-			return nil
-		}
-
-		b := jitter.Duration()
-		time.Sleep(b)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+func TestPredicates(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Predicates Suite")
 }

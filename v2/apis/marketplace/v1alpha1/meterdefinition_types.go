@@ -161,7 +161,7 @@ type MeterLabelQuery struct {
 	Query string `json:"query,omitempty"`
 
 	// Aggregation to use with the query
-	// +kubebuilder:validation:Enum:=sum;min;max;avg
+	// +kubebuilder:validation:Enum:=sum;min;max;avg;group
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:avg"
 	Aggregation string `json:"aggregation,omitempty"`

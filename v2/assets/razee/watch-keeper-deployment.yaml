@@ -24,7 +24,18 @@ spec:
       name: rhm-watch-keeper
     spec:
       containers:
-        - imagePullPolicy: IfNotPresent
+        - env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
               path: /healthz
