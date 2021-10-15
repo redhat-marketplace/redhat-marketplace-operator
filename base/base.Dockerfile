@@ -20,4 +20,5 @@ RUN curl -o go.tar.gz https://dl.google.com/go/go$VERSION.$OS-$ARCH.tar.gz && \
   sha256sum go.tar.gz && \
   tar -C /usr/local -xzf go.tar.gz && \
   echo 'PATH=$PATH:/usr/local/go/bin' >> /etc/profile && \
+  echo 'PATH=$PATH:/usr/local/go/bin' >> $HOME/.profile \
   echo 'PATH=$PATH:/usr/local/go/bin' >> $HOME/.profile

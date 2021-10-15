@@ -202,7 +202,11 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 			t = t2
 		}
 
-		intervalStart = t
+		// Get the Clock() HMS from original intervalStart and combine with DateLabelOverride YMD
+		year, month, day := t.Date()
+		hour, minute, second := intervalStart.Clock()
+
+		intervalStart = time.Date(year, month, day, hour, minute, second, 0, time.UTC)
 		intervalEnd = t.Add(result.MetricPeriod.Duration)
 	}
 

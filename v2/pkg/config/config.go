@@ -114,7 +114,7 @@ type ControllerValues struct {
 }
 
 type MeterBaseValues struct {
-	TransitionTime time.Duration `env:"METERBASE_TRANSITION_TIME" envDefault:"24h" json:"transitionTime"`
+	TransitionTime time.Duration `env:"METERBASE_TRANSITION_TIME" envDefault:"72h" json:"transitionTime"`
 }
 
 // ReportConfig stores some changeable information for creating a report

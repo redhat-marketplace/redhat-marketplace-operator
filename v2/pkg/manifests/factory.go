@@ -136,16 +136,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-
-		if container.Args == nil {
-			container.Args = []string{"--namespace", f.namespace}
-		} else {
-			_, argFound := find(container.Args, "--namespace")
-			if !argFound {
-				container.Args = append(container.Args, "--namespace", f.namespace)
-			}
-		}
-
+		container.Args = []string{}
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -975,6 +966,12 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	d.Namespace = f.namespace
 
 	return d, nil
+}
+
+func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
+	s, err := NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
+	s.Namespace = f.namespace
+	return s, err
 }
 
 func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
