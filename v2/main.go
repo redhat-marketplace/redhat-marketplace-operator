@@ -49,7 +49,6 @@ import (
 	_ "net/http/pprof"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
-	osimagev1 "github.com/openshift/api/image/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
@@ -81,8 +80,8 @@ func init() {
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
-	utilruntime.Must(osimagev1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
