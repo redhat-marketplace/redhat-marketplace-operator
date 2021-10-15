@@ -9,6 +9,7 @@ rules:
 - nonResourceURLs:
   - /api/v1/query
   - /api/v1/query_range
+  - /api/v1/targets
   verbs:
   - create
   - get
@@ -507,6 +508,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 - apiGroups:
   - marketplace.redhat.com
   resources:
