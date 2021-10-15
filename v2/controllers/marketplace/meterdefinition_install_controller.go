@@ -166,6 +166,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 	if sub.Status.InstalledCSV == "" {
 		reqLogger.Info("InstalledCSV not set on subscription")
+		// stop reconciling, we'll get the next update event when InstalledCSV is set
 		return reconcile.Result{}, nil
 	}
 

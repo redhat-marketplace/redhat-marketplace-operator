@@ -519,14 +519,14 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 		return err
 	}
 
-	/*
-		delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
-	*/
 	catalogMdefsOnCluster, err := r.listMeterDefsForCsvWithIndex(communityIndexLabels)
 	if err != nil {
 		return err
 	}
 
+	/*
+		delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
+	*/
 	err = r.deleteOnDiff(catalogMdefsOnCluster.Items, latestCommunityMeterDefsFromCatalog, reqLogger)
 	if err != nil {
 		return err
@@ -583,7 +583,7 @@ func (r *DeploymentConfigReconciler) createOrUpdateCatalogMeterDef(latestMeterDe
 			return errorFromRetry
 		}
 
-		// no error GET and UPDATE, continue to next catalog meterdef
+		// no error on GET and UPDATE, continue to next catalog meterdef in latestMeterDefsFromCatalog
 	}
 
 	return nil
@@ -779,7 +779,6 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 			}
 
 			reqLogger.Info("created new deploymentconfig")
-
 		}
 
 		return &ExecResult{
@@ -1001,9 +1000,9 @@ func (r *DeploymentConfigReconciler) deleteAllSystemMeterDefsForRhmCvs(reqLogger
 	reqLogger.Info("deleting all meterdefs community meterdefs")
 	/*
 		returns the label:
-			{
-				"marketplace.redhat.com/isCommunityMeterdefintion": "1"
-			}
+		{
+			"marketplace.redhat.com/isCommunityMeterdefintion": "1"
+		}
 	*/
 	globalSystemIndexLabel, err := r.CatalogClient.GetGlobalSystemMeterDefIndexLabels()
 	if err != nil {

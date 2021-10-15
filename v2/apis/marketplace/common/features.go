@@ -34,8 +34,7 @@ type Features struct {
 	// +optional
 	Registration *bool `json:"registration,omitempty"`
 
-	//TODO: turn this into one bool - if nil assume true
-	// EnableMeterDefinitionCatalogServer represents the enablement of the meterdefinition catalog server
+	// EnableMeterDefinitionCatalogServer represents the enablement of the meterdefinition catalog server, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable MeterDefinition Catalog Server Deployment"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
@@ -62,8 +61,7 @@ type MeterDefinitionCatalogServerConfig struct {
 	SyncSystemMeterDefinitions bool `json:"syncSystemMeterDefinitions"`
 
 	// DeployMeterDefinitionCatalogServer controls whether the deploymentconfig controller will deploy the resources needed
-	// to create the Meterdefinition Catalog Server. The Catalog Server will look for changes to an image repository and pull down the latest
-	// Image when a change is detected.
+	// to create the Meterdefinition Catalog Server.
 	// Setting DeployMeterDefinitionCatalogServer to "true" wil install a DeploymentConfig, ImageStream, and Service.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Deploy Meterdefintion Catalog Server Resources?"
