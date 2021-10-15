@@ -119,7 +119,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = []string{"--namespace", "$POD_NAMESPACE"}
+		container.Args = []string{}
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{

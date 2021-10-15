@@ -987,29 +987,47 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		Patcher: r.patcher,
 	}
 
-	secretAction := HandleResult(
-		ListAction(
-			secretList, client.InNamespace(r.cfg.DeployedNamespace), client.MatchingLabels{
-				"name": "redhat-marketplace-service-account-token",
-			}),
-		OnContinue(Call(func() (ClientAction, error) {
-			if secretList == nil || len(secretList.Items) == 0 {
-				return manifests.CreateIfNotExistsFactoryItem(secret, func() (runtime.Object, error) {
-					return r.factory.ServiceAccountPullSecret()
-				}, CreateWithAddOwner(pod)), nil
-			}
-
-			if len(secretList.Items) > 1 {
-				actions := []ClientAction{}
-
-				for _, secret := range secretList.Items {
-					actions = append(actions, DeleteAction(&secret))
+	secretAction := Do(
+		HandleResult(
+			ListAction(
+				secretList, client.InNamespace(r.cfg.DeployedNamespace), client.MatchingLabels{
+					"name": "redhat-marketplace-service-account-token",
+				}),
+			OnContinue(Call(func() (ClientAction, error) {
+				if secretList == nil || len(secretList.Items) == 0 {
+					return manifests.CreateIfNotExistsFactoryItem(secret, func() (runtime.Object, error) {
+						return r.factory.ServiceAccountPullSecret()
+					}, CreateWithAddOwner(pod)), nil
 				}
 
-				return Do(actions...), nil
-			}
+				if len(secretList.Items) > 1 {
+					actions := []ClientAction{}
 
-			secret = &secretList.Items[0]
+					for _, secret := range secretList.Items {
+						actions = append(actions, DeleteAction(&secret))
+					}
+
+					return Do(actions...), nil
+				}
+
+				secret = &secretList.Items[0]
+
+				secretMapHandler.AddOrUpdate(
+					types.NamespacedName{
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
+					},
+					types.NamespacedName{
+						Name:      instance.Name,
+						Namespace: instance.Namespace,
+					},
+				)
+				return nil, nil
+			}))),
+		Call(func() (ClientAction, error) {
+			if secret == nil {
+				return nil, errors.New("secret -l name=redhat-marketplace-service-account-token secret not found")
+			}
 
 			secretMapHandler.AddOrUpdate(
 				types.NamespacedName{
@@ -1021,8 +1039,9 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 					Namespace: instance.Namespace,
 				},
 			)
+
 			return nil, nil
-		})),
+		}),
 	)
 
 	actions := []ClientAction{
@@ -1050,10 +1069,6 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
-				if secret == nil {
-					return nil, errors.New("secret -l name=redhat-marketplace-service-account-token secret not found")
-				}
-
 				return r.factory.MetricStateServiceMonitor(&secret.Name)
 			},
 			args,

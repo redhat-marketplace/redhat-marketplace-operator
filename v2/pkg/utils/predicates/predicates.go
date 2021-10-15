@@ -90,8 +90,8 @@ func (s *SyncedMapHandler) Cleanup() {
 
 	deleteKeys := []types.NamespacedName{}
 
-	for key, value := range s.data {
-		if !s.exists(key) || !s.exists(value) {
+	for key := range s.data {
+		if !s.exists(key) {
 			deleteKeys = append(deleteKeys, key)
 		}
 	}
