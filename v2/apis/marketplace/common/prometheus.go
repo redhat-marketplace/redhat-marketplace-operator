@@ -202,7 +202,7 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 		hour, minute, second := intervalStart.Clock()
 
 		intervalStart = time.Date(year, month, day, hour, minute, second, 0, time.UTC)
-		intervalEnd = t.Add(result.MetricPeriod.Duration)
+		intervalEnd = intervalStart.Add(result.MetricPeriod.Duration)
 	}
 
 	result.IntervalStart = intervalStart
