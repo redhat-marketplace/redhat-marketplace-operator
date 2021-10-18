@@ -15,6 +15,8 @@
 package config
 
 import (
+	"bytes"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -23,6 +25,8 @@ import (
 	"github.com/caarlos0/env/v6"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -45,6 +49,21 @@ type OperatorConfig struct {
 	OLMInformation
 	MeterBaseValues
 	MeterdefinitionCatalog
+	Config EnvConfig `env:"CONFIG"`
+}
+
+// ENVCONFIG is a map of containerName to a corev1 resource requirements
+// intended to set children
+type EnvConfig struct {
+	Features         *Features               `json:"features,omitempty"`
+	Controller       *ControllerValues       `json:"controller,omitempty"`
+	ReportController *ReportControllerConfig `json:"reportController,omitempty"`
+	MeterController  *MeterBaseValues        `json:"meterController,omitempty"`
+	Resources        *Resources              `json:"resources,omitempty"`
+}
+
+type Resources struct {
+	Containers map[string]corev1.ResourceRequirements `json:"containers"`
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -83,22 +102,22 @@ type OSRelatedImages struct {
 
 // Features store feature flags
 type Features struct {
-	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true"`
+	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true" json:"IBMCatalog"`
 }
 
 // Marketplace configuration
 type Marketplace struct {
-	URL            string `env:"MARKETPLACE_URL" envDefault:""`
-	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+	URL            string `env:"MARKETPLACE_URL" envDefault:"" json:"url"`
+	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false" json:"insecureClient"`
 }
 
 type ControllerValues struct {
-	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
-	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h"`
+	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace" json:"deploymentNamespace"`
+	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h" json:"meterDefControllerRequeueRate"`
 }
 
 type MeterBaseValues struct {
-	TransitionTime time.Duration `env:"METERBASE_TRANSITION_TIME" envDefault:"24h"`
+	TransitionTime time.Duration `env:"METERBASE_TRANSITION_TIME" envDefault:"24h" json:"transitionTime"`
 }
 
 // ReportConfig stores some changeable information for creating a report
@@ -137,6 +156,17 @@ func reset() {
 	global = nil
 }
 
+var customUnmarshalers = map[reflect.Type]env.ParserFunc{
+	reflect.TypeOf(EnvConfig{}): func(text string) (interface{}, error) {
+		envConfig := EnvConfig{}
+		err := yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(text)), 100).Decode(&envConfig)
+		if err != nil {
+			return nil, err
+		}
+		return envConfig, nil
+	},
+}
+
 // ProvideConfig gets the config from env vars
 func ProvideConfig() (*OperatorConfig, error) {
 	globalMutex.Lock()
@@ -144,7 +174,7 @@ func ProvideConfig() (*OperatorConfig, error) {
 
 	if global == nil {
 		cfg := OperatorConfig{}
-		err := env.Parse(&cfg)
+		err := env.ParseWithFuncs(&cfg, customUnmarshalers)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +204,7 @@ func ProvideInfrastructureAwareConfig(
 
 		cfg.Infrastructure = inf
 
-		err = env.Parse(cfg)
+		err = env.ParseWithFuncs(cfg, customUnmarshalers)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse config")
 		}
