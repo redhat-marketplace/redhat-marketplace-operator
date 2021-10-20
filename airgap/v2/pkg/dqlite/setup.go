@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -32,7 +33,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	dqlite "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite/driver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
 	"gorm.io/gorm"
 )
 
@@ -52,21 +52,23 @@ type DatabaseConfig struct {
 }
 
 // InitDB initializes the GORM connection and returns a connected struct
-func (dc *DatabaseConfig) InitDB() (*database.Database, error) {
-	database := &database.Database{}
+func (dc *DatabaseConfig) InitDB(
+	cleanUpAfter time.Duration,
+) (database.StoredFileStore, error) {
 	err := dc.initDqlite()
 	if err != nil {
 		return nil, err
 	}
 
 	dqliteDialector := dqlite.Open(dc.dqliteDB)
-	database.DB, err = gorm.Open(dqliteDialector, &gorm.Config{})
+
+	db, err := gorm.Open(dqliteDialector, &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	database.Log = dc.Log
-	dc.gormDB = database.DB
+	database, _ := database.New(db, database.FileStoreConfig{CleanupAfter: cleanUpAfter})
+	dc.gormDB = db
 	return database, err
 }
 
@@ -130,7 +132,7 @@ func (dc *DatabaseConfig) TryMigrate() error {
 		return nil
 	} else if dc.gormDB != nil {
 		dc.Log.Info("Performing migration")
-		return dc.gormDB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
+		return database.Migrate(dc.gormDB)
 	} else {
 		return errors.New("GORM connection has not initialised: Connection of type *gorm.DB is nil")
 	}

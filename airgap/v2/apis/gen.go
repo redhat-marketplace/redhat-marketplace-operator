@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package apis
 
-//go:generate protoc -I. -I../bin/include --go_out=paths=source_relative:. model/model.proto
-//go:generate protoc -I. -I../bin/include --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. fileretriever/fileretriever.proto
-//go:generate protoc -I. -I../bin/include --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. filesender/filesender.proto
-//go:generate protoc -I. -I../bin/include --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. adminserver/adminserver.proto
+//go:generate cd .. && buf generate

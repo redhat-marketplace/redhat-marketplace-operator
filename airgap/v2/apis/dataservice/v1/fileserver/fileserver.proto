@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package dataservice.v1.fileserver;
+
+import "dataservice/v1/model.proto";
+import "google/api/annotations.proto";
+
+service FileServer {
+  // Lists files.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {
+    // List method maps to HTTP GET.
+    option (google.api.http) = {
+      get: "/v1/files"
+    };
+  };
+
+  rpc GetFile(GetFileRequest) returns (GetFileResponse) {
+    option (google.api.http) = {
+      get: "/v1/files/{id}"
+    };
+  };
+
+  rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse) {
+    option (google.api.http) = {
+      post: "/v1/files"
+    };
+  };
+
+  rpc UpdateFileMetadata(UpdateFileMetadataRequest) returns (UpdateFileMetadataResponse) {
+    option (google.api.http) = {
+      put: "/v1/files"
+    };
+  };
+
+  rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse) {
+    option (google.api.http) = {
+      get: "/v1/files/{id}/download"
+    };
+  };
+
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse) {
+    option (google.api.http) = {
+      delete: "/v1/files/{id}"
+    };
+  };
+
+  rpc CleanTombstones(CleanTombstonesRequest) returns (CleanTombstonesResponse) {
+    option (google.api.http) = {
+      post: "/v1/files/tombstones"
+    };
+  };
+}
+
+message ListFileMetadataRequest {
+  message ListFileFilter {
+    enum Comparison {
+      EQUAL = 0;
+      LESS_THAN = 1;
+      GREATER_THAN = 2;
+      CONTAINS = 3;
+    }
+
+    string key = 1;
+    Comparison operator = 2;
+    string value = 3;
+  }
+
+  message ListFileSort {
+    enum SortOrder {
+        ASC = 0;
+        DESC = 1;
+    }
+
+    string key = 1;
+    SortOrder sort_order = 2;
+  }
+
+  repeated ListFileFilter filter_by = 1;
+  repeated ListFileSort sort_by = 2;
+  bool include_deleted_files = 3;
+}
+
+message ListFilesRequest {
+  // The maximum number of items to return.
+  int32 page_size = 1;
+
+  // The next_page_token value returned from a previous List request, if any.
+  string page_token = 2;
+
+  string filter = 3;
+
+  string order_by = 4;
+}
+
+message ListFilesResponse {
+  // The field name should match the noun "files" in the method name.  There
+  // will be a maximum number of items returned based on the page_size field
+  // in the request.
+  repeated FileInfo files = 1;
+
+  // Token to retrieve the next page of results, or empty if there are no
+  // more results in the list.
+  string next_page_token = 2;
+}
+
+
+message ListFileMetadataResponse {
+  dataservice.v1.FileInfo results = 1;
+}
+
+message GetFileRequest {
+  string id = 1;
+}
+
+message GetFileResponse {
+  dataservice.v1.FileInfo info = 1;
+}
+
+message DownloadFileRequest {
+  string id = 1;
+}
+
+message DownloadFileResponse {
+ oneof data {
+    dataservice.v1.FileInfo info = 1;
+    bytes chunk_data = 2;
+  };
+}
+
+
+// streams a file identified by
+message UploadFileRequest {
+ oneof data {
+    dataservice.v1.FileInfo info = 1;
+    bytes chunk_data = 2;
+  };
+}
+
+message UploadFileResponse {
+  string id = 1;
+  uint32 size = 2;
+}
+
+message UpdateFileMetadataRequest {
+  string id = 1;
+  map<string,string> metadata = 2;
+}
+
+message UpdateFileMetadataResponse {
+  dataservice.v1.FileInfo file = 1;
+}
+
+message DeleteFileRequest {
+  string id = 1;
+}
+
+message DeleteFileResponse {
+  string id = 1;
+}
+
+message CleanTombstonesRequest {}
+
+message CleanTombstonesResponse {
+  int32 tombstones_cleaned = 1;
+}

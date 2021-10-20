@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package dataservice.v1.adminserver;
+
+import "dataservice/v1/model.proto";
+import "google/protobuf/timestamp.proto";
+
+service AdminServer {
+    rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse) {};
+    rpc CleanTombstones(CleanTombstonesRequest) returns (CleanTombstonesResponse) {};
+}
+
+// sets the files tombstone with the current timestamp
+message DeleteFileRequest {
+  string id = 1;
+}
+
+message DeleteFileResponse {
+  string id = 1;
+}
+
+message CleanTombstonesRequest {}
+
+message CleanTombstonesResponse {
+  int32 tombstones_cleaned = 1;
+}

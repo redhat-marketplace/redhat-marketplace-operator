@@ -18,11 +18,11 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"net/http"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretriever"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1/fileserver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -31,81 +31,66 @@ import (
 
 type Server struct {
 	Log       logr.Logger
-	FileStore database.FileStore
+	FileStore database.StoredFileStore
 
-	TLSKey, TLSCert string
+	APIEndpoint     string
+	GatewayEndpoint string
 
-	startListener func() (net.Listener, error)
-	tlsListener   func(net.Listener) (net.Listener, error)
-}
-
-func WithAddress(s *Server, address string) *Server {
-	s.startListener = func() (net.Listener, error) {
-		return net.Listen("tcp", address)
-	}
-	return s
-}
-
-func WithTLS(s *Server, tlsKey, tlsCert string) *Server {
-	s.tlsListener = func(l net.Listener) (net.Listener, error) {
-		cert, err := tls.LoadX509KeyPair(tlsCert, tlsKey)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return tls.NewListener(l, &tls.Config{
-			Certificates: []tls.Certificate{
-				cert,
-			},
-		}), nil
-	}
-	return s
-}
-
-func WithCustomListener(s *Server, listen func() (net.Listener, error)) *Server {
-	s.startListener = listen
-	return s
+	APIListenerProvider     func(addr string) (net.Listener, error)
+	GatewayListenerProvider func(addr string) (net.Listener, error)
 }
 
 func (frs *Server) Start(ctx context.Context) error {
-	adminServer := AdminServer{Server: frs}
-	fileRetriever := FileRetrieverServer{Server: frs}
-	fileSender := FileSenderServer{Server: frs}
+	fileServer := FileServer{Server: frs}
 
-	if frs.startListener == nil {
-		frs.startListener = func() (net.Listener, error) {
-			return net.Listen("tcp", ":8003")
-		}
+	defaultListener := func(addr string) (net.Listener, error) {
+		return net.Listen("tcp", addr)
 	}
 
-	if frs.tlsListener == nil {
-		frs.tlsListener = func(in net.Listener) (net.Listener, error) {
-			return in, nil
-		}
+	if frs.APIListenerProvider == nil {
+		frs.APIListenerProvider = defaultListener
 	}
 
-	// listen on a tcp socket
-	lis, err := frs.startListener()
-	if err != nil {
-		return err
+	if frs.GatewayListenerProvider == nil {
+		frs.GatewayListenerProvider = defaultListener
 	}
-
-	defer lis.Close()
 
 	// we're going to run the different protocol servers in parallel, so
 	// make an errgroup
 	var group errgroup.Group
 
 	group.Go(func() error {
+		lis, err := frs.APIListenerProvider(frs.APIEndpoint)
+
+		if err != nil {
+			return err
+		}
+
 		grpcServer := grpc.NewServer()
 
-		filesender.RegisterFileSenderServer(grpcServer, &fileSender)
-		fileretriever.RegisterFileRetrieverServer(grpcServer, &fileRetriever)
-		adminserver.RegisterAdminServerServer(grpcServer, &adminServer)
+		fileserver.RegisterFileServerServer(grpcServer, &fileServer)
 		reflection.Register(grpcServer)
 
 		return grpcServer.Serve(lis)
+	})
+
+	group.Go(func() error {
+		lis, err := frs.GatewayListenerProvider(frs.GatewayEndpoint)
+
+		if err != nil {
+			return err
+		}
+
+		mux := runtime.NewServeMux()
+		opts := []grpc.DialOption{grpc.WithInsecure()}
+
+		err = fileserver.RegisterFileServerHandlerFromEndpoint(ctx, mux, frs.APIEndpoint, opts)
+		if err != nil {
+			return err
+		}
+
+		// Start HTTP server (and proxy calls to gRPC server endpoint)
+		return http.Serve(lis, mux)
 	})
 
 	// wait
