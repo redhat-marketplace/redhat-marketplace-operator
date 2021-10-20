@@ -74,7 +74,7 @@ build:
             - Dockerfile
           ignore:
             - '**/*_test.go'
-    - image: redhat-marketplace-dqlite
+    - image: redhat-marketplace-data-service
       context: ../airgap/v2
       custom:
         buildCommand: ARCHS=amd64 make vet docker-build
@@ -99,7 +99,7 @@ deploy:
           reporterImage: redhat-marketplace-reporter
           metricStateImage: redhat-marketplace-metric-state
           authCheckImage: redhat-marketplace-authcheck
-          dqLiteImage: redhat-marketplace-dqlite
+          dqLiteImage: redhat-marketplace-data-service
         wait: false
         upgradeOnChange: true
         chartPath: ./config/helm-wrapper
