@@ -1,4 +1,4 @@
-FROM ubuntu:focal as dqlite-lib-builder
+FROM quay.io/rh-marketplace/data-service-base: as dqlite-lib-builder
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
@@ -16,21 +16,7 @@ ENV GO_VERSION=${GO_VERSION} OS=linux ARCH=${TARGETARCH}
 RUN apt update -y && \
     apt install -y software-properties-common apt-utils git build-essential dh-autoreconf pkg-config libuv1-dev libsqlite3-dev liblz4-1 liblz4-dev
 
-WORKDIR /opt/raft
-
-RUN git clone --depth 1 -b $RAFT_VERSION -v  https://github.com/canonical/raft.git ./ && \
-    autoreconf -i && ./configure && make && make install
-
-WORKDIR /opt/dqlite
-
-RUN git clone --depth 1 -b $DQLITE_VERSION https://github.com/canonical/dqlite.git ./ && \
-    autoreconf -i && ./configure && make && make install
-
 WORKDIR /opt/airgap
-
-RUN curl -o go.tar.gz https://dl.google.com/go/go$GO_VERSION.$OS-$TARGETARCH.tar.gz && \
-    rm -rf /usr/local/go && \
-    tar -C /usr/local -xzf go.tar.gz
 
 COPY airgap/v2 .
 

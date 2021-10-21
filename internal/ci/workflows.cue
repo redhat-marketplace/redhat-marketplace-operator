@@ -24,6 +24,10 @@ workflows: [
 		file:   "release_status.yml"
 		schema: release_status
 	},
+	{
+		file:   "build_base.yml"
+		schema: build_base_images
+	},
 	// {
 	//  file:   "sync_branches.yml"
 	//  schema: sync_branches
@@ -334,51 +338,107 @@ publish: _#bashWorkflow & {
 	}
 }
 
-_#nextRelease: "release/2.3.0"
-_#futureReleases: ["release/2.4.0"]
-
-// This workflow syncs the next release with develop and future
-sync_branches: _#bashWorkflow & {
-	name: "Sync Next Release"
-	on: {
-		push: {
-			branches: [ "develop", _#nextRelease]
-		}
-	}
+build_base_images: _#bashWorkflow & {
+	name: "Build Bases"
+	on: schedule: [{ cron: "0 0 * * *"}] //nightly
 	jobs: {
-		sync: {
-			name:      "Sync next release"
-			"runs-on": _#linuxMachine
-			if:        "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
+		"base": _#job & {
+			name:                "Build Base"
+			"runs-on":           _#linuxMachine
+			"continue-on-error": true
+			env: {
+				GO_VERSION: _#goVersion
+			}
+	strategy: matrix: {
+		command: ["base", "data-service"]
+	}
 			steps: [
 				_#checkoutCode,
+				_#installGo,
+				_#setupQemu,
+				_#setupBuildX,
+				_#quayLogin,
 				_#step & {
-					name: "pull-request-action"
-					if:   "${{ github.ref == 'refs/heads/develop' }}"
-					uses: "vsoch/pull-request-action@master"
+					id:   "build"
+					name: "Build images"
 					env: {
-						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": _#nextRelease
-						"PULL_REQUEST_TITLE":  "chore: develop to \(_#nextRelease)"
-						"PULL_REQUEST_UPDATE": "true"
+						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
+						"PUSH":              "false"
 					}
+					run: """
+						make base/${{ matrix.command }}
+						"""
 				},
 				_#step & {
-					name: "pull-request-action"
-					if:   "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
-					uses: "vsoch/pull-request-action@master"
+					id:   "push"
+					name: "Push images"
 					env: {
-						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": "master"
-						"PULL_REQUEST_TITLE":  "Release ${{ github.ref }}"
-						"PULL_REQUEST_UPDATE": "true"
+						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
+						"IMAGE_PUSH":        "true"
 					}
+					run: """
+						make base/${{ matrix.command }}
+						"""
 				},
-
 			]
 		}
+
 	}
 }
+
+// _#futureReleases: [{
+//   base: "develop",
+//   next: "release/2.5.0"
+// },
+// {
+//   base: "release/2.5.0"
+//   next: "release/2.6.0"
+// },
+//                   ]
+
+// // This workflow syncs the next release with develop and future
+// sync_branches: _#bashWorkflow & {
+//  name: "Sync Next Release"
+//  on: {
+//   push: {
+//    branches: [ "develop", _#nextRelease]
+//   }
+//  }
+//  jobs: {
+
+//   sync: {
+//    name:      "Sync next release"
+//    "runs-on": _#linuxMachine
+//    if:        "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
+//    steps: [
+//     _#checkoutCode,
+//     _#step & {
+//      name: "pull-request-action"
+//      if:   "${{ github.ref == 'refs/heads/develop' }}"
+//      uses: "vsoch/pull-request-action@master"
+//      env: {
+//       "GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+//       "PULL_REQUEST_BRANCH": _#nextRelease
+//       "PULL_REQUEST_TITLE":  "chore: develop to \(_#nextRelease)"
+//       "PULL_REQUEST_UPDATE": "true"
+//      }
+//     },
+//     _#step & {
+//      name: "pull-request-action"
+//      if:   "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
+//      uses: "vsoch/pull-request-action@master"
+//      env: {
+//       "GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+//       "PULL_REQUEST_BRANCH": "master"
+//       "PULL_REQUEST_TITLE":  "Release ${{ github.ref }}"
+//       "PULL_REQUEST_UPDATE": "true"
+//      }
+//     },
+
+//    ]
+//   }
+//  }
+// }
 
 branch_build: _#bashWorkflow & {
 	name: "Branch Build"
@@ -438,44 +498,10 @@ branch_build: _#bashWorkflow & {
 				},
 			]
 		}
-		"base": _#job & {
-			name:                "Build Base"
-			"runs-on":           _#linuxMachine
-			"continue-on-error": true
-			steps: [
-				_#checkoutCode,
-				_#installGo,
-				_#setupQemu,
-				_#setupBuildX,
-				_#quayLogin,
-				_#step & {
-					id:   "build"
-					name: "Build images"
-					env: {
-						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"PUSH":              "false"
-					}
-					run: """
-						make base/docker-build
-						"""
-				},
-				_#step & {
-					id:   "push"
-					name: "Push images"
-					env: {
-						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"IMAGE_PUSH":        "true"
-					}
-					run: """
-						make base/docker-build
-						"""
-				},
-			]
-		}
 		"images": _#job & {
 			name:      "Build Images"
 			"runs-on": _#linuxMachine
-			needs: ["test", "base"]
+			needs: ["test"]
 			env: {
 				VERSION:    "${{ needs.test.outputs.tag }}"
 				GO_VERSION: _#goVersion
@@ -1072,13 +1098,13 @@ _#scanCommand: {
 		scanCommandList: [ for k, v in #args.fromTo {(_#scanImage & {#args: v}).res}]
 	}
 	res: _#step & {
-    #shell: strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
-		id:   "mirror"
-		name: "Scan images"
+		#shell: strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
+		id:     "mirror"
+		name:   "Scan images"
 		env: {
 			"REDHAT_TOKEN": "${{ secrets.redhat_api_key }}"
 		}
-		run:  ".github/workflows/scripts/scan_images.sh"
+		run: ".github/workflows/scripts/scan_images.sh"
 	}
 }
 
