@@ -36,7 +36,7 @@ AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
 AUTHCHECK_IMAGE_TAG ?= $(TAG)
 AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
-DQLITE_IMAGE_NAME ?= redhat-marketplace-dqlite
+DQLITE_IMAGE_NAME ?= redhat-marketplace-data-service
 DQLITE_IMAGE_TAG ?= $(TAG)
 DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
 
@@ -256,9 +256,8 @@ opm-builder-base: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
-	--label com.redhat.openshift.versions="v4.5-v4.8" \
-  --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
+	--label com.redhat.openshift.versions="v4.6-v4.9" \
+        --label com.redhat.delivery.operator.bundle=true \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	.
