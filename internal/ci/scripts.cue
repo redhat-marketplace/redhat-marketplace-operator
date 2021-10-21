@@ -10,6 +10,10 @@ scripts: [
 		file:   "scripts/get_images.sh"
 		script: getImagesScript
 	},
+  {
+    file: "scripts/scan_images.sh"
+    script: scanImagesScript
+  },
 ]
 
 #Script: {
@@ -26,5 +30,22 @@ IMAGES=""
 IMAGES="$IMAGES --images \(_#manifest.url),,^$TAG(-\\d+)*(-cert-\\d+)*$"
 
 echo $IMAGES
+"""
+}
+
+
+scanImagesScript: #Script & {
+  result: """
+if [[ -z "${TAG}" ]]; then
+  echo "TAG isn't set"
+  exit 1
+fi
+
+if [[ -z "${REDHAT_TOKEN}" ]]; then
+  echo "REDHAT_TOKEN isn't set"
+  exit 1
+fi
+
+\(_#scanCommand.res.#shell)
 """
 }
