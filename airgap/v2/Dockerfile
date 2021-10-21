@@ -1,4 +1,6 @@
-FROM quay.io/rh-marketplace/data-service-base: as dqlite-lib-builder
+ARG REGISTRY=quay.io/rh-marketplace
+
+FROM ${REGISTRY}/data-service-base:1.16 as dqlite-lib-builder
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
