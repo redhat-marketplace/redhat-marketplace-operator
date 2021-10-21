@@ -348,12 +348,14 @@ build_base_images: _#bashWorkflow & {
 		"base": _#job & {
 			name:                "Build Base"
 			"runs-on":           _#linuxMachine
-			"continue-on-error": true
 			env: {
 				GO_VERSION: _#goVersion
 			}
 	strategy: matrix: {
 		command: ["base", "data-service"]
+	}
+	env: {
+		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
 			steps: [
 				_#checkoutCode,
