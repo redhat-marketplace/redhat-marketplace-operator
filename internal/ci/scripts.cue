@@ -10,10 +10,10 @@ scripts: [
 		file:   "scripts/get_images.sh"
 		script: getImagesScript
 	},
-  {
-    file: "scripts/scan_images.sh"
-    script: scanImagesScript
-  },
+	{
+		file:   "scripts/scan_images.sh"
+		script: scanImagesScript
+	},
 ]
 
 #Script: {
@@ -33,9 +33,8 @@ echo $IMAGES
 """
 }
 
-
 scanImagesScript: #Script & {
-  result: """
+	result: """
 if [[ -z "${TAG}" ]]; then
   echo "TAG isn't set"
   exit 1
