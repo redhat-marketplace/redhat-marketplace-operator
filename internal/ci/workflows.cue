@@ -340,7 +340,10 @@ publish: _#bashWorkflow & {
 
 build_base_images: _#bashWorkflow & {
 	name: "Build Bases"
-	on: schedule: [{ cron: "0 0 * * *"}] //nightly
+	on: {
+    workflow_dispatch: {}
+    schedule: [{ cron: "0 0 * * *"}] //nightly
+  }
 	jobs: {
 		"base": _#job & {
 			name:                "Build Base"
