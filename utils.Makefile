@@ -148,9 +148,9 @@ endif
 # func(image,args)
 define docker-build
 $(DOCKER_BUILD) \
--t "$(1)" \
+-t "$(2)" \
 $(DOCKER_EXTRA_ARGS) \
--f base.Dockerfile $(2) .
+-f $(1) $(3) .
 endef
 
 # func(image,name,path,exec,bin,args)

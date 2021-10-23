@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	mathrand "math/rand"
-	"sort"
 	"strings"
 	"time"
 
@@ -33,7 +32,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/assets"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"golang.org/x/net/http/httpproxy"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/envvar"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -129,6 +128,14 @@ func find(slice []string, val string) (int, bool) {
 }
 
 func (f *Factory) ReplaceImages(container *corev1.Container) error {
+	envChanges := envvar.Changes{}
+
+	if err := f.updateContainerResources(container); err != nil {
+		return err
+	}
+
+	envChanges.Append(envvar.AddHttpsProxy())
+
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
 		container.Image = f.config.RelatedImages.KubeRbacProxy
@@ -157,6 +164,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 			InitialDelaySeconds: 5,
 			PeriodSeconds:       10,
 		}
+
+		envChanges.Append(addPodName)
 	case container.Name == "reporter":
 		container.Image = f.config.RelatedImages.Reporter
 	case container.Name == "prometheus-operator":
@@ -167,72 +176,50 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
 		container.Image = f.config.RelatedImages.RemoteResourceS3
+
+		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
+		// will fail; HTTP_PROXY will be used instead
+		envChanges.Append(removeHTTPSProxy)
 	case container.Name == "watch-keeper":
 		container.Image = f.config.RelatedImages.WatchKeeper
+
+		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
+		// will fail; HTTP_PROXY will be used instead
+		envChanges.Append(removeHTTPSProxy)
 	}
 
-	if err := f.updateProxyEnvVariables(container); err != nil {
-		return err
-	}
-
-	if err := f.updateContainerResources(container); err != nil {
-		return err
-	}
-
+	envChanges.Merge(container)
 	return nil
 }
 
-func (f *Factory) updateProxyEnvVariables(container *corev1.Container) error {
-	if container.Env == nil {
-		container.Env = []corev1.EnvVar{}
+var (
+	removeHTTPSProxy = envvar.Changes{
+		envvar.Add(
+			corev1.EnvVar{
+				Name:  "HTTPS_PROXY",
+				Value: "",
+			},
+		),
 	}
-
-	proxyInfo := httpproxy.FromEnvironment()
-
-	envVars := map[string]corev1.EnvVar{}
-
-	for _, env := range container.Env {
-		envVars[env.Name] = env
+	addPodName = envvar.Changes{
+		envvar.Add(corev1.EnvVar{
+			Name: "POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		}),
+		envvar.Add(corev1.EnvVar{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		}),
 	}
-
-	if proxyInfo.HTTPProxy != "" {
-		envVars["HTTP_PROXY"] = corev1.EnvVar{
-			Name:  "HTTP_PROXY",
-			Value: proxyInfo.HTTPProxy,
-		}
-	} else {
-		delete(envVars, "HTTP_PROXY")
-	}
-
-	if proxyInfo.HTTPSProxy != "" {
-		envVars["HTTPS_PROXY"] = corev1.EnvVar{
-			Name:  "HTTPS_PROXY",
-			Value: proxyInfo.HTTPSProxy,
-		}
-	} else {
-		delete(envVars, "HTTPS_PROXY")
-	}
-
-	if proxyInfo.NoProxy != "" {
-		envVars["NO_PROXY"] = corev1.EnvVar{
-			Name:  "NO_PROXY",
-			Value: proxyInfo.NoProxy,
-		}
-	} else {
-		delete(envVars, "NO_PROXY")
-	}
-
-	container.Env = []corev1.EnvVar{}
-	for _, v := range envVars {
-		container.Env = append(container.Env, v)
-	}
-
-	sort.Slice(container.Env, func(a, b int) bool {
-		return container.Env[a].Name < container.Env[b].Name
-	})
-
-	return nil
-}
+)
 
 func (f *Factory) updateContainerResources(container *corev1.Container) error {
 	if f.operatorConfig == nil || f.operatorConfig.Config.Resources == nil {

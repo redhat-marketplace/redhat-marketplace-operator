@@ -2,7 +2,7 @@ VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
 export VERSION
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
-IMAGE_NAME = redhat-marketplace-dqlite
+IMAGE_NAME = redhat-marketplace-data-service
 IMAGE_TAG ?= $(VERSION)
 QUAY_EXPIRATION?=never
 
@@ -32,7 +32,7 @@ endif
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,,redhat-marketplace-dqlite,../..)
+	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,,redhat-marketplace-data-service,../..)
 
 # Push the docker image
 docker-push:

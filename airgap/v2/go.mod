@@ -23,6 +23,10 @@ require (
 	github.com/spf13/viper v1.9.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
+	github.com/twitchtv/twirp v8.1.0+incompatible
+	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20210903162649-d08c68adba83 // indirect
 	google.golang.org/grpc v1.40.0
