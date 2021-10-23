@@ -19,7 +19,6 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
-	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 )
 
@@ -31,61 +30,42 @@ type SchedulerConfig struct {
 	CronExpression string
 }
 
-// createScheduler return gocron.scheduler with job(s)
-func (sfg *SchedulerConfig) createScheduler() *gocron.Scheduler {
-	s := gocron.NewScheduler(time.UTC)
-	s.SetMaxConcurrentJobs(1, gocron.WaitMode)
-
-	if sfg.CleanAfter != "" {
-		sfg.createJob(s, "cleanAfter")
-	}
-
-	if len(s.Jobs()) == 0 {
-		return nil
-	}
-
-	return s
-}
-
-// createJob creates scheduler job
-func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, tag string) {
-	_, err := s.Cron(sfg.CronExpression).Tag(tag).Do(
-		func() {
-			// run handler only for leader node
-			isLeader, err := sfg.IsLeader()
-			if err != nil {
-				sfg.Log.Error(err, "error while verifying leader")
-			}
-			if isLeader {
-				fileIds, er := sfg.handler()
-				if er != nil {
-					sfg.Log.Error(err, "error while executing handler")
-				}
-				sfg.Log.Info("result", "fileIds", fileIds)
-			}
-		},
-	)
-	if err != nil {
-		sfg.Log.Error(err, "error while creating job")
-	}
-}
-
 // handler cleans/purges files based on given time duration and purge flag
-func (sfg *SchedulerConfig) handler() ([]*v1.FileID, error) {
-	fileIds, err := sfg.Fs.CleanTombstones()
+func (sfg *SchedulerConfig) handler() (int64, error) {
+	isLeader, err := sfg.IsLeader()
 	if err != nil {
-		return nil, err
+		sfg.Log.Error(err, "error while verifying leader")
 	}
-	return fileIds, nil
+
+	if !isLeader {
+		return 0, nil
+	}
+
+	count, err := sfg.Fs.CleanTombstones()
+	if err != nil {
+		sfg.Log.Error(err, "error while executing handler")
+		return 0, err
+	}
+
+	sfg.Log.Info("result", "count", count)
+	return count, nil
 }
 
 // StartScheduler starts all job(s) for created scheduler
-func (sfg *SchedulerConfig) StartScheduler() {
-	s := sfg.createScheduler()
-	if s != nil {
-		sfg.Log.Info("starting scheduler")
-		s.StartAsync()
-	} else {
-		sfg.Log.Info("no scheduler to start")
+func (sfg *SchedulerConfig) Start(done <-chan struct{}) error {
+	s := gocron.NewScheduler(time.UTC).SingletonMode()
+	defer s.Stop()
+
+	sfg.Log.Info("starting scheduler")
+	s.StartAsync()
+
+	_, err := s.Cron(sfg.CronExpression).Do(sfg.handler)
+	if err != nil {
+		sfg.Log.Error(err, "error while creating job")
+		return err
 	}
+
+	<-done
+	sfg.Log.Info("stopping scheduler")
+	return nil
 }

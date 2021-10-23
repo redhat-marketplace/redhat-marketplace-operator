@@ -86,7 +86,7 @@ func main() {
 
 			defer cfg.Close()
 
-			sfg := &scheduler.SchedulerConfig{
+			sched := &scheduler.SchedulerConfig{
 				Log:            log,
 				Fs:             fs,
 				IsLeader:       cfg.IsLeader,
@@ -100,8 +100,6 @@ func main() {
 				return err
 			}
 
-			sfg.StartScheduler()
-
 			ctx, cancel := context.WithCancel(context.Background())
 
 			bs := &server.Server{Log: log, FileStore: fs, APIEndpoint: api, GatewayEndpoint: gatewayApi}
@@ -109,6 +107,10 @@ func main() {
 			stopCh := (&shutdownHandler{log: log}).SetupSignalHandler()
 
 			var group errgroup.Group
+
+			group.Go(func() error {
+				return sched.Start(stopCh)
+			})
 
 			group.Go(func() error {
 				return bs.Start(ctx)

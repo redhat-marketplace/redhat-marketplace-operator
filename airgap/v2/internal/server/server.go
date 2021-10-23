@@ -16,7 +16,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
 	"net/http"
 

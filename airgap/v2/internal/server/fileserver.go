@@ -219,6 +219,8 @@ func (fs *FileServer) UpdateFileMetadata(ctx context.Context, req *fileserver.Up
 	}, nil
 }
 
+const chunkSize = 1024
+
 func (fs *FileServer) DownloadFile(req *fileserver.DownloadFileRequest, stream fileserver.FileServer_DownloadFileServer) error {
 	file, err := fs.FileStore.Download(req.Id)
 	if err != nil {
