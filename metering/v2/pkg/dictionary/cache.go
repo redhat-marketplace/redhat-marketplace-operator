@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/allegro/bigcache"
+	bigcache "github.com/allegro/bigcache/v3"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -36,7 +36,15 @@ const cacheTimeout = 30 * time.Minute
 func init() {
 	initLookupCache.Do(func() {
 		lookupCache = utils.Must(func() (interface{}, error) {
-			cache, err := bigcache.NewBigCache(bigcache.DefaultConfig(cacheTimeout))
+			cache, err := bigcache.NewBigCache(bigcache.Config{
+				Shards:             1024,
+				LifeWindow:         cacheTimeout,
+				CleanWindow:        0,
+				MaxEntriesInWindow: 1000 * 10 * 60,
+				MaxEntrySize:       500,
+				Verbose:            true,
+				HardMaxCacheSize:   100,
+			})
 
 			if err != nil {
 				return nil, err

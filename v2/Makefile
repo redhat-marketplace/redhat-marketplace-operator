@@ -216,7 +216,6 @@ bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="v4.6" \
   --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
 	--push \
 	.
 
@@ -256,8 +255,6 @@ opm-builder-base: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
-	--label com.redhat.openshift.versions="v4.6-v4.9" \
-        --label com.redhat.delivery.operator.bundle=true \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	.
