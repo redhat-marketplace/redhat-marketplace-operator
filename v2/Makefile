@@ -36,6 +36,10 @@ AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
 AUTHCHECK_IMAGE_TAG ?= $(TAG)
 AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
+DQLITE_IMAGE_NAME ?= redhat-marketplace-data-service
+DQLITE_IMAGE_TAG ?= $(TAG)
+DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
+
 BUNDLE_NAME ?= redhat-marketplace-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
@@ -52,7 +56,7 @@ IMG ?= $(OPERATOR_IMAGE)
 IMAGE ?= $(OPERATOR_IMAGE)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 # CRD_OPTIONS ?= "crd:trivialVersions=true"
-CRD_OPTIONS ?= "crd:crdVersions={v1beta1},trivialVersions=false,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd:crdVersions={v1},trivialVersions=false,preserveUnknownFields=false"
 
 GOPATH=$(shell go env GOPATH)
 
@@ -101,7 +105,8 @@ deploy: manifests kustomize helm install
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) | ./default/kustomize | kubectl apply -f -
+	--set authCheckImage=$(AUTHCHECK_IMAGE) 
+	--set dqLiteImage=$(DQLITE_IMAGE) | ./default/kustomize | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -161,7 +166,6 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
-ARCHS ?= amd64 ppc64le s390x
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
@@ -179,6 +183,7 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	--set dqLiteImage=$(DQLITE_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
@@ -209,9 +214,8 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 .PHONY: bundle-build
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.5-v4.8" \
+	--label com.redhat.openshift.versions="v4.6" \
   --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
 	--push \
 	.
 
@@ -247,13 +251,10 @@ opm-builder-base: opm
 	.
 
 .PHONY:  bundle-dev-index-multiarch
- bundle-dev-index-multiarch: opm
+ bundle-dev-index-multiarch: opm opm-builder-base
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
-	--label com.redhat.openshift.versions="v4.5-v4.8" \
-  --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	.
@@ -282,6 +283,7 @@ compile-helm: helm
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize compile-helm
@@ -292,6 +294,7 @@ install: kustomize compile-helm
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
@@ -302,6 +305,7 @@ uninstall: helm yq
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
 skaffold-dev: install

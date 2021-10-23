@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -77,6 +78,7 @@ func init() {
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -171,6 +173,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.DataServiceReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DataService"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataService")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.MeterDefinitionReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterDefinition"),
@@ -242,6 +253,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	doneChan := make(chan struct{})
+	reportCreatorReconciler := &controllers.MeterReportCreatorReconciler{
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+	reportCreatorReconciler.Inject(injector)
+	if err := reportCreatorReconciler.SetupWithManager(mgr, doneChan); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
+		os.Exit(1)
+	}
+
 	if err = (&marketplacev1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
 		os.Exit(1)
@@ -282,6 +305,7 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+	close(doneChan)
 }
 
 var onlyOneSignalHandler = make(chan struct{})

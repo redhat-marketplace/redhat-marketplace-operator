@@ -27,15 +27,22 @@ type ReportOutputDir string
 
 // Top level config
 type Config struct {
-	OutputDirectory string
-	MetricsPerFile  *int
-	MaxRoutines     *int
-	Retry           *int
-	CaFile          string
-	TokenFile       string
-	Local           bool
-	Upload          bool
-	UploaderTarget
+	OutputDirectory      string
+	MetricsPerFile       *int
+	MaxRoutines          *int
+	Retry                *int
+	CaFile               string
+	TokenFile            string
+	DataServiceTokenFile string
+	DataServiceCertFile  string
+	DeployedNamespace    string
+	Local                bool
+	Upload               bool
+	PrometheusService    string
+	PrometheusNamespace  string
+	PrometheusPort       string
+	UploaderTargets
+	ReporterSchema string
 }
 
 const (
@@ -56,8 +63,8 @@ func (c *Config) SetDefaults() {
 		c.Retry = ptr.Int(5)
 	}
 
-	if c.UploaderTarget == nil {
-		c.UploaderTarget = UploaderTargetRedHatInsights
+	if c.UploaderTargets == nil {
+		c.UploaderTargets = UploaderTargets{&DataServiceUploader{}}
 	}
 }
 

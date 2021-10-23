@@ -5,7 +5,7 @@ go 1.16
 require (
 	emperror.dev/errors v0.8.0
 	github.com/InVisionApp/go-health/v2 v2.1.2
-	github.com/allegro/bigcache v1.2.1
+	github.com/allegro/bigcache/v3 v3.0.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.3.0
 	github.com/google/wire v0.4.0

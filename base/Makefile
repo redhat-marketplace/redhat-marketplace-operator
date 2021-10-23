@@ -1,9 +1,7 @@
-GO_VERSION ?= 1.16
 QUAY_EXPIRATION?=never
 IMAGE_PUSH ?= true
 BUILDX ?= true
 ARCH ?= amd64
-BASE_TAG ?= $(GO_VERSION)
 
 include ../utils.Makefile
 
@@ -13,14 +11,15 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 docker-push:
 	docker push $(IMG)
 
-docker-build: docker-build-1-16
+docker-build: base data-service
 
-16ARGS = --build-arg VERSION=1.16.7
+16ARGS = --build-arg GO_VERSION=$(GO_VERSION)
 16IMG = $(IMAGE_REGISTRY)/golang-base:1.16
-docker-build-1-16:
-	$(call docker-build,$(16IMG),$(16ARGS))
+base:
+	$(call docker-build,base.Dockerfile,$(16IMG),$(16ARGS))
 
-ARGS = --build-arg VERSION=1.15.11
-IMG = $(IMAGE_REGISTRY)/golang-base:1.15
-docker-build-1-15:
-	$(call docker-build,$(IMG),$(ARGS))
+DSIMGARGS = --build-arg GO_VERSION=$(GO_VERSION)
+DSIMG = $(IMAGE_REGISTRY)/data-service-base:1.16
+
+data-service:
+	$(call docker-build,dataservice.Dockerfile,$(DSIMG),$(16ARGS))

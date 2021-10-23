@@ -3,7 +3,8 @@ space :=
 space +=
 
 BINDIR ?= ./bin
-ARCHS ?= amd64 ppc64le s390x
+GO_VERSION ?= 1.16.8
+ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
 IMAGE_PUSH ?= true
@@ -20,7 +21,7 @@ clean-bin:
 # download controller-gen if necessary
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.2)
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
@@ -147,9 +148,9 @@ endif
 # func(image,args)
 define docker-build
 $(DOCKER_BUILD) \
--t "$(1)" \
+-t "$(2)" \
 $(DOCKER_EXTRA_ARGS) \
--f base.Dockerfile $(2) .
+-f $(1) $(3) .
 endef
 
 # func(image,name,path,exec,bin,args)
@@ -160,6 +161,7 @@ $(DOCKER_BUILD) \
 $(DOCKER_EXTRA_ARGS) \
 --build-arg ARCHS='$(ARCHS)' \
 --build-arg REGISTRY=$(IMAGE_REGISTRY) \
+--build-arg GO_VERSION=$(GO_VERSION) \
 --build-arg name=$(2) \
 --build-arg path=$(3) \
 --build-arg exec=$(4) \

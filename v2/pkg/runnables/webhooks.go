@@ -30,7 +30,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	typedapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	typedapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -362,7 +362,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 ) error {
 	cfg := a.Rest
 	cfg.WarningHandler = rest.NoWarnings{}
-	extendedClient, err := typedapiextensionsv1beta1.NewForConfig(cfg)
+	extendedClient, err := typedapiextensionsv1.NewForConfig(cfg)
 
 	if err != nil {
 		a.Logger.Error(err, "failed to get CRD client")
@@ -408,23 +408,24 @@ func (a *CRDUpdater) ensureConfigmapExists(
 				}
 
 				if crd.Spec.Conversion == nil ||
-					crd.Spec.Conversion.WebhookClientConfig == nil ||
-					crd.Spec.Conversion.WebhookClientConfig.Service == nil {
+					crd.Spec.Conversion.Webhook == nil ||
+					crd.Spec.Conversion.Webhook.ClientConfig == nil ||
+					crd.Spec.Conversion.Webhook.ClientConfig.Service == nil {
 					return nil
 				}
 
-				if crd.Spec.Conversion.WebhookClientConfig.Service.Port == nil ||
+				if crd.Spec.Conversion.Webhook.ClientConfig.Service.Port == nil ||
 					port == nil {
 					return nil
 				}
 
 				next := true
 
-				if bytes.Compare(crd.Spec.Conversion.WebhookClientConfig.CABundle, caInfo) != 0 {
+				if bytes.Compare(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, caInfo) != 0 {
 					next = next && false
 				}
 
-				if *crd.Spec.Conversion.WebhookClientConfig.Service.Port != *port {
+				if *crd.Spec.Conversion.Webhook.ClientConfig.Service.Port != *port {
 					next = next && false
 				}
 
@@ -434,8 +435,8 @@ func (a *CRDUpdater) ensureConfigmapExists(
 
 				workComplete = true
 
-				crd.Spec.Conversion.WebhookClientConfig.CABundle = caInfo
-				crd.Spec.Conversion.WebhookClientConfig.Service.Port = port
+				crd.Spec.Conversion.Webhook.ClientConfig.CABundle = caInfo
+				crd.Spec.Conversion.Webhook.ClientConfig.Service.Port = port
 				_, err = extendedClient.CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{})
 				return err
 			})

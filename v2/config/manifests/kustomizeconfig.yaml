@@ -1,11 +1,11 @@
 namePrefix:
   - path: webhooks/clientConfig/service/name
-  - path: spec/conversion/webhookClientConfig/service/name
+  - path: spec/conversion/webhook/clientConfig/service/name
 
 varReference:
 - path: spec/template/spec/volumes/secret/secretName
   kind: Deployment
-- path: spec/conversion/webhookClientConfig/service/name
+- path: spec/conversion/webhook/clientConfig/service/name
   kind: CustomResourceDefinition
 - path: spec/relatedImages/image
   kind: ClusterServiceVersion

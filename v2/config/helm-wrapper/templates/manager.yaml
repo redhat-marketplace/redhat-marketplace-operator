@@ -69,6 +69,8 @@ spec:
               value: {{ .Values.metricStateImage }}
             - name: RELATED_IMAGE_AUTHCHECK
               value: {{ .Values.authCheckImage }}
+            - name: RELATED_IMAGE_DQLITE
+              value: {{ .Values.dqLiteImage }}
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

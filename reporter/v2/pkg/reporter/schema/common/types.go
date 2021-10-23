@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 )
 
 type ReportSliceKey uuid.UUID
@@ -68,4 +69,31 @@ func (t *Time) UnmarshalText(data []byte) error {
 
 func (t Time) String() string {
 	return time.Time(t).UTC().Format(time.RFC3339)
+}
+
+type DataBuilder interface {
+	New() SchemaMetricBuilder
+}
+
+type DataBuilderFunc func() SchemaMetricBuilder
+
+func (d DataBuilderFunc) New() SchemaMetricBuilder {
+	return d()
+}
+
+type SchemaMetricBuilder interface {
+	SetAccountID(accountID string)
+	SetClusterID(clusterID string)
+	AddMeterDefinitionLabels(meterDef *common.MeterDefPrometheusLabelsTemplated)
+	SetReportInterval(start, end Time)
+	Build() (interface{}, error)
+}
+
+type ReportWriter interface {
+	WriteReport(
+		source uuid.UUID,
+		metrics map[string]SchemaMetricBuilder,
+		outputDirectory string,
+		partitionSize int,
+	) (files []string, err error)
 }

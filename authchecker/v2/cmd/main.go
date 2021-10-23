@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -64,6 +65,11 @@ func run(cmd *cobra.Command, args []string) {
 		"namespace", namespace,
 		"retry", retry,
 	)
+
+	if namespace == "" {
+		setupLog.Error(errors.New("namespace not provided"), "namespace not provided", "namespace", namespace)
+		os.Exit(1)
+	}
 
 	opts := ctrl.Options{
 		Scheme:                 scheme,

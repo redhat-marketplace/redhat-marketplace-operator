@@ -28,7 +28,11 @@ import (
 
 var log = logf.Log.WithName("reporter_report_cmd")
 
-var name, namespace, cafile, tokenFile, uploadTarget, localFilePath string
+var name, namespace, cafile, tokenFile string
+var localFilePath, deployedNamespace string
+var dataServiceTokenFile, dataServiceCertFile string
+var reporterSchema string
+var uploadTargets []string
 var local, upload bool
 var retry int
 
@@ -49,21 +53,30 @@ var ReportCmd = &cobra.Command{
 
 		tmpDir := os.TempDir()
 
-		uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
+		targets := reporter.UploaderTargets{}
+		for _, uploadTarget := range uploadTargets {
+			uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
+			log.Info("upload target", "target set to", uploadTarget.Name())
 
-		switch v := uploadTarget.(type) {
-		case *reporter.LocalFilePathUploader:
-			v.LocalFilePath = localFilePath
+			switch v := uploadTarget.(type) {
+			case *reporter.LocalFilePathUploader:
+				v.LocalFilePath = localFilePath
+			}
+			targets = append(targets, uploadTarget)
 		}
 
 		cfg := &reporter.Config{
-			OutputDirectory: tmpDir,
-			Retry:           ptr.Int(retry),
-			CaFile:          cafile,
-			TokenFile:       tokenFile,
-			Local:           local,
-			Upload:          upload,
-			UploaderTarget:  uploadTarget,
+			OutputDirectory:      tmpDir,
+			Retry:                ptr.Int(retry),
+			CaFile:               cafile,
+			TokenFile:            tokenFile,
+			DataServiceTokenFile: dataServiceTokenFile,
+			DataServiceCertFile:  dataServiceCertFile,
+			Local:                local,
+			Upload:               upload,
+			UploaderTargets:      targets,
+			DeployedNamespace:    deployedNamespace,
+			ReporterSchema:       reporterSchema,
 		}
 		cfg.SetDefaults()
 
@@ -93,9 +106,13 @@ func init() {
 	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
 	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
 	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "/var/run/secrets/kubernetes.io/serviceaccount/token", "token file for prometheus")
-	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "redhat-insights", "target to upload to")
+	ReportCmd.Flags().StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
+	ReportCmd.Flags().StringVar(&dataServiceCertFile, "dataServiceCertFile", "", "cert file for the data service")
+	ReportCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-insights"}, "comma seperated list of targets to upload to")
 	ReportCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReportCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReportCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
+	ReportCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
+	ReportCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 }

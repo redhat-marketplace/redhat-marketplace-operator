@@ -52,7 +52,7 @@ var _ = Describe("Template", func() {
 			MetricWithout:      JSONArray([]string{"a", "b"}),
 			UID:                "uid",
 			WorkloadName:       "workloadname",
-			WorkloadType:       "pod",
+			WorkloadType:       "Pod",
 		}
 
 		now := model.Now()
@@ -70,7 +70,7 @@ var _ = Describe("Template", func() {
 			"MeterKind":    Equal("label.kind"),
 			"Metric":       Equal("label.metric"),
 			"DisplayName":  Equal("label.name"),
-			"WorkloadType": Equal("pod"),
+			"WorkloadType": Equal(WorkloadTypePod),
 		})))
 
 		parsedDate, _ := time.Parse(justDateFormat, "2020-02-11")

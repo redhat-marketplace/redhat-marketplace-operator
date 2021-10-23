@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
@@ -28,9 +30,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -40,7 +44,10 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -52,12 +59,17 @@ type Task struct {
 	Ctx       context.Context
 	Config    *Config
 	K8SScheme *runtime.Scheme
-	Uploader
+	Uploaders
 }
 
 func (r *Task) Run() error {
 	logger.Info("task run start")
 	logger.Info("creating reporter job")
+
+	return r.report()
+}
+
+func (r *Task) report() error {
 	reporter, err := NewReporter(r)
 
 	if err != nil {
@@ -90,14 +102,33 @@ func (r *Task) Run() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
+	uploadCondition := marketplacev1alpha1.ReportConditionUploadStatusUnknown
+	uploadStatuses := []*marketplacev1alpha1.UploadDetails{}
+
 	if r.Config.Upload {
-		err = r.Uploader.UploadFile(fileName)
+		logger.Info("starting file upload", "file name", fileName)
 
-		if err != nil {
-			return errors.Wrap(err, "error uploading file")
+		for _, uploader := range r.Uploaders {
+			err = uploader.UploadFile(fileName)
+
+			status := &marketplacev1alpha1.UploadDetails{
+				Target: uploader.Name(),
+			}
+
+			if err != nil {
+				logger.Error(err, "failed to upload")
+				status.Status = "failure"
+				status.Error = err.Error()
+				uploadCondition = marketplacev1alpha1.ReportConditionUploadStatusErrored
+				uploadCondition.Message = err.Error()
+			} else {
+				logger.Info("uploaded metrics", "metricsLength", len(metrics), "target", uploader.Name())
+				status.Status = "success"
+				uploadCondition = marketplacev1alpha1.ReportConditionUploadStatusFinished
+			}
+
+			uploadStatuses = append(uploadStatuses, status)
 		}
-
-		logger.Info("uploaded metrics", "metricsLength", len(metrics))
 	}
 
 	report := &marketplacev1alpha1.MeterReport{}
@@ -107,9 +138,11 @@ func (r *Task) Run() error {
 			HandleResult(
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
+					report.Status.UploadStatus = uploadStatuses
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
 					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
+					report.Status.Conditions.SetCondition(uploadCondition)
 
 					for _, err := range errorList {
 						report.Status.Errors = append(report.Status.Errors,
@@ -146,10 +179,16 @@ func (r *Task) Run() error {
 	return nil
 }
 
-func providePrometheusSetup(config *Config, report *marketplacev1alpha1.MeterReport, promService *corev1.Service) *PrometheusAPISetup {
+func providePrometheusSetup(
+	config *Config,
+	report *marketplacev1alpha1.MeterReport,
+	promService *corev1.Service,
+	promPort *corev1.ServicePort,
+) *PrometheusAPISetup {
 	return &PrometheusAPISetup{
 		Report:        report,
 		PromService:   promService,
+		PromPort:      promPort,
 		CertFilePath:  config.CaFile,
 		TokenFilePath: config.TokenFile,
 		RunLocal:      config.Local,
@@ -215,6 +254,7 @@ func getPrometheusService(
 	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
 	cc ClientCommandRunner,
+	cfg *Config,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
 
@@ -224,8 +264,8 @@ func getPrometheusService(
 	}
 
 	name := types.NamespacedName{
-		Name:      report.Spec.PrometheusService.Name,
-		Namespace: report.Spec.PrometheusService.Namespace,
+		Name:      cfg.PrometheusService,
+		Namespace: cfg.PrometheusNamespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -236,52 +276,82 @@ func getPrometheusService(
 	return
 }
 
+func getPrometheusPort(
+	cfg *Config,
+	service *corev1.Service,
+) (*corev1.ServicePort, error) {
+	var port *corev1.ServicePort
+
+	for i, portB := range service.Spec.Ports {
+		if portB.Name == cfg.PrometheusPort {
+			port = &service.Spec.Ports[i]
+		}
+	}
+
+	if port == nil {
+		return nil, errors.New("cannot find port: " + cfg.PrometheusPort)
+	}
+
+	return port, nil
+}
+
 type MeterDefinitionReferences = []marketplacev1beta1.MeterDefinitionReference
 
 func getMeterDefinitionReferences(
 	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
-	cc ClientCommandRunner,
-) (MeterDefinitionReferences, error) {
-	defs := []marketplacev1beta1.MeterDefinitionReference{}
+	client client.Client,
+) (defs MeterDefinitionReferences, err error) {
+	for _, ref := range report.Spec.MeterDefinitionReferences {
+		if ref.Spec == nil {
+			mdef := marketplacev1beta1.MeterDefinition{}
 
-	if len(report.Spec.MeterDefinitionReferences) > 0 {
-		update := false
+			err = client.Get(ctx, types.NamespacedName{
+				Name: ref.Name, Namespace: ref.Namespace,
+			}, &mdef)
 
-		for _, ref := range report.Spec.MeterDefinitionReferences {
-			if ref.Spec == nil {
-				update = true
-
-				mdef := marketplacev1beta1.MeterDefinition{}
-				result, _ := cc.Exec(ctx, GetAction(types.NamespacedName{
-					Name: ref.Name, Namespace: ref.Namespace,
-				}, &mdef))
-
-				if result.Is(Error) {
-					return defs, result.Err
-				}
-
-				if result.Is(Continue) {
-					update = true
-					ref.UID = mdef.UID
-					ref.Spec = &mdef.Spec
-				}
+			if err != nil {
+				return
 			}
 
-			defs = append(defs, ref)
+			ref.UID = mdef.UID
+			ref.Spec = &mdef.Spec
 		}
 
-		if update {
-			result, _ := cc.Exec(ctx, UpdateAction(report))
-			if result.Is(Error) {
-				return defs, result.Err
-			}
-		}
-
-		return defs, nil
+		defs = append(defs, ref)
 	}
 
-	return defs, nil
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if reflect.DeepEqual(report.Spec.MeterDefinitionReferences, defs) {
+			return nil
+		}
+
+		report.Spec.MeterDefinitionReferences = defs
+
+		return client.Update(ctx, report)
+	})
+
+	return
+}
+
+// Stop() and Sleep to allow queue to write out events.
+// Calling Broadcaster Shutdown() otherwise is a risk of panic and lost event
+// Until we are using a newer k8s api-machinery version
+// https://github.com/kubernetes/kubernetes/issues/94906
+func provideReporterEventBroadcaster(kubeclientset kubernetes.Interface) (record.EventBroadcaster, func()) {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(0)
+	shutdownInterface := eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+	return eventBroadcaster, func() {
+		shutdownInterface.Stop()
+		logger.Info("Wait for event broadcaster to stop...")
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func provideReporterEventRecorder(eventBroadcaster record.EventBroadcaster, schemeIn *runtime.Scheme) record.EventRecorder {
+	recorder := eventBroadcaster.NewRecorder(schemeIn, corev1.EventSource{Component: "reporter"})
+	return recorder
 }
 
 func provideScheme() *runtime.Scheme {
@@ -294,5 +364,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(batchv1.AddToScheme(scheme))
 	return scheme
 }

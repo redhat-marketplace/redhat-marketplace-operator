@@ -24,6 +24,7 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	corev1 "k8s.io/api/core/v1"
@@ -282,13 +283,13 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 		var err error
 		typeFilter := &WorkloadTypeFilter{}
 		switch filter.WorkloadType {
-		case v1beta1.WorkloadTypePod:
+		case common.WorkloadTypePod:
 			gvk := reflect.TypeOf(&corev1.Pod{})
 			typeFilter.gvks = []reflect.Type{gvk}
-		case v1beta1.WorkloadTypePVC:
+		case common.WorkloadTypePVC:
 			gvk := reflect.TypeOf(&corev1.PersistentVolumeClaim{})
 			typeFilter.gvks = []reflect.Type{gvk}
-		case v1beta1.WorkloadTypeService:
+		case common.WorkloadTypeService:
 			gvk1 := reflect.TypeOf(&corev1.Service{})
 			typeFilter.gvks = []reflect.Type{gvk1}
 		default:

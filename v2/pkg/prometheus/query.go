@@ -25,10 +25,8 @@ import (
 	sprig "github.com/Masterminds/sprig/v3"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,7 +35,7 @@ import (
 var logger = logf.Log.WithName("prometheus")
 
 type PromQueryArgs struct {
-	Type               v1beta1.WorkloadType
+	Type               common.WorkloadType
 	MeterDef           types.NamespacedName
 	Metric             string
 	Query              string
@@ -61,7 +59,7 @@ func NewPromQueryFromLabels(
 	meterDefLabels *common.MeterDefPrometheusLabels,
 	start, end time.Time,
 ) *PromQuery {
-	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
+	workloadType := common.WorkloadType(meterDefLabels.WorkloadType)
 	duration := time.Hour
 	if meterDefLabels.MetricPeriod != nil {
 		duration = meterDefLabels.MetricPeriod.Duration
@@ -98,7 +96,7 @@ func PromQueryFromLabels(
 	start, end time.Time,
 ) *PromQuery {
 
-	workloadType := v1beta1.WorkloadType(meterDefLabels.WorkloadType)
+	workloadType := common.WorkloadType(meterDefLabels.WorkloadType)
 	duration := time.Hour
 	if meterDefLabels.MetricPeriod != nil {
 		duration = meterDefLabels.MetricPeriod.Duration
@@ -161,11 +159,11 @@ var alwaysWithout []string = []string{
 func (q *PromQuery) setDefaultWithout() {
 	// we want to make sure
 	switch q.Type {
-	case v1beta1.WorkloadTypePVC:
+	case common.WorkloadTypePVC:
 		q.defaultWithout = []string{"instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip", "exported_persistentvolumeclaim"}
-	case v1beta1.WorkloadTypePod:
+	case common.WorkloadTypePod:
 		q.defaultWithout = []string{"pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service", "exported_pod"}
-	case v1beta1.WorkloadTypeService:
+	case common.WorkloadTypeService:
 		q.defaultWithout = []string{"pod_uid", "instance", "container", "endpoint", "job", "pod", "exported_service"}
 	default:
 		panic(q.typeNotSupportedError())
@@ -177,11 +175,11 @@ func (q *PromQuery) setDefaultWithout() {
 
 func (q *PromQuery) setDefaultGroupBy() {
 	switch q.Type {
-	case v1beta1.WorkloadTypePVC:
+	case common.WorkloadTypePVC:
 		q.defaultGroupBy = []string{"persistentvolumeclaim", "namespace"}
-	case v1beta1.WorkloadTypePod:
+	case common.WorkloadTypePod:
 		q.defaultGroupBy = []string{"pod", "namespace"}
-	case v1beta1.WorkloadTypeService:
+	case common.WorkloadTypeService:
 		q.defaultGroupBy = []string{"service", "namespace"}
 	default:
 		panic(q.typeNotSupportedError())
@@ -198,11 +196,11 @@ func (q *PromQuery) setDefaultLabelReplacePrefix() {
 
 func (q *PromQuery) setDefaultLabelReplaceSuffix() {
 	switch q.Type {
-	case v1beta1.WorkloadTypePVC:
+	case common.WorkloadTypePVC:
 		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)")`
-	case v1beta1.WorkloadTypePod:
+	case common.WorkloadTypePod:
 		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"pod","$1","exported_pod","(.+)")`
-	case v1beta1.WorkloadTypeService:
+	case common.WorkloadTypeService:
 		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"service","$1","exported_service","(.+)")`
 	default:
 		panic(q.typeNotSupportedError())
@@ -233,12 +231,12 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 	}
 
 	switch q.Type {
-	case v1beta1.WorkloadTypePVC:
+	case common.WorkloadTypePVC:
 		meterName = "meterdef_persistentvolumeclaim_info"
 		queryFilters = append(queryFilters, makeLabel("phase", "Bound"))
-	case v1beta1.WorkloadTypePod:
+	case common.WorkloadTypePod:
 		meterName = "meterdef_pod_info"
-	case v1beta1.WorkloadTypeService:
+	case common.WorkloadTypeService:
 		meterName = "meterdef_service_info"
 	default:
 		panic(q.typeNotSupportedError())

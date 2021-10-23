@@ -13,36 +13,3 @@
 // limitations under the License.
 
 package marketplace
-
-import (
-	"time"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-)
-
-var _ = Describe("MeterbaseController", func() {
-	Describe("check date functions", func() {
-		var (
-			ctrl *MeterBaseReconciler
-		)
-
-		BeforeEach(func() {
-			ctrl = &MeterBaseReconciler{}
-		})
-
-		It("reports should calculate the correct dates to create", func() {
-			endDate := time.Now().UTC()
-			endDate = endDate.AddDate(0, 0, 0)
-			minDate := endDate.AddDate(0, 0, 0)
-
-			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			Expect(exp).To(HaveLen(1))
-
-			minDate = endDate.AddDate(0, 0, -2)
-
-			exp = ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			Expect(exp).To(HaveLen(3))
-		})
-	})
-})

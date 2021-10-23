@@ -1,0 +1,19 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - timeout: 30
+    script: |
+      if [ "$SKIP_DEPLOY" == "" ] ; then cd ../../../.. && make skaffold-run ; else echo "skipping deploy" ; fi
+delete:
+  - apiVersion: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    name: marketplaceconfig
+  - apiVersion: v1
+    kind: Secret
+    name: redhat-marketplace-pull-secret
+  - apiVersion: v1
+    kind: Secret
+    name: rhm-operator-secret
+  - apiVersion: v1
+    kind: ConfigMap
+    name: razee-cluster-metadata

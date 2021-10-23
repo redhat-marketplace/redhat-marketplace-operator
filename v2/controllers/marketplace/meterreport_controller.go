@@ -16,33 +16,25 @@ package marketplace
 
 import (
 	"context"
-	"math/rand"
-	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -53,8 +45,8 @@ import (
 var _ reconcile.Reconciler = &MeterReportReconciler{}
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
-// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=cronjobs;jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs;jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range;/api/v1/targets,verbs=get;create
@@ -64,10 +56,8 @@ type MeterReportReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-
-	CC      ClientCommandRunner
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
 	patcher patch.Patcher
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
@@ -76,12 +66,6 @@ type MeterReportReconciler struct {
 func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
-}
-
-func (r *MeterReportReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.Log.Info("command runner")
-	r.CC = ccp
-	return nil
 }
 
 func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
@@ -102,22 +86,10 @@ func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig)
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
-	scheduler := NewScheduleRunnable(r.Client, *r.cfg, r.Log)
-	mgr.Add(scheduler)
-
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
-		Watches(scheduler.Source(), &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
-		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &marketplacev1alpha1.MeterReport{},
-		}).
-		Watches(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &marketplacev1alpha1.MeterReport{},
-		}).
 		Complete(r)
 }
 
@@ -125,16 +97,12 @@ const rerunTime = 1 * 24 * time.Hour // 1 day - reducing rerun time
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec
-// Note:
+
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterReport")
-
-	/*
-		cc := r.CC
-	*/
 
 	// Fetch the MeterReport instance
 	instance := &marketplacev1alpha1.MeterReport{}
@@ -148,398 +116,44 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	/*
-		if result, _ := cc.Do(context.TODO(), GetAction(request.NamespacedName, instance)); !result.Is(Continue) {
-			if result.Is(NotFound) {
-				reqLogger.Info("MeterReport resource not found. Ignoring since object must be deleted.")
-				return reconcile.Result{}, nil
-			}
-
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to get MeterReport.")
-			}
-
-			return result.Return()
-		}
-	*/
-
 	if instance.Status.Conditions == nil {
 		conds := status.NewConditions(marketplacev1alpha1.ReportConditionJobNotStarted)
 		instance.Status.Conditions = conds
 	}
 
-	job := &batchv1.Job{}
+	job := batchv1.Job{}
 
-	reqLogger.Info("config",
-		"config", r.cfg.RelatedImages,
-		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""))
+	// getting && deleteing job; new process uses a single cronjob
+	if instance.Status.AssociatedJob != nil {
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Status.AssociatedJob.Name, Namespace: instance.Status.AssociatedJob.Namespace}, &job)
 
-	endTime := instance.Spec.EndTime.Time.UTC()
-	now := time.Now().UTC()
-
-	reqLogger.Info("time", "now", now, "endTime", endTime)
-
-	if now.Before(endTime) {
-		wait := waitTime(now, endTime, rand.Intn(59))
-		reqLogger.Info("report was schedule before it was ready to run", "add", wait)
-
-		if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobWaiting) {
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Status().Update(context.TODO(), instance)
-			})
-			if err != nil {
-				reqLogger.Error(err, "Failed to update MeterReport status.")
-			}
-		}
-		return reconcile.Result{RequeueAfter: 15 * time.Minute}, err
-
-		/*
-			result, _ := cc.Do(
-				context.TODO(),
-				HandleResult(
-					UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
-					OnAny(RequeueAfterResponse(15*time.Minute)),
-				),
-			)
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to get create job.")
-			}
-
-			return result.Return()
-		*/
-	}
-
-	// getting job
-
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job)
-	/*
-		result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
-		}, job))
-	*/
-
-	// We'll rerun the jobs of the last 7 days in case we push a fix
-	lastVersion, hasAnnotation := instance.GetAnnotations()["marketplace.redhat.com/version"]
-	rerunDate := time.Now().Add(-rerunTime)
-
-	if !hasAnnotation || (hasAnnotation && lastVersion != version.Version) {
-		reqLogger.Info("new version detected, updating version annotation")
-
-		annotations := instance.GetAnnotations()
-		if annotations == nil {
-			annotations = map[string]string{}
+		if err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
 		}
 
-		if instance.Status.AssociatedJob != nil && instance.Spec.StartTime.After(rerunDate) {
-			reqLogger.Info("job is within requeue time, deleting old job")
-
-			err := r.Client.Delete(context.TODO(), job, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		if err == nil {
+			err := r.Client.Delete(context.TODO(), &job, client.PropagationPolicy(metav1.DeletePropagationBackground))
 			if err != nil && !errors.IsNotFound(err) {
 				reqLogger.Error(err, "Failed to delete job.")
 				return reconcile.Result{}, err
 			}
-
-			/*
-				result, _ = cc.Do(context.TODO(),
-					HandleResult(
-						GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-						OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
-				)
-
-				if result.Is(Error) {
-					reqLogger.Error(result.Err, "error updating")
-					return reconcile.Result{}, result.Err
-				}
-			*/
 		}
 
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
-			if err == nil {
-				annotations["marketplace.redhat.com/version"] = version.Version
-				instance.SetAnnotations(annotations)
-				instance.Status.AssociatedJob = nil
-				err = r.Client.Update(context.TODO(), instance)
-			}
-			return err
-		})
-		if err != nil {
-			reqLogger.Error(err, "error updating MeterReport")
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		/*
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				_, err := cc.Do(context.TODO(),
-					GetAction(request.NamespacedName, instance),
-					Call(func() (reconcileutils.ClientAction, error) {
-						annotations["marketplace.redhat.com/version"] = version.Version
-						instance.SetAnnotations(annotations)
-						instance.Status.AssociatedJob = nil
-
-						return nil, nil
-					}),
-					UpdateAction(instance),
-				)
+			if err != nil {
 				return err
-			})
-
-
-			if err != nil {
-				reqLogger.Error(result.Err, "error updating")
-				return reconcile.Result{Requeue: true}, nil
 			}
-		*/
-
-		reqLogger.Info("new version detected, updating version annotation")
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if instance.Status.AssociatedJob != nil &&
-		instance.Status.AssociatedJob.IsSuccessful() &&
-		!errors.IsNotFound(err) {
-		reqLogger.Info("reconcile finished, job successful")
-		return reconcile.Result{}, nil
-	}
-
-	/*
-		if instance.Status.AssociatedJob != nil &&
-			instance.Status.AssociatedJob.IsSuccessful() &&
-			!result.Is(NotFound) {
-			reqLogger.Info("reconcile finished, job successful")
-			return reconcile.Result{}, nil
-		}
-	*/
-
-	// Create associated job
-	if instance.Status.AssociatedJob == nil {
-		reporterJob, _ := r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
-		r.factory.SetControllerReference(instance, reporterJob)
-		err := r.Create(context.TODO(), reporterJob)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			reqLogger.Error(err, "Failed to create ReporterJob.")
-			return reconcile.Result{}, err
-		} else {
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobSubmitted) {
-				err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					return r.Client.Status().Update(context.TODO(), instance)
-				})
-				if err != nil {
-					reqLogger.Error(err, "Failed to update MeterReport status.")
-				}
-			}
-		}
-
-		/*
-			result, _ := cc.Do(context.TODO(),
-				HandleResult(
-					manifests.CreateIfNotExistsFactoryItem(
-						job,
-						func() (runtime.Object, error) {
-							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
-						}, CreateWithAddController(instance),
-					),
-					OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
-				),
-			)
-
-			if !result.Is(Continue) {
-				if result.Is(Error) {
-					reqLogger.Error(result.GetError(), "Failed to on resolving job.")
-				}
-				return result.Return()
-			}
-		*/
-	}
-
-	// Update associated job
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job)
-	if errors.IsNotFound(err) {
-		if instance.Status.AssociatedJob != nil {
 			instance.Status.AssociatedJob = nil
-			reqLogger.Info("Updating MeterReport status associatedJob to nil")
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Status().Update(context.TODO(), instance)
-			})
-			if err != nil {
-				reqLogger.Error(err, "Failed to update MeterReport status.")
-			}
+			return r.Client.Update(context.TODO(), instance)
+		})
 
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		reqLogger.Info("job not found")
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get job.")
-		return reconcile.Result{}, err
-	}
-
-	/*
-			result, _ := cc.Do(
-				context.TODO(),
-				HandleResult(
-					GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-					OnNotFound(Call(func() (ClientAction, error) {
-						reqLogger.Info("job not found")
-
-						if instance.Status.AssociatedJob != nil {
-							instance.Status.AssociatedJob = nil
-							reqLogger.Info("Updating MeterReport status associatedJob to nil")
-							return UpdateAction(instance, UpdateStatusOnly(true)), nil
-						}
-
-						return nil, nil
-					})),
-				),
-			)
-
-
-		if !result.Is(Continue) {
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to on resolving job.")
-			}
-			return result.Return()
-		}
-	*/
-
-	if job == nil {
-		err := errors.NewResourceExpired("job cannot be nil")
-		reqLogger.Error(err, "Failed to on resolving job.")
-		return reconcile.Result{}, err
-	}
-
-	jr := &common.JobReference{}
-	jr.SetFromJob(job)
-
-	reqLogger.Info(
-		"reviewing job",
-		"jr", jr,
-		"done", jr.IsDone(),
-		"failed", jr.IsFailed(),
-		"success", jr.IsSuccessful(),
-	)
-
-	// if report failed
-	switch {
-	case jr.IsFailed():
-		completionTimeDiff := now.Sub(jr.StartTime.Time)
-
-		switch {
-		case completionTimeDiff >= r.cfg.ReportController.RetryTime:
-			reqLogger.Info("job failed, deleteing and requeuing", "retryTime",
-				r.cfg.ReportController.RetryTime,
-				"diff", completionTimeDiff)
-			instance.Status.AssociatedJob = nil
-
-			err := r.Client.Delete(context.TODO(),
-				&batchv1.Job{ObjectMeta: metav1.ObjectMeta{Namespace: instance.Namespace, Name: instance.Name}},
-				client.PropagationPolicy(metav1.DeletePropagationBackground),
-			)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Error(err, "Failed to delete job.")
-				return reconcile.Result{}, err
-			} else {
-				err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					return r.Client.Status().Update(context.TODO(), instance)
-				})
-				if err != nil {
-					reqLogger.Error(err, "Failed to update MeterReport status.")
-					return reconcile.Result{}, err
-				}
-			}
-
-			/*
-				result, _ = cc.Do(context.TODO(),
-					HandleResult(
-						GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-						OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
-					UpdateAction(instance),
-				)
-			*/
-		default:
-			reqLogger.Info("job failed, requeuing in an hour", "time", completionTimeDiff)
-			instance.Status.AssociatedJob = jr
-
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobErrored) {
-				err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					return r.Client.Status().Update(context.TODO(), instance)
-				})
-				if err != nil {
-					reqLogger.Error(err, "Failed to update MeterReport status.")
-				} else {
-					return reconcile.Result{RequeueAfter: 1 * time.Hour}, err
-				}
-			}
-
-			/*
-				result, _ = cc.Do(context.TODO(),
-					UpdateStatusCondition(
-						instance,
-						&instance.Status.Conditions,
-						marketplacev1alpha1.ReportConditionJobErrored),
-					UpdateAction(instance),
-					RequeueAfterResponse(time.Hour),
-				)
-			*/
-		}
-	case jr.IsSuccessful():
-		reqLogger.Info("job is complete")
-
-		if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobFinished) {
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, instance)
-				if err != nil {
-					return err
-				}
-
-				if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobFinished) {
-					instance.Status.AssociatedJob = jr
-					return r.Client.Status().Update(context.TODO(), instance)
-				}
-				return nil
-			})
-			if err != nil {
-				reqLogger.Error(err, "Failed to update MeterReport status.")
-				return reconcile.Result{}, err
-			}
-		}
-
-		/*
-			result, _ = cc.Do(context.TODO(),
-				UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
-			)
-		*/
-
-	default:
-		reqLogger.Info("job not done", "jr", jr)
-		if instance.Status.AssociatedJob == nil ||
-			!reflect.DeepEqual(instance.Status.AssociatedJob, jr) {
-
-			reqLogger.Info("Updating MeterReport status associatedJob")
-
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, instance)
-				if err != nil {
-					return err
-				}
-				instance.Status.AssociatedJob = jr
-				return r.Client.Status().Update(context.TODO(), instance)
-			})
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to update MeterReport status.")
-				return reconcile.Result{}, err
-			}
-
-			/*
-				result, _ = cc.Do(context.TODO(),
-					UpdateAction(instance, UpdateStatusOnly(true)),
-				)
-			*/
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "error updating MeterReport")
+			return reconcile.Result{Requeue: true}, err
 		}
 	}
+	// done getting and delete old job
 
 	reqLogger.Info("reconcile finished")
 	return reconcile.Result{}, nil
@@ -554,81 +168,4 @@ func waitTime(now time.Time, timeToExecute time.Time, addRandom int) time.Durati
 	}
 
 	return waitTime
-}
-
-type ScheduleRunnable struct {
-	client    client.Client
-	eventChan chan event.GenericEvent
-	cfg       config.OperatorConfig
-	log       logr.Logger
-}
-
-func NewScheduleRunnable(
-	c client.Client,
-	cfg config.OperatorConfig,
-	log logr.Logger,
-) *ScheduleRunnable {
-	return &ScheduleRunnable{
-		client:    c,
-		cfg:       cfg,
-		log:       log.WithName("schedule-runnable"),
-		eventChan: make(chan event.GenericEvent),
-	}
-}
-
-func (s *ScheduleRunnable) send(evt event.GenericEvent) {
-	s.eventChan <- evt
-}
-
-func (s *ScheduleRunnable) Source() *source.Channel {
-	return &source.Channel{
-		Source: s.eventChan,
-	}
-}
-
-func (s *ScheduleRunnable) NeedLeaderElection() bool {
-	return true
-}
-
-func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
-	ticker := time.NewTicker(time.Minute * 15)
-
-	var meterReportList marketplacev1alpha1.MeterReportList
-	for {
-		func() {
-			err := s.client.List(context.TODO(), &meterReportList, client.InNamespace(s.cfg.DeployedNamespace))
-			if err != nil {
-				s.log.Error(err, "error getting list")
-				return
-			}
-
-			now := time.Now().UTC()
-
-			for _, report := range meterReportList.Items {
-				runningCondition := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeJobRunning)
-				if runningCondition != nil &&
-					runningCondition.IsFalse() &&
-					runningCondition.Reason == marketplacev1alpha1.ReportConditionReasonJobFinished {
-					continue
-				}
-
-				if !now.After(report.Spec.EndTime.Time.UTC()) {
-					continue
-				}
-
-				s.log.Info("queueing job is not finished and can run now", "meterreport", report.Name, "now", now, "report", report.Spec.EndTime.Time.UTC())
-				s.send(event.GenericEvent{
-					Meta:   &report.ObjectMeta,
-					Object: &report,
-				})
-			}
-		}()
-		select {
-		case <-done:
-			s.log.Info("closing")
-			close(s.eventChan)
-			return nil
-		case <-ticker.C:
-		}
-	}
 }

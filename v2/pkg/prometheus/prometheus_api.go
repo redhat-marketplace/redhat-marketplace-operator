@@ -32,28 +32,40 @@ func queryForPrometheusService(
 	cc ClientCommandRunner,
 	deployedNamespace string,
 	userWorkloadMonitoringEnabled bool,
-) (*corev1.Service, error) {
+) (*corev1.Service, *corev1.ServicePort, error) {
 	service := &corev1.Service{}
 
 	var name types.NamespacedName
+	var portName string
 	if userWorkloadMonitoringEnabled {
 		name = types.NamespacedName{
-			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME,
-			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+			Name:      utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
+			Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
 		}
+		portName = "web"
 	} else {
 		name = types.NamespacedName{
 			Name:      utils.METERBASE_PROMETHEUS_SERVICE_NAME,
 			Namespace: deployedNamespace,
 		}
+		portName = "rbac"
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get prometheus service")
+		return nil, nil, errors.Wrap(result, "failed to get prometheus service")
 	}
 
 	log.Info("retrieved prometheus service")
-	return service, nil
+
+	var port *corev1.ServicePort
+
+	for i, portB := range service.Spec.Ports {
+		if portB.Name == portName {
+			port = &service.Spec.Ports[i]
+		}
+	}
+
+	return service, port, nil
 }
 
 func getCertConfigMap(ctx context.Context,
@@ -96,7 +108,7 @@ func ProvidePrometheusAPI(
 	reqLogger logr.Logger,
 	userWorkloadMonitoringEnabled bool) (*PrometheusAPI, error) {
 
-	service, err := queryForPrometheusService(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
+	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +128,7 @@ func ProvidePrometheusAPI(
 		if err != nil {
 			return nil, err
 		}
-		prometheusAPI, err := NewPromAPI(service, &cert, string(authToken))
+		prometheusAPI, err := NewPromAPI(service, port, &cert, string(authToken))
 		if err != nil {
 			return nil, err
 		}

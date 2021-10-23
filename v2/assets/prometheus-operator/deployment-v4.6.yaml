@@ -26,13 +26,13 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                    - amd64
-                    - ppc64le
-                    - s390x
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - ppc64le
+                      - s390x
       containers:
         - image: redhat-marketplace-authcheck:latest
           imagePullPolicy: IfNotPresent
@@ -49,13 +49,12 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
         - args:
             - --kubelet-service=kube-system/kubelet
-            - --logtostderr=true
             - --prometheus-config-reloader={{PROM_CONFIGMAP_RELOADER_IMAGE}}
             - --deny-namespaces={{NAMESPACES}}
             - --prometheus-instance-namespaces={{NAMESPACE}}
@@ -77,7 +76,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
@@ -110,7 +109,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true

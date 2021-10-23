@@ -19,7 +19,6 @@ package v1beta1
 import (
 	"bytes"
 	"errors"
-	"strconv"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -95,39 +94,17 @@ func (meterdef *MeterDefinitionReference) ToPrometheusLabels() ([]*common.MeterD
 	return meterdef.Spec.ToPrometheusLabels(string(meterdef.UID), meterdef.Name, meterdef.Namespace), nil
 }
 
+type WorkloadVertex string
+type CSVNamespacedName common.NamespacedNameReference
+
 const (
 	WorkloadVertexOperatorGroup WorkloadVertex = "OperatorGroup"
 	WorkloadVertexNamespace                    = "Namespace"
-)
-const (
-	WorkloadTypePod     WorkloadType = "Pod"
-	WorkloadTypeService WorkloadType = "Service"
-	WorkloadTypePVC     WorkloadType = "PersistentVolumeClaim"
-)
-const (
-	ReconcileError                    status.ConditionType = "Reconcile Error"
+
+	ReconcileError                    status.ConditionType = "ReconcileError"
 	MeterDefQueryPreviewSetupError    status.ConditionType = "QueryPreviewSetupError"
 	MeterDefVerifyReportingSetupError status.ConditionType = "VerifyReportingSetupError"
 )
-
-type WorkloadVertex string
-type WorkloadType string
-type CSVNamespacedName common.NamespacedNameReference
-
-func (a *WorkloadType) UnmarshalJSON(b []byte) error {
-	str, err := strconv.Unquote(string(b))
-
-	if err != nil {
-		return err
-	}
-
-	*a = WorkloadType(str)
-	return nil
-}
-
-func (a WorkloadType) MarshalJSON() ([]byte, error) {
-	return []byte(strconv.Quote(string(a))), nil
-}
 
 type ResourceFilter struct {
 	// Namespace is the filter to control which namespaces to look for your resources.
@@ -148,7 +125,7 @@ type ResourceFilter struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
 	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
-	WorkloadType WorkloadType `json:"workloadType"`
+	WorkloadType common.WorkloadType `json:"workloadType"`
 }
 
 type NamespaceFilter struct {
@@ -201,7 +178,14 @@ type MeterWorkload struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
 	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
-	WorkloadType WorkloadType `json:"workloadType"`
+	WorkloadType common.WorkloadType `json:"workloadType"`
+
+	// MetricType identifies the type of metric this meter definition reports. Currently "billable", "license", or "adoption".
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:adoption,urn:alm:descriptor:com.tectonic.ui:select:billable,urn:alm:descriptor:com.tectonic.ui:select:license"
+	// +optional
+	// +kubebuilder:validation:Enum:=billable;license;adoption
+	MetricType common.MetricType `json:"metricType,omitempty"`
 
 	// Group is the set of label fields returned by query to aggregate on.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -338,11 +322,12 @@ func (meterdefspec *MeterDefinitionSpec) ToPrometheusLabels(uid, name, namespace
 			Unit:               meter.Unit,
 			DisplayName:        meter.Name,
 			MetricWithout:      common.JSONArray(meter.Without),
-			WorkloadType:       string(meter.WorkloadType),
+			WorkloadType:       meter.WorkloadType,
 			MetricAggregation:  meter.Aggregation,
 			MeterDescription:   meter.Description,
 			DateLabelOverride:  meter.DateLabelOverride,
 			ValueLabelOverride: meter.ValueLabelOverride,
+			MetricType:         meter.MetricType,
 		}
 
 		allMdefs = append(allMdefs, obj)

@@ -17,6 +17,7 @@ package config
 import (
 	"bytes"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -67,9 +68,10 @@ type Resources struct {
 // RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
 	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5"`
+	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.8"`
 	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
+	DQLite                      string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
 	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:latest"`
 	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:latest"`
 	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:latest"`
@@ -85,6 +87,7 @@ type OSRelatedImages struct {
 	KubeRbacProxy               string `env:"OS_IMAGE_KUBE_RBAC_PROXY" envDefault:"quay.io/coreos/kube-rbac-proxy:v0.5.0"`
 	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
+	DQLite                      string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
 	Prometheus                  string `env:"OS_IMAGE_PROMETHEUS" envDefault:"quay.io/prometheus/prometheus:v2.24.0"`
 	PrometheusOperator          string `env:"OS_IMAGE_PROMETHEUS_OPERATOR" envDefault:"quay.io/coreos/prometheus-operator:v0.42.1"`
 	ConfigMapReloader           string `env:"OS_IMAGE_CONFIGMAP_RELOADER" envDefault:"quay.io/coreos/configmap-reload:v0.0.1"`
@@ -116,8 +119,11 @@ type MeterBaseValues struct {
 
 // ReportConfig stores some changeable information for creating a report
 type ReportControllerConfig struct {
-	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h" json:"retryTime"`
-	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT" json:"retryLimit,omitempty"`
+	RetryTime             time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
+	RetryLimit            *int32        `env:"REPORT_RETRY_LIMIT"`
+	PollTime              time.Duration `env:"REPORT_POLL_TIME_DURATION" envDefault:"1h"`
+	UploadTargetsOverride []string      `env:"UPLOADTARGETSOVERRIDE" envSeparator:","`
+	ReporterSchema        string        `env:"REPORTERSCHEMA"`
 }
 
 type OLMInformation struct {
@@ -186,26 +192,35 @@ func ProvideInfrastructureAwareConfig(
 			return nil, errors.Wrap(err, "failed to parse config")
 		}
 
-		// Use v4.6 images on Openshift 4.6 instead of default v4.5 images
-		// But otherwise respect an override
+		// Use OCP version related images on Openshift 4.6+ instead of default v4.5 images
 		if inf.HasOpenshift() && inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+
+			// version 4.8 is latest one tested with RHMP operator, use it on newer releases than 4.8
+			ocpTag := "4.8"
+
+			if inf.OpenshiftParsedVersion().LT(utils.ParsedVersion480) {
+				// on version 4.6 and 4.7 use images for given OCP release
+				ocpVersion := inf.OpenshiftParsedVersion()
+				ocpTag = strconv.FormatUint(ocpVersion.Major, 10) + "." + strconv.FormatUint(ocpVersion.Minor, 10)
+			}
+
 			if cfg.RelatedImages.Prometheus == "registry.redhat.io/openshift4/ose-prometheus:v4.5" {
-				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v4.6"
+				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v" + ocpTag
 			}
 			if cfg.RelatedImages.PrometheusOperator == "registry.redhat.io/openshift4/ose-prometheus-operator:v4.5" {
-				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v4.6"
+				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v" + ocpTag
 			}
 			if cfg.RelatedImages.OAuthProxy == "registry.redhat.io/openshift4/ose-oauth-proxy:v4.5" {
-				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v4.6"
+				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v" + ocpTag
 			}
 			if cfg.RelatedImages.ConfigMapReloader == "registry.redhat.io/openshift4/ose-configmap-reloader:v4.5" {
-				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v4.6"
+				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v" + ocpTag
 			}
 			if cfg.RelatedImages.PrometheusConfigMapReloader == "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5" {
-				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.6"
+				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v" + ocpTag
 			}
 			if cfg.RelatedImages.KubeRbacProxy == "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5" {
-				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.6"
+				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v" + ocpTag
 			}
 		}
 

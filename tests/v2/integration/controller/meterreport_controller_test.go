@@ -16,6 +16,7 @@ package controller_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -24,6 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -88,7 +90,7 @@ var _ = Describe("MeterReportController", func() {
 						TargetPort: intstr.FromString("rbac"),
 					},
 					ExtraArgs: []string{
-						"--uploadTarget", "noop",
+						"--uploadTargets", "noop",
 					},
 					MeterDefinitions: []v1alpha1.MeterDefinition{},
 				},
@@ -163,6 +165,121 @@ var _ = Describe("MeterReportController", func() {
 					"conditionStatus":  cond.Status,
 				}
 			}, timeout, interval).Should(
+				MatchAllKeys(Keys{
+					"resultStatus":     Equal(Continue),
+					"conditionType":    Equal(v1alpha1.ReportConditionJobFinished.Type),
+					"conditionMessage": Equal(v1alpha1.ReportConditionJobFinished.Message),
+					"conditionStatus":  Equal(v1alpha1.ReportConditionJobFinished.Status),
+				}))
+		})
+
+		It("should upload to the data service if the upload target is set", func() {
+			Eventually(func() bool {
+				meterbase := &v1alpha1.MeterBase{}
+		
+				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: "rhm-marketplaceconfig-meterbase",Namespace: "openshift-redhat-marketplace"} ,meterbase)
+				if err != nil {
+					return false
+				}
+
+				newMeterBase := meterbase.DeepCopy()
+		
+				newMeterBase.Spec.DataServiceEnabled = true
+		
+				err = testHarness.Update(context.TODO(),newMeterBase)			
+				if err != nil {
+					return false
+				}
+
+				return true		
+			
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				ss := &appsv1.StatefulSet{}
+				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: "rhm-data-service",Namespace: "openshift-redhat-marketplace"} ,ss)
+				if err != nil {
+					return false
+				}
+
+				if ss.Status.ReadyReplicas == 3 {
+					return true
+				}
+
+				return false
+			},dataServiceTimeout, interval).Should(BeTrue())
+			job := &batchv1.Job{}
+			Eventually(func() bool {
+				meterreport.Spec.ExtraArgs = []string{"--uploadTarget=data-service"}
+				result, err := testHarness.Do(
+					context.TODO(),
+					CreateAction(meterreport),
+				)
+
+				if err !=nil {
+					fmt.Printf("error creating meterreport %s",err)
+				}
+
+				result, _ = testHarness.Do(
+					context.TODO(),
+					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, job),
+				)
+
+				return result.Is(Continue)
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() map[string]interface{} {
+				result, _ := testHarness.Do(
+					context.TODO(),
+					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, meterreport),
+				)
+
+				if !result.Is(Continue) {
+					return map[string]interface{}{
+						"result": result.Status,
+					}
+				}
+
+				return map[string]interface{}{
+					"result": result.Status,
+					"job":    meterreport.Status.AssociatedJob,
+				}
+			}, timeout, interval).Should(
+				MatchAllKeys(Keys{
+					"result": Equal(Continue),
+					"job": WithTransform(func(o *common.JobReference) string {
+						if o == nil {
+							return ""
+						}
+						return o.Name
+					}, Equal(job.Name)),
+				}))
+
+			Eventually(func() map[string]interface{} {
+				result, _ := testHarness.Do(
+					context.TODO(),
+					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, meterreport),
+				)
+				if !result.Is(Continue) {
+					return map[string]interface{}{
+						"resultStatus": result.Status,
+					}
+				}
+
+				if meterreport.Status.Conditions == nil {
+					return map[string]interface{}{
+						"resultStatus": "noConditions",
+					}
+				}
+
+				cond := meterreport.Status.Conditions.GetCondition(v1alpha1.ReportConditionTypeJobRunning)
+				return map[string]interface{}{
+					"resultStatus":     result.Status,
+					"conditionType":    cond.Type,
+					"conditionMessage": cond.Message,
+					"conditionStatus":  cond.Status,
+				}
+			}, jobTimeout, interval).Should(
 				MatchAllKeys(Keys{
 					"resultStatus":     Equal(Continue),
 					"conditionType":    Equal(v1alpha1.ReportConditionJobFinished.Type),
