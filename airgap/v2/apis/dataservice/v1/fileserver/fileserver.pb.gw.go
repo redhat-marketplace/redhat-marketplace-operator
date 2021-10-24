@@ -67,6 +67,10 @@ func local_request_FileServer_ListFiles_0(ctx context.Context, marshaler runtime
 
 }
 
+var (
+	filter_FileServer_GetFile_0 = &utilities.DoubleArray{Encoding: map[string]int{"id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+)
+
 func request_FileServer_GetFile_0(ctx context.Context, marshaler runtime.Marshaler, client FileServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetFileRequest
 	var metadata runtime.ServerMetadata
@@ -83,9 +87,21 @@ func request_FileServer_GetFile_0(ctx context.Context, marshaler runtime.Marshal
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
 	}
 
-	protoReq.Id, err = runtime.String(val)
+	if protoReq.IdLookup == nil {
+		protoReq.IdLookup = &GetFileRequest_Id{}
+	} else if _, ok := protoReq.IdLookup.(*GetFileRequest_Id); !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "expect type: *GetFileRequest_Id, but: %t\n", protoReq.IdLookup)
+	}
+	protoReq.IdLookup.(*GetFileRequest_Id).Id, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_FileServer_GetFile_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	msg, err := client.GetFile(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -109,9 +125,21 @@ func local_request_FileServer_GetFile_0(ctx context.Context, marshaler runtime.M
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
 	}
 
-	protoReq.Id, err = runtime.String(val)
+	if protoReq.IdLookup == nil {
+		protoReq.IdLookup = &GetFileRequest_Id{}
+	} else if _, ok := protoReq.IdLookup.(*GetFileRequest_Id); !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "expect type: *GetFileRequest_Id, but: %t\n", protoReq.IdLookup)
+	}
+	protoReq.IdLookup.(*GetFileRequest_Id).Id, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_FileServer_GetFile_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	msg, err := server.GetFile(ctx, &protoReq)
@@ -119,46 +147,112 @@ func local_request_FileServer_GetFile_0(ctx context.Context, marshaler runtime.M
 
 }
 
-func request_FileServer_UploadFile_0(ctx context.Context, marshaler runtime.Marshaler, client FileServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+var (
+	filter_FileServer_GetFile_1 = &utilities.DoubleArray{Encoding: map[string]int{"key": 0, "source": 1, "sourceType": 2, "name": 3}, Base: []int{1, 1, 1, 2, 3, 0, 0, 0}, Check: []int{0, 1, 2, 2, 2, 3, 4, 5}}
+)
+
+func request_FileServer_GetFile_1(ctx context.Context, marshaler runtime.Marshaler, client FileServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GetFileRequest
 	var metadata runtime.ServerMetadata
-	stream, err := client.UploadFile(ctx)
-	if err != nil {
-		grpclog.Infof("Failed to start streaming: %v", err)
-		return nil, metadata, err
-	}
-	dec := marshaler.NewDecoder(req.Body)
-	for {
-		var protoReq UploadFileRequest
-		err = dec.Decode(&protoReq)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			grpclog.Infof("Failed to decode request: %v", err)
-			return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-		}
-		if err = stream.Send(&protoReq); err != nil {
-			if err == io.EOF {
-				break
-			}
-			grpclog.Infof("Failed to send request: %v", err)
-			return nil, metadata, err
-		}
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["key.source"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key.source")
 	}
 
-	if err := stream.CloseSend(); err != nil {
-		grpclog.Infof("Failed to terminate client stream: %v", err)
-		return nil, metadata, err
-	}
-	header, err := stream.Header()
+	err = runtime.PopulateFieldFromPath(&protoReq, "key.source", val)
 	if err != nil {
-		grpclog.Infof("Failed to get header from client: %v", err)
-		return nil, metadata, err
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key.source", err)
 	}
-	metadata.HeaderMD = header
 
-	msg, err := stream.CloseAndRecv()
-	metadata.TrailerMD = stream.Trailer()
+	val, ok = pathParams["key.sourceType"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key.sourceType")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "key.sourceType", val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key.sourceType", err)
+	}
+
+	val, ok = pathParams["key.name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "key.name", val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key.name", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_FileServer_GetFile_1); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.GetFile(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_FileServer_GetFile_1(ctx context.Context, marshaler runtime.Marshaler, server FileServerServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GetFileRequest
+	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["key.source"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key.source")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "key.source", val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key.source", err)
+	}
+
+	val, ok = pathParams["key.sourceType"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key.sourceType")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "key.sourceType", val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key.sourceType", err)
+	}
+
+	val, ok = pathParams["key.name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "key.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "key.name", val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "key.name", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_FileServer_GetFile_1); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.GetFile(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -199,39 +293,9 @@ func local_request_FileServer_UpdateFileMetadata_0(ctx context.Context, marshale
 
 }
 
-func request_FileServer_DownloadFile_0(ctx context.Context, marshaler runtime.Marshaler, client FileServerClient, req *http.Request, pathParams map[string]string) (FileServer_DownloadFileClient, runtime.ServerMetadata, error) {
-	var protoReq DownloadFileRequest
-	var metadata runtime.ServerMetadata
-
-	var (
-		val string
-		ok  bool
-		err error
-		_   = err
-	)
-
-	val, ok = pathParams["id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
-	}
-
-	protoReq.Id, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
-	}
-
-	stream, err := client.DownloadFile(ctx, &protoReq)
-	if err != nil {
-		return nil, metadata, err
-	}
-	header, err := stream.Header()
-	if err != nil {
-		return nil, metadata, err
-	}
-	metadata.HeaderMD = header
-	return stream, metadata, nil
-
-}
+var (
+	filter_FileServer_DeleteFile_0 = &utilities.DoubleArray{Encoding: map[string]int{"id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+)
 
 func request_FileServer_DeleteFile_0(ctx context.Context, marshaler runtime.Marshaler, client FileServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DeleteFileRequest
@@ -252,6 +316,13 @@ func request_FileServer_DeleteFile_0(ctx context.Context, marshaler runtime.Mars
 	protoReq.Id, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_FileServer_DeleteFile_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	msg, err := client.DeleteFile(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -278,6 +349,13 @@ func local_request_FileServer_DeleteFile_0(ctx context.Context, marshaler runtim
 	protoReq.Id, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_FileServer_DeleteFile_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	msg, err := server.DeleteFile(ctx, &protoReq)
@@ -355,11 +433,27 @@ func RegisterFileServerHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 
 	})
 
-	mux.Handle("POST", pattern_FileServer_UploadFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-		return
+	mux.Handle("GET", pattern_FileServer_GetFile_1, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/dataservice.v1.fileserver.FileServer/GetFile", runtime.WithHTTPPathPattern("/v1/files/source/{key.source}/sourceType/{key.sourceType}/name/{key.name}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_FileServer_GetFile_1(rctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_FileServer_GetFile_1(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	mux.Handle("PUT", pattern_FileServer_UpdateFileMetadata_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -383,13 +477,6 @@ func RegisterFileServerHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 
 		forward_FileServer_UpdateFileMetadata_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
-	})
-
-	mux.Handle("GET", pattern_FileServer_DownloadFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-		return
 	})
 
 	mux.Handle("DELETE", pattern_FileServer_DeleteFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -519,23 +606,23 @@ func RegisterFileServerHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 
 	})
 
-	mux.Handle("POST", pattern_FileServer_UploadFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_FileServer_GetFile_1, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dataservice.v1.fileserver.FileServer/UploadFile", runtime.WithHTTPPathPattern("/v1/files"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dataservice.v1.fileserver.FileServer/GetFile", runtime.WithHTTPPathPattern("/v1/files/source/{key.source}/sourceType/{key.sourceType}/name/{key.name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_FileServer_UploadFile_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_FileServer_GetFile_1(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_FileServer_UploadFile_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_FileServer_GetFile_1(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -556,26 +643,6 @@ func RegisterFileServerHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		}
 
 		forward_FileServer_UpdateFileMetadata_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("GET", pattern_FileServer_DownloadFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/dataservice.v1.fileserver.FileServer/DownloadFile", runtime.WithHTTPPathPattern("/v1/files/{id}/download"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_FileServer_DownloadFile_0(rctx, inboundMarshaler, client, req, pathParams)
-		ctx = runtime.NewServerMetadataContext(ctx, md)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_FileServer_DownloadFile_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -627,11 +694,9 @@ var (
 
 	pattern_FileServer_GetFile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "files", "id"}, ""))
 
-	pattern_FileServer_UploadFile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "files"}, ""))
+	pattern_FileServer_GetFile_1 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6, 1, 0, 4, 1, 5, 7}, []string{"v1", "files", "source", "key.source", "sourceType", "key.sourceType", "name", "key.name"}, ""))
 
 	pattern_FileServer_UpdateFileMetadata_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "files"}, ""))
-
-	pattern_FileServer_DownloadFile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "files", "id", "download"}, ""))
 
 	pattern_FileServer_DeleteFile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "files", "id"}, ""))
 
@@ -643,11 +708,9 @@ var (
 
 	forward_FileServer_GetFile_0 = runtime.ForwardResponseMessage
 
-	forward_FileServer_UploadFile_0 = runtime.ForwardResponseMessage
+	forward_FileServer_GetFile_1 = runtime.ForwardResponseMessage
 
 	forward_FileServer_UpdateFileMetadata_0 = runtime.ForwardResponseMessage
-
-	forward_FileServer_DownloadFile_0 = runtime.ForwardResponseStream
 
 	forward_FileServer_DeleteFile_0 = runtime.ForwardResponseMessage
 

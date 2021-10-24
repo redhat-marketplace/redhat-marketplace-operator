@@ -45,7 +45,6 @@ func (r *MeterDefinition) Default() {
 	meterdefinitionlog.Info("default", "name", r.Name, "mdef", r)
 }
 
-// Disabled for now
 // +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com,admissionReviewVersions=v1beta1;v1alpha1
 
 var _ webhook.Validator = &MeterDefinition{}

@@ -113,12 +113,12 @@ func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg *config.OperatorCon
 func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 
 	// This mapFn will queue the default named razeedeployment
-	mapFn := handler.ToRequestsFunc(
-		func(a handler.MapObject) []reconcile.Request {
+	mapFn := handler.MapFunc(
+		func(obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
 					Name:      utils.RAZEE_NAME,
-					Namespace: a.Meta.GetNamespace(),
+					Namespace: obj.GetNamespace(),
 				}},
 			}
 		})
@@ -132,7 +132,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 			// The object doesn't contain label "foo", so the event will be
 			// ignored.
-			if _, ok := e.MetaOld.GetLabels()[label]; !ok {
+			if _, ok := e.ObjectOld.GetLabels()[label]; !ok {
 				return false
 			}
 
@@ -141,11 +141,11 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		CreateFunc: func(e event.CreateEvent) bool {
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 
-			if e.Meta.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
+			if e.Object.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
 				return true
 			}
 
-			if _, ok := e.Meta.GetLabels()[label]; !ok {
+			if _, ok := e.Object.GetLabels()[label]; !ok {
 				return false
 			}
 
@@ -154,7 +154,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 
-			if _, ok := e.Meta.GetLabels()[label]; !ok {
+			if _, ok := e.Object.GetLabels()[label]; !ok {
 				return false
 			}
 
@@ -171,10 +171,10 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			return false
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Meta.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
+			return e.Object.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Meta.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
+			return e.Object.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
 		},
 	}
 
@@ -199,14 +199,10 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 		}).
 		Watches(&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
-			},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(p)).
 		Watches(&source.Kind{Type: &corev1.Pod{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
-			},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pp)).
 		Watches(
 			&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}},
@@ -240,7 +236,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
-func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
@@ -1525,7 +1521,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		reqLogger.Info("retry limit exceeded, removing finalizers on childRRS3", "err", err.Error())
 
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key, _ := client.ObjectKeyFromObject(&childRRS3)
+			key := client.ObjectKeyFromObject(&childRRS3)
 
 			err := r.Client.Get(context.TODO(), key, &childRRS3)
 			if err != nil {
@@ -1578,7 +1574,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		reqLogger.Info("retry limit exceeded, removing finalizers on parentRRS3", "err", err.Error())
 
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key, _ := client.ObjectKeyFromObject(&parentRRS3)
+			key := client.ObjectKeyFromObject(&parentRRS3)
 
 			err := r.Client.Get(context.TODO(), key, &parentRRS3)
 			if err != nil {

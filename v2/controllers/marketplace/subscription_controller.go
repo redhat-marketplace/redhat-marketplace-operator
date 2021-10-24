@@ -54,23 +54,23 @@ func (r *SubscriptionReconciler) SetupWithManager(mgr manager.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				operatorTagLabel, okOperator := evt.MetaNew.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.MetaNew.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.ObjectNew.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.ObjectNew.GetLabels()[uninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.Object.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[uninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
-				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.Object.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[uninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.Object.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[uninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 		},
@@ -88,7 +88,7 @@ func (r *SubscriptionReconciler) SetupWithManager(mgr manager.Manager) error {
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
-func (r *SubscriptionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Subscription")
 

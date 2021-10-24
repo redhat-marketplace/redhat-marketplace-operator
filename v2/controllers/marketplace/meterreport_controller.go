@@ -100,7 +100,7 @@ const rerunTime = 1 * 24 * time.Hour // 1 day - reducing rerun time
 
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterReportReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterReport")
 

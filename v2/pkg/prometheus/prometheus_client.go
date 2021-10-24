@@ -281,7 +281,8 @@ func GenerateCACertPool(files ...string) (*tls.Config, error) {
 	}
 
 	return &tls.Config{
-		RootCAs: caCertPool,
+		RootCAs:   caCertPool,
+		ClientCAs: caCertPool,
 	}, nil
 }
 

@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -83,7 +82,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 						client.MatchingLabels(map[string]string{
 							doNotUninstallLabel: "true",
 						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 						list, ok := i.(*olmv1alpha1.SubscriptionList)
 
 						assert.Truef(t, ok, "expected subscription list, got type %T", i)

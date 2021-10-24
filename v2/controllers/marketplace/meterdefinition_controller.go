@@ -122,7 +122,7 @@ func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) 
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
-func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterDefinitionReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterDefinition")
 
@@ -433,7 +433,6 @@ func labelsToRegex(labels []string) string {
 // Is Prometheus reporting on the MeterDefinition
 // Check MeterDefinition presense in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
-
 	var prometheusAPI *prom.PrometheusAPI
 	var err error
 
@@ -449,7 +448,10 @@ func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, inst
 
 	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
 
-	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()
+	mdefLabelValue := model.LabelValue(instance.Name)
+	matches := []string{string(mdefLabelValue)}
+
+	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues(matches)
 
 	if warnings != nil {
 		reqLogger.Info("warnings %v", warnings)
@@ -461,7 +463,6 @@ func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, inst
 		return false, returnErr
 	}
 
-	mdefLabelValue := model.LabelValue(instance.Name)
 	for _, labelValue := range labelValues {
 		if labelValue == mdefLabelValue {
 			return true, nil

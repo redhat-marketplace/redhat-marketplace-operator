@@ -15,10 +15,8 @@
 package modelsv2
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"io"
 
 	"gorm.io/gorm"
 )
@@ -54,6 +52,14 @@ type StoredFile struct {
 	FileMetadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
 }
 
+type StoredFileKey struct {
+	gorm.Model
+
+	Name       string
+	Source     string
+	SourceType string
+}
+
 func (f *StoredFileContent) BeforeSave(tx *gorm.DB) (err error) {
 	if len(f.Content) == 0 {
 		return nil
@@ -64,12 +70,8 @@ func (f *StoredFileContent) BeforeSave(tx *gorm.DB) (err error) {
 	}
 
 	{ //calculate checksum
-		h := sha256.New()
-		if _, err = io.Copy(h, bytes.NewReader(f.Content)); err != nil {
-			return
-		}
-
-		f.Checksum = fmt.Sprintf("%x", h.Sum(nil))
+		sum := sha256.Sum256(f.Content)
+		f.Checksum = fmt.Sprintf("%x", sum)
 	}
 
 	return

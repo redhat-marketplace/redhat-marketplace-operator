@@ -7,11 +7,10 @@ require (
 	github.com/GoogleContainerTools/skaffold v1.16.0
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
-	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 v2.0.0-20210729050326-8246afe36a7e
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210729050326-8246afe36a7e // indirect
 	github.com/rivo/tview v0.0.0-20201118063654-f007e9ad3893
-	google.golang.org/grpc v1.39.0
+	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 )
 
@@ -29,6 +28,6 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../
-	k8s.io/api => k8s.io/api v0.19.4
-	k8s.io/client-go => k8s.io/client-go v0.19.4 // Required by prometheus-operator
+	k8s.io/api => k8s.io/api v0.22.2
+	k8s.io/client-go => k8s.io/client-go v0.22.2 // Required by prometheus-operator
 )

@@ -12,6 +12,7 @@ require (
 	github.com/gotidy/ptr v1.3.0
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/mapstructure v1.4.2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
@@ -25,8 +26,8 @@ require (
 	github.com/spf13/viper v1.9.0
 	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
-	google.golang.org/grpc v1.40.0
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	google.golang.org/grpc v1.41.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible
@@ -40,6 +41,6 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.19.4
-	k8s.io/client-go => k8s.io/client-go v0.19.4
+	k8s.io/api => k8s.io/api v0.22.2
+	k8s.io/client-go => k8s.io/client-go v0.22.2
 )

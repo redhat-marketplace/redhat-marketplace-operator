@@ -32,7 +32,7 @@ build:
             - 'assets/**'
             - Dockerfile
           ignore:
-            - '*_test.go'
+            - './**/*_test.go'
     - image: redhat-marketplace-reporter
       context: ../reporter/v2
       custom:

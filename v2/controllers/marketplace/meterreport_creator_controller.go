@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type MeterReportCreatorReconciler struct {
@@ -53,7 +54,7 @@ type MeterReportCreatorReconciler struct {
 	cfg    *config.OperatorConfig
 }
 
-func (r *MeterReportCreatorReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log
 
 	// Fetch the MeterBase instance
@@ -174,9 +175,11 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 		defer close(events)
 		defer ticker.Stop()
 
-		meta := &metav1.ObjectMeta{
-			Name:      utils.METERBASE_NAME,
-			Namespace: r.cfg.DeployedNamespace,
+		meta := &marketplacev1alpha1.MeterBase{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.METERBASE_NAME,
+				Namespace: r.cfg.DeployedNamespace,
+			},
 		}
 
 		for {
@@ -185,7 +188,7 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 				return
 			case <-ticker.C:
 				events <- event.GenericEvent(CheckMeterReports{
-					Meta: meta,
+					Object: meta,
 				})
 			}
 		}
@@ -226,8 +229,12 @@ func (r *MeterReportCreatorReconciler) createMissingReports(missingReports []str
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
 		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName)
+
 		err := r.Client.Create(context.TODO(), missingMeterReport)
 		if err != nil {
+			if k8serrors.IsAlreadyExists(err) {
+				continue
+			}
 			return err
 		}
 		reqLogger.Info("Created Missing Report", "Resource", missingReportName)

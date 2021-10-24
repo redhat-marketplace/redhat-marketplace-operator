@@ -109,7 +109,7 @@ func main() {
 			var group errgroup.Group
 
 			group.Go(func() error {
-				return sched.Start(stopCh)
+				return sched.Start(ctx)
 			})
 
 			group.Go(func() error {

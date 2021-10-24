@@ -25,6 +25,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -35,12 +37,14 @@ type Server struct {
 	APIEndpoint     string
 	GatewayEndpoint string
 
+	Health                  *health.Server
 	APIListenerProvider     func(addr string) (net.Listener, error)
 	GatewayListenerProvider func(addr string) (net.Listener, error)
 }
 
 func (frs *Server) Start(ctx context.Context) error {
-	fileServer := FileServer{Server: frs}
+	healthServer := health.NewServer()
+	fs := &FileServer{Server: frs, Health: healthServer}
 
 	defaultListener := func(addr string) (net.Listener, error) {
 		return net.Listen("tcp", addr)
@@ -67,7 +71,8 @@ func (frs *Server) Start(ctx context.Context) error {
 
 		grpcServer := grpc.NewServer()
 
-		fileserver.RegisterFileServerServer(grpcServer, &fileServer)
+		fileserver.RegisterFileServerServer(grpcServer, fs)
+		grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 		reflection.Register(grpcServer)
 
 		return grpcServer.Serve(lis)
@@ -84,6 +89,11 @@ func (frs *Server) Start(ctx context.Context) error {
 		opts := []grpc.DialOption{grpc.WithInsecure()}
 
 		err = fileserver.RegisterFileServerHandlerFromEndpoint(ctx, mux, frs.APIEndpoint, opts)
+		if err != nil {
+			return err
+		}
+
+		err = fs.RegisterHttpRoutes(mux)
 		if err != nil {
 			return err
 		}

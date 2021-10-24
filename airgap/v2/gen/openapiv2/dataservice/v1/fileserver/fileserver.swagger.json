@@ -67,26 +67,6 @@
           "FileServer"
         ]
       },
-      "post": {
-        "operationId": "FileServer_UploadFile",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/fileserverUploadFileResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "tags": [
-          "FileServer"
-        ]
-      },
       "put": {
         "operationId": "FileServer_UpdateFileMetadata",
         "responses": {

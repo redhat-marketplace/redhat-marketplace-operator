@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -42,7 +43,7 @@ func GVKNamespaceKeyFunc(scheme *runtime.Scheme) func(obj interface{}) (string, 
 			return string(key), nil
 		}
 
-		v, ok := obj.(runtime.Object)
+		v, ok := obj.(client.Object)
 		if !ok {
 			return "", errors.New("not a runtime object")
 		}

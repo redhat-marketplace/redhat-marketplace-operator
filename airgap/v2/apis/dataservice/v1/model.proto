@@ -19,7 +19,13 @@ message FileInfo {
 
   google.protobuf.Timestamp created_at = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp updated_at = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
-  google.protobuf.Timestamp deleted_at = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+  optional google.protobuf.Timestamp deleted_at = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   map<string,string> metadata = 20;
+}
+
+message FileKey {
+  string name = 1;
+  string source = 2;
+  string sourceType = 3;
 }

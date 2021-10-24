@@ -390,11 +390,11 @@ func (p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (mode
 }
 
 // return LabelValues/MeterDefinition names seen in the last hour
-func (p *PrometheusAPI) MeterDefLabelValues() (model.LabelValues, v1.Warnings, error) {
+func (p *PrometheusAPI) MeterDefLabelValues(matches []string) (model.LabelValues, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	labelValues, warnings, err := p.LabelValues(ctx, "meter_def_name", time.Now().Add(-time.Hour), time.Now())
+	labelValues, warnings, err := p.LabelValues(ctx, "meter_def_name", matches, time.Now().Add(-time.Hour), time.Now())
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)

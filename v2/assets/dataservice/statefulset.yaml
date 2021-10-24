@@ -27,15 +27,8 @@ spec:
                   - redhat-marketplace
                 topologyKey: kubernetes.io/hostname
               weight: 100
+      terminationGracePeriodSeconds: 45
       containers:
-        - image: redhat-marketplace-authcheck
-          imagePullPolicy: IfNotPresent
-          name: authcheck
-          resources:
-            requests:
-              cpu: 10m
-              memory: 20Mi
-          terminationMessagePolicy: FallbackToLogsOnError
         - command: ['/bin/sh']
           args:
             [
@@ -60,6 +53,13 @@ spec:
           image: redhat-marketplace-data-service
           imagePullPolicy: IfNotPresent
           name: rhm-data-service
+          livenessProbe:
+            exec:
+              command:
+                - grpc_health_probe
+                - -addr=localhost:8003
+            initialDelaySeconds: 5
+            periodSeconds: 5
           ports:
             - containerPort: 9001
               name: db
@@ -73,6 +73,14 @@ spec:
             - mountPath: /etc/tls/private
               name: rhm-data-service-mtls
               readOnly: false
+        - image: redhat-marketplace-authcheck
+          imagePullPolicy: IfNotPresent
+          name: authcheck
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --logtostderr
             - --secure-listen-address=:8004
@@ -106,7 +114,7 @@ spec:
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
               readOnly: false
-          - args:
+        - args:
             - --logtostderr
             - --secure-listen-address=:8008
             - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
@@ -117,7 +125,7 @@ spec:
             - --auth-token-audiences=rhm-data-service.{{NAMESPACE}}.svc
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: Always
-          name: kube-rbac-proxy-1
+          name: kube-rbac-proxy-2
           ports:
             - containerPort: 8008
               name: grpc

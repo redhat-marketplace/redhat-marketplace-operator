@@ -20,6 +20,7 @@ import (
 	// "fmt"
 	// "reflect"
 	// "strings"
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -38,12 +39,13 @@ import (
 )
 
 type StoredFileStore interface {
-	List(opts ...ListOption) ([]models.StoredFile, error)
-	Get(string) (*models.StoredFile, error)
-	Save(*models.StoredFile) (id string, err error)
-	Delete(string) error
-	Download(string) (*models.StoredFile, error)
-	CleanTombstones() (int64, error)
+	List(ctx context.Context, opts ...ListOption) (files []models.StoredFile, nextPageToken string, err error)
+	Get(ctx context.Context, id string) (*models.StoredFile, error)
+	GetByFileKey(ctx context.Context, fileKey modelsv2.StoredFileKey) (*models.StoredFile, error)
+	Save(ctx context.Context, file *models.StoredFile) (id string, err error)
+	Delete(ctx context.Context, id string, permanent bool) error
+	Download(ctx context.Context, id string) (*models.StoredFile, error)
+	CleanTombstones(ctx context.Context) (int64, error)
 }
 
 func New(db *gorm.DB, config FileStoreConfig) (StoredFileStore, io.Closer) {
@@ -95,23 +97,53 @@ func (d *fileStore) Close() error {
 	return sqlDB.Close()
 }
 
-func (d *fileStore) Get(id string) (*models.StoredFile, error) {
+// SELECT File.Checksum,File.Size,File.MimeType,`File`.`id` AS `File__id`,`File`.`created_at` AS `File__created_at`,`File`.`updated_at` AS `File__updated_at`,`File`.`deleted_at` AS `File__deleted_at`,`File`.`file_id` AS `File__file_id`,`File`.`checksum` AS `File__checksum`,`File`.`size` AS `File__size`,`File`.`mime_type` AS `File__mime_type`,`File`.`content` AS `File__content` FROM `stored_files`
+// LEFT JOIN `stored_file_contents` `File` ON `stored_files`.`id` = `File`.`file_id`
+// WHERE `stored_files`.`id` = 1 AND `stored_files`.`deleted_at` IS NULL ORDER BY `stored_files`.`id` LIMIT 1
+
+func (d *fileStore) Get(ctx context.Context, id string) (*models.StoredFile, error) {
 	idInt, err := modelsv2.ConvertStrToUint(id)
 
 	if err != nil {
 		return nil, err
 	}
 
+	db := d.DB.WithContext(ctx)
 	file := models.StoredFile{}
 
-	if err := d.DB.Preload("FileMetadata").First(&file, idInt).Error; err != nil {
+	if err := db.Unscoped().
+		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("File", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Omit("content")
+		}).
+		Find(&file, idInt).Error; err != nil {
 		return nil, err
 	}
-
 	return &file, nil
 }
 
-func (d *fileStore) Save(file *models.StoredFile) (id string, err error) {
+func (d *fileStore) GetByFileKey(ctx context.Context, fileKey modelsv2.StoredFileKey) (*models.StoredFile, error) {
+
+	db := d.DB.WithContext(ctx)
+	file := models.StoredFile{}
+
+	if err := db.Unscoped().
+		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("File", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Omit("content")
+		}).
+		Where(&fileKey).
+		First(&file).Error; err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
+func (d *fileStore) Save(ctx context.Context, file *models.StoredFile) (id string, err error) {
 	if file != nil {
 		err = errors.WrapWithDetails(ErrInvalidInput, "type", "file is nil")
 	}
@@ -120,55 +152,120 @@ func (d *fileStore) Save(file *models.StoredFile) (id string, err error) {
 		err = errors.WrapWithDetails(ErrInvalidInput, "type", "no content provided")
 	}
 
-	err = d.DB.Session(&gorm.Session{FullSaveAssociations: true}).Save(file).Error
+	db := d.DB.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true})
+
+	if file.ID == 0 {
+		foundFile := &models.StoredFile{}
+
+		err := db.Where(&models.StoredFile{
+			Name:       file.Name,
+			Source:     file.Source,
+			SourceType: file.SourceType,
+		}).Find(&foundFile).Error
+
+		if err != nil {
+			return "", err
+		}
+
+		file.ID = foundFile.ID
+	}
+
+	err = db.Save(file).Error
 	id = fmt.Sprintf("%d", file.ID)
 	return
 }
 
-func (d *fileStore) Delete(id string) (err error) {
+func (d *fileStore) Delete(ctx context.Context, id string, permanent bool) (err error) {
 	var file *modelsv2.StoredFile
-	file, err = d.Get(id)
+	file, err = d.Get(ctx, id)
 
 	if err != nil {
 		return err
 	}
+
 	if file == nil {
 		return
 	}
 
-	err = d.DB.Select(clause.Associations).Delete(file).Error
+	db := d.DB.WithContext(ctx)
+
+	if permanent {
+		db = db.Unscoped()
+	}
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("file_id = ?", file.ID).Delete(&modelsv2.StoredFileContent{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("file_id = ?", file.ID).Delete(&modelsv2.StoredFileMetadata{}).Error; err != nil {
+			return err
+		}
+
+		return tx.Delete(file).Error
+	})
+
 	return
 }
 
-func (d *fileStore) List(opts ...ListOption) (files []models.StoredFile, err error) {
+func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []models.StoredFile, nextPageToken string, err error) {
 	listOpts := (&ListOptions{}).ApplyOptions(opts)
-	err = d.DB.Scopes(listOpts.scopes()...).Find(&files).Error
+	err = d.DB.WithContext(ctx).
+		Scopes(listOpts.scopes()...).
+		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("File", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Omit("File.Content").
+		Order("created_at desc").
+		Find(&files).Error
+
+	if len(files) == listOpts.Pagination.PageSize+1 {
+		nextPageToken = fmt.Sprintf("%d", listOpts.Pagination.Page+1)
+
+		// We purposedly limit to pagesize + 1 to check if
+		// there is a page past the last number.
+		// We trim to the page size to prevent having too many
+		// results on each call
+		files = files[:len(files)-1]
+	}
+
 	return
 }
 
-func (d *fileStore) Download(id string) (file *models.StoredFile, err error) {
+func (d *fileStore) Download(ctx context.Context, id string) (file *models.StoredFile, err error) {
 	file = &models.StoredFile{}
-	err = d.Unscoped().Preload("File").Preload("FileMetadata").First(file, id).Error
+	err = d.WithContext(ctx).
+		Unscoped().
+		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("File", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		First(file, id).Error
 	return
 }
 
-func (d *fileStore) CleanTombstones() (int64, error) {
+func (d *fileStore) CleanTombstones(ctx context.Context) (int64, error) {
 	now := time.Now()
 	now = now.Add(-d.config.CleanupAfter)
 
 	d.Log.Info("cleaning up all files older than", "now", now.String())
 
-	tx1 := d.Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(models.StoredFile{})
+	tx1 := d.WithContext(ctx).Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(models.StoredFile{})
 	if tx1.Error != nil {
 		return 0, tx1.Error
 	}
 
-	tx2 := d.Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(models.StoredFileContent{})
+	tx2 := d.WithContext(ctx).Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(models.StoredFileContent{})
 	if tx2.Error != nil {
 		return 0, tx2.Error
 	}
 
-	tx3 := d.Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(models.StoredFileMetadata{})
+	tx3 := d.WithContext(ctx).Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(models.StoredFileMetadata{})
 	if tx3.Error != nil {
 		return 0, tx3.Error
 	}

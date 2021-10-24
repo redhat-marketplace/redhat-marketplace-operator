@@ -21,8 +21,8 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func AddIndices(
@@ -36,7 +36,7 @@ func AddIndices(
 	}
 
 	err = rhmclient.AddOwningControllerIndex(cache,
-		[]runtime.Object{
+		[]client.Object{
 			&corev1.Pod{},
 			&corev1.Service{},
 			&corev1.PersistentVolumeClaim{},
@@ -49,7 +49,7 @@ func AddIndices(
 	}
 
 	err = rhmclient.AddUIDIndex(cache,
-		[]runtime.Object{
+		[]client.Object{
 			&corev1.Pod{},
 			&corev1.Service{},
 			&corev1.PersistentVolumeClaim{},

@@ -58,16 +58,16 @@ func (r *RHMSubscriptionController) SetupWithManager(mgr manager.Manager) error 
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return r.checkForRhmSubscription(evt.MetaNew)
+				return r.checkForRhmSubscription(evt.ObjectNew)
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				return r.checkForRhmSubscription(evt.Meta)
+				return r.checkForRhmSubscription(evt.Object)
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
 				return false
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				return r.checkForRhmSubscription(evt.Meta)
+				return r.checkForRhmSubscription(evt.Object)
 			},
 		},
 	}
@@ -81,7 +81,7 @@ func (r *RHMSubscriptionController) SetupWithManager(mgr manager.Manager) error 
 
 // Reconcile reads the state of the cluster for a Subscription object
 // and makes changes based on the state read and what is in the Subscription.Spec
-func (r *RHMSubscriptionController) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *RHMSubscriptionController) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RHM Subscription")
 

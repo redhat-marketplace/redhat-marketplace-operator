@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build wireinject
 // +build wireinject
 
 package reporter
@@ -21,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -42,6 +44,7 @@ func NewTask(
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		ProvideUploaders,
+		ProvideUploader,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 		kconfig.GetConfig,
@@ -49,7 +52,6 @@ func NewTask(
 }
 
 func NewEventBroadcaster(
-	ctx context.Context,
 	erConfig *Config,
 ) (record.EventBroadcaster, func(), error) {
 	panic(wire.Build(
@@ -60,11 +62,12 @@ func NewEventBroadcaster(
 }
 
 func NewReporter(
+	ctx context.Context,
 	task *Task,
 ) (*MarketplaceReporter, error) {
 	panic(wire.Build(
 		wire.FieldsOf(new(*Task),
-			"ReportName", "K8SClient", "Ctx", "Config", "K8SScheme"),
+			"ReportName", "K8SClient", "Config", "K8SScheme"),
 		providePrometheusSetup,
 		prometheus.NewPrometheusAPIForReporter,
 		reconcileutils.CommandRunnerProviderSet,
@@ -84,18 +87,20 @@ func NewReporter(
 func NewUploadTask(
 	ctx context.Context,
 	config *Config,
+	namespace Namespace,
 ) (*UploadTask, error) {
 	panic(wire.Build(
-		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideSimpleClientSet,
 		kconfig.GetConfig,
-		wire.Struct(new(UploadTask), "*"),
-		wire.InterfaceValue(new(logr.Logger), logger),
-		ProvideDownloader,
-		ProvideUploaders,
-		ProvideAdmin,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+		wire.Bind(new(dataservice.FileStorage), new(*dataservice.DataService)),
+		ProvideUploaders,
+		dataservice.NewDataService,
+		provideDataServiceConfig,
+		wire.Struct(new(UploadTask), "*"),
+		wire.InterfaceValue(new(logr.Logger), logger),
+		reconcileutils.CommandRunnerProviderSet,
 	))
 }
 
@@ -106,11 +111,13 @@ func NewReconcileTask(
 	namespace Namespace,
 ) (*ReconcileTask, error) {
 	panic(wire.Build(
+		NewUploadTask,
 		managers.ProvideSimpleClientSet,
 		kconfig.GetConfig,
 		wire.Struct(new(ReconcileTask), "*"),
 		provideScheme,
 		provideReporterEventRecorder,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+		wire.InterfaceValue(new(logr.Logger), logger),
 	))
 }

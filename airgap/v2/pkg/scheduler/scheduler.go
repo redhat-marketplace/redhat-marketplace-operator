@@ -15,6 +15,7 @@
 package scheduler
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -41,7 +42,7 @@ func (sfg *SchedulerConfig) handler() (int64, error) {
 		return 0, nil
 	}
 
-	count, err := sfg.Fs.CleanTombstones()
+	count, err := sfg.Fs.CleanTombstones(context.Background())
 	if err != nil {
 		sfg.Log.Error(err, "error while executing handler")
 		return 0, err
@@ -52,20 +53,21 @@ func (sfg *SchedulerConfig) handler() (int64, error) {
 }
 
 // StartScheduler starts all job(s) for created scheduler
-func (sfg *SchedulerConfig) Start(done <-chan struct{}) error {
-	s := gocron.NewScheduler(time.UTC).SingletonMode()
+func (sfg *SchedulerConfig) Start(ctx context.Context) error {
+	s := gocron.NewScheduler(time.UTC)
 	defer s.Stop()
 
 	sfg.Log.Info("starting scheduler")
 	s.StartAsync()
 
-	_, err := s.Cron(sfg.CronExpression).Do(sfg.handler)
+	job, err := s.Cron(sfg.CronExpression).Do(sfg.handler)
 	if err != nil {
 		sfg.Log.Error(err, "error while creating job")
 		return err
 	}
+	job.SingletonMode()
 
-	<-done
+	<-ctx.Done()
 	sfg.Log.Info("stopping scheduler")
 	return nil
 }
