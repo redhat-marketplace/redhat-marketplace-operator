@@ -16,11 +16,14 @@ package dictionary
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"emperror.dev/errors"
 	bigcache "github.com/allegro/bigcache/v3"
+	xxhash "github.com/cespare/xxhash/v2"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -31,19 +34,28 @@ import (
 var initLookupCache sync.Once
 var lookupCache *resultCache
 
+var result_t = []byte{1}
+var result_f = []byte{0}
+
 const cacheTimeout = 30 * time.Minute
+const pct = 0.50
 
 func init() {
 	initLookupCache.Do(func() {
 		lookupCache = utils.Must(func() (interface{}, error) {
+			limit, _ := strconv.Atoi(os.Getenv("MEMORY_LIMIT"))
+			limit = int(float64(limit) * pct)
+			fmt.Println(fmt.Sprintf("dac debug memory limit %v", limit))
 			cache, err := bigcache.NewBigCache(bigcache.Config{
 				Shards:             1024,
 				LifeWindow:         cacheTimeout,
-				CleanWindow:        0,
+				CleanWindow:        1 * time.Second,
 				MaxEntriesInWindow: 1000 * 10 * 60,
 				MaxEntrySize:       500,
+				StatsEnabled:       false,
 				Verbose:            true,
-				HardMaxCacheSize:   100,
+				HardMaxCacheSize:   limit,
+				Hasher:             newHasher(),
 			})
 
 			if err != nil {
@@ -95,15 +107,14 @@ func (r *resultCache) Set(filter *filter.MeterDefinitionLookupFilter, obj interf
 
 	r.mutex.Lock()
 	key := r.cacheKey(filter, o)
-	val := []byte{0}
 
+	var err error
 	if result {
-		val[0] = 1
+		err = r.cache.Set(key, result_t)
 	} else {
-		val[0] = 0
+		err = r.cache.Set(key, result_f)
 	}
 
-	err := r.cache.Set(key, val)
 	r.mutex.Unlock()
 	return err
 }
@@ -122,4 +133,21 @@ func (r *resultCache) Delete(filter *filter.MeterDefinitionLookupFilter, obj int
 
 	r.mutex.Unlock()
 	return err
+}
+
+type hasher struct {
+	digest *xxhash.Digest
+}
+
+func newHasher() *hasher {
+	var h hasher
+	h.digest = xxhash.New()
+	return &h
+}
+
+func (h *hasher) Sum64(s string) uint64 {
+	h.digest.Write([]byte(s))
+	sum := h.digest.Sum64()
+	h.digest.Reset()
+	return sum
 }
