@@ -74,7 +74,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 20m
-              memory: 40Mi
+              memory: 45Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -104,7 +104,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 20m
-              memory: 25Mi
+              memory: 30Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -141,7 +141,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 20m
-              memory: 25Mi
+              memory: 30Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
