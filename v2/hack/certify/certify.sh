@@ -125,7 +125,7 @@ echo "cert_project_id: 5ec3fc8628834587a6b85c2a" > $TMP_DIR/certified-operators-
 cd $TMP_DIR
 curl -L https://github.com/mikefarah/yq/releases/download/v4.13.5/yq_linux_amd64.tar.gz | tar -xz 
 ./yq_linux_amd64 eval '
-  .metadata.annotations."com.redhat.openshift.versions" = "v4.6-v4.9"
+  .annotations."com.redhat.openshift.versions" = "v4.6-v4.9"
 ' -i $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/metadata/annotations.yaml
 
 cd $TMP_DIR/certified-operators-preprod
