@@ -7,6 +7,7 @@ require (
 	github.com/InVisionApp/go-health/v2 v2.1.2
 	github.com/allegro/bigcache/v3 v3.0.1
 	github.com/cespare/xxhash v1.1.0
+	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/go-logr/logr v0.3.0
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
