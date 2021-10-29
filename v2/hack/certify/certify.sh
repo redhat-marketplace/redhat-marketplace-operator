@@ -70,6 +70,9 @@ checksub () {
 }
 
 
+if [ -z ${PYXIS_API_KEY+x} ]; then echo "PYXIS_API_KEY is unset"; exit 1; fi
+
+
 
 # Install Subscription
 oc apply -f sub.yaml
@@ -82,11 +85,20 @@ oc delete ns $CERT_NAMESPACE --ignore-not-found
 oc adm new-project $CERT_NAMESPACE
 oc project $CERT_NAMESPACE
 
+oc create secret generic pyxis-api-secret --from-literal pyxis_api_key=$PYXIS_API_KEY
+
 # Create the kubeconfig used by the certification pipeline
 oc delete secret kubeconfig --ignore-not-found
 oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 
 # Import redhat catalogs
+oc import-image certified-operator-index \
+  --from=registry.redhat.io/redhat/certified-operator-index \
+  --reference-policy local \
+  --scheduled \
+  --confirm \
+  --all
+
 oc import-image redhat-marketplace-index \
   --from=registry.redhat.io/redhat/redhat-marketplace-index \
   --reference-policy local \
@@ -119,8 +131,11 @@ mkdir -p $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-opera
 cp -r bundle/manifests $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/
 cp -r bundle/metadata $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/
 
+# remove sa duplicated in csv?
+rm -Rf  $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/manifests/redhat-marketplace-operator_v1_serviceaccount.yaml
+
 echo "organization: redhat-marketplace" > $TMP_DIR/certified-operators-preprod/config.yaml
-echo "cert_project_id: 5ec3fc8628834587a6b85c2a" > $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/ci.yaml
+echo "cert_project_id: 5f68c9457115dbd1183ccab6" > $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/ci.yaml
 
 cd $TMP_DIR
 curl -L https://github.com/mikefarah/yq/releases/download/v4.13.5/yq_linux_amd64.tar.gz | tar -xz 
