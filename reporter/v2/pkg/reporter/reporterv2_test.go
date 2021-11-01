@@ -275,7 +275,8 @@ var _ = Describe("ReporterV2", func() {
 
 			r, _ := os.Open(fileName)
 			defer r.Close()
-			Expect(uploader.UploadFile(context.TODO(), fileName, r)).To(Succeed())
+			_, err = uploader.UploadFile(context.TODO(), fileName, r)
+			Expect(err).To(Succeed())
 		}, 20)
 	})
 
@@ -502,7 +503,8 @@ var _ = Describe("ReporterV2", func() {
 
 			r, _ := os.Open(fileName)
 			defer r.Close()
-			Expect(uploader.UploadFile(context.TODO(), fileName, r)).To(Succeed())
+			_, err = uploader.UploadFile(context.TODO(), fileName, r)
+			Expect(err).To(Succeed())
 		}, 20)
 	})
 

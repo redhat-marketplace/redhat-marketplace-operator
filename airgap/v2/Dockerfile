@@ -1,6 +1,6 @@
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM ${REGISTRY}/data-service-base:1.16 as dqlite-lib-builder
+FROM ${REGISTRY}/data-service-base:1.16-2 as dqlite-lib-builder
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
