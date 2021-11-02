@@ -35,6 +35,7 @@ var _ = Describe("marketplace uploaders", func() {
 
 		postReponse               MarketplaceUsageResponse
 		getResponse, getResponse2 MarketplaceUsageResponse
+		retryPostResponse         MarketplaceUsageResponse
 
 		fileName = "test"
 
@@ -60,6 +61,12 @@ var _ = Describe("marketplace uploaders", func() {
 		Expect(err).To(Succeed())
 
 		postReponse = MarketplaceUsageResponse{RequestID: testId}
+		retryPostResponse = MarketplaceUsageResponse{
+			Details: &MarketplaceUsageResponseDetails{
+				Code:      "409",
+				Retryable: true,
+			},
+		}
 		getResponse = MarketplaceUsageResponse{
 			Status: MktplStatusInProgress,
 		}
@@ -103,7 +110,7 @@ var _ = Describe("marketplace uploaders", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
-					ghttp.RespondWith(http.StatusRequestTimeout, []byte{}),
+					ghttp.RespondWithJSONEncoded(http.StatusTooManyRequests, &retryPostResponse),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
@@ -205,7 +212,7 @@ var _ = Describe("marketplace uploaders", func() {
 		})
 	})
 
-	Describe("handling error", func() {
+	Describe("handling conflict", func() {
 		BeforeEach(func() {
 			sut, err = NewMarketplaceUploader(config)
 			Expect(err).To(Succeed())
@@ -214,9 +221,33 @@ var _ = Describe("marketplace uploaders", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
-					ghttp.RespondWith(http.StatusInternalServerError, `{"errorCode":"internal_application_error_ocurred","message":"Save usage result not ok or missing value, result {\"lastErrorObject\":{\"n\":0,\"updatedExisting\":false},\"value\":null,\"ok\":1,\"$clusterTime\":{\"clusterTime\":{\"$timestamp\":\"7025668740716953620\"},\"signature\":{\"hash\":\"H2Zbl5S64rst/CWWEsRupwqyUZs=\",\"keyId\":{\"low\":2,\"high\":1628832003,\"unsigned\":false}}},\"operationTime\":{\"$timestamp\":\"7025668740716953620\"}}, Retry UsageStatus.save failed after retry attempts: 3 duration: 3069 ms","details":{"code":"internal_application_error_ocurred","statusCode":500,"retryable":true}}`),
+					ghttp.RespondWith(http.StatusConflict, `{"errorCode":"document_conflict","message":"Upload is duplicate of previous submission","details":{"code":"document_conflict","statusCode":409,"retryable":false}}`),
 				),
 			)
+		})
+
+		It("should handle duplicate conflict", func() {
+			ctx := context.Background()
+			id, err := sut.UploadFile(ctx, fileName, bytes.NewReader(testBody))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id).To(BeEmpty())
+		})
+	})
+
+	Describe("handling error", func() {
+		BeforeEach(func() {
+			sut, err = NewMarketplaceUploader(config)
+			Expect(err).To(Succeed())
+
+			for i := 0; i < 4; i++ {
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+						verifyFileUpload(fileName, testBody),
+						ghttp.RespondWith(http.StatusInternalServerError, `{"errorCode":"internal_application_error_ocurred","message":"Save usage result not ok or missing value, result {\"lastErrorObject\":{\"n\":0,\"updatedExisting\":false},\"value\":null,\"ok\":1,\"$clusterTime\":{\"clusterTime\":{\"$timestamp\":\"7025668740716953620\"},\"signature\":{\"hash\":\"H2Zbl5S64rst/CWWEsRupwqyUZs=\",\"keyId\":{\"low\":2,\"high\":1628832003,\"unsigned\":false}}},\"operationTime\":{\"$timestamp\":\"7025668740716953620\"}}, Retry UsageStatus.save failed after retry attempts: 3 duration: 3069 ms","details":{"code":"internal_application_error_ocurred","statusCode":500,"retryable":true}}`),
+					),
+				)
+			}
 		})
 
 		It("should handle error", func() {

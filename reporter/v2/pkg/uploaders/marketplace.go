@@ -108,11 +108,19 @@ func NewMarketplaceUploader(
 	}, nil
 }
 
+type MarketplaceUsageResponseDetails struct {
+	Code       string `json:"code"`
+	StatusCode int    `json:"statusCode"`
+	Retryable  bool   `json:"retryable,omitempty"`
+}
+
 type MarketplaceUsageResponse struct {
 	RequestID string      `json:"requestId,omitempty"`
 	Status    MktplStatus `json:"status,omitempty"`
 	Message   string      `json:"message,omitempty"`
 	ErrorCode string      `json:"errorCode,omitempty"`
+
+	Details *MarketplaceUsageResponseDetails `json:"details,omitempty"`
 }
 
 type MktplStatus = string
@@ -143,7 +151,7 @@ func (r *MarketplaceUploader) statusRequest(id string) (*MarketplaceUsageRespons
 	status := MarketplaceUsageResponse{}
 	jsonErr := json.Unmarshal(data, &status)
 
-	if err := checkError(*resp, status, "failed to get status"); err != nil {
+	if err := checkError(resp, status, "failed to get status"); err != nil {
 		return nil, err
 	}
 
@@ -156,6 +164,8 @@ func (r *MarketplaceUploader) statusRequest(id string) (*MarketplaceUsageRespons
 
 const RetryableError = errors.Sentinel("retryable")
 
+const DuplicateError = errors.Sentinel("duplicate")
+
 func isRetryable(err error) bool {
 	if errors.Is(err, RetryableError) {
 		return true
@@ -163,17 +173,18 @@ func isRetryable(err error) bool {
 	return false
 }
 
-func checkError(resp http.Response, status MarketplaceUsageResponse, message string) error {
+func checkError(resp *http.Response, status MarketplaceUsageResponse, message string) error {
 	if resp.StatusCode < 300 && resp.StatusCode >= 200 {
 		return nil
 	}
 
 	err := errors.NewWithDetails(message, "code", resp.StatusCode, "message", status.Message, "errorCode", status.ErrorCode)
 
-	if resp.StatusCode == http.StatusTooManyRequests ||
-		resp.StatusCode == http.StatusTooEarly ||
-		resp.StatusCode == http.StatusRequestTimeout {
-
+	if resp.StatusCode == http.StatusConflict {
+		return errors.WrapWithDetails(DuplicateError, "status", status.Message)
+	}
+	// return status says retrybale
+	if status.Details != nil && status.Details.Retryable {
 		return errors.WrapWithDetails(RetryableError, "retryable error", append(errors.GetDetails(err), "message", err.Error())...)
 	}
 
@@ -218,7 +229,7 @@ func (r *MarketplaceUploader) uploadFileRequest(fileName string, reader io.Reade
 	req, err = http.NewRequest("POST", fmt.Sprintf(marketplaceUploadURL, r.URL), body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	return req, nil
+	return req, err
 }
 
 func (r *MarketplaceUploader) uploadFile(req *http.Request) (string, error) {
@@ -246,7 +257,7 @@ func (r *MarketplaceUploader) uploadFile(req *http.Request) (string, error) {
 	status := MarketplaceUsageResponse{}
 	jsonErr := json.Unmarshal(body, &status)
 
-	if err := checkError(*resp, status, "failed to upload"); err != nil {
+	if err := checkError(resp, status, "failed to upload"); err != nil {
 		return "", err
 	}
 
@@ -285,28 +296,33 @@ func (r *MarketplaceUploader) UploadFile(ctx context.Context, fileName string, r
 		defer close(done)
 
 		err = retry.OnError(DefaultBackoff, isRetryable, func() error {
-			localId, err := r.uploadFile(req)
+			localID, localErr := r.uploadFile(req)
 
-			if err != nil {
-				return errors.Wrap(err, "failed to get upload file req")
+			if localErr != nil {
+				return errors.Wrap(localErr, "failed to get upload file req")
 			}
 
-			id = localId
+			id = localID
 			return nil
 		})
 
 		if err != nil {
+			if errors.Is(err, DuplicateError) {
+				err = nil
+				id = ""
+			}
+
 			return
 		}
 
 		for {
 			var resp MarketplaceUsageResponse
 			err = retry.OnError(DefaultBackoff, isRetryable, func() error {
-				var err error
-				innerResp, err := r.statusRequest(id)
+				var localErr error
+				innerResp, localErr := r.statusRequest(id)
 
-				if err != nil {
-					return err
+				if localErr != nil {
+					return localErr
 				}
 
 				if innerResp == nil {
