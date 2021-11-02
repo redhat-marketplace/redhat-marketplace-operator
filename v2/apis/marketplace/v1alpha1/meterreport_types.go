@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strconv"
 
 	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
@@ -89,8 +90,6 @@ type MeterReportStatus struct {
 
 	// UploadStatus displays the last status for upload targets.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +listType:=map
-	// +listMapKey:=target
 	// +optional
 	UploadStatus UploadDetailConditions `json:"uploadStatus,omitempty"`
 
@@ -140,12 +139,31 @@ func (stat *MeterReportStatus) IsUploaded() bool {
 	return false
 }
 
-type UploadStatus = string
+type UploadStatus string
 
 const (
 	UploadStatusSuccess UploadStatus = "success"
 	UploadStatusFailure UploadStatus = "failure"
 )
+
+func (a *UploadStatus) UnmarshalJSON(b []byte) error {
+	str, err := strconv.Unquote(string(b))
+
+	if err != nil {
+		return err
+	}
+
+	*a = UploadStatus(str)
+	return nil
+}
+
+func (a UploadStatus) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(string(a))), nil
+}
+
+func (a UploadStatus) String() string {
+	return string(a)
+}
 
 // UploadDetails provides details about uploads for the meterreport
 type UploadDetails struct {

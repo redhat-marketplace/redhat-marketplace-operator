@@ -867,7 +867,7 @@ spec:
                             type: object
                           type: array
                         workloadResource:
-                          description: WorkloadResources is the list of resoruces
+                          description: WorkloadResources is the list of resources
                             discovered by this meter definition
                           items:
                             description: WorkloadResource represents the resources
@@ -1267,7 +1267,7 @@ spec:
                   in data service
                 properties:
                   error:
-                    description: Error is present if an error occured on upload
+                    description: Error is present if an error occurred on upload
                     type: string
                   id:
                     description: ID is the upload id
@@ -1358,7 +1358,7 @@ spec:
                     meterreport
                   properties:
                     error:
-                      description: Error is present if an error occured on upload
+                      description: Error is present if an error occurred on upload
                       type: string
                     id:
                       description: ID is the upload id

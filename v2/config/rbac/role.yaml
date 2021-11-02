@@ -1,3 +1,4 @@
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -5,420 +6,405 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - create
-  - nonResourceURLs:
-      - /api/v1/query
-      - /api/v1/query_range
-      - /api/v1/targets
-    verbs:
-      - create
-      - get
-  - nonResourceURLs:
-      - /metrics
-    verbs:
-      - get
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-      - namespaces
-      - secrets
-      - services
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-      - pods
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - namespaces
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - persistentvolumeclaims
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - secret
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resourceNames:
-      - razeedeploy-sa
-      - watch-keeper-sa
-    resources:
-      - serviceaccounts
-    verbs:
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - services
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apiextensions.k8s.io
-    resourceNames:
-      - meterdefinitions.marketplace.redhat.com
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - patch
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resourceNames:
-      - clustersubscription
-      - featureflagsetld-controller
-      - managedset-controller
-      - mustachetemplate-controller
-      - remoteresource-controller
-      - remoteresources3-controller
-      - remoteresources3decrypt-controller
-      - watch-keeper
-    resources:
-      - deployments
-    verbs:
-      - delete
-  - apiGroups:
-      - apps
-    resources:
-      - statefulsets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - authentication.k8s.io
-    resources:
-      - tokenreviews
-    verbs:
-      - create
-  - apiGroups:
-      - authorization.k8s.io
-    resources:
-      - subjectaccessreviews
-    verbs:
-      - create
-  - apiGroups:
-      - batch
-      - extensions
-    resources:
-      - cronjobs
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - batch
-      - extensions
-    resources:
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - batch
-      - extensions
-    resourceNames:
-      - razeedeploy-job
-    resources:
-      - jobs
-    verbs:
-      - delete
-  - apiGroups:
-      - config.openshift.io
-    resources:
-      - clusterversions
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - config.openshift.io
-    resources:
-      - clusterversions
-      - consoles
-      - infrastructures
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - deploy.razee.io
-    resources:
-      - '*'
-    verbs:
-      - delete
-      - get
-      - list
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - marketplaceconfigs
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - marketplaceconfigs
-      - marketplaceconfigs/finalizers
-      - marketplaceconfigs/status
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterbases
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterbases
-      - meterbases/finalizers
-      - meterbases/status
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterdefinitions
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterdefinitions
-      - meterdefinitions/status
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterdefinitions/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterreports
-    verbs:
-      - get
-      - list
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterreports
-      - meterreports/finalizers
-      - meterreports/status
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - razeedeployments
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - remoteresources3s
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - monitoring.coreos.com
-    resources:
-      - prometheuses
-      - servicemonitors
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - catalogsources
-    verbs:
-      - create
-      - delete
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - catalogsources
-      - operatorsources
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - clusterserviceversions
-    verbs:
-      - create
-      - delete
-      - patch
-      - update
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - clusterserviceversions
-      - subscriptions
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - operatorgroups
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - update
-      - watch
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - operatorsources
-    verbs:
-      - create
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - subscriptions
-    verbs:
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resourceNames:
-      - razeedeploy-admin-cr
-      - redhat-marketplace-razeedeploy
-    resources:
-      - clusterroles
-    verbs:
-      - delete
-  - apiGroups:
-      - route.openshift.io
-    resources:
-      - routes
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - storage.k8s.io
-    resources:
-      - storageclasses
-    verbs:
-      - get
-      - list
-      - watch
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - create
+- nonResourceURLs:
+  - /api/v1/query
+  - /api/v1/query_range
+  - /api/v1/targets
+  verbs:
+  - create
+  - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - namespaces
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - pods
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secret
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - razeedeploy-sa
+  - watch-keeper-sa
+  resources:
+  - serviceaccounts
+  verbs:
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - meterdefinitions.marketplace.redhat.com
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - clustersubscription
+  - featureflagsetld-controller
+  - managedset-controller
+  - mustachetemplate-controller
+  - remoteresource-controller
+  - remoteresources3-controller
+  - remoteresources3decrypt-controller
+  - watch-keeper
+  resources:
+  - deployments
+  verbs:
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resourceNames:
+  - razeedeploy-job
+  resources:
+  - jobs
+  verbs:
+  - delete
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  - consoles
+  - infrastructures
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - deploy.razee.io
+  resources:
+  - '*'
+  verbs:
+  - delete
+  - get
+  - list
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  - marketplaceconfigs/finalizers
+  - marketplaceconfigs/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  - meterbases/finalizers
+  - meterbases/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions
+  - meterdefinitions/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  - meterreports/finalizers
+  - meterreports/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  - servicemonitors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - catalogsources
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - razeedeploy-admin-cr
+  - redhat-marketplace-razeedeploy
+  resources:
+  - clusterroles
+  verbs:
+  - delete
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -428,313 +414,301 @@ metadata:
   name: manager-role
   namespace: system
 rules:
-  - apiGroups:
-      - ''
-    resources:
-      - configmap
-      - secret
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - delete
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - ''
-    resources:
-      - persistentvolumeclaims
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - delete
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - secret
-    verbs:
-      - create
-  - apiGroups:
-      - ''
-    resourceNames:
-      - redhat-marketplace-pull-secret
-    resources:
-      - secret
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - secrets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - service
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - serviceaccounts/token
-    verbs:
-      - create
-      - get
-      - list
-      - update
-  - apiGroups:
-      - ''
-    resources:
-      - services
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - patch
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - statefulsets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - batch
-      - extensions
-    resources:
-      - cronjobs
-      - jobs
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - marketplaceconfigs
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - marketplaceconfigs
-      - marketplaceconfigs/finalizers
-      - marketplaceconfigs/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterbases
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterbases
-      - meterbases/finalizers
-      - meterbases/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterreports
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - meterreports
-      - meterreports/finalizers
-      - meterreports/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - razeedeployments
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - razeedeployments
-      - razeedeployments/finalizers
-      - razeedeployments/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - remoteresources3s
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - remoteresources3s
-      - remoteresources3s/status
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - monitoring.coreos.com
-    resources:
-      - prometheuses
-      - servicemonitors
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - subscriptions
-    verbs:
-      - create
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - route.openshift.io
-    resources:
-      - routes
-    verbs:
-      - create
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - route.openshift.io
-    resourceNames:
-      - rhm-data-service
-    resources:
-      - routes
-    verbs:
-      - delete
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - coordination.k8s.io
-    resources:
-      - leases
-    verbs:
-      - get
-      - watch
-      - list
-      - create
-      - patch
-      - update
-      - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmap
+  - secret
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secret
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resourceNames:
+  - redhat-marketplace-pull-secret
+  resources:
+  - secret
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - service
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+  - get
+  - list
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  - marketplaceconfigs/finalizers
+  - marketplaceconfigs/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  - meterbases/finalizers
+  - meterbases/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  - meterreports/finalizers
+  - meterreports/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  - razeedeployments/finalizers
+  - razeedeployments/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  - remoteresources3s/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resourceNames:
+  - rhm-data-service
+  resources:
+  - routes
+  verbs:
+  - delete
+  - get
+  - patch
+  - update

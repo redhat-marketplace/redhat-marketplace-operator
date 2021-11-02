@@ -382,7 +382,7 @@ spec:
                   type: object
                 type: array
               workloadResource:
-                description: WorkloadResources is the list of resoruces discovered
+                description: WorkloadResources is the list of resources discovered
                   by this meter definition
                 items:
                   description: WorkloadResource represents the resources associated
