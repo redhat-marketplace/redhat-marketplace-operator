@@ -6,6 +6,9 @@ SLEEP_SHORT="${SLEEP_SHORT:-2}"
 CERT_NAMESPACE="rhm-certification"
 KUBECONFIG=$HOME/.kube/config
 VERSION="2.4.0"
+IMAGE_REGISTRY=quay.io/dacleyra
+CHANNELS=beta,stable
+DEFAULT_CHANNEL=stable
 
 # Check Subscriptions: subscription-name, namespace
 checksub () {
@@ -117,6 +120,8 @@ oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/pipelines
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/tasks
 cd $CWD
 
+oc apply -f https://raw.githubusercontent.com/tonytcampbell/operator-pipelines/preflight-fixes/ansible/roles/operator-pipeline/templates/openshift/tasks/preflight.yml
+
 
 # Generate the bundle and add it to the fork
 cd $TMP_DIR
@@ -136,12 +141,6 @@ rm -Rf  $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operat
 
 echo "organization: redhat-marketplace" > $TMP_DIR/certified-operators-preprod/config.yaml
 echo "cert_project_id: 5f68c9457115dbd1183ccab6" > $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/ci.yaml
-
-cd $TMP_DIR
-curl -L https://github.com/mikefarah/yq/releases/download/v4.13.5/yq_linux_amd64.tar.gz | tar -xz 
-./yq_linux_amd64 eval '
-  .annotations."com.redhat.openshift.versions" = "v4.6-v4.9"
-' -i $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/metadata/annotations.yaml
 
 cd $TMP_DIR/certified-operators-preprod
 git add --all
