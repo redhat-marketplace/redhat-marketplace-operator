@@ -154,7 +154,6 @@ func (r *MeterDefinitionReconciler) Reconcile(ctx context.Context, request recon
 		} else {
 			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerified)
 		}
-
 	} else {
 		// Unsigned, Unverified
 		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureUnverified)
@@ -424,21 +423,19 @@ func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelC
 		Action:       "keep",
 		Regex:        regex,
 	}
-
 }
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
 }
 
 // Is Prometheus reporting on the MeterDefinition
-// Check MeterDefinition presense in api/v1/label/meter_def_name/values
+// Check MeterDefinition presence in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
 	var prometheusAPI *prom.PrometheusAPI
 	var err error
 
 	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
 		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
-
 	} else { // Use Prometheus Service queries for RHM Prometheus queries
 		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
 	}

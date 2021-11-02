@@ -58,7 +58,6 @@ func (r *MeterDefinition) ValidateCreate() error {
 		if resource.OwnerCRD == nil &&
 			resource.Annotation == nil &&
 			resource.Label == nil {
-
 			allErrs = append(allErrs, field.Required(
 				field.NewPath("spec").Child("meters").Child("resourceFilters"),
 				"one of resource filter owner crd, annotation, or label must be provided",
@@ -118,7 +117,6 @@ func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 		if resource.OwnerCRD == nil &&
 			resource.Annotation == nil &&
 			resource.Label == nil {
-
 			allErrs = append(allErrs, field.Required(
 				field.NewPath("spec").Child("meters").Child("resourceFilters"),
 				"one of resource filter owner crd, annotation, or label must be provided",

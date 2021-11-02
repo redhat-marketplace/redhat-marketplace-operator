@@ -95,6 +95,10 @@ func (fs *FileServer) UploadFile(stream fileserver.FileServer_UploadFileServer) 
 	fs.Log.V(2).Info("Stream end", "total bytes received", len(bs))
 	file, err := modelsv2.StoredFileFromProto(finfo)
 
+	if err != nil {
+		return err
+	}
+
 	file.File.Content = bs
 	file.File.MimeType = finfo.MimeType
 
@@ -129,10 +133,6 @@ func (fs *FileServer) UploadFile(stream fileserver.FileServer_UploadFileServer) 
 }
 
 func (fs *FileServer) ListFiles(ctx context.Context, req *fileserver.ListFilesRequest) (*fileserver.ListFilesResponse, error) {
-	var (
-		err error
-	)
-
 	pageSize := 100
 	opts := []database.ListOption{}
 
@@ -156,8 +156,8 @@ func (fs *FileServer) ListFiles(ctx context.Context, req *fileserver.ListFilesRe
 
 	errs := []error{}
 
-	for _, file := range files {
-		protoFile, err := modelsv2.StoredFileToProto(file)
+	for i := range files {
+		protoFile, err := modelsv2.StoredFileToProto(files[i])
 
 		if err != nil {
 			errs = append(errs, err)
@@ -193,7 +193,7 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 		}
 	} else if req.GetKey() != nil {
 		key := req.GetKey()
-		file, err = fs.FileStore.GetByFileKey(ctx, modelsv2.StoredFileKey{
+		file, err = fs.FileStore.GetByFileKey(ctx, &modelsv2.StoredFileKey{
 			Name:       key.Name,
 			Source:     key.Source,
 			SourceType: key.SourceType,
@@ -221,7 +221,10 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 	}, nil
 }
 
-func (fs *FileServer) UpdateFileMetadata(ctx context.Context, req *fileserver.UpdateFileMetadataRequest) (*fileserver.UpdateFileMetadataResponse, error) {
+func (fs *FileServer) UpdateFileMetadata(
+	ctx context.Context,
+	req *fileserver.UpdateFileMetadataRequest,
+) (*fileserver.UpdateFileMetadataResponse, error) {
 	file, err := fs.FileStore.Get(ctx, req.Id)
 
 	if err != nil {
@@ -322,7 +325,7 @@ func (fs *FileServer) CleanTombstones(ctx context.Context, _ *fileserver.CleanTo
 	return &fileserver.CleanTombstonesResponse{TombstonesCleaned: int32(rowsAffects)}, nil
 }
 
-func (fs *FileServer) RegisterHttpRoutes(mux *runtime.ServeMux) error {
+func (fs *FileServer) RegisterHTTPRoutes(mux *runtime.ServeMux) error {
 	return mux.HandlePath("POST", "/v1/file/{id}/download", fs.httpDownloadFile)
 }
 

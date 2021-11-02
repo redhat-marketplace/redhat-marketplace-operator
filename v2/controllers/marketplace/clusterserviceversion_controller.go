@@ -176,7 +176,6 @@ func (r *ClusterServiceVersionReconciler) Reconcile(ctx context.Context, request
 							}
 							reqLogger.Info("Patched clusterserviceversion with razee/watch-resource: lite label")
 						} else {
-
 							reqLogger.Info("No patch needed on clusterserviceversion resource")
 						}
 					}
@@ -225,7 +224,7 @@ func (r *ClusterServiceVersionReconciler) Reconcile(ctx context.Context, request
 		}
 	}
 
-	reqLogger.Info("reconcilation complete")
+	reqLogger.Info("reconciliation complete")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
@@ -240,7 +239,6 @@ func (r *ClusterServiceVersionReconciler) finalizeCSV(CSV *olmv1alpha1.ClusterSe
 
 	// Stop reconciliation as the item is being deleted
 	return reconcile.Result{}, true, nil
-
 }
 
 // deleteExternalResources searches for the MeterDefinition created by the CSV, if it's found delete it
@@ -289,7 +287,6 @@ func (r *ClusterServiceVersionReconciler) deleteExternalResources(CSV *olmv1alph
 
 	reqLogger.Info("found and deleted MeterDefinition")
 	return nil
-
 }
 
 // reconcileMeterDefAnnotation checks the Annotations for the rhm CSV
@@ -479,7 +476,6 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
 
 	return reconcile.Result{}, true, nil
-
 }
 
 func csvFilter(metaNew metav1.Object) int {

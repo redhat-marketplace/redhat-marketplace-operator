@@ -87,7 +87,6 @@ func (r *DataServiceReconciler) InjectFactory(f *manifests.Factory) error {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).

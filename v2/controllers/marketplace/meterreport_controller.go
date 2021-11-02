@@ -123,7 +123,7 @@ func (r *MeterReportReconciler) Reconcile(ctx context.Context, request reconcile
 
 	job := batchv1.Job{}
 
-	// getting && deleteing job; new process uses a single cronjob
+	// getting && deleting job; new process uses a single cronjob
 	if instance.Status.AssociatedJob != nil {
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Status.AssociatedJob.Name, Namespace: instance.Status.AssociatedJob.Namespace}, &job)
 

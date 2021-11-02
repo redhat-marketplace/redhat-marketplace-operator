@@ -61,7 +61,7 @@ type RazeeConfigurationValues struct {
 type RazeeDeploymentSpec struct {
 
 	// Enabled is the flag that controls if the controller does work. Setting
-	// enabled to true will create a Razee namespace and deploy it's componenets. Set to false to bypass Razee installation
+	// enabled to true will create a Razee namespace and deploy it's components. Set to false to bypass Razee installation
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`

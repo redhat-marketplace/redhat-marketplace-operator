@@ -174,13 +174,13 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 			return reconcile.Result{}, err
 		}
 
-		reqLogger.Info("succesfully created",
+		reqLogger.Info("successfully created",
 			"generate-name", og.GetGenerateName(),
 			"namespace", og.GetNamespace())
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	reqLogger.Info("reconcilation complete")
+	reqLogger.Info("reconciliation complete")
 	return reconcile.Result{}, nil
 }
 

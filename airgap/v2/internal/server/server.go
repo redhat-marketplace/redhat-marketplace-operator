@@ -93,7 +93,7 @@ func (frs *Server) Start(ctx context.Context) error {
 			return err
 		}
 
-		err = fs.RegisterHttpRoutes(mux)
+		err = fs.RegisterHTTPRoutes(mux)
 		if err != nil {
 			return err
 		}

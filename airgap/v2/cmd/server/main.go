@@ -56,7 +56,6 @@ func main() {
 		Short: "Command to start up grpc server and database",
 		Long:  `Command to start up grpc server and establish a database connection`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			// reads config file using viper
 			if len(strings.TrimSpace(config)) != 0 {
 				viper.SetConfigFile(config)

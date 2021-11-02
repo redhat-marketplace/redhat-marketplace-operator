@@ -113,7 +113,7 @@ func (r *RHMSubscriptionController) Reconcile(ctx context.Context, request recon
 	}
 	reqLogger.Info("Updated RHM subscription with doNotUninstall label")
 
-	reqLogger.Info("Reconcilation complete")
+	reqLogger.Info("Reconciliation complete")
 	return reconcile.Result{}, nil
 }
 

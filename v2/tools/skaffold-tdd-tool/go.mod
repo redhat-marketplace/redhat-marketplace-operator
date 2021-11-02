@@ -10,7 +10,7 @@ require (
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 v2.0.0-20210729050326-8246afe36a7e
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210729050326-8246afe36a7e // indirect
 	github.com/rivo/tview v0.0.0-20201118063654-f007e9ad3893
-	google.golang.org/grpc v1.40.0
+	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 )
 

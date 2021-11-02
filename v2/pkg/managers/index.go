@@ -28,7 +28,6 @@ import (
 func AddIndices(
 	ctx context.Context,
 	cache cache.Cache) (CacheIsIndexed, error) {
-
 	err := rhmclient.AddOperatorSourceIndex(cache)
 	if err != nil {
 		log.Error(err, "")

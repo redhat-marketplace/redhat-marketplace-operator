@@ -115,7 +115,6 @@ func ObjRefToStr(apiversion, kind string) string {
 func indexAnnotations(obj client.Object) []string {
 	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
-
 		for key, val := range meta.GetAnnotations() {
 			results = append(results, fmt.Sprintf("%s=%s", key, val))
 		}

@@ -307,7 +307,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
 		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) ||
 		!reflect.DeepEqual(newMarketplaceConfig.Annotations, annotations) {
-
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
 		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 		newMarketplaceConfig.Annotations = annotations

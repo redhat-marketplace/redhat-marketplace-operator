@@ -89,7 +89,6 @@ func ContainsMultiple(inArray []string, referenceArray []string) []string {
 		if !Contains(inArray, searchItem) {
 			temp = append(temp, searchItem)
 		}
-
 	}
 	return temp
 }
@@ -206,7 +205,6 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 
 		case RAZEE_DASH_URL_FIELD:
 			razeeStruct.RazeeDashUrl = value
-
 		}
 	}
 

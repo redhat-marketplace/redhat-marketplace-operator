@@ -177,7 +177,7 @@ type MeterDefinitionStatus struct {
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
 
-	// WorkloadResources is the list of resoruces discovered by
+	// WorkloadResources is the list of resources discovered by
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	WorkloadResources []common.WorkloadResource `json:"workloadResource,omitempty"`

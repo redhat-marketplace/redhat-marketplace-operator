@@ -211,14 +211,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	}
 
 	var testDeleteOperatorGroupIfTooMany = func(t GinkgoTInterface) {
-		listObjs := []ListStepOption{
-			ListWithObj(&olmv1.OperatorGroupList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-				client.MatchingLabels(map[string]string{
-					operatorTag: "true",
-				})),
-		}
 		t.Parallel()
 		reconcilerTest := NewReconcilerTest(setup, subscription)
 		reconcilerTest.TestAll(t,
@@ -227,29 +219,39 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 			// List and check results
 			ListStep(opts,
-				append(listObjs,
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*olmv1.OperatorGroupList)
+				ListWithObj(&olmv1.OperatorGroupList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag: "true",
+					})),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+					list, ok := i.(*olmv1.OperatorGroupList)
 
-						assert.Truef(t, ok, "expected operator group list got type %T", i)
-						assert.Equal(t, 1, len(list.Items))
+					assert.Truef(t, ok, "expected operator group list got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
 
-						r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
-					}))...),
+					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
+				})),
 			// Reconcile again to delete the extra operator group
 			ReconcileStep(opts,
 				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 			// Check to make sure we've deleted it
 			ListStep(opts,
-				append(listObjs,
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*olmv1.OperatorGroupList)
+				ListWithObj(&olmv1.OperatorGroupList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag: "true",
+					})),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+					list, ok := i.(*olmv1.OperatorGroupList)
 
-						assert.Truef(t, ok, "expected operator group list got type %T", i)
-						assert.Equal(t, 1, len(list.Items))
+					assert.Truef(t, ok, "expected operator group list got type %T", i)
+					assert.Equal(t, 0, len(list.Items))
 
-						r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
-					}))...),
+					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
+				})),
 		)
 	}
 

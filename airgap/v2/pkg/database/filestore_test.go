@@ -170,7 +170,7 @@ var _ = Describe("filestore", func() {
 			Expect(file2.File.Checksum).ToNot(BeEmpty())
 			Expect(file2.FileMetadata).To(HaveLen(1))
 
-			keyFile, err := sut.GetByFileKey(ctx, modelsv2.StoredFileKey{
+			keyFile, err := sut.GetByFileKey(ctx, &modelsv2.StoredFileKey{
 				Name:       file2.Name,
 				Source:     file2.Source,
 				SourceType: file2.SourceType,

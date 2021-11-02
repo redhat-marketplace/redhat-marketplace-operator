@@ -779,7 +779,6 @@ func (r *MeterBaseReconciler) removeOldReports(meterReportNames []string, loc *t
 }
 
 func (r *MeterBaseReconciler) sortMeterReports(meterReportList *marketplacev1alpha1.MeterReportList) []string {
-
 	var meterReportNames []string
 	for _, report := range meterReportList.Items {
 		meterReportNames = append(meterReportNames, report.Name)
@@ -1277,7 +1276,6 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 	prometheus *monitoringv1.Prometheus,
 	additionalConfigSecret *corev1.Secret,
 ) []ClientAction {
-
 	// Additional config secret not required on ose-prometheus-operator v4.6, handled by ServiceMonitors
 	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return []ClientAction{}
@@ -1368,7 +1366,6 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 				GetAction(key, additionalConfigSecret),
 				OnNotFound(CreateAction(sec, CreateWithAddController(instance))),
 				OnContinue(Call(func() (ClientAction, error) {
-
 					if reflect.DeepEqual(additionalConfigSecret.Data, sec.Data) {
 						return nil, nil
 					}
@@ -1742,7 +1739,6 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 }
 
 func (r *MeterBaseReconciler) installPrometheusServingCertsCABundle() []ClientAction {
-
 	return []ClientAction{
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.ConfigMap{},
@@ -1869,7 +1865,6 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 func (r *MeterBaseReconciler) serviceForPrometheus(
 	cr *marketplacev1alpha1.MeterBase,
 	port int32) *corev1.Service {
-
 	ser := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -2109,7 +2104,6 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
 ) (*ExecResult, error) {
-
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,

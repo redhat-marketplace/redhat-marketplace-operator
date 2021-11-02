@@ -56,7 +56,6 @@ func ProvideThanosQuerierAPI(
 	kubeInterface kubernetes.Interface,
 	deployedNamespace string,
 	reqLogger logr.Logger) (*PrometheusAPI, error) {
-
 	service, err := queryForThanosQuerierService(context, cc)
 	if err != nil {
 		return nil, err

@@ -111,7 +111,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	// Check for deletion and run cleanup
 	isMarketplaceConfigMarkedToBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if isMarketplaceConfigMarkedToBeDeleted {
-
 		// Cleanup. Unregister. Garbage Collection should delete remaining owned resources
 		secret := &v1.Secret{}
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
@@ -561,7 +560,6 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	var installCatalogSrc bool
 
 	if installCatalogSrcP == nil {
-
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
 		installCatalogSrc = r.cfg.Features.IBMCatalog
 
@@ -626,7 +624,6 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 		}
 
 		reqLogger.Info("Found CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
-
 	} else {
 		// If catalog source exists, delete it.
 		if err == nil {
@@ -664,7 +661,6 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 		}
 
 		reqLogger.Info(catalogName + " catalog Source does not exist.")
-
 	}
 	return false, nil
 }

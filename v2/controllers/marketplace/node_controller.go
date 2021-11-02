@@ -111,6 +111,6 @@ func (r *NodeReconciler) Reconcile(ctx context.Context, request reconcile.Reques
 	} else {
 		reqLogger.Info("No patch needed on node resource")
 	}
-	reqLogger.Info("reconcilation complete")
+	reqLogger.Info("reconciliation complete")
 	return reconcile.Result{}, nil
 }

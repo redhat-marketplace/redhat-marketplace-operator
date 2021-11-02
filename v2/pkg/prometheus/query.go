@@ -80,7 +80,6 @@ func NewPromQueryFromLabels(
 		Without:       []string(meterDefLabels.MetricWithout),
 		AggregateFunc: meterDefLabels.MetricAggregation,
 	})
-
 }
 
 func NewPromQuery(
@@ -95,7 +94,6 @@ func PromQueryFromLabels(
 	meterDefLabels *common.MeterDefPrometheusLabels,
 	start, end time.Time,
 ) *PromQuery {
-
 	workloadType := common.WorkloadType(meterDefLabels.WorkloadType)
 	duration := time.Hour
 	if meterDefLabels.MetricPeriod != nil {

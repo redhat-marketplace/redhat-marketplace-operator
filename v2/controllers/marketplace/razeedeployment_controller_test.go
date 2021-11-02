@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"context"
 	"time"
 
 	"github.com/gotidy/ptr"
@@ -105,9 +106,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}
 		razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              name,
-				Namespace:         namespace,
-				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				Name:      name,
+				Namespace: namespace,
+				Finalizers: []string{
+					utils.RAZEE_DEPLOYMENT_FINALIZER,
+				},
 			},
 			Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 				Enabled:          true,
@@ -311,6 +314,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("full uninstall", func() {
 		t := GinkgoT()
 		reconcilerTest := NewReconcilerTest(setup,
+			&namespObj,
 			&razeeDeploymentDeletion,
 			&parentRRS3,
 			&cosReaderKeySecret,
@@ -319,6 +323,15 @@ var _ = Describe("Testing with Ginkgo", func() {
 		)
 
 		reconcilerTest.TestAll(t,
+			GetStep(opts,
+				GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),
+				GetWithNamespacedName(name, namespace),
+				GetWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.Object) {
+					if i != nil {
+						r.Client.Delete(context.TODO(), i)
+					}
+				}),
+			),
 			ReconcileStep(opts,
 				ReconcileWithUntilDone(true)),
 			ListStep(opts,

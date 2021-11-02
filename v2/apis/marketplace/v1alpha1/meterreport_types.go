@@ -155,7 +155,7 @@ type UploadDetails struct {
 	ID string `json:"id,omitempty"`
 	// Status is the current status
 	Status UploadStatus `json:"status"`
-	// Error is present if an error occured on upload
+	// Error is present if an error occurred on upload
 	Error string `json:"error,omitempty"`
 }
 

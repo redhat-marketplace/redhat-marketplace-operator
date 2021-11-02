@@ -212,7 +212,6 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 
 // BuildRazeeCrd returns a RazeeDeployment cr with default values
 func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, features *common.Features) *marketplacev1alpha1.RazeeDeployment {
-
 	cr := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RAZEE_NAME,
@@ -287,7 +286,6 @@ func FilterByNamespace(obj client.ObjectList, namespaces []corev1.Namespace, rCl
 		// if no namespaces are passed, return resources across all namespaces
 		listOpts = append(listOpts, client.InNamespace(""))
 		return getResources(obj, listOpts, rClient)
-
 	}
 
 	if len(namespaces) == 1 {
@@ -341,7 +339,6 @@ func getResources(obj client.ObjectList, listOpts []client.ListOption, rClient c
 	}
 
 	return nil
-
 }
 
 var eq = conversion.EqualitiesOrDie(

@@ -51,6 +51,10 @@ fmt:
 vet:
 	go vet ./...
 
+.PHONY: test
+test: fmt vet ginkgo
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+
 # Generate
 generate:
 	go generate ./...
