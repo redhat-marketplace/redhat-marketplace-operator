@@ -3,6 +3,8 @@ VERSION ?= $(shell cd ./tools/version && go run ./main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 OPENSHIFT_VERSIONS ?= v4.6-v4.9
+CHANNELS ?= beta,stable
+DEFAULT_CHANNEL ?= stable
 
 export VERSION
 
@@ -328,3 +330,8 @@ PIDs ?=
 wait-and-publish:
 	cd tools/connect ; \
 	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
+
+# Run certification test
+.PHONY: test-certify
+test-certify: bundle
+	cd hack/certify && ./certify.sh

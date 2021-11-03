@@ -3,12 +3,8 @@ set -Eeox pipefail
 
 SLEEP_LONG="${SLEEP_LONG:-5}"
 SLEEP_SHORT="${SLEEP_SHORT:-2}"
-CERT_NAMESPACE="rhm-certification"
-KUBECONFIG=$HOME/.kube/config
-VERSION="2.4.0"
-IMAGE_REGISTRY=quay.io/dacleyra
-CHANNELS=beta,stable
-DEFAULT_CHANNEL=stable
+CERT_NAMESPACE="${CERT_NAMESPACE:-rhm-certification}"
+KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
 
 # Check Subscriptions: subscription-name, namespace
 checksub () {
@@ -123,20 +119,22 @@ cd $CWD
 oc apply -f https://raw.githubusercontent.com/tonytcampbell/operator-pipelines/preflight-fixes/ansible/roles/operator-pipeline/templates/openshift/tasks/preflight.yml
 
 
-# Generate the bundle and add it to the fork
+# Add bundle to the fork
 cd $TMP_DIR
 git clone git@github.com:redhat-marketplace/certified-operators-preprod.git
 
 cd $CWD
 cd ../../
 
-make bundle
 rm -rf $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION
 mkdir -p $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION
 cp -r bundle/manifests $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/
 cp -r bundle/metadata $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/
 
-# remove sa duplicated in csv?
+# The operator service account should be ommited in the bundle
+# It will fail certification
+# The service account will be created by OLM
+# kustomize questionable capability to remove the service account
 rm -Rf  $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/manifests/redhat-marketplace-operator_v1_serviceaccount.yaml
 
 echo "organization: redhat-marketplace" > $TMP_DIR/certified-operators-preprod/config.yaml
