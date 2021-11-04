@@ -19,8 +19,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 
+	"github.com/foxcpp/go-mockdns"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	osconfigv1 "github.com/openshift/api/config/v1"
@@ -32,6 +34,7 @@ import (
 
 var _ = Describe("Config", func() {
 	var discoveryClient *discovery.DiscoveryClient
+	mockURL := "mock.marketplace.com"
 
 	BeforeEach(func() {
 		discoveryClient, _ = discovery.NewDiscoveryClientForConfig(cfg)
@@ -113,6 +116,26 @@ var _ = Describe("Config", func() {
 	})
 
 	Context("with infrastructure information", func() {
+		var srv *mockdns.Server
+
+		BeforeEach(func() {
+			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+				mockURL: {
+					A: []string{"1.2.3.4"},
+				},
+			}, false)
+
+			os.Setenv("MARKETPLACE_URL", "mock.marketplace.com")
+
+			srv.PatchNet(net.DefaultResolver)
+		})
+
+		AfterEach(func() {
+			srv.Close()
+			mockdns.UnpatchNet(net.DefaultResolver)
+			os.Unsetenv("MARKETPLACE_URL")
+		})
+
 		It("should load infrastructure information", func() {
 			cfg, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
 
@@ -121,6 +144,34 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Infrastructure.KubernetesVersion()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.KubernetesPlatform()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.HasOpenshift()).To(BeFalse())
+			Expect(cfg.IsDisconnected).To(BeFalse(), "isDisconnected should be false")
+		})
+	})
+
+	Context("With AirGap environment status", func() {
+		var srv *mockdns.Server
+
+		BeforeEach(func() {
+			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+				mockURL: {},
+			}, false)
+
+			os.Setenv("MARKETPLACE_URL", "mock.marketplace.com")
+			srv.PatchNet(net.DefaultResolver)
+		})
+
+		AfterEach(func() {
+			srv.Close()
+			mockdns.UnpatchNet(net.DefaultResolver)
+			os.Unsetenv("MARKETPLACE_URL")
+		})
+
+		It("Should set the IsDisconnected var on OperatorConfig", func() {
+			cfg, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
+
+			Expect(err).To(Succeed())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.IsDisconnected).To(BeTrue(), "disconnected flag should be true, if dns cannot be resolved")
 		})
 	})
 
