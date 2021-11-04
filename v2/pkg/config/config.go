@@ -265,6 +265,7 @@ func setDisconnectedStatus(cfg *OperatorConfig) bool {
 	}
 
 	if ipLookUpFailed && dialTimeoutFailed {
+		log.Info("ip lookup and timeout failed")
 		return true
 	}
 
