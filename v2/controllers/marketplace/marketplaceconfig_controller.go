@@ -187,6 +187,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// Removing EnabledMetering field so setting them all to nil
+	// this will no longer do anything
+	if marketplaceConfig.Spec.EnableMetering != nil {
+		marketplaceConfig.Spec.EnableMetering = nil
+	}
+
 	// if the operator is running in a disconnected environment just update the marketplaceconfig status and apply meterbase cr
 	if r.cfg.IsDisconnected {
 		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
@@ -280,12 +286,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 		reqLogger.Info("finished air gap install")
 		return reconcile.Result{}, nil
-	}
-
-	// Removing EnabledMetering field so setting them all to nil
-	// this will no longer do anything
-	if marketplaceConfig.Spec.EnableMetering != nil {
-		marketplaceConfig.Spec.EnableMetering = nil
 	}
 
 	//Initialize enabled features if not set
