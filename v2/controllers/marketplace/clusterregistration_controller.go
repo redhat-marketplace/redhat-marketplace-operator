@@ -137,6 +137,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		newMarketplaceConfig = nil
 	}
 
+	//only check registration status, compare pull secret from COS if we are not in a disconnected environment
 	if newMarketplaceConfig != nil && !r.cfg.IsDisconnected {
 		token := string(pullSecret)
 

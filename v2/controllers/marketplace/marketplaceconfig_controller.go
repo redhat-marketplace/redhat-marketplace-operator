@@ -275,7 +275,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		}
 
 		if updated {
-			//Updating Marketplace Config with Cluster Registration status
 			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update status")
