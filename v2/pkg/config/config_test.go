@@ -178,7 +178,6 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Infrastructure.KubernetesVersion()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.KubernetesPlatform()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.HasOpenshift()).To(BeFalse())
-			Expect(cfg.IsDisconnected).To(BeFalse(), "isDisconnected should be false")
 		})
 	})
 
