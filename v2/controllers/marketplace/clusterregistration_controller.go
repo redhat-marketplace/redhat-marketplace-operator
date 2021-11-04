@@ -65,7 +65,7 @@ type ClusterRegistrationReconciler struct {
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
 // and what is in the ClusterRegistration.Spec
-func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ClusterRegistration")
 
@@ -307,7 +307,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
 		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) ||
 		!reflect.DeepEqual(newMarketplaceConfig.Annotations, annotations) {
-
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
 		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 		newMarketplaceConfig.Annotations = annotations

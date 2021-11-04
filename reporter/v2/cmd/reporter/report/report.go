@@ -22,6 +22,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -53,13 +54,13 @@ var ReportCmd = &cobra.Command{
 
 		tmpDir := os.TempDir()
 
-		targets := reporter.UploaderTargets{}
+		targets := uploaders.UploaderTargets{}
 		for _, uploadTarget := range uploadTargets {
-			uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
+			uploadTarget := uploaders.MustParseUploaderTarget(uploadTarget)
 			log.Info("upload target", "target set to", uploadTarget.Name())
 
 			switch v := uploadTarget.(type) {
-			case *reporter.LocalFilePathUploader:
+			case *uploaders.LocalFilePathUploader:
 				v.LocalFilePath = localFilePath
 			}
 			targets = append(targets, uploadTarget)
@@ -91,7 +92,7 @@ var ReportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = task.Run()
+		err = task.Run(ctx)
 		if err != nil {
 			log.Error(err, "error running task")
 			os.Exit(1)

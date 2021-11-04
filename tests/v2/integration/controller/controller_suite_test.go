@@ -48,7 +48,7 @@ var (
 )
 
 func TestEnv(t *testing.T) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	RegisterFailHandler(harness.PodFailHandler(testHarness))
 
 	RunSpecsWithDefaultAndCustomReporters(t,

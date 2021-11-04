@@ -32,11 +32,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	typedapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -190,8 +190,8 @@ const (
 	WebhookKeyName = "apiserver.key"
 )
 
-func (a *CRDUpdater) Start(stop <-chan struct{}) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (a *CRDUpdater) Start(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	if a.caInfo == nil {
@@ -228,9 +228,6 @@ func (a *CRDUpdater) Start(stop <-chan struct{}) error {
 		return nil
 	case err := <-errChan:
 		return err
-	case <-stop:
-		cancel()
-		return nil
 	}
 }
 
@@ -344,7 +341,7 @@ func (a *CRDUpdater) createCMIfMissing(ctx context.Context) error {
 	configmap := &corev1.ConfigMap{}
 	result, err := a.CC.Exec(ctx, manifests.CreateIfNotExistsFactoryItem(
 		configmap,
-		func() (runtime.Object, error) {
+		func() (client.Object, error) {
 			return a.Factory.PrometheusServingCertsCABundle()
 		},
 	))

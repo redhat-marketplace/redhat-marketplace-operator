@@ -19,6 +19,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -65,7 +66,7 @@ func (g GroupVersionKind) String() string {
 }
 
 func NewGroupVersionKind(t interface{}, scheme *runtime.Scheme) (GroupVersionKind, error) {
-	v, ok := t.(runtime.Object)
+	v, ok := t.(client.Object)
 	if !ok {
 		return GroupVersionKind{}, errors.New("not a runtime object")
 	}
@@ -91,7 +92,7 @@ func (n *NamespacedNameReference) ToTypes() types.NamespacedName {
 	}
 }
 
-func NamespacedNameFromMeta(t runtime.Object) *NamespacedNameReference {
+func NamespacedNameFromMeta(t client.Object) *NamespacedNameReference {
 	o, ok := t.(v1.Object)
 	if !ok {
 		return nil

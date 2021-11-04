@@ -26,8 +26,8 @@ import (
 
 	. "github.com/onsi/ginkgo/extensions/table"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,18 +71,21 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		})
 		It("should check for change in mdef", func() {
 			evt := event.UpdateEvent{}
-			evt.MetaNew = &metav1.ObjectMeta{
-				Annotations: map[string]string{
-					utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
+			evt.ObjectNew = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
+					},
 				},
 			}
-			evt.MetaOld = &metav1.ObjectMeta{
-				Annotations: map[string]string{
-					utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
-				},
-			}
+			evt.ObjectOld = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
+					},
+				}}
 			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeTrue())
-			evt.MetaOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION] = "newmdef"
+			evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION] = "newmdef"
 			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeFalse())
 		})
 	})
@@ -165,7 +168,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 							client.MatchingLabels(map[string]string{
 								watchTag: "lite",
 							})),
-						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 							assert.Truef(t, ok, "expected cluster service version list got type %T", i)
@@ -188,7 +191,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 							client.MatchingLabels(map[string]string{
 								watchTag: "lite",
 							})),
-						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 							assert.Truef(t, ok, "expected cluster service version list got type %T", i)
@@ -211,7 +214,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 							client.MatchingLabels(map[string]string{
 								watchTag: "lite",
 							})),
-						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 							assert.Truef(t, ok, "expected cluster service version list got type %T", i)

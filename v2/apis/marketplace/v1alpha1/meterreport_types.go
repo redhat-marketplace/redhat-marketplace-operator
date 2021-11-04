@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strconv"
 
 	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
@@ -89,10 +90,8 @@ type MeterReportStatus struct {
 
 	// UploadStatus displays the last status for upload targets.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +listType:=map
-	// +listMapKey:=target
 	// +optional
-	UploadStatus []*UploadDetails `json:"uploadStatus,omitempty"`
+	UploadStatus UploadDetailConditions `json:"uploadStatus,omitempty"`
 
 	// WorkloadCount is the number of workloads reported on
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -109,6 +108,11 @@ type MeterReportStatus struct {
 	// +optional
 	UploadID *types.UID `json:"uploadUID,omitempty"`
 
+	// DataServiceStatus is the status of the report stored in data service
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	DataServiceStatus *UploadDetails `json:"dataServiceStatus,omitempty"`
+
 	// Errors shows if there were any errors from queries
 	// for the report.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -121,14 +125,144 @@ type MeterReportStatus struct {
 	Warnings []ErrorDetails `json:"warnings,omitempty"`
 }
 
+func (stat *MeterReportStatus) IsStored() bool {
+	if cond := stat.Conditions.GetCondition(ReportConditionTypeStorageStatus); cond != nil {
+		return cond.IsTrue()
+	}
+	return false
+}
+
+func (stat *MeterReportStatus) IsUploaded() bool {
+	if cond := stat.Conditions.GetCondition(ReportConditionTypeUploadStatus); cond != nil {
+		return cond.IsTrue()
+	}
+	return false
+}
+
+type UploadStatus string
+
+const (
+	UploadStatusSuccess UploadStatus = "success"
+	UploadStatusFailure UploadStatus = "failure"
+)
+
+func (a *UploadStatus) UnmarshalJSON(b []byte) error {
+	str, err := strconv.Unquote(string(b))
+
+	if err != nil {
+		return err
+	}
+
+	*a = UploadStatus(str)
+	return nil
+}
+
+func (a UploadStatus) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(string(a))), nil
+}
+
+func (a UploadStatus) String() string {
+	return string(a)
+}
+
 // UploadDetails provides details about uploads for the meterreport
 type UploadDetails struct {
 	// Target is the upload target
 	Target string `json:"target"`
+	// ID is the upload id
+	ID string `json:"id,omitempty"`
 	// Status is the current status
-	Status string `json:"status"`
-	// Error is present if an error occured on upload
+	Status UploadStatus `json:"status"`
+	// Error is present if an error occurred on upload
 	Error string `json:"error,omitempty"`
+}
+
+func (u UploadDetails) Success() bool {
+	return u.Status == UploadStatusSuccess
+}
+
+func (u UploadDetails) Err() error {
+	if u.Error == "" {
+		return nil
+	}
+	return errors.New(u.Error)
+}
+
+type UploadDetailConditions []*UploadDetails
+
+func (u *UploadDetailConditions) Append(conds UploadDetailConditions) {
+	if u == nil {
+		u = &UploadDetailConditions{}
+	}
+
+	for j := range conds {
+		cond := conds[j]
+		u.Set(*cond)
+	}
+}
+
+func (u *UploadDetailConditions) Set(cond UploadDetails) {
+	if u == nil {
+		u = &UploadDetailConditions{}
+	}
+
+	for i := range *u {
+		if (*u)[i].Target == cond.Target {
+			(*u)[i] = &cond
+			return
+		}
+	}
+
+	*u = append(*u, &cond)
+}
+
+func (u UploadDetailConditions) Get(target string) *UploadDetails {
+	for _, status := range u {
+		if status != nil && status.Target == target {
+			return status
+		}
+	}
+
+	return nil
+}
+
+func (u UploadDetailConditions) OneSucessOf(targets []string) bool {
+	for _, target := range targets {
+		status := u.Get(target)
+
+		if status != nil && status.Target == target {
+			if status.Status == UploadStatusSuccess {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (u UploadDetailConditions) AllSuccesses() bool {
+	if len(u) == 0 {
+		return false
+	}
+
+	for _, status := range u {
+		if status != nil && !status.Success() {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (u UploadDetailConditions) Errors() (err error) {
+	for _, status := range u {
+		if status != nil && !status.Success() {
+			err = errors.Append(err, errors.Errorf("target:%s error:%s", status.Target, status.Error))
+			return
+		}
+	}
+
+	return
 }
 
 // ErrorDetails provides details about errors that happen in the job
@@ -167,7 +301,9 @@ const (
 	ReportConditionReasonJobFinished   status.ConditionReason = "Finished"
 	ReportConditionReasonJobErrored    status.ConditionReason = "Errored"
 
-	ReportConditionTypeUploadStatus             status.ConditionType   = "Uploaded"
+	ReportConditionTypeStorageStatus status.ConditionType = "Stored"
+	ReportConditionTypeUploadStatus  status.ConditionType = "Uploaded"
+
 	ReportConditionReasonUploadStatusFinished   status.ConditionReason = "Finished"
 	ReportConditionReasonUploadStatusNotStarted status.ConditionReason = "NotStarted"
 	ReportConditionReasonUploadStatusErrored    status.ConditionReason = "Errored"
@@ -205,6 +341,22 @@ var (
 		Message: "Job has errored",
 	}
 
+	ReportConditionStorageStatusFinished = status.Condition{
+		Type:   ReportConditionTypeStorageStatus,
+		Status: corev1.ConditionTrue,
+		Reason: ReportConditionReasonUploadStatusFinished,
+	}
+	ReportConditionStorageStatusUnknown = status.Condition{
+		Type:   ReportConditionTypeStorageStatus,
+		Status: corev1.ConditionUnknown,
+		Reason: ReportConditionReasonUploadStatusNotStarted,
+	}
+	ReportConditionStorageStatusErrored = status.Condition{
+		Type:   ReportConditionTypeStorageStatus,
+		Status: corev1.ConditionFalse,
+		Reason: ReportConditionReasonUploadStatusErrored,
+	}
+
 	ReportConditionUploadStatusFinished = status.Condition{
 		Type:   ReportConditionTypeUploadStatus,
 		Status: corev1.ConditionTrue,
@@ -228,8 +380,10 @@ var (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
 // +kubebuilder:printcolumn:name="METRICS",type=string,JSONPath=`.status.metricUploadCount`
+// +kubebuilder:printcolumn:name="STORED",type=string,JSONPath=`.status.conditions[?(@.type == "Stored")].status`
+// +kubebuilder:printcolumn:name="STORED_REASON",type=string,JSONPath=`.status.conditions[?(@.type == "Stored")].reason`
 // +kubebuilder:printcolumn:name="UPLOADED",type=string,JSONPath=`.status.conditions[?(@.type == "Uploaded")].status`
-// +kubebuilder:printcolumn:name="REASON",type=string,JSONPath=`.status.conditions[?(@.type == "Uploaded")].reason`
+// +kubebuilder:printcolumn:name="UPLOADED_REASON",type=string,JSONPath=`.status.conditions[?(@.type == "Uploaded")].reason`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Reports"
 // +kubebuilder:resource:path=meterreports,scope=Namespaced
 type MeterReport struct {

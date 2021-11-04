@@ -15,13 +15,12 @@
 package reporter
 
 import (
-	"bytes"
+	"os"
 
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
@@ -33,6 +32,7 @@ import (
 
 	"github.com/google/uuid"
 	schemacommon "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -48,7 +48,7 @@ var _ = Describe("ReporterV2", func() {
 		sutv1         *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		dir, dir2     string
-		uploader      Uploader
+		uploader      uploaders.Uploader
 		generatedData map[string]string
 		cfg           *Config
 		cfgv1         *Config
@@ -69,38 +69,7 @@ var _ = Describe("ReporterV2", func() {
 	)
 
 	BeforeEach(func() {
-		uploader, err = NewRedHatInsightsUploader(&RedHatInsightsUploaderConfig{
-			URL:             "https://cloud.redhat.com",
-			ClusterID:       "2858312a-ff6a-41ae-b108-3ed7b12111ef",
-			OperatorVersion: "1.0.0",
-			Token:           "token",
-		})
-		Expect(err).To(Succeed())
-
-		uploader.(*RedHatInsightsUploader).client.Transport = &stubRoundTripper{
-			roundTrip: func(req *http.Request) *http.Response {
-				headers := make(http.Header)
-				headers.Add("content-type", "text")
-
-				Expect(req.URL.String()).To(Equal(fmt.Sprintf(uploadURL, uploader.(*RedHatInsightsUploader).URL)), "url does not match expected")
-				_, meta, _ := req.FormFile("file")
-				header := meta.Header
-
-				Expect(header.Get("Content-Type")).To(Equal(mktplaceFileUploadType))
-				Expect(header.Get("Content-Disposition")).To(
-					HavePrefix(`form-data; name="%s"; filename="%s"`, "file", "test-upload.tar.gz"))
-				Expect(req.Header.Get("Content-Type")).To(HavePrefix("multipart/form-data; boundary="))
-				Expect(req.Header.Get("User-Agent")).To(HavePrefix("marketplace-operator"))
-
-				return &http.Response{
-					StatusCode: 202,
-					// Send response to be tested
-					Body: ioutil.NopCloser(bytes.NewBuffer([]byte{})),
-					// Must be set to non-nil value or it panics
-					Header: headers,
-				}
-			},
-		}
+		uploader = &uploaders.NoOpUploader{}
 
 		dir, err = ioutil.TempDir("", "report")
 		dir2, err = ioutil.TempDir("", "targz")
@@ -304,7 +273,10 @@ var _ = Describe("ReporterV2", func() {
 
 			By("uploading file")
 
-			Expect(uploader.UploadFile(fileName)).To(Succeed())
+			r, _ := os.Open(fileName)
+			defer r.Close()
+			_, err = uploader.UploadFile(context.TODO(), fileName, r)
+			Expect(err).To(Succeed())
 		}, 20)
 	})
 
@@ -529,7 +501,10 @@ var _ = Describe("ReporterV2", func() {
 
 			By("uploading file")
 
-			Expect(uploader.UploadFile(fileName)).To(Succeed())
+			r, _ := os.Open(fileName)
+			defer r.Close()
+			_, err = uploader.UploadFile(context.TODO(), fileName, r)
+			Expect(err).To(Succeed())
 		}, 20)
 	})
 

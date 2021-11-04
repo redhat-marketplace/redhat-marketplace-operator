@@ -214,7 +214,6 @@ func (cg *configGenerator) generateServiceMonitorConfig(
 	overrideHonorLabels bool,
 	overrideHonorTimestamps bool,
 	ignoreNamespaceSelectors bool) yaml.MapSlice {
-
 	hl := honorLabels(ep.HonorLabels, overrideHonorLabels)
 	cfg := yaml.MapSlice{
 		{

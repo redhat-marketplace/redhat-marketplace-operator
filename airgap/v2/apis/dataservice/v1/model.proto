@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package dataservice.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/api/field_behavior.proto";
+
+// represents the file info
+message FileInfo {
+  string id = 1;
+
+  string name = 2;
+  uint32 size = 3;
+  string source = 4;
+  string sourceType = 5;
+
+  string checksum = 10;
+  string mimeType = 11;
+
+  google.protobuf.Timestamp created_at = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp updated_at = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
+  optional google.protobuf.Timestamp deleted_at = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  map<string,string> metadata = 20;
+}
+
+message FileKey {
+  string name = 1;
+  string source = 2;
+  string sourceType = 3;
+}

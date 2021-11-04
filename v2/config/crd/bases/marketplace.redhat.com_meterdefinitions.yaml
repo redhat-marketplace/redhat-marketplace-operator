@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: meterdefinitions.marketplace.redhat.com
 spec:
@@ -375,7 +375,6 @@ spec:
                           value:
                             type: string
                         required:
-                        - labels
                         - timestamp
                         - value
                         type: object
@@ -383,7 +382,7 @@ spec:
                   type: object
                 type: array
               workloadResource:
-                description: WorkloadResources is the list of resoruces discovered
+                description: WorkloadResources is the list of resources discovered
                   by this meter definition
                 items:
                   description: WorkloadResource represents the resources associated
@@ -841,7 +840,6 @@ spec:
                           value:
                             type: string
                         required:
-                        - labels
                         - timestamp
                         - value
                         type: object

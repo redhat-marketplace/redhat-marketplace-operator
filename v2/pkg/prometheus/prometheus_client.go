@@ -125,7 +125,6 @@ func providePrometheusAPI(
 func providePrometheusAPIForReporter(
 	setup *PrometheusAPISetup,
 ) (v1.API, error) {
-
 	if setup.PromService == nil {
 		return nil, errors.New("prom service is not provided")
 	}
@@ -222,7 +221,6 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 }
 
 func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, error) {
-
 	tlsConfig, err := generateCACertPoolFromCert(*config.CaCert)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")
@@ -281,7 +279,8 @@ func GenerateCACertPool(files ...string) (*tls.Config, error) {
 	}
 
 	return &tls.Config{
-		RootCAs: caCertPool,
+		RootCAs:   caCertPool,
+		ClientCAs: caCertPool,
 	}, nil
 }
 

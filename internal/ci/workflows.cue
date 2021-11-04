@@ -24,9 +24,13 @@ workflows: [
 		file:   "release_status.yml"
 		schema: release_status
 	},
+	{
+		file:   "build_base.yml"
+		schema: build_base_images
+	},
 	// {
-	// 	file:   "sync_branches.yml"
-	// 	schema: sync_branches
+	//  file:   "sync_branches.yml"
+	//  schema: sync_branches
 	// },
 ]
 varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
@@ -226,7 +230,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#scanCommand.res,
 				_#addRocketToComment,
-        _#addFailureComment,
+				_#addFailureComment,
 			]
 		}
 		publish: _#job & {
@@ -260,7 +264,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#publishOperatorImages,
 				_#addRocketToComment,
-        _#addFailureComment,
+				_#addFailureComment,
 			]
 		}
 		"push-operator": _#job & {
@@ -294,7 +298,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#retagManifestCommand,
 				_#addRocketToComment,
-        _#addFailureComment,
+				_#addFailureComment,
 			]
 		}
 		"publish-operator": _#job & {
@@ -328,57 +332,118 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#publishOperator,
 				_#addRocketToComment,
-        _#addFailureComment,
+				_#addFailureComment,
 			]
 		}
 	}
 }
 
-_#nextRelease: "release/2.3.0"
-_#futureReleases: ["release/2.4.0"]
-
-// This workflow syncs the next release with develop and future
-sync_branches: _#bashWorkflow & {
-	name: "Sync Next Release"
+build_base_images: _#bashWorkflow & {
+	name: "Build Bases"
 	on: {
-		push: {
-			branches: [ "develop", _#nextRelease]
-		}
-	}
+    workflow_dispatch: {}
+    schedule: [{ cron: "0 0 * * *"}] //nightly
+  }
 	jobs: {
-		sync: {
-			name:      "Sync next release"
-			"runs-on": _#linuxMachine
-			if:        "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
+		"base": _#job & {
+			name:                "Build Base"
+			"runs-on":           _#linuxMachine
+			env: {
+				GO_VERSION: _#goVersion
+			}
+	strategy: matrix: {
+		command: ["base", "data-service"]
+	}
+	env: {
+		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+	}
 			steps: [
 				_#checkoutCode,
+				_#installGo,
+				_#setupQemu,
+				_#setupBuildX,
+				_#quayLogin,
 				_#step & {
-					name: "pull-request-action"
-					if:   "${{ github.ref == 'refs/heads/develop' }}"
-					uses: "vsoch/pull-request-action@master"
+					id:   "build"
+					name: "Build images"
 					env: {
-						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": _#nextRelease
-						"PULL_REQUEST_TITLE":  "chore: develop to \(_#nextRelease)"
-						"PULL_REQUEST_UPDATE": "true"
+						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
+						"PUSH":              "false"
 					}
+					run: """
+						make base/${{ matrix.command }}
+						"""
 				},
 				_#step & {
-					name: "pull-request-action"
-					if:   "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
-					uses: "vsoch/pull-request-action@master"
+					id:   "push"
+					name: "Push images"
 					env: {
-						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": "master"
-						"PULL_REQUEST_TITLE":  "Release ${{ github.ref }}"
-						"PULL_REQUEST_UPDATE": "true"
+						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
+						"IMAGE_PUSH":        "true"
 					}
+					run: """
+						make base/${{ matrix.command }}
+						"""
 				},
-
 			]
 		}
+
 	}
 }
+
+// _#futureReleases: [{
+//   base: "develop",
+//   next: "release/2.5.0"
+// },
+// {
+//   base: "release/2.5.0"
+//   next: "release/2.6.0"
+// },
+//                   ]
+
+// // This workflow syncs the next release with develop and future
+// sync_branches: _#bashWorkflow & {
+//  name: "Sync Next Release"
+//  on: {
+//   push: {
+//    branches: [ "develop", _#nextRelease]
+//   }
+//  }
+//  jobs: {
+
+//   sync: {
+//    name:      "Sync next release"
+//    "runs-on": _#linuxMachine
+//    if:        "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
+//    steps: [
+//     _#checkoutCode,
+//     _#step & {
+//      name: "pull-request-action"
+//      if:   "${{ github.ref == 'refs/heads/develop' }}"
+//      uses: "vsoch/pull-request-action@master"
+//      env: {
+//       "GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+//       "PULL_REQUEST_BRANCH": _#nextRelease
+//       "PULL_REQUEST_TITLE":  "chore: develop to \(_#nextRelease)"
+//       "PULL_REQUEST_UPDATE": "true"
+//      }
+//     },
+//     _#step & {
+//      name: "pull-request-action"
+//      if:   "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
+//      uses: "vsoch/pull-request-action@master"
+//      env: {
+//       "GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+//       "PULL_REQUEST_BRANCH": "master"
+//       "PULL_REQUEST_TITLE":  "Release ${{ github.ref }}"
+//       "PULL_REQUEST_UPDATE": "true"
+//      }
+//     },
+
+//    ]
+//   }
+//  }
+// }
 
 branch_build: _#bashWorkflow & {
 	name: "Branch Build"
@@ -438,47 +503,13 @@ branch_build: _#bashWorkflow & {
 				},
 			]
 		}
-		"base": _#job & {
-			name:                "Build Base"
-			"runs-on":           _#linuxMachine
-			"continue-on-error": true
-			steps: [
-				_#checkoutCode,
-				_#installGo,
-				_#setupQemu,
-				_#setupBuildX,
-				_#quayLogin,
-				_#step & {
-					id:   "build"
-					name: "Build images"
-					env: {
-						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"PUSH":              "false"
-					}
-					run: """
-						make base/docker-build
-						"""
-				},
-				_#step & {
-					id:   "push"
-					name: "Push images"
-					env: {
-						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"IMAGE_PUSH":        "true"
-					}
-					run: """
-						make base/docker-build
-						"""
-				},
-			]
-		}
 		"images": _#job & {
 			name:      "Build Images"
 			"runs-on": _#linuxMachine
-			needs: ["test", "base"]
+			needs: ["test"]
 			env: {
-				VERSION: "${{ needs.test.outputs.tag }}"
-        GO_VERSION: _#goVersion
+				VERSION:    "${{ needs.test.outputs.tag }}"
+				GO_VERSION: _#goVersion
 			}
 			strategy: matrix: {
 				project: ["operator", "authchecker", "metering", "reporter", "airgap"]
@@ -668,6 +699,9 @@ _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
 	uses: "docker/setup-buildx-action@v1"
 	id:   "buildx"
+  with: {
+    "config": ".github/buildkitd.toml"
+  }
 }
 
 _#hasWriteAccess: _#step & {
@@ -680,6 +714,10 @@ _#hasWriteAccess: _#step & {
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
 	uses: "docker/setup-qemu-action@v1"
+  with: {
+    image: "tonistiigi/binfmt:qemu-v6.1.0"
+    platforms: "all"
+  }
 }
 
 _#checkoutCode: _#step & {
@@ -935,11 +973,12 @@ _#image: {
 }
 
 _#projectURLs: {
-	operator:  "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images"
-	reporter:  "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images"
-	metering:  "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images"
-	authcheck: "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images"
-	bundle:    "https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images"
+	operator:   "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images"
+	reporter:   "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images"
+	metering:   "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images"
+	authcheck:  "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images"
+	datasevice: "https://connect.redhat.com/projects/61649f78d3e2f8d3bcfe30d5/images"
+	bundle:     "https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images"
 }
 
 _#operator: _#image & {
@@ -964,11 +1003,17 @@ _#reporter: _#image & {
 }
 
 _#authchecker: _#image & {
-
 	name:  "redhat-marketplace-authcheck"
 	ospid: "ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
 	url:   _#projectURLs["authcheck"]
+}
+
+_#dataservice: _#image & {
+	name:  "redhat-marketplace-data-service"
+	ospid: "ospid-61649f78d3e2f8d3bcfe30d5"
+	pword: "pcPasswordAuthCheck"
+	url:   _#projectURLs["datasevice"]
 }
 
 _#manifest: _#image & {
@@ -983,6 +1028,7 @@ _#images: [
 	_#metering,
 	_#reporter,
 	_#authchecker,
+	_#dataservice,
 ]
 
 _#registry:       "quay.io/rh-marketplace"
@@ -1061,15 +1107,16 @@ _#scanCommand: {
 			from:  "\(_#registry)/\(v.name)"
 			tag:   "$TAG"
 		}]
-		scanCommandList: [ for k, v in #args.fromTo {(_#scanImage & {#args: v }).res}]
+		scanCommandList: [ for k, v in #args.fromTo {(_#scanImage & {#args: v}).res}]
 	}
 	res: _#step & {
-		id:    "mirror"
-		name:  "Scan images"
+		#shell: strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
+		id:     "mirror"
+		name:   "Scan images"
 		env: {
 			"REDHAT_TOKEN": "${{ secrets.redhat_api_key }}"
 		}
-		run: strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
+		run: ".github/workflows/scripts/scan_images.sh"
 	}
 }
 
@@ -1396,7 +1443,7 @@ _#addRocketToComment: _#step & {
 
 _#addFailureComment: _#step & {
 	uses: "peter-evans/create-or-update-comment@v1"
-  if: "${{ failure() }}"
+	if:   "${{ failure() }}"
 	with: {
 		"comment-id": "${{github.event.comment.id}}"
 		reactions:    "-1"

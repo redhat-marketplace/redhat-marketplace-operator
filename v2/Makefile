@@ -56,7 +56,7 @@ IMG ?= $(OPERATOR_IMAGE)
 IMAGE ?= $(OPERATOR_IMAGE)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 # CRD_OPTIONS ?= "crd:trivialVersions=true"
-CRD_OPTIONS ?= "crd:crdVersions={v1},trivialVersions=false,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd:crdVersions={v1}"
 
 GOPATH=$(shell go env GOPATH)
 
@@ -216,7 +216,6 @@ bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="v4.6" \
   --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
 	--push \
 	.
 
@@ -256,9 +255,6 @@ opm-builder-base: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
-	--label com.redhat.openshift.versions="v4.5-v4.8" \
-  --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	.

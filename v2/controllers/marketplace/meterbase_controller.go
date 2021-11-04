@@ -144,15 +144,16 @@ func (r *MeterBaseReconciler) InjectKubeInterface(k kubernetes.Interface) error 
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	mapFn := handler.ToRequestsFunc(
-		func(a handler.MapObject) []reconcile.Request {
-			return []reconcile.Request{
-				{NamespacedName: types.NamespacedName{
+	mapFn := func(a client.Object) []reconcile.Request {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
 					Name:      "rhm-marketplaceconfig-meterbase",
-					Namespace: "openshift-redhat-marketplace",
-				}},
-			}
-		})
+					Namespace: a.GetNamespace(),
+				},
+			},
+		}
+	}
 
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
@@ -168,13 +169,13 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return isOpenshiftMonitoringObj(e.MetaNew.GetName(), e.MetaNew.GetNamespace())
+			return isOpenshiftMonitoringObj(e.ObjectNew.GetName(), e.ObjectNew.GetNamespace())
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return isOpenshiftMonitoringObj(e.Meta.GetName(), e.Meta.GetNamespace())
+			return isOpenshiftMonitoringObj(e.Object.GetName(), e.Object.GetNamespace())
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return isOpenshiftMonitoringObj(e.Meta.GetName(), e.Meta.GetNamespace())
+			return isOpenshiftMonitoringObj(e.Object.GetName(), e.Object.GetNamespace())
 		},
 	}
 
@@ -212,9 +213,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
-			},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(monitoringPred)).
 		Watches(
 			&source.Kind{Type: &corev1.Service{}},
@@ -236,9 +235,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: secretMapHandler,
-			},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
@@ -254,9 +251,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Namespace{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
-			}).Complete(r)
+			handler.EnqueueRequestsFromMapFunc(mapFn)).Complete(r)
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;namespaces;secrets;services,verbs=get;list;watch
@@ -287,7 +282,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
-func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
@@ -784,7 +779,6 @@ func (r *MeterBaseReconciler) removeOldReports(meterReportNames []string, loc *t
 }
 
 func (r *MeterBaseReconciler) sortMeterReports(meterReportList *marketplacev1alpha1.MeterReportList) []string {
-
 	var meterReportNames []string
 	for _, report := range meterReportList.Items {
 		meterReportNames = append(meterReportNames, report.Name)
@@ -961,14 +955,14 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		}),
 		manifests.CreateOrUpdateFactoryItemAction(
 			service,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.NewPrometheusOperatorService()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				nsValues := []string{}
 				for _, ns := range nsList.Items {
 					nsValues = append(nsValues, ns.Name)
@@ -1059,7 +1053,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 				}),
 			OnContinue(Call(func() (ClientAction, error) {
 				if secretList == nil || len(secretList.Items) == 0 {
-					return manifests.CreateIfNotExistsFactoryItem(secret, func() (runtime.Object, error) {
+					return manifests.CreateIfNotExistsFactoryItem(secret, func() (client.Object, error) {
 						return r.factory.ServiceAccountPullSecret()
 					}, CreateWithAddOwner(pod)), nil
 				}
@@ -1118,42 +1112,42 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		secretAction,
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateDeployment,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.MetricStateDeployment()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateService,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.MetricStateService()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.MetricStateServiceMonitor(&secret.Name)
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateMeterDefinition,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.MetricStateMeterDefinition()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			kubeStateMetricsService,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.KubeStateMetricsService()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			reporterMeterDefinition,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.ReporterMeterDefinition()
 			},
 			args,
@@ -1168,14 +1162,14 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			secretAction,
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
-				func() (runtime.Object, error) {
+				func() (client.Object, error) {
 					return r.factory.KubeStateMetricsServiceMonitor(&secret.Name)
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeletServiceMonitor,
-				func() (runtime.Object, error) {
+				func() (client.Object, error) {
 					return r.factory.KubeletServiceMonitor(&secret.Name)
 				},
 				args,
@@ -1231,14 +1225,14 @@ func (r *MeterBaseReconciler) installUserWorkloadMonitoring(
 	actions := []ClientAction{
 		manifests.CreateOrUpdateFactoryItemAction(
 			serviceMonitor,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.UserWorkloadMonitoringServiceMonitor()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			meterDefinition,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.UserWorkloadMonitoringMeterDefinition()
 			},
 			args,
@@ -1282,7 +1276,6 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 	prometheus *monitoringv1.Prometheus,
 	additionalConfigSecret *corev1.Secret,
 ) []ClientAction {
-
 	// Additional config secret not required on ose-prometheus-operator v4.6, handled by ServiceMonitors
 	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return []ClientAction{}
@@ -1363,7 +1356,7 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 				return nil, err
 			}
 
-			key, err := client.ObjectKeyFromObject(sec)
+			key := client.ObjectKeyFromObject(sec)
 
 			if err != nil {
 				return nil, err
@@ -1373,7 +1366,6 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 				GetAction(key, additionalConfigSecret),
 				OnNotFound(CreateAction(sec, CreateWithAddController(instance))),
 				OnContinue(Call(func() (ClientAction, error) {
-
 					if reflect.DeepEqual(additionalConfigSecret.Data, sec.Data) {
 						return nil, nil
 					}
@@ -1400,43 +1392,43 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 	return []ClientAction{
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.ConfigMap{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusServingCertsCABundle()
 			},
 		),
 		manifests.CreateIfNotExistsFactoryItem(
 			dataSecret,
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusDatasources()
 			}),
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusProxySecret()
 			}),
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusRBACProxySecret()
 			},
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			&monitoringv1.ServiceMonitor{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusServiceMonitor()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			&marketplacev1beta1.MeterDefinition{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusMeterDefinition()
 			},
 			args,
 		),
 		HandleResult(manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				data, ok := dataSecret.Data["basicAuthSecret"]
 
 				if !ok {
@@ -1457,7 +1449,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 			})),
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
-				func() (runtime.Object, error) {
+				func() (client.Object, error) {
 					return r.factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["ca-bundle.crt"])
 				},
 				args,
@@ -1465,7 +1457,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 
 		manifests.CreateOrUpdateFactoryItemAction(
 			&corev1.Service{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusService(instance.Name)
 			},
 			args),
@@ -1747,11 +1739,10 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 }
 
 func (r *MeterBaseReconciler) installPrometheusServingCertsCABundle() []ClientAction {
-
 	return []ClientAction{
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.ConfigMap{},
-			func() (runtime.Object, error) {
+			func() (client.Object, error) {
 				return r.factory.PrometheusServingCertsCABundle()
 			},
 		),
@@ -1874,7 +1865,6 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 func (r *MeterBaseReconciler) serviceForPrometheus(
 	cr *marketplacev1alpha1.MeterBase,
 	port int32) *corev1.Service {
-
 	ser := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -2114,7 +2104,6 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
 ) (*ExecResult, error) {
-
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,

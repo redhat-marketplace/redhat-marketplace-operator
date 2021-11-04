@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"context"
 	"time"
 
 	"github.com/gotidy/ptr"
@@ -34,7 +35,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,9 +106,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}
 		razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              name,
-				Namespace:         namespace,
-				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				Name:      name,
+				Namespace: namespace,
+				Finalizers: []string{
+					utils.RAZEE_DEPLOYMENT_FINALIZER,
+				},
 			},
 			Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 				Enabled:          true,
@@ -131,7 +133,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				"metadata": map[string]interface{}{
 					"name": "cluster",
 				},
-				"spec": "console",
 			},
 		}
 
@@ -142,7 +143,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				"metadata": map[string]interface{}{
 					"name": "cluster",
 				},
-				"spec": "console",
 			},
 		}
 
@@ -153,7 +153,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				"metadata": map[string]interface{}{
 					"name": "version",
 				},
-				"spec": "console",
 			},
 		}
 
@@ -245,7 +244,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*corev1.ConfigMapList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -266,7 +265,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*corev1.SecretList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -315,6 +314,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("full uninstall", func() {
 		t := GinkgoT()
 		reconcilerTest := NewReconcilerTest(setup,
+			&namespObj,
 			&razeeDeploymentDeletion,
 			&parentRRS3,
 			&cosReaderKeySecret,
@@ -323,6 +323,15 @@ var _ = Describe("Testing with Ginkgo", func() {
 		)
 
 		reconcilerTest.TestAll(t,
+			GetStep(opts,
+				GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),
+				GetWithNamespacedName(name, namespace),
+				GetWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.Object) {
+					if i != nil {
+						r.Client.Delete(context.TODO(), i)
+					}
+				}),
+			),
 			ReconcileStep(opts,
 				ReconcileWithUntilDone(true)),
 			ListStep(opts,
@@ -330,7 +339,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
 					assert.Truef(t, ok, "expected RemoteResourceS3List got type %T", i)
 					assert.Equal(t, 0, len(list.Items))
@@ -340,7 +349,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*corev1.ConfigMapList)
 					assert.Truef(t, ok, "expected configMap list got type %T", i)
 					assert.Equal(t, 0, len(list.Items))
@@ -350,7 +359,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*corev1.SecretList)
 
 					assert.Truef(t, ok, "expected secret list got type %T", i)
@@ -361,7 +370,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*appsv1.DeploymentList)
 
 					assert.Truef(t, ok, "expected deployment list got type %T", i)
@@ -391,7 +400,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*batch.JobList)
 
 					assert.Truef(t, ok, "expected job list got type %T", i)
@@ -402,7 +411,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*corev1.ServiceAccountList)
 
 					assert.Truef(t, ok, "expected service account list got type %T", i)
@@ -413,7 +422,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*rbacv1.ClusterRoleList)
 
 					assert.Truef(t, ok, "expected cluster role list got type %T", i)
@@ -424,7 +433,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*appsv1.DeploymentList)
 
 					assert.Truef(t, ok, "expected deployment list got type %T", i)

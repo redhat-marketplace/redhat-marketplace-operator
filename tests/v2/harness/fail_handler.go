@@ -40,7 +40,7 @@ func PodFailHandler(testHarness *TestHarness) func(message string, callerSkip ..
 }
 
 func printDebug(testHarness *TestHarness) {
-	lists := []runtime.Object{
+	lists := []client.Object{
 		&corev1.PodList{},
 		&appsv1.DeploymentList{},
 		&appsv1.StatefulSetList{},
@@ -49,8 +49,8 @@ func printDebug(testHarness *TestHarness) {
 		&v1alpha1.MarketplaceConfigList{},
 	}
 
-	filters := []func(runtime.Object) bool{
-		func(obj runtime.Object) bool {
+	filters := []func(client.Object) bool{
+		func(obj client.Object) bool {
 			pod, ok := obj.(*corev1.Pod)
 
 			if !ok {
@@ -74,7 +74,7 @@ func printDebug(testHarness *TestHarness) {
 	}
 }
 
-func printList(list runtime.Object, filters []func(runtime.Object) bool) {
+func printList(list client.Object, filters []func(client.Object) bool) {
 	preamble := "\x1b[1mDEBUG %T\x1b[0m"
 	if config.DefaultReporterConfig.NoColor {
 		preamble = "DEBUG %T"
