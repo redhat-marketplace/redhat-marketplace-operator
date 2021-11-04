@@ -187,6 +187,101 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// if the operator is running in a disconnected environment just update the marketplaceconfig status and apply meterbase cr
+	if r.cfg.IsDisconnected {
+		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
+		marketplaceConfig.Spec.Features.Registration = ptr.Bool(false)
+
+		if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
+			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionIsDisconnected,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonInternetDisconnected,
+				Message: "Detected AirGapped Environment, razee features are disabled",
+			})
+
+			if ok {
+				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
+
+				if err != nil {
+					reqLogger.Error(err, "Failed to update marketplaceconfig status.")
+					return reconcile.Result{}, err
+				}
+
+				return reconcile.Result{Requeue: true}, nil
+			}
+		}
+
+		foundMeterBase := &marketplacev1alpha1.MeterBase{}
+
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
+		if k8serrors.IsNotFound(err) {
+			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+
+			if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
+				reqLogger.Error(err, "Failed to set controller ref")
+				return reconcile.Result{}, err
+			}
+
+			reqLogger.Info("creating meterbase")
+			err = r.Client.Create(context.TODO(), newMeterBaseCr)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+				return reconcile.Result{}, err
+			}
+
+			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
+				Message: "Meter base installed.",
+			})
+
+			if ok {
+				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
+
+				if err != nil {
+					reqLogger.Error(err, "failed to update status")
+					return reconcile.Result{}, err
+				}
+			}
+
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get MeterBase CR")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("found meterbase")
+
+		if marketplaceConfig.Status.MeterBaseSubConditions == nil {
+			marketplaceConfig.Status.MeterBaseSubConditions = status.Conditions{}
+		}
+
+		var updated bool
+
+		if foundMeterBase != nil && foundMeterBase.Status.Conditions != nil {
+			if !utils.ConditionsEqual(
+				foundMeterBase.Status.Conditions,
+				marketplaceConfig.Status.MeterBaseSubConditions) {
+				marketplaceConfig.Status.MeterBaseSubConditions = foundMeterBase.Status.Conditions
+				updated = updated || true
+			}
+		}
+
+		if updated {
+			//Updating Marketplace Config with Cluster Registration status
+			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update status")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		reqLogger.Info("finished air gap install")
+		return reconcile.Result{}, nil
+	}
+
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
 	if marketplaceConfig.Spec.EnableMetering != nil {

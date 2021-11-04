@@ -158,7 +158,7 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 }
 
 func (r *ReconcileTask) CanRunUploadTask(ctx context.Context) bool {
-	return true
+	return r.Config.IsDisconnected
 }
 
 func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {

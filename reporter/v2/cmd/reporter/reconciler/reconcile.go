@@ -17,6 +17,7 @@ package reconciler
 import (
 	"context"
 	"os"
+	"strconv"
 	"time"
 
 	"emperror.dev/errors"
@@ -36,7 +37,7 @@ var dataServiceTokenFile, dataServiceCertFile string
 var prometheusService, prometheusNamespace, prometheusPort string
 var reporterSchema string
 var uploadTargets []string
-var local, upload bool
+var local, upload, isDisconnected bool
 var retry int
 
 var ReconcileCmd = &cobra.Command{
@@ -73,6 +74,7 @@ var ReconcileCmd = &cobra.Command{
 			DataServiceCertFile:  dataServiceCertFile,
 			Local:                local,
 			Upload:               upload,
+			IsDisconnected:       isDisconnected,
 			UploaderTargets:      targets,
 			DeployedNamespace:    deployedNamespace,
 			PrometheusService:    prometheusService,
@@ -121,6 +123,7 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReconcileCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
+	ReconcileCmd.Flags().BoolVar(&isDisconnected, "isDisconnected", strconv.ParseBool(os.Getenv(IS_DISCONNECTED)), "is the reporter running in a disconnected environment")
 	ReconcileCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
 	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 

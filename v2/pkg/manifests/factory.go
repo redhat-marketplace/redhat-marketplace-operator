@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	mathrand "math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -385,7 +386,7 @@ var (
 	}
 )
 
-func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1beta1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -398,6 +399,13 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit
 	container := &j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
 	f.ReplaceImages(container)
+
+	for _, envVar := range container.Env {
+		if envVar.Name == "IS_DISCONNECTED" {
+			stringBool := strconv.FormatBool(isDisconnected)
+			envVar.Value = stringBool
+		}
+	}
 
 	dataServiceArgs := []string{
 		"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",
