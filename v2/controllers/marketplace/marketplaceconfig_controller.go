@@ -283,7 +283,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-		reqLogger.Info("finished air gap install")
+		reqLogger.Info("finished install for disconnected environments")
 		return reconcile.Result{}, nil
 	}
 
