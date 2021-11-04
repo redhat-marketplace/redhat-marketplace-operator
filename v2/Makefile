@@ -331,7 +331,16 @@ wait-and-publish:
 	cd tools/connect ; \
 	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
 
+# Pin images in bundle
+.PHONY: bundle-pin-images
+bundle-pin-images:
+	docker run \
+	--pull always \
+	-v ${HOME}/.docker:/dockercfg \
+	-v $(shell pwd)/bundle/manifests:/manifests quay.io/operator-framework/operator-manifest-tools:latest \
+	pinning pin -a /dockercfg/config.json /manifests
+
 # Run certification test
 .PHONY: test-certify
-test-certify: bundle
+test-certify: bundle bundle-pin-images
 	cd hack/certify && ./certify.sh

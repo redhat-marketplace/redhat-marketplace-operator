@@ -5,6 +5,7 @@ SLEEP_LONG="${SLEEP_LONG:-5}"
 SLEEP_SHORT="${SLEEP_SHORT:-2}"
 CERT_NAMESPACE="${CERT_NAMESPACE:-rhm-certification}"
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
+SUBMIT="${SUBMIT:-false}"
 
 # Check Subscriptions: subscription-name, namespace
 checksub () {
@@ -92,6 +93,7 @@ oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 
 # Import redhat catalogs
 oc import-image certified-operator-index \
+  --request-timeout=5m \
   --from=registry.redhat.io/redhat/certified-operator-index \
   --reference-policy local \
   --scheduled \
@@ -99,6 +101,7 @@ oc import-image certified-operator-index \
   --all
 
 oc import-image redhat-marketplace-index \
+  --request-timeout=5m \
   --from=registry.redhat.io/redhat/redhat-marketplace-index \
   --reference-policy local \
   --scheduled \
@@ -107,6 +110,7 @@ oc import-image redhat-marketplace-index \
 
 CWD=$(pwd)
 TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'cptmpdir')
+OP_DIR=$CWD/../..
 
 # Install the Certification Pipeline
 cd $TMP_DIR
@@ -114,36 +118,47 @@ git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/pipelines
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/tasks
-cd $CWD
 
-oc apply -f https://raw.githubusercontent.com/tonytcampbell/operator-pipelines/preflight-fixes/ansible/roles/operator-pipeline/templates/openshift/tasks/preflight.yml
+# Temporary fix - appears to be resolved
+# oc apply -f https://raw.githubusercontent.com/tonytcampbell/operator-pipelines/preflight-fixes/ansible/roles/operator-pipeline/templates/openshift/tasks/preflight.yml
 
 
-# Add bundle to the fork
+# Add bundle to the fork on version branch
 cd $TMP_DIR
-git clone git@github.com:redhat-marketplace/certified-operators-preprod.git
+git clone git@github.com:redhat-marketplace/certified-operators.git
+cd certified-operators
 
-cd $CWD
-cd ../../
+# Keep main up to date before a new branch
+git pull https://github.com/redhat-marketplace/certified-operators.git main
+git push origin main
 
-rm -rf $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION
-mkdir -p $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION
-cp -r bundle/manifests $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/
-cp -r bundle/metadata $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/
+git checkout -B $VERSION
+
+# Cleanup previous manifests, metadata, and create version dir
+rm -rf operators/redhat-marketplace-operator/$VERSION/manifests
+rm -rf operators/redhat-marketplace-operator/$VERSION/metadata
+mkdir -p operators/redhat-marketplace-operator/$VERSION
+
+# Copy the manifests to the branch
+cp -r $OP_DIR/bundle/manifests operators/redhat-marketplace-operator/$VERSION/
+cp -r $OP_DIR/bundle/metadata operators/redhat-marketplace-operator/$VERSION/
 
 # The operator service account should be ommited in the bundle
 # It will fail certification
 # The service account will be created by OLM
 # kustomize questionable capability to remove the service account
-rm -Rf  $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/$VERSION/manifests/redhat-marketplace-operator_v1_serviceaccount.yaml
+rm -Rf operators/redhat-marketplace-operator/$VERSION/manifests/redhat-marketplace-operator_v1_serviceaccount.yaml
 
-echo "organization: redhat-marketplace" > $TMP_DIR/certified-operators-preprod/config.yaml
-echo "cert_project_id: 5f68c9457115dbd1183ccab6" > $TMP_DIR/certified-operators-preprod/operators/redhat-marketplace-operator/ci.yaml
+# Set our organization
+echo "organization: redhat-marketplace" > config.yaml
 
-cd $TMP_DIR/certified-operators-preprod
+# This should automatically be present 
+# echo "cert_project_id: 5f68c9457115dbd1183ccab6" > operators/redhat-marketplace-operator/ci.yaml
+
+# Commit and push the changes to the branch
 git add --all
 git commit -m $VERSION
-git push
+git push -f origin $VERSION
 
 
 # Run the Pipeline
@@ -151,14 +166,28 @@ git push
 cd $TMP_DIR/operator-pipelines
 curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/0.19.1/tkn-linux-amd64-0.19.1.tar.gz | tar -xz 
 
-GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators-preprod.git
+GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators.git
 BUNDLE_PATH=operators/redhat-marketplace-operator/$VERSION
 
-./tkn pipeline start operator-ci-pipeline \
-  --param git_repo_url=$GIT_REPO_URL \
-  --param git_branch=stage \
-  --param bundle_path=$BUNDLE_PATH \
-  --param env=stage \
-  --workspace name=pipeline,volumeClaimTemplateFile=templates/workspace-template.yml \
-  --workspace name=kubeconfig,secret=kubeconfig \
-  --showlog
+if [ "$SUBMIT" == "true" ]; then
+    ./tkn pipeline start operator-ci-pipeline \
+    --param git_repo_url=$GIT_REPO_URL \
+    --param git_branch=$VERSION \
+    --param bundle_path=$BUNDLE_PATH \
+    --param upstream_repo_name=redhat-openshift-ecosystem/certified-operators \
+    --param submit=true \
+    --param env=prod \
+    --workspace name=pipeline,volumeClaimTemplateFile=templates/workspace-template.yml \
+    --workspace name=kubeconfig,secret=kubeconfig \
+    --workspace name=pyxis-api-key,secret=pyxis-api-secret \
+    --showlog
+else
+    ./tkn pipeline start operator-ci-pipeline \
+    --param git_repo_url=$GIT_REPO_URL \
+    --param git_branch=$VERSION \
+    --param bundle_path=$BUNDLE_PATH \
+    --param env=prod \
+    --workspace name=pipeline,volumeClaimTemplateFile=templates/workspace-template.yml \
+    --workspace name=kubeconfig,secret=kubeconfig \
+    --showlog
+fi
