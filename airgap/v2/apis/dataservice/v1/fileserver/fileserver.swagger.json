@@ -1,0 +1,417 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "dataservice/v1/fileserver/fileserver.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "FileServer"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/files": {
+      "get": {
+        "summary": "Lists files.",
+        "operationId": "FileServer_ListFiles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/fileserverListFilesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "description": "The maximum number of items to return.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "description": "The next_page_token value returned from a previous List request, if any.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "FileServer"
+        ]
+      },
+      "put": {
+        "operationId": "FileServer_UpdateFileMetadata",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/fileserverUpdateFileMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "FileServer"
+        ]
+      }
+    },
+    "/v1/files/source/{key.source}/sourceType/{key.sourceType}/name/{key.name}": {
+      "get": {
+        "operationId": "FileServer_GetFile2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/fileserverGetFileResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key.source",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "key.sourceType",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "key.name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "FileServer"
+        ]
+      }
+    },
+    "/v1/files/tombstones": {
+      "post": {
+        "operationId": "FileServer_CleanTombstones",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/fileserverCleanTombstonesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "FileServer"
+        ]
+      }
+    },
+    "/v1/files/{id}": {
+      "get": {
+        "operationId": "FileServer_GetFile",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/fileserverGetFileResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "key.name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "key.source",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "key.sourceType",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "FileServer"
+        ]
+      },
+      "delete": {
+        "operationId": "FileServer_DeleteFile",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/fileserverDeleteFileResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "FileServer"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "fileserverCleanTombstonesResponse": {
+      "type": "object",
+      "properties": {
+        "tombstonesCleaned": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "fileserverDeleteFileResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "fileserverDownloadFileResponse": {
+      "type": "object",
+      "properties": {
+        "chunkData": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "fileserverGetFileResponse": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/v1FileInfo"
+        }
+      }
+    },
+    "fileserverListFilesResponse": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1FileInfo"
+          },
+          "description": "The field name should match the noun \"files\" in the method name.  There\nwill be a maximum number of items returned based on the page_size field\nin the request."
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Token to retrieve the next page of results, or empty if there are no\nmore results in the list."
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32",
+          "description": "The maximum number of items to return."
+        }
+      }
+    },
+    "fileserverUpdateFileMetadataResponse": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "$ref": "#/definitions/v1FileInfo"
+        }
+      }
+    },
+    "fileserverUploadFileResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1FileInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string"
+        },
+        "checksum": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "deletedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "represents the file info"
+    },
+    "v1FileKey": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

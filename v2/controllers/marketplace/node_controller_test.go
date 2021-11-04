@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -93,7 +92,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		var testNewNode = func(t GinkgoTInterface) {
 			t.Parallel()
-			reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject())
+			reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject().(client.Object))
 			reconcilerTest.TestAll(t,
 				// Reconcile to create obj
 				ReconcileStep(generateOpts(name),
@@ -105,7 +104,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 						client.MatchingLabels(map[string]string{
 							watchResourceTag: watchResourceValue,
 						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 						list, ok := i.(*corev1.NodeList)
 
 						assert.Truef(t, ok, "expected node list got type %T", i)
@@ -130,7 +129,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 						client.MatchingLabels(map[string]string{
 							watchResourceTag: watchResourceValue,
 						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 						list, ok := i.(*corev1.NodeList)
 
 						assert.Truef(t, ok, "expected node list got type %T", i)
@@ -154,7 +153,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 						client.MatchingLabels(map[string]string{
 							watchResourceTag: watchResourceValue,
 						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 						list, ok := i.(*corev1.NodeList)
 
 						assert.Truef(t, ok, "expected node list got type %T", i)
@@ -179,7 +178,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 						client.MatchingLabels(map[string]string{
 							watchResourceTag: watchResourceValue,
 						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 						list, ok := i.(*corev1.NodeList)
 
 						assert.Truef(t, ok, "expected node list got type %T", i)
@@ -203,7 +202,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 						client.MatchingLabels(map[string]string{
 							watchResourceTag: watchResourceValue,
 						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 						list, ok := i.(*corev1.NodeList)
 
 						assert.Truef(t, ok, "expected node list got type %T", i)

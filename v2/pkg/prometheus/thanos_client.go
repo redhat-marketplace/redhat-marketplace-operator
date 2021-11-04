@@ -42,7 +42,6 @@ func provideThanosAPI(
 	caCert *[]byte,
 	token string,
 ) (v1.API, error) {
-
 	var port int32
 	if promService == nil {
 		return nil, errors.New("Prometheus service not defined")

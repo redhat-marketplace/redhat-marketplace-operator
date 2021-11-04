@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: meterreports.marketplace.redhat.com
 spec:
@@ -20,11 +20,17 @@ spec:
     - jsonPath: .status.metricUploadCount
       name: METRICS
       type: string
+    - jsonPath: .status.conditions[?(@.type == "Stored")].status
+      name: STORED
+      type: string
+    - jsonPath: .status.conditions[?(@.type == "Stored")].reason
+      name: STORED_REASON
+      type: string
     - jsonPath: .status.conditions[?(@.type == "Uploaded")].status
       name: UPLOADED
       type: string
     - jsonPath: .status.conditions[?(@.type == "Uploaded")].reason
-      name: REASON
+      name: UPLOADED_REASON
       type: string
     name: v1alpha1
     schema:
@@ -854,7 +860,6 @@ spec:
                                     value:
                                       type: string
                                   required:
-                                  - labels
                                   - timestamp
                                   - value
                                   type: object
@@ -862,7 +867,7 @@ spec:
                             type: object
                           type: array
                         workloadResource:
-                          description: WorkloadResources is the list of resoruces
+                          description: WorkloadResources is the list of resources
                             discovered by this meter definition
                           items:
                             description: WorkloadResource represents the resources
@@ -1257,6 +1262,26 @@ spec:
                   - type
                   type: object
                 type: array
+              dataServiceStatus:
+                description: DataServiceStatus is the status of the report stored
+                  in data service
+                properties:
+                  error:
+                    description: Error is present if an error occurred on upload
+                    type: string
+                  id:
+                    description: ID is the upload id
+                    type: string
+                  status:
+                    description: Status is the current status
+                    type: string
+                  target:
+                    description: Target is the upload target
+                    type: string
+                required:
+                - status
+                - target
+                type: object
               errors:
                 description: Errors shows if there were any errors from queries for
                   the report.
@@ -1333,7 +1358,10 @@ spec:
                     meterreport
                   properties:
                     error:
-                      description: Error is present if an error occured on upload
+                      description: Error is present if an error occurred on upload
+                      type: string
+                    id:
+                      description: ID is the upload id
                       type: string
                     status:
                       description: Status is the current status
@@ -1346,9 +1374,6 @@ spec:
                   - target
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - target
-                x-kubernetes-list-type: map
               uploadUID:
                 description: UploadID is the ID associated with the upload
                 type: string

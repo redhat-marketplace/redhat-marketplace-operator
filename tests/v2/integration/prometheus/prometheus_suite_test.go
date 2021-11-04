@@ -25,7 +25,7 @@ import (
 )
 
 func TestPrometheus(t *testing.T) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Prometheus Suite")
 }

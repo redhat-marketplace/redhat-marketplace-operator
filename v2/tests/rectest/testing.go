@@ -48,8 +48,14 @@ type ReconcileTester interface {
 	Skipped() bool
 }
 
+type OneOf struct {
+	Object     client.Object
+	ObjectList client.ObjectList
+}
+
 // - interfaces -
-type ReconcilerTestValidationFunc func(*ReconcilerTest, ReconcileTester, runtime.Object)
+type ReconcilerTestValidationFunc func(*ReconcilerTest, ReconcileTester, client.Object)
+type ReconcilerTestListValidationFunc func(*ReconcilerTest, ReconcileTester, client.ObjectList)
 type ReconcilerSetupFunc func(*ReconcilerTest) error
 
 type TestCaseStep interface {
@@ -121,7 +127,8 @@ func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Obje
 	}
 }
 
-func Ignore(r *ReconcilerTest, t ReconcileTester, obj runtime.Object) {}
+func Ignore(_ *ReconcilerTest, _ ReconcileTester, _ client.Object)         {}
+func IgnoreList(_ *ReconcilerTest, _ ReconcileTester, _ client.ObjectList) {}
 
 type ControllerReconcileStep struct {
 	stepOptions
@@ -166,7 +173,8 @@ func (tc *ControllerReconcileStep) Test(t ReconcileTester, r *ReconcilerTest) {
 
 		indx := i
 
-		res, err := r.Reconciler.Reconcile(tc.Request)
+		ctx := context.Background()
+		res, err := r.Reconciler.Reconcile(ctx, tc.Request)
 		result := ReconcileResult{res, err}
 
 		expectedResult := AnyResult
@@ -318,14 +326,8 @@ func (r *ReconcilerTest) TestAll(t ReconcileTester, testCases ...TestCaseStep) {
 	}
 }
 
-func getNamespacedName(callName string, obj runtime.Object) string {
-	key, err := client.ObjectKeyFromObject(obj)
-
-	if err != nil {
-		return callName
-	}
-
-	return fmt.Sprintf("%s-%s-%s.%s", obj.GetObjectKind().GroupVersionKind().String(), callName, key.Name, key.Namespace)
+func getNamespacedName(action, version, name, namespace string) string {
+	return fmt.Sprintf("%s-%s-%s.%s", action, version, name, namespace)
 }
 
 func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr error) client.Client {
@@ -334,8 +336,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 	called := make(map[string]bool)
 
 	mock.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
-			name := getNamespacedName("create", obj)
+		DoAndReturn(func(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+			name := getNamespacedName("create", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -346,8 +348,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	mock.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
-			name := getNamespacedName("update", obj)
+		DoAndReturn(func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+			name := getNamespacedName("update", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -358,8 +360,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	mock.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.DeleteOption) error {
-			name := getNamespacedName("delete", obj)
+		DoAndReturn(func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+			name := getNamespacedName("delete", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -370,8 +372,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	mock.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.ListOption) error {
-			name := getNamespacedName("list", obj)
+		DoAndReturn(func(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
+			name := getNamespacedName("list", obj.GetObjectKind().GroupVersionKind().String(), "", "")
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -382,8 +384,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	mock.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
-			name := getNamespacedName("patch", obj)
+		DoAndReturn(func(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			name := getNamespacedName("patch", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -394,8 +396,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	mock.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj runtime.Object) error {
-			name := getNamespacedName("get", obj)
+		DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+			name := getNamespacedName("get", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -406,8 +408,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	statusWriter.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
-			name := getNamespacedName("patch-status", obj)
+		DoAndReturn(func(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			name := getNamespacedName("patch-status", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true
@@ -418,8 +420,8 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	statusWriter.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
-			name := getNamespacedName("update-status", obj)
+		DoAndReturn(func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+			name := getNamespacedName("update-status", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
 				called[name] = true

@@ -82,7 +82,7 @@ var _ = Describe("EngineTest", func() {
 
 		Eventually(func() []common.WorkloadResource {
 			meterDef := &marketplacev1beta1.MeterDefinition{}
-			key, _ := client.ObjectKeyFromObject(testcase1.MdefChargeBack)
+			key := client.ObjectKeyFromObject(testcase1.MdefChargeBack)
 			k8sClient.Get(context.TODO(), key, meterDef)
 			return meterDef.Status.WorkloadResources
 		}, timeout*2, heartBeat).Should(
@@ -141,7 +141,7 @@ var _ = Describe("EngineTest", func() {
 		By("checking if the meter definition has the correct values")
 		Eventually(func() []common.WorkloadResource {
 			meterDef := &marketplacev1beta1.MeterDefinition{}
-			key, _ := client.ObjectKeyFromObject(testcase1.MdefChargeBack)
+			key := client.ObjectKeyFromObject(testcase1.MdefChargeBack)
 			k8sClient.Get(context.TODO(), key, meterDef)
 			return meterDef.Status.WorkloadResources
 		}, timeout, heartBeat).Should(

@@ -326,22 +326,22 @@ func (s *shutdownHandler) InjectOperatorConfig(cfg *config.OperatorConfig) error
 	return nil
 }
 
-func (s *shutdownHandler) SetupSignalHandler() (stopCh <-chan struct{}) {
+func (s *shutdownHandler) SetupSignalHandler() context.Context {
 	close(onlyOneSignalHandler) // panics when called twice
 
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, shutdownSignals...)
 	go func() {
 		<-c
 		setupLog.Info("shutdown signal received")
-		close(stop)
+		cancel()
 		<-c
 		setupLog.Info("second shutdown signal received, killing")
 		os.Exit(1) // second signal. Exit directly.
 	}()
 
-	return stop
+	return ctx
 }
 
 func (s *shutdownHandler) cleanupOperatorGroup() error {

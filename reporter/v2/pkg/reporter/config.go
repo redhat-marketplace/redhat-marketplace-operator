@@ -17,6 +17,8 @@ package reporter
 import (
 	"github.com/google/wire"
 	"github.com/gotidy/ptr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -41,7 +43,7 @@ type Config struct {
 	PrometheusService    string
 	PrometheusNamespace  string
 	PrometheusPort       string
-	UploaderTargets
+	uploaders.UploaderTargets
 	ReporterSchema string
 }
 
@@ -64,11 +66,11 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.UploaderTargets == nil {
-		c.UploaderTargets = UploaderTargets{&DataServiceUploader{}}
+		c.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
 	}
 }
 
 var ReporterSet = wire.NewSet(
 	NewMarketplaceReporter,
-	NewRedHatInsightsUploader,
+	uploaders.NewRedHatInsightsUploader,
 )

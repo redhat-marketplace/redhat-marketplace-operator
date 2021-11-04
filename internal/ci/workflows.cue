@@ -699,6 +699,9 @@ _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
 	uses: "docker/setup-buildx-action@v1"
 	id:   "buildx"
+  with: {
+    "config": ".github/buildkitd.toml"
+  }
 }
 
 _#hasWriteAccess: _#step & {
@@ -711,6 +714,10 @@ _#hasWriteAccess: _#step & {
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
 	uses: "docker/setup-qemu-action@v1"
+  with: {
+    image: "tonistiigi/binfmt:qemu-v6.1.0"
+    platforms: "all"
+  }
 }
 
 _#checkoutCode: _#step & {

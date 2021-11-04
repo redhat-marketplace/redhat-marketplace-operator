@@ -1,6 +1,6 @@
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM ${REGISTRY}/data-service-base:1.16 as dqlite-lib-builder
+FROM ${REGISTRY}/data-service-base:1.16-2 as dqlite-lib-builder
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
@@ -73,6 +73,7 @@ COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 
 COPY --from=dqlite-lib-builder /go/bin/main /opt/main
+COPY --from=dqlite-lib-builder /bin/grpc_health_probe /bin/grpc_health_probe
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]

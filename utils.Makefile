@@ -21,12 +21,12 @@ clean-bin:
 # download controller-gen if necessary
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.2)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
 	@[ -d $(CODEGEN_PKG) ] || { \
-	GO111MODULE=off go get k8s.io/code-generator ;\
+  git clone -b v0.22.0 git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize

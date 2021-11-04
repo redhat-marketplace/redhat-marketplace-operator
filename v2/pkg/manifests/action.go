@@ -22,7 +22,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,20 +31,20 @@ import (
 
 type createOrUpdateFactoryItemAction struct {
 	*BaseAction
-	object      runtime.Object
-	factoryFunc func() (runtime.Object, error)
-	owner       runtime.Object
+	object      client.Object
+	factoryFunc func() (client.Object, error)
+	owner       client.Object
 	patcher     patch.Patcher
 }
 
 type CreateOrUpdateFactoryItemArgs struct {
-	Owner   runtime.Object
+	Owner   client.Object
 	Patcher patch.Patcher
 }
 
 func CreateOrUpdateFactoryItemAction(
-	newObj runtime.Object,
-	factoryFunc func() (runtime.Object, error),
+	newObj client.Object,
+	factoryFunc func() (client.Object, error),
 	args CreateOrUpdateFactoryItemArgs,
 ) *createOrUpdateFactoryItemAction {
 	return &createOrUpdateFactoryItemAction{
@@ -70,7 +69,7 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 		return NewExecResult(Error, reconcile.Result{Requeue: true}, a.BaseAction, err), emperrors.Wrap(err, "error with patch")
 	}
 
-	key, err := client.ObjectKeyFromObject(result)
+	key := client.ObjectKeyFromObject(result)
 
 	if err != nil {
 		reqLogger.Error(err, "failure getting factory obj name")
@@ -137,14 +136,14 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 
 type createIfNotExistsAction struct {
 	*BaseAction
-	factoryFunc         func() (runtime.Object, error)
-	newObject           runtime.Object
+	factoryFunc         func() (client.Object, error)
+	newObject           client.Object
 	createActionOptions []CreateActionOption
 }
 
 func CreateIfNotExistsFactoryItem(
-	newObj runtime.Object,
-	factoryFunc func() (runtime.Object, error),
+	newObj client.Object,
+	factoryFunc func() (client.Object, error),
 	opts ...CreateActionOption,
 ) *createIfNotExistsAction {
 	return &createIfNotExistsAction{
@@ -169,7 +168,7 @@ func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*
 		return NewExecResult(Error, reconcile.Result{Requeue: true}, a.BaseAction, err), emperrors.Wrap(err, "error with create")
 	}
 
-	key, _ := client.ObjectKeyFromObject(result)
+	key := client.ObjectKeyFromObject(result)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
 
 	reqLogger.V(0).Info("Creating object if not found", "object", result)

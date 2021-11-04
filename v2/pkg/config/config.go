@@ -194,7 +194,6 @@ func ProvideInfrastructureAwareConfig(
 
 		// Use OCP version related images on Openshift 4.6+ instead of default v4.5 images
 		if inf.HasOpenshift() && inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-
 			// version 4.8 is latest one tested with RHMP operator, use it on newer releases than 4.8
 			ocpTag := "4.8"
 

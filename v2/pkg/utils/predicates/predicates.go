@@ -15,12 +15,13 @@
 package predicates
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -29,16 +30,16 @@ func NamespacePredicate(targetNamespace string) predicate.Funcs {
 	return predicate.Funcs{
 		// Ensures MarketPlaceConfig reconciles only within namespace
 		GenericFunc: func(e event.GenericEvent) bool {
-			return e.Meta.GetNamespace() == targetNamespace
+			return e.Object.GetNamespace() == targetNamespace
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.MetaOld.GetNamespace() == targetNamespace && e.MetaNew.GetNamespace() == targetNamespace
+			return e.ObjectOld.GetNamespace() == targetNamespace && e.ObjectNew.GetNamespace() == targetNamespace
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Meta.GetNamespace() == targetNamespace
+			return e.Object.GetNamespace() == targetNamespace
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Meta.GetNamespace() == targetNamespace
+			return e.Object.GetNamespace() == targetNamespace
 		},
 	}
 }
@@ -53,9 +54,7 @@ func NewSyncedMapHandler(exists func(types.NamespacedName) bool) *SyncedMapHandl
 	return &SyncedMapHandler{exists: exists, data: map[types.NamespacedName]types.NamespacedName{}}
 }
 
-var _ handler.Mapper = &SyncedMapHandler{}
-
-func (s *SyncedMapHandler) Start(done <-chan struct{}) error {
+func (s *SyncedMapHandler) Start(ctx context.Context) error {
 	exit := make(chan struct{})
 	ticker := time.NewTicker(60 * time.Second)
 
@@ -67,7 +66,7 @@ func (s *SyncedMapHandler) Start(done <-chan struct{}) error {
 			select {
 			case <-ticker.C:
 				s.Cleanup()
-			case <-done:
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -101,15 +100,15 @@ func (s *SyncedMapHandler) Cleanup() {
 	}
 }
 
-func (s *SyncedMapHandler) Map(in handler.MapObject) []reconcile.Request {
+func (s *SyncedMapHandler) Map(a client.Object) []reconcile.Request {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if in.Meta == nil {
-		return nil
+	if a == nil {
+		return []reconcile.Request{}
 	}
 
-	name := types.NamespacedName{Name: in.Meta.GetName(), Namespace: in.Meta.GetNamespace()}
+	name := types.NamespacedName{Name: a.GetName(), Namespace: a.GetNamespace()}
 
 	if v, ok := s.data[name]; ok {
 		return []reconcile.Request{

@@ -21,7 +21,6 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,19 +28,19 @@ import (
 
 type createAction struct {
 	*BaseAction
-	newObject runtime.Object
+	newObject client.Object
 	createActionOptions
 }
 
-//go:generate go-options -option CreateActionOption -imports=k8s.io/apimachinery/pkg/runtime,github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch -prefix Create createActionOptions
+//go:generate go-options -option CreateActionOption -imports=sigs.k8s.io/controller-runtime/pkg/client,github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch -prefix Create createActionOptions
 type createActionOptions struct {
 	WithPatch         patch.PatchAnnotator
-	WithAddOwner      runtime.Object `options:",nil"`
-	WithAddController runtime.Object `options:",nil"`
+	WithAddOwner      client.Object `options:",nil"`
+	WithAddController client.Object `options:",nil"`
 }
 
 func CreateAction(
-	newObj runtime.Object,
+	newObj client.Object,
 	opts ...CreateActionOption,
 ) *createAction {
 	createOpts, _ := newCreateActionOptions(opts...)
@@ -65,7 +64,7 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 		return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), err
 	}
 
-	key, _ := client.ObjectKeyFromObject(a.newObject)
+	key := client.ObjectKeyFromObject(a.newObject)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
 
 	if a.WithAddController != nil {

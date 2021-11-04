@@ -27,9 +27,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kubectl/pkg/scheme"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -43,6 +45,7 @@ var _ = Describe("ReconcileUtils", func() {
 		ctrl         *gomock.Controller
 		client       *mock_client.MockClient
 		statusWriter *mock_client.MockStatusWriter
+		scheme       *runtime.Scheme
 	)
 
 	BeforeEach(func() {
@@ -51,7 +54,9 @@ var _ = Describe("ReconcileUtils", func() {
 		client = mock_client.NewMockClient(ctrl)
 		statusWriter = mock_client.NewMockStatusWriter(ctrl)
 
-		marketplacev1alpha1.AddToScheme(scheme.Scheme)
+		scheme = runtime.NewScheme()
+		utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+		marketplacev1alpha1.AddToScheme(scheme)
 	})
 
 	AfterEach(func() {
@@ -213,7 +218,10 @@ func (h *testHarness) execClientCommands(
 	collector := NewCollector()
 	patcher := patch.RHMDefaultPatcher
 
-	cc := NewClientCommand(client, scheme.Scheme, logger)
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	marketplacev1alpha1.AddToScheme(scheme)
+	cc := NewClientCommand(client, scheme, logger)
 	return cc.Do(
 		h.ctx,
 		StoreResult(collector.NextPointer("a"), GetAction(h.namespacedName, h.pod)),

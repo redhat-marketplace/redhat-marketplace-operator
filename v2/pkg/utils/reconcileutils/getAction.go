@@ -20,15 +20,15 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type getAction struct {
 	*BaseAction
 	NamespacedName types.NamespacedName
-	Object         runtime.Object
+	Object         client.Object
 	getActionOptions
 }
 
@@ -38,7 +38,7 @@ type getActionOptions struct {
 
 func GetAction(
 	namespacedName types.NamespacedName,
-	object runtime.Object,
+	object client.Object,
 	options ...GetActionOption,
 ) *getAction {
 	opts, _ := newGetActionOptions(options...)

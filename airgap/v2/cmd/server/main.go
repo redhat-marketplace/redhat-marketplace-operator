@@ -38,12 +38,12 @@ var log logr.Logger
 func main() {
 	var (
 		api            string
+		gatewayApi     string
 		db             string
 		join           []string
 		dir            string
 		verbose        bool
 		cleanAfter     string
-		purgeAfter     string
 		config         string
 		cronExpression string
 		caCert         string
@@ -56,7 +56,6 @@ func main() {
 		Short: "Command to start up grpc server and database",
 		Long:  `Command to start up grpc server and establish a database connection`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			// reads config file using viper
 			if len(strings.TrimSpace(config)) != 0 {
 				viper.SetConfigFile(config)
@@ -78,19 +77,19 @@ func main() {
 				TLSKey:  tlsKey,
 			}
 
-			fs, err := cfg.InitDB()
+			cleanAfter := viper.GetDuration("cleanAfter")
+			fs, err := cfg.InitDB(cleanAfter)
 			if err != nil {
 				return err
 			}
 
 			defer cfg.Close()
 
-			sfg := &scheduler.SchedulerConfig{
+			sched := &scheduler.SchedulerConfig{
 				Log:            log,
 				Fs:             fs,
 				IsLeader:       cfg.IsLeader,
 				CleanAfter:     viper.GetString("cleanAfter"),
-				PurgeAfter:     viper.GetString("purgeAfter"),
 				CronExpression: viper.GetString("cronExpression"),
 			}
 
@@ -99,17 +98,18 @@ func main() {
 			if err != nil {
 				return err
 			}
-			sfg.StartScheduler()
 
 			ctx, cancel := context.WithCancel(context.Background())
 
-			bs := &server.Server{Log: log, FileStore: fs, TLSKey: tlsKey, TLSCert: tlsCert}
-			bs = server.WithAddress(bs, api)
-			//bs = server.WithTLS(bs, tlsKey, tlsCert)
+			bs := &server.Server{Log: log, FileStore: fs, APIEndpoint: api, GatewayEndpoint: gatewayApi}
 
 			stopCh := (&shutdownHandler{log: log}).SetupSignalHandler()
 
 			var group errgroup.Group
+
+			group.Go(func() error {
+				return sched.Start(ctx)
+			})
 
 			group.Go(func() error {
 				return bs.Start(ctx)
@@ -127,8 +127,12 @@ func main() {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&api, "api", "a", "", "address used to expose the grpc API")
+
+	flags.StringVarP(&api, "api", "a", "127.0.0.1:8003", "address used to expose the grpc API")
+	flags.StringVarP(&gatewayApi, "gw", "g", "127.0.0.1:8007", "address used to expose the grpc gateway API")
+
 	flags.StringVarP(&db, "db", "d", "", "address used for internal database replication")
+
 	flags.StringSliceVarP(&join, "join", "j", nil, "database addresses of existing nodes")
 	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite", "data directory")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
@@ -136,11 +140,10 @@ func main() {
 	flags.StringVarP(&tlsCert, "tls-cert", "", "", "x509 certificate")
 	flags.StringVarP(&tlsKey, "tls-key", "", "", "x509 private key")
 	flags.StringVar(&config, "config", "", "path to config file")
-	flags.StringVar(&cleanAfter, "cleanAfter", "-720h", "clean files older than x seconds/minutes/hours, default 720h i.e. 30 days")
-	flags.StringVar(&purgeAfter, "purgeAfter", "-1440h", "purge files older than x seconds/minutes/hours, default 1440h i.e. 60 days")
+
+	flags.StringVar(&cleanAfter, "cleanAfter", "-1440h", "clean files older than x seconds/minutes/hours, default 1440i.e. 60 days")
 	flags.StringVar(&cronExpression, "cronExpression", "0 0 * * *", "cron expression for scheduler, default cron will run every day 12:00 AM")
 
-	cmd.MarkFlagRequired("api")
 	cmd.MarkFlagRequired("db")
 
 	viper.BindPFlags(flags)

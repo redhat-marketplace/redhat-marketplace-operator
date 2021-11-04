@@ -22,6 +22,9 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,15 +36,16 @@ import (
 )
 
 type ReconcileTask struct {
+	logger    logr.Logger
 	K8SClient client.Client
 	Config    *Config
 	K8SScheme *runtime.Scheme
 	Namespace
-	recorder record.EventRecorder
+	recorder   record.EventRecorder
+	UploadTask *UploadTask
 }
 
 func (r *ReconcileTask) Run(ctx context.Context) error {
-
 	err := r.run(ctx)
 
 	if err != nil {
@@ -92,8 +96,9 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 
 	// Get reports from data service to upload
 	if r.CanRunUploadTask(ctx) {
-		if err := r.UploadTask(ctx); err != nil {
-			logger.Error(err, "error uploading files from data service")
+		if err := r.UploadTask.Run(ctx); err != nil {
+			details := errors.GetDetails(err)
+			logger.Error(err, "error uploading files from data service", details...)
 			return err
 		}
 	}
@@ -107,9 +112,21 @@ func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplace
 		return false
 	}
 
-	uploadStatus := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeUploadStatus)
+	if report.Status.DataServiceStatus != nil && report.Status.DataServiceStatus.Success() {
+		return false
+	}
 
-	if uploadStatus != nil && uploadStatus.IsTrue() {
+	stat := report.Status.UploadStatus.Get(uploaders.UploaderTargetDataService.Name())
+	if stat != nil && stat.Success() {
+		return false
+	}
+
+	if report.Status.UploadStatus.OneSucessOf(
+		[]string{
+			uploaders.UploaderTargetMarketplace.Name(),
+			uploaders.UploaderTargetRedHatInsights.Name(),
+		},
+	) {
 		return false
 	}
 
@@ -117,13 +134,10 @@ func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplace
 }
 
 func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alpha1.MeterReport) error {
-	key, err := client.ObjectKeyFromObject(report)
-	if err != nil {
-		return err
-	}
+	key := client.ObjectKeyFromObject(report)
 
 	cfg := *r.Config
-	cfg.UploaderTargets = UploaderTargets{&DataServiceUploader{}}
+	cfg.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
 	task, err := NewTask(
 		ctx,
 		ReportName(key),
@@ -134,7 +148,7 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 		return err
 	}
 
-	err = task.Run()
+	err = task.Run(ctx)
 	if err != nil {
 		logger.Error(err, "error running task")
 		return err
@@ -147,31 +161,8 @@ func (r *ReconcileTask) CanRunUploadTask(ctx context.Context) bool {
 	return true
 }
 
-func (r *ReconcileTask) UploadTask(ctx context.Context) error {
-	cfg := *r.Config
-
-	uploadTask, err := NewUploadTask(
-		ctx,
-		&cfg,
-	)
-
-	if err != nil {
-		logger.Error(err, "error running task")
-		return err
-	}
-
-	err = uploadTask.Run()
-	if err != nil {
-		logger.Error(err, "error running task")
-		return err
-	}
-
-	return nil
-}
-
 func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
-
-	var comp *ReportJobError
+	var comp *uploaders.ReportJobError
 
 	if errors.As(err, &comp) {
 

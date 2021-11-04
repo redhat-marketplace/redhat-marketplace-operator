@@ -18,13 +18,12 @@ import (
 	"context"
 
 	emperrors "emperror.dev/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type deleteAction struct {
-	obj runtime.Object
+	obj client.Object
 	BaseAction
 	deleteActionOptions
 }
@@ -35,7 +34,7 @@ type deleteActionOptions struct {
 }
 
 func DeleteAction(
-	obj runtime.Object,
+	obj client.Object,
 	opts ...DeleteActionOption,
 ) *deleteAction {
 	deleteOpts, _ := newDeleteActionOptions(opts...)

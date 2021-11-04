@@ -33,7 +33,6 @@ func LoadBasicAuthSecrets(
 	apiserverConfig *monitoringv1.APIServerConfig,
 	SecretsInPromNS *corev1.SecretList,
 ) (map[string]assets.BasicAuthCredentials, error) {
-
 	secrets := map[string]assets.BasicAuthCredentials{}
 	nsSecretCache := make(map[string]*corev1.Secret)
 	for _, mon := range mons {
@@ -45,7 +44,6 @@ func LoadBasicAuthSecrets(
 				}
 				secrets[fmt.Sprintf("serviceMonitor/%s/%s/%d", mon.Namespace, mon.Name, i)] = credentials
 			}
-
 		}
 	}
 
@@ -79,7 +77,6 @@ func LoadBasicAuthSecrets(
 	}
 
 	return secrets, nil
-
 }
 
 func loadBasicAuthSecretFromAPI(basicAuth *monitoringv1.BasicAuth, c client.Client, ns string, cache map[string]*corev1.Secret) (assets.BasicAuthCredentials, error) {
@@ -104,7 +101,6 @@ func loadBasicAuthSecret(basicAuth *monitoringv1.BasicAuth, s *corev1.SecretList
 	var err error
 
 	for _, secret := range s.Items {
-
 		if secret.Name == basicAuth.Username.Name {
 			if username, err = extractCredKey(&secret, basicAuth.Username, "username"); err != nil {
 				return assets.BasicAuthCredentials{}, err
@@ -115,7 +111,6 @@ func loadBasicAuthSecret(basicAuth *monitoringv1.BasicAuth, s *corev1.SecretList
 			if password, err = extractCredKey(&secret, basicAuth.Password, "password"); err != nil {
 				return assets.BasicAuthCredentials{}, err
 			}
-
 		}
 		if username != "" && password != "" {
 			break

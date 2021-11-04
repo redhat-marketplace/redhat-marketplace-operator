@@ -4,7 +4,7 @@ metadata:
   name: rhm-data-service
 spec:
   port:
-    targetPort: grpc
+    targetPort: grpc-web
   to:
     kind: Service
     name: rhm-data-service

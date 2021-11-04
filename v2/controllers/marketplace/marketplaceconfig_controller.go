@@ -40,9 +40,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,13 +83,11 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources;catalogsources,verbs=get;list;watch
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources,verbs=create
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;delete
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
-func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
@@ -115,7 +111,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	// Check for deletion and run cleanup
 	isMarketplaceConfigMarkedToBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if isMarketplaceConfigMarkedToBeDeleted {
-
 		// Cleanup. Unregister. Garbage Collection should delete remaining owned resources
 		secret := &v1.Secret{}
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
@@ -432,52 +427,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 	reqLogger.Info("found meterbase")
 
-	// Check if operator source exists, or create a new one
-	foundOpSrc := &unstructured.Unstructured{}
-	foundOpSrc.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "operators.coreos.com",
-		Kind:    "OperatorSource",
-		Version: "v1",
-	})
-
-	err = r.Client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.OPSRC_NAME,
-		Namespace: utils.OPERATOR_MKTPLACE_NS},
-		foundOpSrc)
-	if err != nil && k8serrors.IsNotFound(err) {
-		// Define a new operator source
-		newOpSrc := utils.BuildNewOpSrc()
-		reqLogger.Info("Creating a new opsource")
-		err = r.Client.Create(context.TODO(), newOpSrc)
-		if err != nil {
-			reqLogger.Info("Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.GetNamespace(), "OperatorSource.Name", newOpSrc.GetName())
-			return reconcile.Result{}, err
-		}
-
-		changed := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonOperatorSourceInstall,
-			Message: "RHM Operator source installed.",
-		})
-
-		if changed {
-			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-			if err != nil {
-				reqLogger.Error(err, "failed to update status")
-				return reconcile.Result{}, err
-			}
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		// Could not get Operator Source
-		reqLogger.Info("Failed to find OperatorSource")
-	}
-
-	reqLogger.Info("Found opsource")
-
 	for _, catalogSrcName := range [2]string{utils.IBM_CATALOGSRC_NAME, utils.OPENCLOUD_CATALOGSRC_NAME} {
 		requeueFlag, err := r.createCatalogSource(request, marketplaceConfig, catalogSrcName)
 		if requeueFlag && err == nil {
@@ -611,7 +560,6 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	var installCatalogSrc bool
 
 	if installCatalogSrcP == nil {
-
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
 		installCatalogSrc = r.cfg.Features.IBMCatalog
 
@@ -676,7 +624,6 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 		}
 
 		reqLogger.Info("Found CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
-
 	} else {
 		// If catalog source exists, delete it.
 		if err == nil {
@@ -714,7 +661,6 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 		}
 
 		reqLogger.Info(catalogName + " catalog Source does not exist.")
-
 	}
 	return false, nil
 }

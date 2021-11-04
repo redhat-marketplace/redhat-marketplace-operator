@@ -23,6 +23,7 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -51,13 +52,13 @@ var ReconcileCmd = &cobra.Command{
 
 		tmpDir := os.TempDir()
 
-		targets := reporter.UploaderTargets{}
+		targets := uploaders.UploaderTargets{}
 		for _, uploadTarget := range uploadTargets {
-			uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
+			uploadTarget := uploaders.MustParseUploaderTarget(uploadTarget)
 			log.Info("upload target", "target set to", uploadTarget.Name())
 
 			switch v := uploadTarget.(type) {
-			case *reporter.LocalFilePathUploader:
+			case *uploaders.LocalFilePathUploader:
 				v.LocalFilePath = localFilePath
 			}
 			targets = append(targets, uploadTarget)
@@ -81,7 +82,7 @@ var ReconcileCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
-		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(ctx, cfg)
+		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(cfg)
 		if err != nil {
 			return errors.Wrap(err, "couldn't initialize event broadcaster")
 		}
@@ -116,7 +117,7 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
 	ReconcileCmd.Flags().StringVar(&dataServiceCertFile, "dataServiceCertFile", "", "cert file for the data service")
 
-	ReconcileCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-insights"}, "comma seperated list of targets to upload to")
+	ReconcileCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-marketplace"}, "comma seperated list of targets to upload to")
 	ReconcileCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReconcileCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
@@ -127,5 +128,5 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&prometheusNamespace, "prometheus-namespace", "openshift-redhat-marketplace", "cert file for the data service")
 	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
 
-	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
+	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v2alpha1", "reporter version schema to write")
 }

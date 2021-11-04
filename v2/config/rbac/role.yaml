@@ -343,15 +343,6 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
-  - catalogsources
-  - operatorsources
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
   - clusterserviceversions
   verbs:
   - create
@@ -378,12 +369,6 @@ rules:
   - list
   - update
   - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - operatorsources
-  verbs:
-  - create
 - apiGroups:
   - operators.coreos.com
   resources:

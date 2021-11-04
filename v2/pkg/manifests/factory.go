@@ -33,7 +33,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/envvar"
-	"golang.org/x/net/http/httpproxy"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -135,6 +134,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		return err
 	}
 
+	envChanges.Append(envvar.AddHttpsProxy())
+
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
 		container.Image = f.config.RelatedImages.KubeRbacProxy
@@ -219,47 +220,6 @@ var (
 		}),
 	}
 )
-
-func (f *Factory) getEnvironmentChanges() envvar.Changes {
-	proxyInfo := httpproxy.FromEnvironment()
-
-	envVarChanges := envvar.Changes{}
-
-	if proxyInfo.HTTPProxy != "" {
-		envVarChanges.Add(corev1.EnvVar{
-			Name:  "HTTP_PROXY",
-			Value: proxyInfo.HTTPProxy,
-		})
-	} else {
-		envVarChanges.Remove(corev1.EnvVar{
-			Name: "HTTP_PROXY",
-		})
-	}
-
-	if proxyInfo.HTTPSProxy != "" {
-		envVarChanges.Add(corev1.EnvVar{
-			Name:  "HTTPS_PROXY",
-			Value: proxyInfo.HTTPSProxy,
-		})
-	} else {
-		envVarChanges.Remove(corev1.EnvVar{
-			Name: "HTTPS_PROXY",
-		})
-	}
-
-	if proxyInfo.NoProxy != "" {
-		envVarChanges.Add(corev1.EnvVar{
-			Name:  "NO_PROXY",
-			Value: proxyInfo.NoProxy,
-		})
-	} else {
-		envVarChanges.Remove(corev1.EnvVar{
-			Name: "NO_PROXY",
-		})
-	}
-
-	return envVarChanges
-}
 
 func (f *Factory) updateContainerResources(container *corev1.Container) error {
 	if f.operatorConfig == nil || f.operatorConfig.Config.Resources == nil {
