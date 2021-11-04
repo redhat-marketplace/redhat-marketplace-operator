@@ -197,7 +197,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 				Type:    marketplacev1alpha1.ConditionIsDisconnected,
 				Status:  corev1.ConditionTrue,
 				Reason:  marketplacev1alpha1.ReasonInternetDisconnected,
-				Message: "Detected AirGapped Environment, razee features are disabled",
+				Message: "Detected disconnected environment",
 			})
 
 			if ok {
