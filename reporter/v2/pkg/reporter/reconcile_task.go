@@ -101,6 +101,67 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 			logger.Error(err, "error uploading files from data service", details...)
 			return err
 		}
+	} else if !r.CanRunUploadTask(ctx) {
+		// running in an airgap environment, set status on reports
+		// List the files from DataService
+		logger.Info("Listing files in data-service")
+		fileList, err := r.UploadTask.fileStorage.ListFiles(ctx)
+		if err != nil {
+			return err
+		}
+		logger.Info("ListFiles", "Listed files in data-service", fileList)
+
+		for _, file := range fileList {
+			if file.GetDeletedAt() != nil && !file.GetDeletedAt().AsTime().IsZero() {
+				logger.Info("Skipping deleted file")
+				continue
+			}
+
+			// Download the file from DataService
+			logger.Info("DownloadFile", "Downloading file from data-service", file)
+			_, err := r.UploadTask.fileStorage.DownloadFile(ctx, file)
+			if err != nil {
+				logger.Error(err, "failed to download file", "id", file.Id)
+				continue
+			}
+
+			logger.Info("DownloadFile", "Downloaded file from data-service", file)
+			statuses := []*marketplacev1alpha1.UploadDetails{}
+
+			metadata := &dataservice.MeterReportMetadata{}
+			if err := metadata.From(file.Metadata); err != nil {
+				logger.Error(err, "error parsing metadata")
+				continue
+			}
+
+			if metadata.IsEmpty() {
+				continue
+			}
+
+			condition := marketplacev1alpha1.ReportConditionJobIsDisconnected
+			details := &marketplacev1alpha1.UploadDetails{}
+			details.Status = marketplacev1alpha1.UploadStatusNoop
+
+			if err := updateMeterReportStatus(ctx, r.K8SClient, metadata.ReportName, metadata.ReportNamespace,
+				func(m marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+					m.Conditions.SetCondition(condition)
+
+					statuses = append(statuses, details)
+					m.UploadStatus.Append(statuses)
+
+					dataServiceStatus := m.UploadStatus.Get(uploaders.UploaderTargetDataService.Name())
+
+					if dataServiceStatus != nil {
+						m.DataServiceStatus = dataServiceStatus
+					}
+
+					return m
+				}); err != nil {
+				logger.Error(err, "failed to update meter report")
+				continue
+			}
+		}
+
 	}
 
 	return nil

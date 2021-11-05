@@ -144,6 +144,7 @@ type UploadStatus string
 const (
 	UploadStatusSuccess UploadStatus = "success"
 	UploadStatusFailure UploadStatus = "failure"
+	UploadStatusNoop    UploadStatus = "noop"
 )
 
 func (a *UploadStatus) UnmarshalJSON(b []byte) error {
@@ -294,12 +295,13 @@ func (e ErrorDetails) FromError(err error) ErrorDetails {
 }
 
 const (
-	ReportConditionTypeJobRunning      status.ConditionType   = "JobRunning"
-	ReportConditionReasonJobSubmitted  status.ConditionReason = "Submitted"
-	ReportConditionReasonJobNotStarted status.ConditionReason = "NotStarted"
-	ReportConditionReasonJobWaiting    status.ConditionReason = "Waiting"
-	ReportConditionReasonJobFinished   status.ConditionReason = "Finished"
-	ReportConditionReasonJobErrored    status.ConditionReason = "Errored"
+	ReportConditionTypeJobRunning          status.ConditionType   = "JobRunning"
+	ReportConditionReasonJobSubmitted      status.ConditionReason = "Submitted"
+	ReportConditionReasonJobNotStarted     status.ConditionReason = "NotStarted"
+	ReportConditionReasonJobWaiting        status.ConditionReason = "Waiting"
+	ReportConditionReasonJobFinished       status.ConditionReason = "Finished"
+	ReportConditionReasonJobErrored        status.ConditionReason = "Errored"
+	ReportConditionReasonJobIsDisconnected status.ConditionReason = "Disconn"
 
 	ReportConditionTypeStorageStatus status.ConditionType = "Stored"
 	ReportConditionTypeUploadStatus  status.ConditionType = "Uploaded"
@@ -356,7 +358,12 @@ var (
 		Status: corev1.ConditionFalse,
 		Reason: ReportConditionReasonUploadStatusErrored,
 	}
-
+	ReportConditionJobIsDisconnected = status.Condition{
+		Type:    ReportConditionTypeUploadStatus,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReportConditionReasonJobIsDisconnected,
+		Message: "Report is running in a disconnected environment",
+	}
 	ReportConditionUploadStatusFinished = status.Condition{
 		Type:   ReportConditionTypeUploadStatus,
 		Status: corev1.ConditionTrue,
