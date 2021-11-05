@@ -1951,24 +1951,23 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 }
 
 func isMapStringByteEqual(d1, d2 map[string][]byte) bool {
-	equal := true
-	for key2, value2 := range d1 {
-		found := false
-		for key, value := range d2 {
-			if key == key2 {
-				found = true
-				if bytes.Compare(value, value2) != 0 {
-					equal = false
-					break
-				}
-			}
+	for key, value := range d1 {
+		value2, ok := d2[key]
+		if !ok {
+			return false
 		}
 
-		if !found {
-			equal = false
-			break
+		if bytes.Compare(value, value2) != 0 {
+			return false
 		}
 	}
 
-	return equal
+	for key := range d2 {
+		_, ok := d1[key]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
 }
