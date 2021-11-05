@@ -144,7 +144,6 @@ type UploadStatus string
 const (
 	UploadStatusSuccess UploadStatus = "success"
 	UploadStatusFailure UploadStatus = "failure"
-	UploadStatusNoop    UploadStatus = "noop"
 )
 
 func (a *UploadStatus) UnmarshalJSON(b []byte) error {
