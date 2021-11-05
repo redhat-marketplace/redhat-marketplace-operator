@@ -78,11 +78,15 @@ func (r *UploadTask) Run(ctx context.Context) error {
 			logger.Info("Uploaded file", "file", file, "target", uploader.Name())
 			data, err := os.ReadFile(localFileName)
 
-			if err != nil {
-				logger.Error(err, "failed to open local file")
+			onError := func(err error, msg string) {
+				logger.Error(err, msg)
 				details.Error = err.Error()
 				details.Status = marketplacev1alpha1.UploadStatusFailure
 				statuses = append(statuses, details)
+			}
+
+			if err != nil {
+				onError(err, "failed to open local file")
 				continue
 			}
 
@@ -91,13 +95,13 @@ func (r *UploadTask) Run(ctx context.Context) error {
 
 			if err != nil {
 				logger.Error(err, "failed to upload a file")
-				details.Error = err.Error()
-				details.Status = marketplacev1alpha1.UploadStatusFailure
-				statuses = append(statuses, details)
+				onError(err, "failed to open local file")
 				continue
 			}
 
 			details.ID = id
+			details.Status = marketplacev1alpha1.UploadStatusSuccess
+			statuses = append(statuses, details)
 		}
 
 		metadata := &dataservice.MeterReportMetadata{}
@@ -168,6 +172,7 @@ func findStatus(statuses marketplacev1alpha1.UploadDetailConditions) (success bo
 		condition.Message = err.Error()
 		return
 	}
+
 	return
 }
 

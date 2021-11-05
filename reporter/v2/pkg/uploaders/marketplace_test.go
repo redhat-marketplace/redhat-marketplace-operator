@@ -80,11 +80,12 @@ var _ = Describe("marketplace uploaders", func() {
 	})
 	Describe("uploading files", func() {
 		BeforeEach(func() {
+			testId = "6bf1a9e41041d7d6913bbbcbc23c2a137ee170bbe7ebf58cf886fdb9c66989ff"
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, &postReponse),
+					ghttp.RespondWith(http.StatusAccepted, "{\"requestId\":\"6bf1a9e41041d7d6913bbbcbc23c2a137ee170bbe7ebf58cf886fdb9c66989ff\"}"),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
@@ -115,7 +116,7 @@ var _ = Describe("marketplace uploaders", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, &postReponse),
+					ghttp.RespondWithJSONEncoded(http.StatusAccepted, &postReponse),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
@@ -153,7 +154,7 @@ var _ = Describe("marketplace uploaders", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, &postReponse),
+					ghttp.RespondWithJSONEncoded(http.StatusAccepted, &postReponse),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
@@ -180,7 +181,7 @@ var _ = Describe("marketplace uploaders", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, &postReponse),
+					ghttp.RespondWithJSONEncoded(http.StatusAccepted, &postReponse),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),

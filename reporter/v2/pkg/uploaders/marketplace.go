@@ -247,7 +247,7 @@ func (r *MarketplaceUploader) uploadFile(req *http.Request) (string, error) {
 		return "", errors.Wrap(err, "failed to read response body")
 	}
 
-	logger.Info(
+	logger.V(5).Info(
 		"retrieved response",
 		"statusCode", resp.StatusCode,
 		"proto", resp.Proto,
