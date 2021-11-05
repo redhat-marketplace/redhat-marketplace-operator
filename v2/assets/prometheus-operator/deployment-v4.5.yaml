@@ -26,13 +26,13 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                    - amd64
-                    - ppc64le
-                    - s390x    
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - ppc64le
+                      - s390x
       containers:
         - image: redhat-marketplace-authcheck:latest
           imagePullPolicy: IfNotPresent
@@ -43,13 +43,13 @@ spec:
               memory: 20Mi
             limits:
               cpu: 10m
-              memory: 25Mi              
+              memory: 25Mi
           terminationMessagePolicy: FallbackToLogsOnError
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
@@ -76,15 +76,15 @@ spec:
               memory: 60Mi
             limits:
               cpu: 10m
-              memory: 60Mi              
+              memory: 200Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true 
+            runAsNonRoot: true
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private
@@ -109,15 +109,15 @@ spec:
               memory: 40Mi
             limits:
               cpu: 1m
-              memory: 40Mi           
+              memory: 40Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true 
+            runAsNonRoot: true
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private

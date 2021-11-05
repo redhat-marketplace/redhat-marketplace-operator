@@ -24,8 +24,10 @@ import (
 
 var _ = Describe("envvar", func() {
 	var (
-		var1 = v1.EnvVar{Name: "foo"}
-		var2 = v1.EnvVar{Name: "foo2"}
+		var1  = v1.EnvVar{Name: "foo"}
+		var2  = v1.EnvVar{Name: "foo2"}
+		var2a = v1.EnvVar{Name: "foo2", Value: "a"}
+		var2b = v1.EnvVar{Name: "foo2", Value: "b"}
 
 		container corev1.Container
 		changes   envvar.Changes
@@ -48,6 +50,13 @@ var _ = Describe("envvar", func() {
 		changes.Remove(var1)
 		changes.Merge(&container)
 		Expect(container.Env).To(BeEmpty())
+	})
+
+	It("should override if same name", func() {
+		changes.Add(var2a)
+		changes.Add(var2b)
+		changes.Merge(&container)
+		Expect(container.Env).To(ConsistOf(var1, var2b))
 	})
 
 	It("should add/remove env vars", func() {
