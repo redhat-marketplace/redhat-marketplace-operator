@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -911,7 +912,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 
-		if !reflect.DeepEqual(watchKeeperSecret.Data, updatedWatchKeeperSecret.Data) {
+		if !isMapStringByteEqual(watchKeeperSecret.Data, updatedWatchKeeperSecret.Data) {
 			err = r.Client.Update(context.TODO(), &watchKeeperSecret)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
@@ -981,13 +982,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 
-		if !reflect.DeepEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
+		if !isMapStringByteEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
 			err = r.Client.Update(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.COS_READER_KEY_NAME)
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Resource updated successfully", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.COS_READER_KEY_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		}
 
@@ -1947,4 +1948,26 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func isMapStringByteEqual(d1, d2 map[string][]byte) bool {
+	for key, value := range d1 {
+		value2, ok := d2[key]
+		if !ok {
+			return false
+		}
+
+		if bytes.Compare(value, value2) != 0 {
+			return false
+		}
+	}
+
+	for key := range d2 {
+		_, ok := d1[key]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
 }
