@@ -193,6 +193,21 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 	return nil
 }
 
+func (f *Factory) UpdateEnvVar(container *corev1.Container, isDisconnected bool) {
+	envChanges := envvar.Changes{}
+	isDisconnectedEnvVar := envvar.Changes{
+		envvar.Add(
+			corev1.EnvVar{
+				Name:  "IS_DISCONNECTED",
+				Value: strconv.FormatBool(isDisconnected),
+			},
+		),
+	}
+
+	envChanges.Append(isDisconnectedEnvVar)
+	envChanges.Merge(container)
+}
+
 var (
 	removeHTTPSProxy = envvar.Changes{
 		envvar.Add(
@@ -400,12 +415,7 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 	container := &j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
 	f.ReplaceImages(container)
 
-	for _, envVar := range container.Env {
-		if envVar.Name == "IS_DISCONNECTED" {
-			stringBool := strconv.FormatBool(isDisconnected)
-			envVar.Value = stringBool
-		}
-	}
+	f.UpdateEnvVar(container, isDisconnected)
 
 	dataServiceArgs := []string{
 		"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",

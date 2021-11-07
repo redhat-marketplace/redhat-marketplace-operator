@@ -1911,6 +1911,7 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, cronJob, func() error {
 			orig, err := r.factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)
@@ -1933,6 +1934,26 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 
 			if cronJob.Spec.SuccessfulJobsHistoryLimit != orig.Spec.SuccessfulJobsHistoryLimit {
 				cronJob.Spec.SuccessfulJobsHistoryLimit = orig.Spec.SuccessfulJobsHistoryLimit
+			}
+
+			var latestEnv corev1.EnvVar
+			latestContainer := &cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+			for _, envVar := range latestContainer.Env {
+				if envVar.Name == "IS_DISCONNECTED" {
+					latestEnv = envVar
+				}
+			}
+
+			var origEnv corev1.EnvVar
+			origContainer := &orig.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+			for _, envVar := range origContainer.Env {
+				if envVar.Name == "IS_DISCONNECTED" {
+					latestEnv = envVar
+				}
+			}
+
+			if latestEnv.Value != origEnv.Value {
+				latestEnv.Value = origEnv.Value
 			}
 
 			return nil
