@@ -184,7 +184,8 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--set dqLiteImage=$(DQLITE_IMAGE) \
-	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	--post-renderer ./config/manifests/kustomize > ./deploy/manifestsNativeDeploy.yaml
+	cat ./deploy/manifestsNativeDeploy.yaml | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
@@ -195,18 +196,12 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	# 	IFS=","; set -- $$i; \
 	# 	$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
 	# done
-
+	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
 	cp -p ./config/samples/*v1alpha1*.yaml ./config/samples/*v1beta1*.yaml ./deploy/crds
 	#generate all yaml for the deploy directory to be used in the bundle
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	--post-renderer ./config/default/kustomize > ./deploy/manifestsNativeDeploy.yaml
 
 BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 

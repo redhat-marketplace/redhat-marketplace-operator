@@ -46,7 +46,7 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.2
+        version=3.2.0
 
         # download kubebuilder and extract it to tmp
         # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
@@ -60,7 +60,8 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-
-        version=v1.7.2
+        version=v1.14.0
+        olm_version=v1.19.1
         export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
         export OS=$(uname | awk '{print tolower($0)}')
         export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
@@ -69,7 +70,7 @@ jobs:
         curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
+        curl -LO https://github.com/operator-framework/operator-registry/releases/download/${olm_version}/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
@@ -197,7 +198,7 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.2
+        version=3.2.0
 
         # download kubebuilder and extract it to tmp
         # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
@@ -211,7 +212,8 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-
-        version=v1.7.2
+        version=v1.14.0
+        olm_version=v1.19.1
         export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
         export OS=$(uname | awk '{print tolower($0)}')
         export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
@@ -220,7 +222,7 @@ jobs:
         curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
+        curl -LO https://github.com/operator-framework/operator-registry/releases/download/${olm_version}/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
@@ -357,7 +359,7 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.2
+        version=3.2.0
 
         # download kubebuilder and extract it to tmp
         # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
@@ -371,7 +373,8 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-
-        version=v1.7.2
+        version=v1.14.0
+        olm_version=v1.19.1
         export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
         export OS=$(uname | awk '{print tolower($0)}')
         export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
@@ -380,7 +383,7 @@ jobs:
         curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
+        curl -LO https://github.com/operator-framework/operator-registry/releases/download/${olm_version}/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
@@ -516,7 +519,7 @@ jobs:
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        version=2.3.2
+        version=3.2.0
 
         # download kubebuilder and extract it to tmp
         # https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.1.0/kubebuilder_darwin_amd64
@@ -530,7 +533,8 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-
-        version=v1.7.2
+        version=v1.14.0
+        olm_version=v1.19.1
         export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
         export OS=$(uname | awk '{print tolower($0)}')
         export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
@@ -539,7 +543,7 @@ jobs:
         curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
+        curl -LO https://github.com/operator-framework/operator-registry/releases/download/${olm_version}/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version

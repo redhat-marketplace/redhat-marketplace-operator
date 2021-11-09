@@ -118,13 +118,13 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-  - supported: true
-    type: OwnNamespace
-  - supported: true
-    type: SingleNamespace
-  - supported: true
-    type: MultiNamespace
   - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
     type: AllNamespaces
   keywords:
   - red hat marketplace

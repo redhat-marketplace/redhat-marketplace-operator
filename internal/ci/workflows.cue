@@ -915,7 +915,8 @@ _#installKubeBuilder: _#step & {
 _#installOperatorSDK: _#step & {
 	name: "Install operatorsdk"
 	run: """
-		version=v1.7.2
+		version=v1.14.0
+		olm_version=v1.19.1
 		export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
 		export OS=$(uname | awk '{print tolower($0)}')
 		export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
@@ -924,7 +925,7 @@ _#installOperatorSDK: _#step & {
 		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
 		grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
 		chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-		curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
+		curl -LO https://github.com/operator-framework/operator-registry/releases/download/${olm_version}/${OS}-${ARCH}-opm
 		chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
 		"""
 }
@@ -963,7 +964,7 @@ _#registry:           "quay.io/rh-marketplace"
 _#goVersion:          "1.16.8"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
-_#kubeBuilderVersion: "2.3.2"
+_#kubeBuilderVersion: "3.2.0"
 
 _#image: {
 	name:  string

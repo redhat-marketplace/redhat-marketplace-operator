@@ -19,9 +19,10 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
+CONTROLLER_GEN_VERSION=v0.7.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION))
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
@@ -29,9 +30,16 @@ code-generator:
   git clone -b v0.22.0 git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
+KUSTOMIZE_VERSION=v4.1.3
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.1.3)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION))
+
+OMT_VERSION=v0.1.6
+OMT=$(PROJECT_DIR)/bin/operator-manifest-tools
+omt:
+	$(call go-get-tool,$(KUSTOMIZE),github.com/operator-framework/operator-manifest-tools@$(OMT_VERSION))
+
 
 export KUSTOMIZE
 
@@ -80,13 +88,17 @@ YQ=$(PROJECT_DIR)/bin/yq
 yq:
 	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.8.0)
 
+OPERATOR_SDK_VERSION=v1.10.1
+
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
-	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.7.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+
+OPM_VERSION=v1.19.1
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
-	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
+	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION),$(UNAME)-$(ARCH)-opm,$(OPM))
 
 .SILENT: svu
 SVU=$(PROJECT_DIR)/bin/svu
