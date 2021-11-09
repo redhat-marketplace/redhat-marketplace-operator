@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	"github.com/imdario/mergo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -1878,15 +1879,15 @@ func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	rrs3Deployment, err := r.factory.NewRemoteResourceS3Deployment()
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
-			r.factory.SetControllerReference(instance, rrs3Deployment)
-			return r.factory.UpdateRemoteResourceS3Deployment(rrs3Deployment)
+			rrs3Dep, _ := r.factory.NewRemoteResourceS3Deployment()
+			r.factory.SetControllerReference(instance, rrs3Dep)
+			return mergo.Merge(rrs3Deployment, rrs3Dep, mergo.WithOverride)
 		})
 		return err
 	})
@@ -1923,8 +1924,9 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
-			r.factory.SetControllerReference(instance, watchKeeperDeployment)
-			return r.factory.UpdateWatchKeeperDeployment(watchKeeperDeployment)
+			watchKeeperDep, _ := r.factory.NewWatchKeeperDeployment()
+			r.factory.SetControllerReference(instance, watchKeeperDep)
+			return mergo.Merge(watchKeeperDeployment, watchKeeperDep, mergo.WithOverride)
 		})
 		return err
 	})
