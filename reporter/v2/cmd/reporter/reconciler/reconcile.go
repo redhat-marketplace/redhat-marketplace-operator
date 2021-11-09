@@ -17,6 +17,7 @@ package reconciler
 import (
 	"context"
 	"os"
+	"strconv"
 	"time"
 
 	"emperror.dev/errors"
@@ -35,6 +36,7 @@ var localFilePath, deployedNamespace string
 var dataServiceTokenFile, dataServiceCertFile string
 var prometheusService, prometheusNamespace, prometheusPort string
 var reporterSchema string
+var isDisconnected string
 var uploadTargets []string
 var local, upload bool
 var retry int
@@ -64,6 +66,11 @@ var ReconcileCmd = &cobra.Command{
 			targets = append(targets, uploadTarget)
 		}
 
+		isDisconnectedBool, err := strconv.ParseBool(isDisconnected)
+		if err != nil {
+			return errors.Wrap(err, "error converting IS_DISCONNECTED to bool")
+		}
+
 		cfg := &reporter.Config{
 			OutputDirectory:      tmpDir,
 			Retry:                ptr.Int(retry),
@@ -73,6 +80,7 @@ var ReconcileCmd = &cobra.Command{
 			DataServiceCertFile:  dataServiceCertFile,
 			Local:                local,
 			Upload:               upload,
+			IsDisconnected:       isDisconnectedBool,
 			UploaderTargets:      targets,
 			DeployedNamespace:    deployedNamespace,
 			PrometheusService:    prometheusService,
@@ -121,6 +129,7 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReconcileCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
+	ReconcileCmd.Flags().StringVar(&isDisconnected, "isDisconnected", os.Getenv("IS_DISCONNECTED"), "is the reporter running in a disconnected environment")
 	ReconcileCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
 	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 

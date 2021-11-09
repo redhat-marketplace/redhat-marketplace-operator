@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	mathrand "math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,6 +191,21 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 
 	envChanges.Merge(container)
 	return nil
+}
+
+func (f *Factory) UpdateEnvVar(container *corev1.Container, isDisconnected bool) {
+	envChanges := envvar.Changes{}
+	isDisconnectedEnvVar := envvar.Changes{
+		envvar.Add(
+			corev1.EnvVar{
+				Name:  "IS_DISCONNECTED",
+				Value: strconv.FormatBool(isDisconnected),
+			},
+		),
+	}
+
+	envChanges.Append(isDisconnectedEnvVar)
+	envChanges.Merge(container)
 }
 
 var (
@@ -385,7 +401,7 @@ var (
 	}
 )
 
-func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1beta1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -398,6 +414,8 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit
 	container := &j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
 	f.ReplaceImages(container)
+
+	f.UpdateEnvVar(container, isDisconnected)
 
 	dataServiceArgs := []string{
 		"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",

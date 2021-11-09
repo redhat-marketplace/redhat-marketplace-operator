@@ -111,6 +111,9 @@ const (
 
 	/* Certificate */
 	DQLITE_COMMONNAME_PREFIX = "*.rhm-data-service" // wildcard.ServiceName
+
+	ProductionURL = "https://marketplace.redhat.com"
+	StageURL      = "https://sandbox.marketplace.redhat.com"
 )
 
 var (

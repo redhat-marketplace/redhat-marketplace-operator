@@ -16,6 +16,9 @@ package config
 
 import (
 	"bytes"
+	"fmt"
+	"net"
+	"net/url"
 	"reflect"
 	"strconv"
 	"sync"
@@ -48,7 +51,8 @@ type OperatorConfig struct {
 	*Infrastructure
 	OLMInformation
 	MeterBaseValues
-	Config EnvConfig `env:"CONFIG"`
+	Config         EnvConfig `env:"CONFIG"`
+	IsDisconnected bool      `env:"IS_DISCONNECTED" envDefault:"false"`
 }
 
 // ENVCONFIG is a map of containerName to a corev1 resource requirements
@@ -162,6 +166,8 @@ func ProvideConfig() (*OperatorConfig, error) {
 			return nil, err
 		}
 
+		cfg.IsDisconnected = setDisconnectedStatus(&cfg)
+
 		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
 	}
@@ -231,6 +237,66 @@ func ProvideInfrastructureAwareConfig(
 	}
 
 	return global, nil
+}
+
+func setDisconnectedStatus(cfg *OperatorConfig) bool {
+	var rhmURL string
+
+	rhmURL = utils.ProductionURL
+
+	if cfg.URL != "" {
+		rhmURL = cfg.URL
+	}
+
+	var ipLookUpFailed bool
+	_, err := net.LookupIP(rhmURL)
+	if err != nil {
+		ipLookUpFailed = checkError(err)
+	}
+
+	var dialTimeoutFailed bool
+	u, _ := url.Parse(utils.ProductionURL)
+	trimmedProdUrl := u.Host
+	timeoutURL := fmt.Sprintf("%s:https", trimmedProdUrl)
+	timeout := 1 * time.Second
+	_, err = net.DialTimeout("tcp", timeoutURL, timeout)
+	if err != nil {
+		dialTimeoutFailed = checkError(err)
+	}
+
+	if ipLookUpFailed && dialTimeoutFailed {
+		log.Info("ip lookup and timeout failed")
+		return true
+	}
+
+	log.Info("found IP for redhat marketplace")
+	return false
+}
+
+func checkError(err error) bool {
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		log.Info("DialTimeout exceeded timeout", "response", netError)
+		return true
+	}
+
+	switch t := err.(type) {
+	case *net.OpError:
+		if t.Op == "dial" {
+			log.Info("DialTimeout could not find host", "response", t)
+			return true
+
+		} else if t.Op == "read" {
+			log.Info("DialTimeout connection refused", "response", t)
+			return true
+		}
+	case *net.DNSError:
+		if t.IsNotFound {
+			log.Info("LookupIP could not find host", "response", t)
+			return true
+		}
+	}
+
+	return false
 }
 
 var GetConfig = ProvideConfig

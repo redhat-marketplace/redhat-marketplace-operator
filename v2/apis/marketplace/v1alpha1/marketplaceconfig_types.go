@@ -126,6 +126,9 @@ const (
 	// ConditionRegistered means the cluster registered.
 	ConditionRegistrationError status.ConditionType = "RegistationError"
 
+	// ConditionIsDisconnected means the rhm operator is running in a disconnected environment
+	ConditionIsDisconnected status.ConditionType = "IsDisconnected"
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"

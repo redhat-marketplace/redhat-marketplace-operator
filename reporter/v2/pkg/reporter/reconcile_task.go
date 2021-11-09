@@ -101,6 +101,31 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 			logger.Error(err, "error uploading files from data service", details...)
 			return err
 		}
+	} else {
+		// running in an airgap environment, set condition on meterreports
+		reportsToUpdateNames := []string{}
+		reportsToUpdate := []*marketplacev1alpha1.MeterReport{}
+
+		for i := range meterReports.Items {
+			report := meterReports.Items[i]
+			cond := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeUploadStatus)
+			if cond != nil {
+				switch {
+				case cond.Status == corev1.ConditionTrue:
+					continue
+				case cond.Status == marketplacev1alpha1.ReportConditionJobIsDisconnected.Status &&
+					cond.Message == marketplacev1alpha1.ReportConditionJobIsDisconnected.Message &&
+					cond.Reason == marketplacev1alpha1.ReportConditionJobIsDisconnected.Reason:
+					continue
+				}
+			}
+
+			reportsToUpdate = append(reportsToUpdate, &report)
+			reportsToUpdateNames = append(reportsToUpdateNames, report.Name)
+		}
+
+		logger.Info("meter reports to updated with disconnected", "reports", strings.Join(reportsToUpdateNames, ", "))
+		r.setDisconnectedCondition(ctx, reportsToUpdate)
 	}
 
 	return nil
@@ -157,7 +182,13 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 	return nil
 }
 
+// IsDisconnected defaults to false
 func (r *ReconcileTask) CanRunUploadTask(ctx context.Context) bool {
+	if r.Config.IsDisconnected {
+		logger.Info("detected disconnected mode")
+		return false
+	}
+
 	return true
 }
 
@@ -181,4 +212,18 @@ func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
 	}
 
 	return nil
+}
+
+func (r *ReconcileTask) setDisconnectedCondition(ctx context.Context, meterReportsToRun []*marketplacev1alpha1.MeterReport) {
+	for _, mreport := range meterReportsToRun {
+		condition := marketplacev1alpha1.ReportConditionJobIsDisconnected
+		if err := updateMeterReportStatus(ctx, r.K8SClient, mreport.Name, mreport.Namespace,
+			func(m marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+				m.Conditions.SetCondition(condition)
+				return m
+			}); err != nil {
+			logger.Error(err, "failed to update meter report")
+			continue
+		}
+	}
 }

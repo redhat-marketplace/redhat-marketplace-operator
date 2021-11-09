@@ -664,7 +664,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 
 	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
 	if instance.Spec.IsDataServiceEnabled() {
-		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled)
+		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled, r.cfg.IsDisconnected)
 		if err != nil {
 			reqLogger.Error(err, "Failed to createReporterCronJob")
 			return result, err
@@ -1906,14 +1906,15 @@ func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
 }
 
-func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool) (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob(userWorkloadEnabled)
+func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool, isDisconnected bool) (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, cronJob, func() error {
-			orig, err := r.factory.NewReporterCronJob(userWorkloadEnabled)
+			orig, err := r.factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)
 			if err != nil {
 				return err
 			}
@@ -1933,6 +1934,26 @@ func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha
 
 			if cronJob.Spec.SuccessfulJobsHistoryLimit != orig.Spec.SuccessfulJobsHistoryLimit {
 				cronJob.Spec.SuccessfulJobsHistoryLimit = orig.Spec.SuccessfulJobsHistoryLimit
+			}
+
+			var latestEnv corev1.EnvVar
+			latestContainer := &cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+			for _, envVar := range latestContainer.Env {
+				if envVar.Name == "IS_DISCONNECTED" {
+					latestEnv = envVar
+				}
+			}
+
+			var origEnv corev1.EnvVar
+			origContainer := &orig.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+			for _, envVar := range origContainer.Env {
+				if envVar.Name == "IS_DISCONNECTED" {
+					latestEnv = envVar
+				}
+			}
+
+			if latestEnv.Value != origEnv.Value {
+				latestEnv.Value = origEnv.Value
 			}
 
 			return nil
@@ -2030,7 +2051,7 @@ func validateUserWorkLoadMonitoringConfig(cc ClientCommandRunner, reqLogger logr
 }
 
 func (r *MeterBaseReconciler) deleteReporterCronJob() (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob(false)
+	cronJob, err := r.factory.NewReporterCronJob(false, r.cfg.IsDisconnected)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

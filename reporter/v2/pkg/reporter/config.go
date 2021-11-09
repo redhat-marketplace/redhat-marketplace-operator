@@ -40,6 +40,7 @@ type Config struct {
 	DeployedNamespace    string
 	Local                bool
 	Upload               bool
+	IsDisconnected       bool
 	PrometheusService    string
 	PrometheusNamespace  string
 	PrometheusPort       string
