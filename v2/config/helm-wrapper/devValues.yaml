@@ -1,3 +1,5 @@
 devEnvVars:
   - name: METERBASE_TRANSITION_TIME
     value:  5m
+  - name: IS_DISCONNECTED
+    value:  "true"

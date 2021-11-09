@@ -103,7 +103,29 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 		}
 	} else {
 		// running in an airgap environment, set condition on meterreports
-		r.setDisconnectedCondition(ctx, meterReportsToRun)
+		reportsToUpdateNames := []string{}
+		reportsToUpdate := []*marketplacev1alpha1.MeterReport{}
+
+		for i := range meterReports.Items {
+			report := meterReports.Items[i]
+			cond := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeUploadStatus)
+			if cond != nil {
+				switch {
+				case cond.Status == corev1.ConditionTrue:
+					continue
+				case cond.Status == marketplacev1alpha1.ReportConditionJobIsDisconnected.Status &&
+					cond.Message == marketplacev1alpha1.ReportConditionJobIsDisconnected.Message &&
+					cond.Reason == marketplacev1alpha1.ReportConditionJobIsDisconnected.Reason:
+					continue
+				}
+			}
+
+			reportsToUpdate = append(reportsToUpdate, &report)
+			reportsToUpdateNames = append(reportsToUpdateNames, report.Name)
+		}
+
+		logger.Info("meter reports to updated with disconnected", "reports", strings.Join(reportsToUpdateNames, ", "))
+		r.setDisconnectedCondition(ctx, reportsToUpdate)
 	}
 
 	return nil
@@ -162,7 +184,12 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 
 // IsDisconnected defaults to false
 func (r *ReconcileTask) CanRunUploadTask(ctx context.Context) bool {
-	return !r.Config.IsDisconnected
+	if r.Config.IsDisconnected {
+		logger.Info("detected disconnected mode")
+		return false
+	}
+
+	return true
 }
 
 func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
