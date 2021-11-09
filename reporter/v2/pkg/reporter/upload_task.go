@@ -17,8 +17,10 @@ package reporter
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
@@ -80,7 +82,7 @@ func (r *UploadTask) Run(ctx context.Context) error {
 
 			onError := func(err error, msg string) {
 				logger.Error(err, msg)
-				details.Error = err.Error()
+				details.Error = fmt.Sprintf("error: %s details: %+v", err.Error(), errors.GetDetails(err))
 				details.Status = marketplacev1alpha1.UploadStatusFailure
 				statuses = append(statuses, details)
 			}
@@ -94,8 +96,8 @@ func (r *UploadTask) Run(ctx context.Context) error {
 			id, err = uploader.UploadFile(ctx, file.Name, bytes.NewReader(data))
 
 			if err != nil {
-				logger.Error(err, "failed to upload a file")
-				onError(err, "failed to open local file")
+				logger.Error(err, "failed to upload file", errors.GetDetails(err)...)
+				onError(err, "failed to upload file")
 				continue
 			}
 
