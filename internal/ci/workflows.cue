@@ -336,22 +336,22 @@ publish: _#bashWorkflow & {
 build_base_images: _#bashWorkflow & {
 	name: "Build Bases"
 	on: {
-    workflow_dispatch: {}
-    schedule: [{ cron: "0 0 * * *"}] //nightly
-  }
+		workflow_dispatch: {}
+		schedule: [{cron: "0 0 * * *"}] //nightly
+	}
 	jobs: {
 		"base": _#job & {
-			name:                "Build Base"
-			"runs-on":           _#linuxMachine
+			name:      "Build Base"
+			"runs-on": _#linuxMachine
 			env: {
 				GO_VERSION: _#goVersion
 			}
-	strategy: matrix: {
-		command: ["base", "data-service"]
-	}
-	env: {
-		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-	}
+			strategy: matrix: {
+				command: ["base", "data-service"]
+			}
+			env: {
+				"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+			}
 			steps: [
 				_#checkoutCode,
 				_#installGo,
@@ -519,7 +519,11 @@ branch_build: _#bashWorkflow & {
 				]
 			}
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: {
+						"fetch-depth": 0
+					}
+				},
 				_#installGo,
 				_#setupQemu,
 				_#setupBuildX,
@@ -554,19 +558,23 @@ branch_build: _#bashWorkflow & {
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: {
+						"fetch-depth": 0
+					}
+				},
 				_#installGo,
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
 				_#quayLogin,
-        _#getVersion,
+				_#getVersion,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
-          env: "IMAGE_TAG": "${{ steps.version.outputs.tag }}"
-					run:  """
+					env: "IMAGE_TAG": "${{ steps.version.outputs.tag }}"
+					run: """
 						REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
 						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
@@ -673,9 +681,9 @@ _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
 	uses: "docker/setup-buildx-action@v1"
 	id:   "buildx"
-  with: {
-    "config": ".github/buildkitd.toml"
-  }
+	with: {
+		"config": ".github/buildkitd.toml"
+	}
 }
 
 _#hasWriteAccess: _#step & {
@@ -688,10 +696,10 @@ _#hasWriteAccess: _#step & {
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
 	uses: "docker/setup-qemu-action@v1"
-  with: {
-    image: "tonistiigi/binfmt:qemu-v6.1.0"
-    platforms: "all"
-  }
+	with: {
+		image:     "tonistiigi/binfmt:qemu-v6.1.0"
+		platforms: "all"
+	}
 }
 
 _#checkoutCode: _#step & {

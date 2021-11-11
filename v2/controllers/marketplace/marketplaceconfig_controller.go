@@ -220,6 +220,21 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 					return err
 				}
 
+				//Initialize enabled features if not set
+				if marketplaceConfig.Spec.Features == nil {
+					marketplaceConfig.Spec.Features = &common.Features{
+						Deployment:   ptr.Bool(true),
+						Registration: ptr.Bool(true),
+					}
+				} else {
+					if marketplaceConfig.Spec.Features.Deployment == nil {
+						marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+					}
+					if marketplaceConfig.Spec.Features.Registration == nil {
+						marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+					}
+				}
+
 				marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
 				marketplaceConfig.Spec.Features.Registration = ptr.Bool(false)
 				return r.Client.Update(context.TODO(), marketplaceConfig)
