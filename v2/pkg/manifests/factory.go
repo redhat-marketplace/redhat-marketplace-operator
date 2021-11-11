@@ -151,8 +151,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 					Port: intstr.FromInt(8089),
 				},
 			},
-			InitialDelaySeconds: 15,
-			PeriodSeconds:       20,
+			InitialDelaySeconds: 20,
+			PeriodSeconds:       30,
 		}
 		container.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
@@ -161,8 +161,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 					Port: intstr.FromInt(8089),
 				},
 			},
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
+			InitialDelaySeconds: 20,
+			PeriodSeconds:       30,
 		}
 
 		envChanges.Append(addPodName)
@@ -179,13 +179,17 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 
 		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
 		// will fail; HTTP_PROXY will be used instead
-		envChanges.Append(removeHTTPSProxy)
+		envChanges.Remove(corev1.EnvVar{
+			Name: "HTTPS_PROXY",
+		})
 	case container.Name == "watch-keeper":
 		container.Image = f.config.RelatedImages.WatchKeeper
 
 		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
 		// will fail; HTTP_PROXY will be used instead
-		envChanges.Append(removeHTTPSProxy)
+		envChanges.Remove(corev1.EnvVar{
+			Name: "HTTPS_PROXY",
+		})
 	}
 
 	envChanges.Merge(container)
@@ -193,14 +197,6 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 }
 
 var (
-	removeHTTPSProxy = envvar.Changes{
-		envvar.Add(
-			corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: "",
-			},
-		),
-	}
 	addPodName = envvar.Changes{
 		envvar.Add(corev1.EnvVar{
 			Name: "POD_NAME",

@@ -433,3 +433,53 @@ var _ = Describe("Testing with Ginkgo", func() {
 		)
 	})
 })
+
+var _ = Describe("isMapStringByteEqual", func() {
+	It("should check equality", func() {
+		d1 := map[string][]byte{
+			"foo": []byte("bar"),
+		}
+		d2 := map[string][]byte{
+			"foo": []byte("bar"),
+		}
+
+		Expect(isMapStringByteEqual(d1, d2)).To(BeTrue())
+		Expect(isMapStringByteEqual(d2, d1)).To(BeTrue())
+
+		d2 = map[string][]byte{
+			"foo": []byte("bar"),
+			"bar": []byte("bar"),
+		}
+
+		Expect(isMapStringByteEqual(d1, d2)).To(BeFalse())
+		Expect(isMapStringByteEqual(d2, d1)).To(BeFalse())
+
+		d2 = map[string][]byte{
+			"bar": []byte("bar"),
+		}
+
+		Expect(isMapStringByteEqual(d1, d2)).To(BeFalse())
+		Expect(isMapStringByteEqual(d2, d1)).To(BeFalse())
+
+		d1 = map[string][]byte{
+			"foo": []byte("bar"),
+		}
+		d2 = map[string][]byte{
+			"foo": []byte("bar2"),
+		}
+
+		Expect(isMapStringByteEqual(d1, d2)).To(BeFalse())
+		Expect(isMapStringByteEqual(d2, d1)).To(BeFalse())
+
+		d1 = map[string][]byte{
+			"foo":  []byte("bar"),
+			"foo2": []byte("bar2"),
+		}
+		d2 = map[string][]byte{
+			"foo": []byte("bar"),
+		}
+
+		Expect(isMapStringByteEqual(d1, d2)).To(BeFalse())
+		Expect(isMapStringByteEqual(d2, d1)).To(BeFalse())
+	})
+})

@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	"github.com/imdario/mergo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -911,7 +913,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 
-		if !reflect.DeepEqual(watchKeeperSecret.Data, updatedWatchKeeperSecret.Data) {
+		if !isMapStringByteEqual(watchKeeperSecret.Data, updatedWatchKeeperSecret.Data) {
 			err = r.Client.Update(context.TODO(), &watchKeeperSecret)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
@@ -981,13 +983,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 
-		if !reflect.DeepEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
+		if !isMapStringByteEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
 			err = r.Client.Update(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.COS_READER_KEY_NAME)
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Resource updated successfully", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.COS_READER_KEY_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		}
 
@@ -1877,15 +1879,15 @@ func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	rrs3Deployment, err := r.factory.NewRemoteResourceS3Deployment()
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
-			r.factory.SetControllerReference(instance, rrs3Deployment)
-			return r.factory.UpdateRemoteResourceS3Deployment(rrs3Deployment)
+			rrs3Dep, _ := r.factory.NewRemoteResourceS3Deployment()
+			r.factory.SetControllerReference(instance, rrs3Dep)
+			return mergo.Merge(rrs3Deployment, rrs3Dep, mergo.WithOverride)
 		})
 		return err
 	})
@@ -1922,8 +1924,9 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
-			r.factory.SetControllerReference(instance, watchKeeperDeployment)
-			return r.factory.UpdateWatchKeeperDeployment(watchKeeperDeployment)
+			watchKeeperDep, _ := r.factory.NewWatchKeeperDeployment()
+			r.factory.SetControllerReference(instance, watchKeeperDep)
+			return mergo.Merge(watchKeeperDeployment, watchKeeperDep, mergo.WithOverride)
 		})
 		return err
 	})
@@ -1947,4 +1950,26 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func isMapStringByteEqual(d1, d2 map[string][]byte) bool {
+	for key, value := range d1 {
+		value2, ok := d2[key]
+		if !ok {
+			return false
+		}
+
+		if bytes.Compare(value, value2) != 0 {
+			return false
+		}
+	}
+
+	for key := range d2 {
+		_, ok := d1[key]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
 }

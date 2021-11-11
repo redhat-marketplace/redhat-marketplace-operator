@@ -109,7 +109,7 @@ func (a *AuthChecker) Reconcile(req reconcile.Request) (reconcile.Result, error)
 	err = a.Client.List(context.TODO(), secrets)
 
 	if err != nil {
-		a.Logger.Error(err, "failed to get pod")
+		a.Logger.Error(err, "failed to list secrets")
 		a.Checker.SetErr(err)
 		return reconcile.Result{}, err
 	}
