@@ -1,6 +1,3 @@
-VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
-export VERSION
-
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-data-service
 IMAGE_TAG ?= $(VERSION)
@@ -73,7 +70,7 @@ demo: build
 
 PROTOC_GEN_GO=$(shell pwd)/bin/protoc-gen-go
 protoc-gen-go:
-	$(call go-get-tool,$(PROTOC),google.golang.org/protobuf/cmd/protoc-gen-go)
+	$(call go-get-tool,$(PROTOC),google.golang.org/protobuf/cmd/protoc-gen-go,)
 
 ifeq ($(UNAME),darwin)
 PROTOC_UNAME=osx

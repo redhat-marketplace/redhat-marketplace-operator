@@ -160,7 +160,6 @@ release_status: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -220,7 +219,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -253,7 +251,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -287,7 +284,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -321,7 +317,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -538,7 +533,6 @@ branch_build: _#bashWorkflow & {
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#installYQ,
 				_#quayLogin,
 				_#step & {
@@ -586,7 +580,6 @@ branch_build: _#bashWorkflow & {
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#installYQ,
 				_#quayLogin,
 				_#step & {
