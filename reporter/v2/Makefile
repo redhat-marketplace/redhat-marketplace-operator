@@ -10,7 +10,7 @@ export IMG
 IMAGE ?= $(IMG)
 export IMAGE
 
-all: generate vet fmt
+all: svu generate vet fmt
 
 build:
 	$(call multiarch-build,redhat-marketplace-reporter,./cmd/reporter)

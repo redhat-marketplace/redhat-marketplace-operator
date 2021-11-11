@@ -66,7 +66,7 @@ endif
 
 .DEFAULT_GOAL := all
 
-all: manager
+all: svu manager
 
 clean:
 	rm -f bundle/manifests/*.yaml bundle/metadata/*.yaml bundle/tests/*.yaml

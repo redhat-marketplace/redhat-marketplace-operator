@@ -81,8 +81,7 @@ else
 SKAFFOLD=$(shell which skaffold)
 endif
 
-GINKGO_VERISON=v1.16.5
-
+GINKGO_VERSION=v1.16.5
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))

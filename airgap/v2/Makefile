@@ -10,7 +10,7 @@ export IMAGE
 
 include ../../utils.Makefile
 
-all: generate vet fmt
+all: svu generate vet fmt
 
 IMAGE_PUSH ?= true
 BUILDX ?= true
