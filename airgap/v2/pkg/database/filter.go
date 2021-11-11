@@ -15,221 +15,160 @@
 package database
 
 import (
-	"errors"
 	"fmt"
-	"log"
+	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/interpreter/functions"
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"emperror.dev/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1/fileserver"
+	modelsv2 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v2"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
-const (
-	equalsQuery   = "equals_query"
-	notEqualQuery = "not_equals_query"
+type filter struct {
+	Filters fileserver.Filters
+}
 
-	greaterThanQuery      = ">_query"
-	lessThanQuery         = "<_query"
-	greaterThanEqualQuery = ">=_query"
-	lessThanEqualQuery    = "<=_query"
+func (file filter) ToScope(opts *ListOptions) func(db *gorm.DB) *gorm.DB {
+	if len(opts.Filters) == 0 {
+		return func(db *gorm.DB) *gorm.DB {
+			return db
+		}
+	}
 
-	andQuery = "and_query"
-	orQuery  = "or_query"
-)
+	builder := &strings.Builder{}
+	variables := []interface{}{}
+	var filterError error
+
+	for _, f := range opts.Filters {
+		op := operatorToSql(f.Operator)
+		left, err := strconv.Unquote(f.Left)
+		if err != nil {
+			left = f.Left
+		}
+		left = strings.Title(left)
+
+		// fieldType used in left side
+		fieldName, fieldType, err := getFieldMapping(left)
+
+		if err != nil {
+			filterError = err
+			break
+		}
+
+		builder.WriteString(fmt.Sprintf("%s %s ?", fieldName, op))
+
+		// write boolean operator if it is prsent
+		if f.NextFilterOperator != fileserver.FilterBooleanOperator("") {
+			builder.WriteString(" ")
+			builder.WriteString(boolOperatorToSQL(f.NextFilterOperator))
+			builder.WriteString(" ")
+		}
+
+		// set variable and append to array, unquote it in case it's quoted
+		right, err := strconv.Unquote(f.Right)
+		if err != nil {
+			right = f.Right
+		}
+
+		if fieldType == reflect.TypeOf(time.Time{}) {
+			rightAsDate, err1 := time.Parse(time.RFC3339, right)
+
+			if err1 == nil {
+				variables = append(variables, rightAsDate)
+				continue
+			}
+
+			rightAsInt, err2 := strconv.ParseInt(right, 0, 64)
+
+			if err2 == nil {
+				variables = append(variables, time.Unix(rightAsInt, 0))
+				continue
+			}
+
+			filterError = errors.Combine(err1, err2)
+			break
+		}
+
+		variables = append(variables, right)
+	}
+
+	return func(db *gorm.DB) *gorm.DB {
+		if filterError != nil {
+			db.AddError(filterError)
+		}
+
+		return db.Where(builder.String(), variables...)
+	}
+}
+
+func isDateField(in string) bool {
+	return strings.Contains(in, "updated_at") ||
+		strings.Contains(in, "deleted_at") ||
+		strings.Contains(in, "created_at")
+}
+
+func camelToSnakeCase(in string) string {
+	out := &strings.Builder{}
+	for _, c := range in {
+		if unicode.IsUpper(c) {
+			out.WriteRune('_')
+			out.WriteRune(unicode.ToLower(c))
+			continue
+		}
+		out.WriteRune(c)
+	}
+	return out.String()
+}
+
+func boolOperatorToSQL(operator fileserver.FilterBooleanOperator) string {
+	switch operator {
+	case fileserver.FilterAnd:
+		return "AND"
+	case fileserver.FilterOr:
+		return "OR"
+	}
+
+	return ""
+}
+
+func operatorToSql(operator fileserver.FilterOperator) string {
+	switch operator {
+	case fileserver.FilterEqual:
+		return "="
+	case fileserver.FilterNotEqual:
+		return "<>"
+	default:
+		return operator.String()
+	}
+}
 
 var (
-	d = cel.Declarations(
-		decls.NewConst("size", decls.String, &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "size"}}),
-		decls.NewConst("source", decls.String, &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "source"}}),
-		decls.NewConst("sourceType", decls.String, &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "sourceType"}}),
-		decls.NewConst("createdAt", decls.Int, &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "createdAt"}}),
-		decls.NewConst("deletedAt", decls.Int, &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "deletedAt"}}),
-
-		decls.NewFunction(operators.Equals,
-			decls.NewOverload(equalsQuery,
-				[]*exprpb.Type{decls.Any, decls.Any}, decls.String),
-		),
-		decls.NewFunction(operators.NotEquals,
-			decls.NewOverload(notEqualQuery,
-				[]*exprpb.Type{decls.Any, decls.Any}, decls.String),
-		),
-
-		decls.NewFunction(operators.LogicalAnd,
-			decls.NewOverload(andQuery, []*exprpb.Type{decls.String, decls.String}, decls.String),
-			decls.NewInstanceOverload(andQuery, []*exprpb.Type{decls.String, decls.String}, decls.String),
-		),
-		decls.NewFunction(operators.LogicalOr,
-			decls.NewOverload(orQuery, []*exprpb.Type{decls.String, decls.String}, decls.String),
-		),
-
-		decls.NewFunction(operators.Greater, decls.NewOverload(greaterThanQuery,
-			[]*exprpb.Type{decls.Int, decls.Int}, decls.String)),
-		decls.NewFunction(operators.GreaterEquals, decls.NewOverload(greaterThanEqualQuery,
-			[]*exprpb.Type{decls.Int, decls.Int}, decls.String)),
-
-		decls.NewFunction(operators.Less, decls.NewOverload(lessThanQuery,
-			[]*exprpb.Type{decls.Int, decls.Int}, decls.String)),
-		decls.NewFunction(operators.LessEquals, decls.NewOverload(lessThanEqualQuery,
-			[]*exprpb.Type{decls.Int, decls.Int}, decls.String)),
-	)
-
-	greaterFunc = &functions.Overload{
-		Operator:     greaterThanQuery,
-		OperandTrait: 0,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s > %d", lhs, rhs.Value()))
-		},
-	}
-	greaterEqualFunc = &functions.Overload{
-		Operator:     greaterThanEqualQuery,
-		OperandTrait: 0,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s >= %d", lhs, rhs.Value()))
-		},
-	}
-	lessFunc = &functions.Overload{
-		Operator:     lessThanQuery,
-		OperandTrait: 0,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s < %d", lhs, rhs.Value()))
-		},
-	}
-	lessEqualFunc = &functions.Overload{
-		Operator:     lessThanEqualQuery,
-		OperandTrait: 0,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s <= %d", lhs, rhs.Value()))
-		},
-	}
-
-	equalsFunc = &functions.Overload{
-		Operator: equalsQuery,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s == %s", lhs, rhs))
-		},
-	}
-
-	notEqualsFunc = &functions.Overload{
-		Operator: notEqualQuery,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s <> %s", lhs, rhs))
-		},
-	}
-
-	andFunc = &functions.Overload{
-		Operator: andQuery,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s AND %s", lhs, rhs))
-		},
-	}
-	orFunc = &functions.Overload{
-		Operator: orQuery,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(fmt.Sprintf("%s OR %s", lhs, rhs))
-		},
-	}
-
-	programOpts = []cel.ProgramOption{
-		cel.Functions(greaterEqualFunc, lessEqualFunc, lessFunc, greaterFunc, equalsFunc, notEqualsFunc, andFunc, orFunc),
-		cel.CustomDecorator(filterInterpreter),
-		cel.EvalOptions(cel.OptPartialEval),
-	}
-
-	env *cel.Env
-
-	binds = map[string]interface{}{}
+	namingStrat = schema.NamingStrategy{}
+	file, _     = schema.Parse(&modelsv2.StoredFile{}, &sync.Map{}, namingStrat)
+	metadata, _ = schema.Parse(&modelsv2.StoredFileMetadata{}, &sync.Map{}, namingStrat)
+	content, _  = schema.Parse(&modelsv2.StoredFileContent{}, &sync.Map{}, namingStrat)
 )
 
-func filterInterpreter(i interpreter.Interpretable) (interpreter.Interpretable, error) {
-	fmt.Println(i.ID())
-
-	v := i.Eval(interpreter.EmptyActivation())
-	fmt.Printf("%+v\n", v.Value())
-
-	// Only optimize the instruction if it is a call.
-	call, ok := i.(interpreter.InterpretableCall)
-	if !ok {
-		return i, nil
+func getFieldMapping(name string) (string, reflect.Type, error) {
+	for _, schema := range []*schema.Schema{file, content, metadata} {
+		f, ok := schema.FieldsByName[name]
+		if ok {
+			name := getFieldName(*schema, *f)
+			return name, f.FieldType, nil
+		}
 	}
 
-	fmt.Println(call.Function())
-
-	switch call.Function() {
-	case operators.Equals,
-		operators.NotEquals,
-		operators.LogicalAnd,
-		operators.LogicalOr:
-		// These are all binary operators so they should have to arguments
-		args := call.Args()
-
-		funcSymbol := ""
-		switch call.Function() {
-		case operators.Equals:
-			funcSymbol = "=="
-		case operators.NotEquals:
-			funcSymbol = "<>"
-		case operators.LogicalAnd:
-			funcSymbol = "AND"
-		case operators.LogicalOr:
-			funcSymbol = "OR"
-		}
-
-		v1 := args[1].Eval(interpreter.EmptyActivation())
-		val1 := fmt.Sprintf("%s", v1.Value())
-		if v1.Type() == types.StringType {
-			val1 = fmt.Sprintf(`"%s"`, v1.Value())
-		}
-
-		ans := types.String(
-			fmt.Sprintf("%s %s %s",
-				args[0].Eval(interpreter.EmptyActivation()),
-				funcSymbol,
-				val1))
-		return interpreter.NewConstValue(call.ID(), ans), nil
-	default:
-		return i, nil
-	}
+	return "", nil, errors.Errorf("field %s not found", name)
 }
 
-func init() {
-	var err error
-	env, err = cel.NewCustomEnv(d, cel.ClearMacros())
-	if err != nil {
-		log.Fatalf("environment creation error: %v\n", err)
-	}
-}
-
-func ParseFilter(filter string) (string, error) {
-	ast, iss := env.Compile(filter)
-
-	if iss.Err() != nil {
-		return "", iss.Err()
-	}
-
-	prg, err := env.Program(ast, programOpts...)
-
-	if err != nil {
-		fmt.Println("program error", err)
-		return "", err
-	}
-
-	out, _, err := prg.Eval(binds)
-
-	if err != nil {
-		fmt.Println("eval error", err.Error())
-		return "", err
-	}
-
-	fmt.Printf("%v\n", out.Value())
-	filterQuery, ok := out.Value().(string)
-	if !ok {
-		return "", errors.New("result was not a string")
-	}
-
-	return filterQuery, err
+func getFieldName(schema schema.Schema, field schema.Field) string {
+	tableName := namingStrat.TableName(schema.Name)
+	fieldName := namingStrat.ColumnName(tableName, field.Name)
+	return fmt.Sprintf("`%s`.`%s`", tableName, fieldName)
 }

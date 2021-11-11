@@ -24,7 +24,8 @@ import (
 )
 
 func TestDatabase(t *testing.T) {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter)))
+	logger := zap.New(zap.WriteTo(GinkgoWriter))
+	logf.SetLogger(logger)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Database Suite")
 }

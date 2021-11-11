@@ -64,12 +64,12 @@ var (
 									Content:  file.File.Content,
 									MimeType: "application/gzip",
 								},
-								FileMetadata: []models.StoredFileMetadata{},
+								Metadata: []models.StoredFileMetadata{},
 							}
 
 							for i := range file.FileMetadata {
 								data := file.FileMetadata[i]
-								newFile.FileMetadata = append(newFile.FileMetadata, models.StoredFileMetadata{
+								newFile.Metadata = append(newFile.Metadata, models.StoredFileMetadata{
 									Key:   data.Key,
 									Value: data.Value,
 								})

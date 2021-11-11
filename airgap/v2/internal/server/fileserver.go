@@ -146,6 +146,15 @@ func (fs *FileServer) ListFiles(ctx context.Context, req *fileserver.ListFilesRe
 		opts = append(opts, database.ShowDeleted())
 	}
 
+	if req.Filter != "" {
+		filters := fileserver.Filters{}
+		err := filters.UnmarshalText([]byte(req.Filter))
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "Filter is formatted incorrectly. Error: %s", err)
+		}
+		opts = append(opts, database.ApplyFilters(filters))
+	}
+
 	responseFiles := []*dataservicev1.FileInfo{}
 
 	files, pageToken, err := fs.FileStore.List(ctx, opts...)
@@ -233,7 +242,7 @@ func (fs *FileServer) UpdateFileMetadata(
 
 	metadata := req.Metadata
 
-	for _, md := range file.FileMetadata {
+	for _, md := range file.Metadata {
 		if _, ok := metadata[md.Key]; !ok {
 			metadata[md.Key] = md.Value
 		}
@@ -249,7 +258,7 @@ func (fs *FileServer) UpdateFileMetadata(
 			})
 	}
 
-	file.FileMetadata = fileMetadata
+	file.Metadata = fileMetadata
 
 	_, err = fs.FileStore.Save(ctx, file)
 	if err != nil {

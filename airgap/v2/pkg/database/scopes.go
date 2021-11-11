@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	listScopes = []listOptionsToScope{paginator{}, showHidden{}}
+	listScopes = []listOptionsToScope{paginator{}, showHidden{}, filter{}}
 )
 
 type listOptionsToScope interface {
@@ -30,6 +30,12 @@ type listOptionsToScope interface {
 type paginator struct{}
 
 func (p paginator) ToScope(opts *ListOptions) func(db *gorm.DB) *gorm.DB {
+	if opts.Pagination == nil {
+		return func(db *gorm.DB) *gorm.DB {
+			return db
+		}
+	}
+
 	return func(db *gorm.DB) *gorm.DB {
 		page, pageSize := opts.Pagination.Page, opts.Pagination.PageSize
 

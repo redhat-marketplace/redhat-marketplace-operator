@@ -17,6 +17,7 @@ package database
 import (
 	"strconv"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1/fileserver"
 	"gorm.io/gorm"
 )
 
@@ -25,8 +26,9 @@ type ListOption interface {
 }
 
 type ListOptions struct {
-	Pagination  ListPagination
+	Pagination  *ListPagination
 	ShowDeleted bool
+	Filters     fileserver.Filters
 }
 
 func (o *ListOptions) ApplyOptions(opts []ListOption) *ListOptions {
@@ -35,7 +37,7 @@ func (o *ListOptions) ApplyOptions(opts []ListOption) *ListOptions {
 	}
 
 	//defaults
-	o.Pagination = ListPagination{Page: 1, PageSize: 10}
+	o.Pagination = &ListPagination{Page: 1, PageSize: 10}
 
 	for _, opt := range opts {
 		opt.ApplyToList(o)
@@ -87,7 +89,7 @@ type ListPagination struct {
 }
 
 func (l ListPagination) ApplyToList(opts *ListOptions) {
-	opts.Pagination = l
+	opts.Pagination = &l
 }
 
 func ShowDeleted() ListOption {
@@ -98,4 +100,14 @@ type showDeleted struct{}
 
 func (f showDeleted) ApplyToList(opts *ListOptions) {
 	opts.ShowDeleted = true
+}
+
+type filtersOpt fileserver.Filters
+
+func ApplyFilters(filters fileserver.Filters) ListOption {
+	return filtersOpt(filters)
+}
+
+func (f filtersOpt) ApplyToList(opts *ListOptions) {
+	opts.Filters = fileserver.Filters(f)
 }
