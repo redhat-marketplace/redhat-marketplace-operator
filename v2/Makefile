@@ -2,6 +2,9 @@
 VERSION ?= $(shell cd ./tools/version && go run ./main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
+OPENSHIFT_VERSIONS ?= v4.6-v4.9
+CHANNELS ?= beta,stable
+DEFAULT_CHANNEL ?= stable
 
 export VERSION
 
@@ -172,6 +175,7 @@ docker-manifest:
 	docker manifest push $(IMAGE)
 
 CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
@@ -185,6 +189,7 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--set dqLiteImage=$(DQLITE_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
@@ -325,3 +330,17 @@ PIDs ?=
 wait-and-publish:
 	cd tools/connect ; \
 	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
+
+# Pin images in bundle
+.PHONY: bundle-pin-images
+bundle-pin-images:
+	docker run \
+	--pull always \
+	-v ${HOME}/.docker:/dockercfg \
+	-v $(shell pwd)/bundle/manifests:/manifests quay.io/operator-framework/operator-manifest-tools:latest \
+	pinning pin -a /dockercfg/config.json /manifests
+
+# Run certification test
+.PHONY: test-certify
+test-certify: bundle bundle-pin-images
+	cd hack/certify && ./certify.sh
