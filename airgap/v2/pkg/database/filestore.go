@@ -22,6 +22,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1/fileserver"
 	modelsv2 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -98,7 +99,7 @@ func (d *fileStore) Get(ctx context.Context, id string) (*modelsv2.StoredFile, e
 	file := modelsv2.StoredFile{}
 
 	if err := db.Unscoped().
-		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("File", func(db *gorm.DB) *gorm.DB {
@@ -119,7 +120,7 @@ func (d *fileStore) GetByFileKey(ctx context.Context, fileKey *modelsv2.StoredFi
 	file := modelsv2.StoredFile{}
 
 	if err := db.Unscoped().
-		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("File", func(db *gorm.DB) *gorm.DB {
@@ -200,18 +201,47 @@ func (d *fileStore) Delete(ctx context.Context, id string, permanent bool) (err 
 }
 
 func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []modelsv2.StoredFile, nextPageToken string, err error) {
-	listOpts := (&ListOptions{}).ApplyOptions(opts)
-	err = d.DB.WithContext(ctx).
+	listOpts := *(&ListOptions{}).ApplyOptions(opts)
+
+	listOpts2 := listOpts
+	listOpts2.Pagination = nil
+
+	idQuery := d.DB.Model(&modelsv2.StoredFileMetadata{}).
+		Unscoped().
+		Scopes(listOpts2.scopes()...).
+		Joins("join stored_files on stored_files.id = stored_file_metadata.file_id").
+		Joins("join stored_file_contents on stored_file_contents.file_id = stored_file_metadata.file_id").
+		Distinct("stored_file_metadata.file_id")
+
+	idQuery2 := *idQuery
+
+	var count int64
+
+	if err = idQuery2.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return
+	}
+
+	if count == 0 {
+		return
+	}
+
+	// reset filters for this
+	listOpts.Filters = []*fileserver.Filter{}
+
+	query := d.DB.WithContext(ctx).
 		Scopes(listOpts.scopes()...).
-		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("File", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
+		Where("id in (?)", idQuery).
 		Omit("File.Content").
-		Order("created_at desc").
-		Find(&files).Error
+		Order("stored_files.created_at desc").
+		Find(&files)
+
+	err = query.Error
 
 	if len(files) == listOpts.Pagination.PageSize+1 {
 		nextPageToken = fmt.Sprintf("%d", listOpts.Pagination.Page+1)
@@ -230,7 +260,7 @@ func (d *fileStore) Download(ctx context.Context, id string) (file *modelsv2.Sto
 	file = &modelsv2.StoredFile{}
 	err = d.WithContext(ctx).
 		Unscoped().
-		Preload("FileMetadata", func(db *gorm.DB) *gorm.DB {
+		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("File", func(db *gorm.DB) *gorm.DB {

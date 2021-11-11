@@ -48,8 +48,8 @@ type StoredFile struct {
 	Source     string `gorm:"uniqueIndex:idx_stored_file-name"`
 	SourceType string `gorm:"uniqueIndex:idx_stored_file-name"`
 
-	File         StoredFileContent    `gorm:"foreignKey:FileID"`
-	FileMetadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
+	File     StoredFileContent    `gorm:"foreignKey:FileID"`
+	Metadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
 }
 
 type StoredFileKey struct {
