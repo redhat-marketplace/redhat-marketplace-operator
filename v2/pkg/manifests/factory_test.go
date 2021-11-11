@@ -24,15 +24,12 @@ import (
 )
 
 var files = []string{
-	PrometheusOperatorDeploymentV45,
 	PrometheusOperatorDeploymentV46,
-	PrometheusOperatorServiceV45,
 	PrometheusOperatorServiceV46,
 
 	PrometheusAdditionalScrapeConfig,
 	PrometheusHtpasswd,
 	PrometheusRBACProxySecret,
-	PrometheusDeploymentV45,
 	PrometheusDeploymentV46,
 	PrometheusProxySecret,
 	PrometheusService,
@@ -46,7 +43,6 @@ var files = []string{
 	ReporterMeterDefinition,
 
 	MetricStateDeployment,
-	MetricStateServiceMonitorV45,
 	MetricStateServiceMonitorV46,
 	MetricStateService,
 	MetricStateMeterDefinition,

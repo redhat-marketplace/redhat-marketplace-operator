@@ -101,22 +101,23 @@ jobs:
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
         	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-          REF="$GITHUB_HEAD_REF"
+        	REF="$GITHUB_HEAD_REF"
         fi
 
         echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
-          echo "failed to find version"
-          exit 1
+        	echo "failed to find version"
+        	exit 1
         fi
 
-        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
         export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
         export IS_DEV="false"
         else
         echo "using beta in version"
+        export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
         export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
         export IS_DEV="true"
         fi
@@ -145,7 +146,7 @@ jobs:
           exit 1
         fi
 
-        status=$(echo $BRANCH_BUILD | jq -r '.status')
+        status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
         conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
         if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then

@@ -461,11 +461,6 @@ branch_build: _#bashWorkflow & {
 		"test": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
-			outputs: {
-				version: "${{ steps.version.outputs.version }}"
-				isDev:   "${{ steps.version.outputs.isDev }}"
-				tag:     "${{ steps.version.outputs.tag }}"
-			}
 			steps: [
 				_#checkoutCode & {
 					with: "fetch-depth": 0
@@ -478,7 +473,6 @@ branch_build: _#bashWorkflow & {
 					name: "Test"
 					run:  "make operator/test"
 				},
-				_#getVersion,
 			]
 		}
 		"matrix-test": _#job & {
@@ -501,9 +495,7 @@ branch_build: _#bashWorkflow & {
 		"images": _#job & {
 			name:      "Build Images"
 			"runs-on": _#linuxMachine
-			needs: ["test"]
 			env: {
-				VERSION:    "${{ needs.test.outputs.tag }}"
 				GO_VERSION: _#goVersion
 			}
 			strategy: matrix: {
@@ -533,28 +525,21 @@ branch_build: _#bashWorkflow & {
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installYQ,
 				_#quayLogin,
+				_#getVersion,
 				_#step & {
 					id:   "build"
-					name: "Build images"
+					name: "Build and push images"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"IMAGE_PUSH":        "false"
+						"IMAGE_PUSH":        "true"
 					}
 					run: """
+						if [ "$IS_DEV" == "true" ]; then
+							export ARCHS="amd64"
+						fi
+
 						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
-						"""
-				},
-				_#step & {
-					id:   "push"
-					name: "Push images"
-					env: {
-						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"PUSH":              "true"
-					}
-					run: """
-						make ${{ matrix.project }}/docker-build
 						"""
 				},
 			]
@@ -563,11 +548,6 @@ branch_build: _#bashWorkflow & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
 			needs: ["test", "matrix-test", "images"]
-			env: {
-				VERSION:   "${{ needs.test.outputs.version }}"
-				IMAGE_TAG: "${{ needs.test.outputs.tag }}"
-				IS_DEV:    "${{ needs.test.outputs.isDev }}"
-			}
 			outputs: {
 				isDev:   "${{ steps.bundle.outputs.isDev }}"
 				version: "${{ steps.bundle.outputs.version }}"
@@ -580,11 +560,12 @@ branch_build: _#bashWorkflow & {
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installYQ,
 				_#quayLogin,
+        _#getVersion,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
+          env: "IMAGE_TAG": "${{ steps.version.outputs.tag }}"
 					run:  """
 						REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
 						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
@@ -755,7 +736,7 @@ _#getBundleRunID: _#step & {
 		  exit 1
 		fi
 
-		status=$(echo $BRANCH_BUILD | jq -r '.status')
+		status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
 		conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
 		if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
@@ -784,22 +765,23 @@ _#getVersion: _#step & {
 
 		if [[ "$GITHUB_HEAD_REF" != "" ]]; then
 			echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-		  REF="$GITHUB_HEAD_REF"
+			REF="$GITHUB_HEAD_REF"
 		fi
 
 		echo "Found ref $REF"
 
 		if [[ "$VERSION" == "" ]]; then
-		  echo "failed to find version"
-		  exit 1
+			echo "failed to find version"
+			exit 1
 		fi
 
-		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
 		echo "using release version and github_run_number"
 		export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
 		export IS_DEV="false"
 		else
 		echo "using beta in version"
+		export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
 		export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
 		export IS_DEV="true"
 		fi
@@ -1419,11 +1401,6 @@ _#githubUpdateActionStep: {
 				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
 			"""
 	}
-}
-
-_#installYQ: _#step & {
-	name: "Install YQ"
-	run:  "sudo snap install yq"
 }
 
 _#addRocketToComment: _#step & {
