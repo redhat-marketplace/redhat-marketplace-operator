@@ -108,7 +108,7 @@ pc-tool:
 BUF=$(PROJECT_DIR)/bin/buf
 BUF_VERSION=v1.0.0-rc8
 buf:
-	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin)
+	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 "*/bin/*")
 
 # --COMMON--
 
@@ -202,16 +202,15 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-# $1 url $2 file $3 bin path $4 version $5 is just path to extract to
+# $1 url $2 bin path $3 version $4 is the bin path to extract to $5 is optional extract args
 define install-targz
-@[ -f $(3)-$(4) ] || { \
+[ -f $(2)-$(3) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 echo "Downloading $(1)"; \
-curl -sSL $(1)/$(2) | \
-tar -xvzf - -C "$(4)" --strip-components 1 ; \
+curl -sSL $(1) | tar -xvzf - -C "$(4)" $(5) ;\
 rm -rf $$TMP_DIR ;\
-touch $(3)-$(4); \
+touch $(2)-$(3); \
 }
 endef
