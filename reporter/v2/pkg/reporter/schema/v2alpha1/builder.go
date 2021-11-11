@@ -82,7 +82,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		IntervalEnd:          meterDef.IntervalEnd.Sub(time.Unix(0, 0)).Milliseconds(),
 		AccountID:            d.accountID,
 		AdditionalAttributes: make(map[string]interface{}),
-		GroupName:            meterDef.MeterGroup,
 		MeasuredUsage:        make([]MeasuredUsage, 0, len(d.values)),
 	}
 
