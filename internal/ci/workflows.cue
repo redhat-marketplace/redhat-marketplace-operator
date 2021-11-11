@@ -776,7 +776,7 @@ _#getVersion: _#step & {
 	name: "Get Version"
 	run: """
 		make svu
-		export VERSION="$(./bin/svu next)"
+		export VERSION="$(./bin/svu next --prefix '')"
 
 		if [ "$REF" == "" ]; then
 			REF="$GITHUB_REF"
