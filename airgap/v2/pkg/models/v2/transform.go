@@ -45,10 +45,10 @@ func StoredFileFromProto(finfo *dataservicev1.FileInfo) (*StoredFile, error) {
 	}
 
 	return &StoredFile{
-		Name:         finfo.Name,
-		Source:       finfo.Source,
-		SourceType:   finfo.SourceType,
-		FileMetadata: metadata,
+		Name:       finfo.Name,
+		Source:     finfo.Source,
+		SourceType: finfo.SourceType,
+		Metadata:   metadata,
 	}, nil
 }
 
@@ -64,8 +64,8 @@ func StoredFileToProto(file StoredFile) (fileInfo *dataservicev1.FileInfo, err e
 
 	metadata := map[string]string{}
 
-	for i := range file.FileMetadata {
-		metadata[file.FileMetadata[i].Key] = file.FileMetadata[i].Value
+	for i := range file.Metadata {
+		metadata[file.Metadata[i].Key] = file.Metadata[i].Value
 	}
 
 	fileInfo = &dataservicev1.FileInfo{

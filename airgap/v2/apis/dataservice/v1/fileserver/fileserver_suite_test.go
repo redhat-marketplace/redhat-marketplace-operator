@@ -12,26 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package database
+package fileserver
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"testing"
 )
 
-var _ = Describe("filter", func() {
-	It("should parse to a string", func() {
-		Skip("wip")
-		f, err := ParseFilter("deletedAt > 0")
-		Expect(err).To(Succeed())
-		Expect(f).To(Equal("deletedAt > 0"))
-
-		f, err = ParseFilter(`source=="foo"`)
-		Expect(err).To(Succeed())
-		Expect(f).To(Equal("source == \"foo\""))
-
-		f, err = ParseFilter(`(source == "foo") && deletedAt > 0`)
-		Expect(err).To(Succeed())
-		Expect(f).To(Equal("source == \"foo\" AND deletedAt > 0"))
-	})
-})
+func TestFileserver(t *testing.T) {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Fileserver Suite")
+}

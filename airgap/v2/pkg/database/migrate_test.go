@@ -84,14 +84,14 @@ var _ = Describe("filestore", func() {
 
 			// confirm data
 			data := modelsv2.StoredFile{}
-			Expect(db.Preload("File").Preload("FileMetadata").First(&data).Error).To(Succeed())
+			Expect(db.Preload("File").Preload("Metadata").First(&data).Error).To(Succeed())
 			Expect(data.Name).To(Equal("foo.txt"))
 			Expect(data.File.Checksum).ToNot(BeEmpty())
 			Expect(data.File.Size).ToNot(BeZero())
 			Expect(data.File.Content).To(Equal([]byte("foo")))
-			Expect(data.FileMetadata).To(HaveLen(2))
-			Expect(data.FileMetadata[0].Key).To(Equal("baz"))
-			Expect(data.FileMetadata[0].Value).To(Equal("bar"))
+			Expect(data.Metadata).To(HaveLen(2))
+			Expect(data.Metadata[0].Key).To(Equal("baz"))
+			Expect(data.Metadata[0].Value).To(Equal("bar"))
 		})
 	})
 })

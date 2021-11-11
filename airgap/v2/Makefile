@@ -53,7 +53,8 @@ test: fmt vet ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
 
 # Generate
-generate:
+generate: buf
+	$(BUF) generate
 	go generate ./...
 
 SRC_DIR=$(shell pwd)
@@ -67,48 +68,3 @@ build:
 
 demo: build
 	docker-compose up
-
-PROTOC_GEN_GO=$(shell pwd)/bin/protoc-gen-go
-protoc-gen-go:
-	$(call go-get-tool,$(PROTOC),google.golang.org/protobuf/cmd/protoc-gen-go,)
-
-ifeq ($(UNAME),darwin)
-PROTOC_UNAME=osx
-else
-PROTOC_UNAME=$(UNAME)
-endif
-
-ifeq ($(ARCH),amd64)
-PROTOC_ARCH=x86_64
-else
-PROTOC_ARCH=$(ARCH)
-endif
-
-PROTOC=$(shell pwd)/bin/protoc
-protoc: protoc-gen-go
-	$(call install-zip,https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6,protoc-3.15.6-$(PROTOC_UNAME)-$(PROTOC_ARCH).zip,$(PROTOC),$(shell pwd)/bin,./bin/protoc ./include)
-
-# install-binary will 'curl' any package url $1 with file $2 and install it to $3
-define install-binary
-@[ -f $(3) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-echo "Downloading $(1)" ;\
-curl -LO $(1)/$(2) ;\
-chmod +x $(2) && mv $(2) $(3) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
-
-define install-zip
-@[ -f $(3) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-echo "Downloading $(1)/$(2)" ;\
-curl --fail -LO $(1)/$(2) ;\
-unzip $(2) $(foreach a,$(5),&& mv $(a) $(4)) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
