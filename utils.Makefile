@@ -105,6 +105,11 @@ pc-tool:
 	cd v2/tools/connect && go build -o $(PC_TOOL) ./main.go ; \
 	}
 
+BUF=$(PROJECT_DIR)/bin/buf
+BUF_VERSION=v1.0.0-rc8
+buf:
+	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin)
+
 # --COMMON--
 
 # Run go mod tidy against code
@@ -194,5 +199,19 @@ echo "Downloading $(1)" ;\
 curl -LO $(1)/$(2) ;\
 chmod +x $(2) && mv $(2) $(3) ;\
 rm -rf $$TMP_DIR ;\
+}
+endef
+
+# $1 url $2 file $3 bin path $4 version $5 is just path to extract to
+define install-targz
+@[ -f $(3)-$(4) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading $(1)"; \
+curl -sSL $(1)/$(2) | \
+tar -xvzf - -C "$(4)" --strip-components 1 ; \
+rm -rf $$TMP_DIR ;\
+touch $(3)-$(4); \
 }
 endef
