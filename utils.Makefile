@@ -3,6 +3,7 @@ space :=
 space +=
 
 VERSION ?= $(shell $(SVU) next --prefix "")
+TAG ?= $(VERSION)
 
 BINDIR ?= ./bin
 GO_VERSION ?= 1.16.8

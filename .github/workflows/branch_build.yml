@@ -179,7 +179,7 @@ jobs:
         if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
         export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
-        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export TAG="${VERSION}"
         export IS_DEV="false"
         else
         echo "using beta in version"
@@ -320,7 +320,7 @@ jobs:
         if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
         export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
-        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export TAG="${VERSION}"
         export IS_DEV="false"
         else
         echo "using beta in version"

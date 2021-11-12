@@ -1,6 +1,8 @@
+include ../../utils.Makefile
+
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-authcheck
-IMAGE_TAG ?= $(VERSION)
+IMAGE_TAG ?= $(TAG)
 QUAY_EXPIRATION?=never
 
 IMG ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)

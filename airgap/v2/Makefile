@@ -1,14 +1,14 @@
+include ../../utils.Makefile
+
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-data-service
-IMAGE_TAG ?= $(VERSION)
+IMAGE_TAG ?= $(TAG)
 QUAY_EXPIRATION?=never
 
 IMG ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 export IMG
 IMAGE ?= $(IMG)
 export IMAGE
-
-include ../../utils.Makefile
 
 all: svu generate vet fmt
 
