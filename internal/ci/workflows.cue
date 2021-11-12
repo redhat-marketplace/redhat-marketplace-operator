@@ -569,6 +569,7 @@ branch_build: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installKubeBuilder,
 				_#quayLogin,
+				_#redhatConnectLogin,
 				_#getVersion,
 				_#step & {
 					id:   "bundle"
