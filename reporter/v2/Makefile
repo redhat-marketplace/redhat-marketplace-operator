@@ -1,6 +1,3 @@
-VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
-export VERSION
-
 include ../../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
@@ -13,7 +10,7 @@ export IMG
 IMAGE ?= $(IMG)
 export IMAGE
 
-all: generate vet fmt
+all: svu generate vet fmt
 
 build:
 	$(call multiarch-build,redhat-marketplace-reporter,./cmd/reporter)

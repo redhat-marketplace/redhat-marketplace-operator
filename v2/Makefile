@@ -1,12 +1,9 @@
 # Current Operator version
-VERSION ?= $(shell cd ./tools/version && go run ./main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 OPENSHIFT_VERSIONS ?= v4.6-v4.9
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
-
-export VERSION
 
 include ../utils.Makefile
 
@@ -72,7 +69,7 @@ endif
 
 .DEFAULT_GOAL := all
 
-all: manager
+all: svu manager
 
 clean:
 	rm -f bundle/manifests/*.yaml bundle/metadata/*.yaml bundle/tests/*.yaml
@@ -174,14 +171,17 @@ docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
 
+CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-operator.clusterserviceversion.yaml
 CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: clean manifests kustomize helm operator-sdk yq
+bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
+	$(YQ) eval -i '(.spec.installModes[] | select(.type != "AllNamespaces").supported) |= false' $(CSV_YAML_CONFIG_FILE)
+	$(YQ) eval -i '(.spec.installModes[] | select(.type == "AllNamespaces").supported) |= true' $(CSV_YAML_CONFIG_FILE)
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
@@ -200,18 +200,18 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	# 	IFS=","; set -- $$i; \
 	# 	$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
 	# done
-
+	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
+
+	$(YQ) eval -i '(.spec.installModes[] | select(.type != "AllNamespaces").supported) |= true' $(CSV_YAML_CONFIG_FILE)
+	$(YQ) eval -i '(.spec.installModes[] | select(.type == "AllNamespaces").supported) |= false' $(CSV_YAML_CONFIG_FILE)
+	$(YQ) eval -i '(.spec.installModes[] | select(.type != "AllNamespaces").supported) |= true' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '(.spec.installModes[] | select(.type == "AllNamespaces").supported) |= false' $(CSV_YAML_BUNDLE_FILE)
+
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
 	cp -p ./config/samples/*v1alpha1*.yaml ./config/samples/*v1beta1*.yaml ./deploy/crds
 	#generate all yaml for the deploy directory to be used in the bundle
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	--post-renderer ./config/default/kustomize > ./deploy/manifestsNativeDeploy.yaml
 
 BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 
@@ -244,7 +244,6 @@ bundle-stable:
 	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
-OPM_VERSION=v1.17.0
 
 opm-builder-base: opm
 	docker buildx build --push \

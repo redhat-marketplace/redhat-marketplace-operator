@@ -1,6 +1,3 @@
-VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
-export VERSION
-
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-authcheck
 IMAGE_TAG ?= $(VERSION)
@@ -13,7 +10,7 @@ export IMAGE
 
 include ../../utils.Makefile
 
-all: generate vet fmt
+all: svu generate vet fmt
 
 build:
 	$(call multiarch-build,redhat-marketplace-authchecker,./cmd/)

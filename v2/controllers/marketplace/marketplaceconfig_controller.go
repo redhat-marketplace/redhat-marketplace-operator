@@ -84,8 +84,8 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="operators.coreos.com",namespace=openshift-marketplace,resources=catalogsources,verbs=create;get;list;watch
-// +kubebuilder:rbac:groups="operators.coreos.com",namespace=openshift-marketplace,resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
@@ -218,6 +218,21 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 				err = r.Client.Get(context.TODO(), client.ObjectKeyFromObject(marketplaceConfig), marketplaceConfig)
 				if err != nil {
 					return err
+				}
+
+				//Initialize enabled features if not set
+				if marketplaceConfig.Spec.Features == nil {
+					marketplaceConfig.Spec.Features = &common.Features{
+						Deployment:   ptr.Bool(true),
+						Registration: ptr.Bool(true),
+					}
+				} else {
+					if marketplaceConfig.Spec.Features.Deployment == nil {
+						marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+					}
+					if marketplaceConfig.Spec.Features.Registration == nil {
+						marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+					}
 				}
 
 				marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)

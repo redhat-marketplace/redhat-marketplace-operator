@@ -14,7 +14,7 @@ include utils.Makefile
 .DEFAULT_GOAL := all
 
 .PHONY: all
-all: fmt vet generate build
+all: svu fmt vet generate docker-build
 
 skaffold-dev:
 	make operator/skaffold-dev
