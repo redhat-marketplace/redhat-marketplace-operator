@@ -785,12 +785,13 @@ _#getVersion: _#step & {
 
 		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
 		echo "using release version and github_run_number"
+		export VERSION=${VERSION}+${GITHUB_RUN_NUMBER}
 		export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
 		export IS_DEV="false"
 		else
 		echo "using beta in version"
 		export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
-		export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+		export TAG="${VERSION}"
 		export IS_DEV="true"
 		fi
 
