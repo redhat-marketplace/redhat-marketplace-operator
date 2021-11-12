@@ -83,16 +83,16 @@ var _ = Describe("marketplace uploaders", func() {
 			testId = "6bf1a9e41041d7d6913bbbcbc23c2a137ee170bbe7ebf58cf886fdb9c66989ff"
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
 					ghttp.RespondWith(http.StatusAccepted, "{\"requestId\":\"6bf1a9e41041d7d6913bbbcbc23c2a137ee170bbe7ebf58cf886fdb9c66989ff\"}"),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse2),
 				),
 			)
@@ -110,24 +110,24 @@ var _ = Describe("marketplace uploaders", func() {
 		BeforeEach(func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 					ghttp.RespondWithJSONEncoded(http.StatusTooManyRequests, &retryPostResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
 					ghttp.RespondWithJSONEncoded(http.StatusAccepted, &postReponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusTooManyRequests, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse2),
 				),
 			)
@@ -152,12 +152,12 @@ var _ = Describe("marketplace uploaders", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
 					ghttp.RespondWithJSONEncoded(http.StatusAccepted, &postReponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 			)
@@ -179,28 +179,28 @@ var _ = Describe("marketplace uploaders", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
 					ghttp.RespondWithJSONEncoded(http.StatusAccepted, &postReponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/usage/api/v2/metrics/"+testId),
+					ghttp.VerifyRequest("GET", "/metering/api/v2/metrics/"+testId),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, &getResponse),
 				),
 			)
@@ -220,7 +220,7 @@ var _ = Describe("marketplace uploaders", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 					verifyFileUpload(fileName, testBody),
 					ghttp.RespondWith(http.StatusConflict, `{"errorCode":"document_conflict","message":"Upload is duplicate of previous submission","details":{"code":"document_conflict","statusCode":409,"retryable":false}}`),
 				),
@@ -243,7 +243,7 @@ var _ = Describe("marketplace uploaders", func() {
 			for i := 0; i < 4; i++ {
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/usage/api/v2/metrics"),
+						ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
 						verifyFileUpload(fileName, testBody),
 						ghttp.RespondWith(http.StatusInternalServerError, `{"errorCode":"internal_application_error_ocurred","message":"Save usage result not ok or missing value, result {\"lastErrorObject\":{\"n\":0,\"updatedExisting\":false},\"value\":null,\"ok\":1,\"$clusterTime\":{\"clusterTime\":{\"$timestamp\":\"7025668740716953620\"},\"signature\":{\"hash\":\"H2Zbl5S64rst/CWWEsRupwqyUZs=\",\"keyId\":{\"low\":2,\"high\":1628832003,\"unsigned\":false}}},\"operationTime\":{\"$timestamp\":\"7025668740716953620\"}}, Retry UsageStatus.save failed after retry attempts: 3 duration: 3069 ms","details":{"code":"internal_application_error_ocurred","statusCode":500,"retryable":true}}`),
 					),

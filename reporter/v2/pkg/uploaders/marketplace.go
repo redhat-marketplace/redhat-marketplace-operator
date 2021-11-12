@@ -131,9 +131,9 @@ const (
 	MktplStatusFailed     MktplStatus = "failed"
 )
 
-// https://sandbox.marketplace.redhat.com/usage/api/v2/metrics/<request id>
+// https://sandbox.marketplace.redhat.com/metering/api/v2/metrics/<request id>
 func (r *MarketplaceUploader) statusRequest(id string) (*MarketplaceUsageResponse, error) {
-	marketplaceUploadURLCheck := "%s/usage/api/v2/metrics/%s"
+	marketplaceUploadURLCheck := "%s/metering/api/v2/metrics/%s"
 
 	resp, err := r.client.Get(fmt.Sprintf(marketplaceUploadURLCheck, r.URL, id))
 	if err != nil {
@@ -191,9 +191,9 @@ func checkError(resp *http.Response, status MarketplaceUsageResponse, message st
 	return err
 }
 
-// https://sandbox.marketplace.redhat.com/usage/api/v2/metrics'
+// https://sandbox.marketplace.redhat.com/metering/api/v2/metrics'
 func (r *MarketplaceUploader) uploadFileRequest(fileName string, reader io.Reader) (*http.Request, error) {
-	marketplaceUploadURL := "%s/usage/api/v2/metrics"
+	marketplaceUploadURL := "%s/metering/api/v2/metrics"
 
 	var req *http.Request
 
