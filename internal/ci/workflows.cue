@@ -570,6 +570,7 @@ branch_build: _#bashWorkflow & {
 				_#installKubeBuilder,
 				_#quayLogin,
 				_#redhatConnectLogin,
+        _#redhatDockerLogin,
 				_#getVersion,
 				_#step & {
 					id:   "bundle"
@@ -1164,6 +1165,14 @@ _#quayLogin: (_#registryLoginStep & {
 _#redhatConnectLogin: (_#registryLoginStep & {
 	#args: {
 		registry: "registry.connect.redhat.com"
+		user:     "${{secrets['REDHAT_IO_USER']}}"
+		pass:     "${{secrets['REDHAT_IO_PASSWORD']}}"
+	}
+}).res
+
+_#redhatDockerLogin: (_#registryLoginStep & {
+	#args: {
+		registry: "registry.redhat.com"
 		user:     "${{secrets['REDHAT_IO_USER']}}"
 		pass:     "${{secrets['REDHAT_IO_PASSWORD']}}"
 	}
