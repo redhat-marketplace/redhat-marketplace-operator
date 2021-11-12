@@ -790,7 +790,7 @@ _#getVersion: _#step & {
 		export IS_DEV="false"
 		else
 		echo "using beta in version"
-		export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
+		export VERSION=${VERSION}-beta+${GITHUB_RUN_NUMBER}
 		export TAG="${VERSION}"
 		export IS_DEV="true"
 		fi
