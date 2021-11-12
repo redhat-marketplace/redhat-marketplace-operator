@@ -1172,7 +1172,7 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 
 _#redhatDockerLogin: (_#registryLoginStep & {
 	#args: {
-		registry: "registry.redhat.com"
+		registry: "registry.redhat.io"
 		user:     "${{secrets['REDHAT_IO_USER']}}"
 		pass:     "${{secrets['REDHAT_IO_PASSWORD']}}"
 	}
