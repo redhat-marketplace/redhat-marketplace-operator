@@ -80,6 +80,7 @@ func main() {
 			cleanAfter := viper.GetDuration("cleanAfter")
 			fs, err := cfg.InitDB(cleanAfter)
 			if err != nil {
+				log.Error(err, "failed to migrate")
 				return err
 			}
 

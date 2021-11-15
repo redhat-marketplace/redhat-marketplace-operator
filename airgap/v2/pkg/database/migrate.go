@@ -15,9 +15,8 @@
 package database
 
 import (
-	"log"
-
 	gormigrate "github.com/go-gormigrate/gormigrate/v2"
+	"github.com/google/uuid"
 	modelsv1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v1"
 	models "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v2"
 	"gorm.io/gorm"
@@ -52,45 +51,51 @@ var (
 				}
 
 				{
+					batchLimit := 10
 					oldFiles := []modelsv1.Metadata{}
-					newFiles := []models.StoredFile{}
-					result := tx.Preload("File").Preload("FileMetadata").FindInBatches(&oldFiles, 10, func(tx *gorm.DB, batch int) error {
-						for _, file := range oldFiles {
-							newFile := models.StoredFile{
-								Name:       file.ProvidedName,
-								Source:     "redhat-marketplace",
-								SourceType: "report",
-								File: models.StoredFileContent{
-									Content:  file.File.Content,
-									MimeType: "application/gzip",
-								},
-								Metadata: []models.StoredFileMetadata{},
+					result := tx.Unscoped().
+						Preload("File").
+						Preload("FileMetadata").
+						FindInBatches(&oldFiles, batchLimit, func(_ *gorm.DB, batch int) error {
+							uniqueID := uuid.NewString()
+							newFiles := []*models.StoredFile{}
+
+							for _, file := range oldFiles {
+								newFile := &models.StoredFile{
+									Name:       file.ProvidedName,
+									Source:     "redhat-marketplace",
+									SourceType: "migrate-202110160004-" + uniqueID,
+									File: models.StoredFileContent{
+										Content:  file.File.Content,
+										MimeType: "application/gzip",
+									},
+									Metadata: []models.StoredFileMetadata{},
+								}
+
+								for i := range file.FileMetadata {
+									data := file.FileMetadata[i]
+									newFile.Metadata = append(newFile.Metadata, models.StoredFileMetadata{
+										Key:   data.Key,
+										Value: data.Value,
+									})
+								}
+
+								newFiles = append(newFiles, newFile)
 							}
 
-							for i := range file.FileMetadata {
-								data := file.FileMetadata[i]
-								newFile.Metadata = append(newFile.Metadata, models.StoredFileMetadata{
-									Key:   data.Key,
-									Value: data.Value,
-								})
+							if len(newFiles) > 0 {
+								batchErr := tx.Create(&newFiles).Error
+								if err != nil {
+									return batchErr
+								}
 							}
 
-							newFiles = append(newFiles, newFile)
-						}
-
-						// returns error will stop future batches
-						return nil
-					})
+							// returns error will stop future batches
+							return nil
+						})
 
 					if err = result.Error; err != nil {
 						return
-					}
-
-					if len(newFiles) > 0 {
-						err := tx.Save(newFiles).Error
-						if err != nil {
-							return nil
-						}
 					}
 				}
 
@@ -124,11 +129,18 @@ var (
 					return
 				}
 
+				if err = tx.Migrator().DropTable("file_metadata"); err != nil {
+					return
+				}
+
 				if err = tx.Migrator().DropTable("file_contents"); err != nil {
 					return
 				}
 
-				if err = tx.AutoMigrate(models.StoredFileContent{}, models.StoredFileMetadata{}, models.StoredFile{}); err != nil {
+				if err = tx.AutoMigrate(
+					models.StoredFileContent{},
+					models.StoredFileMetadata{},
+					models.StoredFile{}); err != nil {
 					return
 				}
 
@@ -146,11 +158,11 @@ func Migrate(db *gorm.DB) error {
 	m := migrator(db)
 
 	if err := m.Migrate(); err != nil {
-		log.Fatalf("Could not migrate: %v", err)
+		return err
 	}
 
 	if err := db.AutoMigrate(models.StoredFile{}, models.StoredFileContent{}, models.StoredFileMetadata{}); err != nil {
-		log.Fatalf("Could not migrate: %v", err)
+		return err
 	}
 
 	return nil

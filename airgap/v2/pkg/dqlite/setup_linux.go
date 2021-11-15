@@ -131,9 +131,10 @@ func (dc *DatabaseConfig) TryMigrate() error {
 		return err
 	}
 	if !isLeader {
+		dc.Log.Info("not leader, so not migrating")
 		return nil
 	} else if dc.gormDB != nil {
-		dc.Log.Info("Performing migration")
+		dc.Log.Info("node is the leader; Performing migration")
 		return database.Migrate(dc.gormDB)
 	} else {
 		return errors.New("GORM connection has not initialised: Connection of type *gorm.DB is nil")

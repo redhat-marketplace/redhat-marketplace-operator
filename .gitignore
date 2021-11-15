@@ -152,3 +152,4 @@ _licenses/
 
 **/*/bin/
 bin/
+*.gorm.db
