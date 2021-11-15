@@ -243,3 +243,9 @@ rm -rf $$TMP_DIR ;\
 touch $(2)-$(3); \
 }
 endef
+
+
+# $1 is the image
+define get-image-sha
+$$(IMAGE=$(1); echo $${IMAGE%:*}@sha256:$$(skopeo inspect --raw docker://$(1) | sha256sum | cut -d " " -f 1))
+endef

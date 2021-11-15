@@ -256,6 +256,7 @@ opm-builder-base: opm
 
 .PHONY:  bundle-dev-index-multiarch
  bundle-dev-index-multiarch: opm opm-builder-base
+	$()
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
@@ -264,7 +265,7 @@ opm-builder-base: opm
 	.
 
 bundle-dev-index: opm
-	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
+	$(OPM) index add -u docker --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
