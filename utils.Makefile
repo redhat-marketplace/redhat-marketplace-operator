@@ -135,7 +135,7 @@ pc-tool:
 BUF=$(PROJECT_DIR)/bin/buf
 BUF_VERSION=v1.0.0-rc8
 buf:
-	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 "*/bin/*")
+	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 --wildcards "*/bin/*")
 
 # --COMMON--
 
