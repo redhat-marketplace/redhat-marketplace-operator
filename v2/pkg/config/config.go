@@ -199,7 +199,8 @@ func ProvideInfrastructureAwareConfig(
 		}
 
 		// Use OCP version related images on Openshift 4.6+ instead of default v4.5 images
-		if inf.HasOpenshift() {
+		// Do not override RelatedImages in disconnected environment
+		if inf.HasOpenshift() && !cfg.IsDisconnected {
 			ocpVersion := inf.OpenshiftParsedVersion()
 			if ocpVersion != nil {
 				ocpTag := strconv.FormatUint(ocpVersion.Major, 10) + "." + strconv.FormatUint(ocpVersion.Minor, 10)
