@@ -446,7 +446,14 @@ func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, inst
 	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
 
 	mdefLabelValue := model.LabelValue(instance.Name)
-	matches := []string{string(mdefLabelValue)}
+
+	// prometheus/client_golang v1.10.0 modified the api to add matches
+	// https://github.com/prometheus/client_golang/pull/828
+	// controller-util currently requires client_golang v1.11.0
+	// use of matches in our use case results in an error "bad_data: 1:4: parse error: unexpected <op:->"
+
+	//matches := []string{string(mdefLabelValue)}
+	matches := []string{}
 
 	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues(matches)
 
