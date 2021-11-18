@@ -48,7 +48,7 @@ spec:
                 key: RAZEEDASH_ORG_KEY
           - name: NODE_ENV
             value: "production"
-        image: "quay.io/razee/watch-keeper:0.5.2"
+        image: "quay.io/razee/watch-keeper:0.7.11"
         imagePullPolicy: Always
         name: watch-keeper
         resources:
