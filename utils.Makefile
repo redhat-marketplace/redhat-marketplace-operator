@@ -2,6 +2,9 @@ comma := ,
 space :=
 space +=
 
+UNAME_S := $(shell uname -s)
+UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
+
 VERSION ?= $(shell $(SVU) next --prefix "")
 TAG ?= $(VERSION)
 
@@ -134,8 +137,11 @@ pc-tool:
 
 BUF=$(PROJECT_DIR)/bin/buf
 BUF_VERSION=v1.0.0-rc8
+ifeq ($(UNAME_S),Linux)
+WILDCARDS=--wildcards
+endif
 buf:
-	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 "*/bin/*")
+	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 $(WILDCARDS) "*/bin/*")
 
 # --COMMON--
 
@@ -242,4 +248,10 @@ curl -sSL $(1) | tar -xvzf - -C "$(4)" $(5) ;\
 rm -rf $$TMP_DIR ;\
 touch $(2)-$(3); \
 }
+endef
+
+
+# $1 is the image
+define get-image-sha
+$$(IMAGE=$(1); echo $${IMAGE%:*}@sha256:$$(skopeo inspect --raw docker://$(1) | sha256sum | cut -d " " -f 1))
 endef

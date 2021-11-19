@@ -6,12 +6,12 @@ data:
         requests:
           cpu: 70m
           memory: 1Gi
-      retention: 24h
+      retention: 168h
       volumeClaimTemplate:
         spec:
           resources:
             requests:
-              storage: 20Gi
+              storage: 40Gi
 kind: ConfigMap
 metadata:
   name: user-workload-monitoring-config
