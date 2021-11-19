@@ -6,4 +6,4 @@ verbose: true
 
 cleanAfter: -720h
 purgeAfter: -1440h
-cronExpression: 0 0 * * *
+cronExpression: '*/15 * * * *'

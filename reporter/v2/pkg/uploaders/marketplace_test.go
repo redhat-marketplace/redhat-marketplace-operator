@@ -235,6 +235,28 @@ var _ = Describe("marketplace uploaders", func() {
 		})
 	})
 
+	Describe("handling verification error", func() {
+		BeforeEach(func() {
+			sut, err = NewMarketplaceUploader(config)
+			Expect(err).To(Succeed())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/metering/api/v2/metrics"),
+					verifyFileUpload(fileName, testBody),
+					ghttp.RespondWith(http.StatusUnprocessableEntity, `{"errorCode":"document_conflict","requestID":"foo","message":"Verification errors","details":{"code":"document_conflict","statusCode":409,"retryable":false}}`),
+				),
+			)
+		})
+
+		It("should handle duplicate conflict", func() {
+			ctx := context.Background()
+			id, err := sut.UploadFile(ctx, fileName, bytes.NewReader(testBody))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id).To(Equal("foo"))
+		})
+	})
+
 	Describe("handling error", func() {
 		BeforeEach(func() {
 			sut, err = NewMarketplaceUploader(config)

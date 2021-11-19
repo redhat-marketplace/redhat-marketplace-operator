@@ -293,6 +293,12 @@ var _ = Describe("filestore", func() {
 			Expect(err).To(Succeed())
 			Expect(id).ToNot(BeZero())
 
+			fileCopy := file
+			fileCopy.ID = 0
+			id2, err := sut.Save(ctx, &fileCopy)
+			Expect(err).To(Succeed())
+			Expect(id2).To(Equal(id))
+
 			file2, err := sut.Get(ctx, id)
 			Expect(err).To(Succeed())
 			Expect(file2.Name).To(Equal(file.Name))

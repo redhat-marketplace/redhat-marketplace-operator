@@ -32,7 +32,7 @@ type StoredFileMetadata struct {
 type StoredFileContent struct {
 	gorm.Model
 
-	FileID uint `gorm:"uniqueIndex"`
+	FileID uint
 
 	Checksum string
 	Size     int

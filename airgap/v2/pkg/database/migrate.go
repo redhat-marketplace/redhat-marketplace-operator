@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	modelsv1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v1"
 	models "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v2"
+	modelsv2 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v2"
 	"gorm.io/gorm"
 )
 
@@ -135,6 +136,25 @@ var (
 
 				if err = tx.Migrator().DropTable("file_contents"); err != nil {
 					return
+				}
+
+				if err = tx.AutoMigrate(
+					models.StoredFileContent{},
+					models.StoredFileMetadata{},
+					models.StoredFile{}); err != nil {
+					return
+				}
+
+				return
+			},
+		},
+		{
+			ID: "20211120000",
+			Migrate: func(tx *gorm.DB) (err error) {
+				if tx.Migrator().HasIndex(&modelsv2.StoredFileContent{}, "idx_stored_file_contents_file_id") {
+					if err = tx.Migrator().DropIndex(&modelsv2.StoredFileContent{}, "idx_stored_file_contents_file_id"); err != nil {
+						return
+					}
 				}
 
 				if err = tx.AutoMigrate(

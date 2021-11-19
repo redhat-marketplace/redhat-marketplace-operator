@@ -89,7 +89,7 @@ func main() {
 			sched := &scheduler.SchedulerConfig{
 				Log:            log,
 				Fs:             fs,
-				IsLeader:       cfg.IsLeader,
+				DB:             cfg,
 				CleanAfter:     viper.GetString("cleanAfter"),
 				CronExpression: viper.GetString("cronExpression"),
 			}
@@ -143,7 +143,7 @@ func main() {
 	flags.StringVar(&config, "config", "", "path to config file")
 
 	flags.StringVar(&cleanAfter, "cleanAfter", "-1440h", "clean files older than x seconds/minutes/hours, default 1440i.e. 60 days")
-	flags.StringVar(&cronExpression, "cronExpression", "0 0 * * *", "cron expression for scheduler, default cron will run every day 12:00 AM")
+	flags.StringVar(&cronExpression, "cronExpression", "*/10 * * * *", "cron expression for scheduler, default cron will run every day 12:00 AM")
 
 	cmd.MarkFlagRequired("db")
 
