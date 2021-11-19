@@ -157,7 +157,7 @@ func (fs *FileServer) ListFiles(ctx context.Context, req *fileserver.ListFilesRe
 
 	responseFiles := []*dataservicev1.FileInfo{}
 
-	files, pageToken, err := fs.FileStore.List(ctx, opts...)
+	files, pageToken, _, err := fs.FileStore.List(ctx, opts...)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list files")
@@ -166,7 +166,7 @@ func (fs *FileServer) ListFiles(ctx context.Context, req *fileserver.ListFilesRe
 	errs := []error{}
 
 	for i := range files {
-		protoFile, err := modelsv2.StoredFileToProto(files[i])
+		protoFile, err := modelsv2.ListStoredFileToProto(files[i])
 
 		if err != nil {
 			errs = append(errs, err)

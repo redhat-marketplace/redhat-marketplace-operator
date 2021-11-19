@@ -88,3 +88,40 @@ func StoredFileToProto(file StoredFile) (fileInfo *dataservicev1.FileInfo, err e
 
 	return
 }
+
+func ListStoredFileToProto(file ListStoredFile) (fileInfo *dataservicev1.FileInfo, err error) {
+	var createdAt, updatedAt, deletedAt *timestamppb.Timestamp
+
+	createdAt = timestamppb.New(file.CreatedAt)
+	updatedAt = timestamppb.New(file.UpdatedAt)
+
+	if !file.DeletedAt.Time.IsZero() {
+		deletedAt = timestamppb.New(file.DeletedAt.Time)
+	}
+
+	metadata := map[string]string{}
+
+	for i := range file.Metadata {
+		metadata[file.Metadata[i].Key] = file.Metadata[i].Value
+	}
+
+	fileInfo = &dataservicev1.FileInfo{
+		Id:         fmt.Sprintf("%d", file.ID),
+		Name:       file.Name,
+		Source:     file.Source,
+		SourceType: file.SourceType,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Metadata:   metadata,
+	}
+
+	if deletedAt != nil {
+		fileInfo.DeletedAt = deletedAt
+	}
+
+	fileInfo.Checksum = file.Checksum
+	fileInfo.Size = uint32(file.Size)
+	fileInfo.MimeType = file.MimeType
+
+	return
+}

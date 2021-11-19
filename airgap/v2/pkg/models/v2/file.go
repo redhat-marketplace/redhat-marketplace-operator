@@ -52,6 +52,20 @@ type StoredFile struct {
 	Metadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
 }
 
+// Not a table - a view
+type ListStoredFile struct {
+	gorm.Model
+
+	Name       string
+	Source     string
+	SourceType string
+	Checksum   string
+	Size       int
+	MimeType   string
+
+	Metadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
+}
+
 type StoredFileKey struct {
 	gorm.Model
 
