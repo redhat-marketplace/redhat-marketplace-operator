@@ -152,7 +152,7 @@ func (r *MarketplaceUploader) statusRequest(id string) (*MarketplaceUsageRespons
 	jsonErr := json.Unmarshal(data, &status)
 
 	if err := checkError(resp, status, "failed to get status"); err != nil {
-		return nil, err
+		return &status, err
 	}
 
 	if jsonErr != nil {
@@ -165,6 +165,8 @@ func (r *MarketplaceUploader) statusRequest(id string) (*MarketplaceUsageRespons
 const RetryableError = errors.Sentinel("retryable")
 
 const DuplicateError = errors.Sentinel("duplicate")
+
+const VerificationError = errors.Sentinel("verification")
 
 func isRetryable(err error) bool {
 	if errors.Is(err, RetryableError) {
@@ -179,6 +181,10 @@ func checkError(resp *http.Response, status MarketplaceUsageResponse, message st
 	}
 
 	err := errors.NewWithDetails(message, "code", resp.StatusCode, "message", status.Message, "errorCode", status.ErrorCode)
+
+	if resp.StatusCode == http.StatusUnprocessableEntity {
+		return errors.WrapWithDetails(VerificationError, "status", status.Message)
+	}
 
 	if resp.StatusCode == http.StatusConflict {
 		return errors.WrapWithDetails(DuplicateError, "status", status.Message)
@@ -258,7 +264,7 @@ func (r *MarketplaceUploader) uploadFile(req *http.Request) (string, error) {
 	jsonErr := json.Unmarshal(body, &status)
 
 	if err := checkError(resp, status, "failed to upload"); err != nil {
-		return "", err
+		return status.RequestID, err
 	}
 
 	if jsonErr != nil {
@@ -296,22 +302,20 @@ func (r *MarketplaceUploader) UploadFile(ctx context.Context, fileName string, r
 		defer close(done)
 
 		err = retry.OnError(DefaultBackoff, isRetryable, func() error {
-			localID, localErr := r.uploadFile(req)
+			var errL error
+			id, errL = r.uploadFile(req)
 
-			if localErr != nil {
-				return errors.Wrap(localErr, "failed to get upload file req")
+			if errL != nil {
+				return errors.Wrap(errL, "failed to get upload file req")
 			}
 
-			id = localID
 			return nil
 		})
 
 		if err != nil {
-			if errors.Is(err, DuplicateError) {
+			if errors.Is(err, DuplicateError) || errors.Is(err, VerificationError) {
 				err = nil
-				id = ""
 			}
-
 			return
 		}
 
@@ -334,12 +338,18 @@ func (r *MarketplaceUploader) UploadFile(ctx context.Context, fileName string, r
 			})
 
 			if err != nil {
+				if errors.Is(err, DuplicateError) || errors.Is(err, VerificationError) {
+					err = nil
+					return
+				}
+
 				logger.Error(err, "failed to get status")
 			}
 
 			if resp.Status == MktplStatusSuccess {
 				return
 			}
+
 			if resp.Status == MktplStatusFailed {
 				err = errors.NewWithDetails("upload processing failed", "message", resp.Message, "code", resp.ErrorCode)
 				return

@@ -15,7 +15,9 @@
 package database
 
 import (
+	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
@@ -30,10 +32,11 @@ var _ = Describe("filestore", func() {
 	Context("migrate", func() {
 		var db *gorm.DB
 		BeforeEach(func() {
+			os.Remove("migrate.gorm.db")
 			db, _ = gorm.Open(sqlite.Open("migrate.gorm.db"), &gorm.Config{})
 		})
 		AfterEach(func() {
-			os.Remove("migrate.gorm.db")
+			//os.Remove("migrate.gorm.db")
 		})
 		It("should migrate", func() {
 			Expect(Migrate(db)).To(Succeed())
@@ -44,54 +47,69 @@ var _ = Describe("filestore", func() {
 			Expect(m.MigrateTo("202109010000")).To(Succeed())
 
 			// add some data
+			fileID := uuid.NewString()
 
-			testId := uuid.NewString()
-			testId2 := uuid.NewString()
-			testId3 := uuid.NewString()
-			testId4 := uuid.NewString()
+			files := []*modelsv1.File{}
+			metadata := []*modelsv1.Metadata{}
 
-			err := db.Save(&modelsv1.File{
-				ID:      testId4,
-				Content: []byte("foo"),
-			}).Error
-			Expect(err).To(Succeed())
-			err = db.Save(&modelsv1.Metadata{
-				ID:           testId,
-				ProvidedId:   "foo",
-				ProvidedName: "foo.txt",
-				Compression:  true,
-				FileID:       testId4,
-				FileMetadata: []modelsv1.FileMetadata{
-					{
-						ID:         testId2,
-						MetadataID: testId,
-						Key:        "baz",
-						Value:      "bar",
+			for i := 0; i < 200; i++ {
+				localFileID := fileID + "-" + strconv.Itoa(i)
+
+				files = append(files, &modelsv1.File{
+					ID:      localFileID,
+					Content: []byte("foo" + strconv.Itoa(i)),
+				})
+
+				metadataID := uuid.NewString()
+
+				metadata = append(metadata, &modelsv1.Metadata{
+					ID:           metadataID,
+					ProvidedId:   "foo",
+					ProvidedName: fmt.Sprintf("foo%v.txt", i),
+					Compression:  true,
+					FileID:       localFileID,
+					FileMetadata: []modelsv1.FileMetadata{
+						{
+							ID:         metadataID + "A",
+							MetadataID: metadataID,
+							Key:        "baz",
+							Value:      "bar",
+						},
+						{
+							ID:         metadataID + "B",
+							MetadataID: metadataID,
+							Key:        "baz2",
+							Value:      "bar2",
+						},
 					},
-					{
-						ID:         testId3,
-						MetadataID: testId,
-						Key:        "baz2",
-						Value:      "bar2",
-					},
-				},
-			}).Error
+				})
 
-			Expect(err).To(Succeed())
+			}
+
+			Expect(db.CreateInBatches(files, 20).Error).To(Succeed())
+			Expect(db.CreateInBatches(metadata, 20).Error).To(Succeed())
 
 			// migrate rest
 			Expect(m.Migrate()).To(Succeed())
 
 			// confirm data
-			data := modelsv2.StoredFile{}
-			Expect(db.Preload("File").Preload("Metadata").First(&data).Error).To(Succeed())
-			Expect(data.Name).To(Equal("foo.txt"))
-			Expect(data.File.Checksum).ToNot(BeEmpty())
-			Expect(data.File.Size).ToNot(BeZero())
-			Expect(data.File.Content).To(Equal([]byte("foo")))
-			Expect(data.Metadata).To(HaveLen(2))
-			Expect(data.Metadata[0].Key).To(Equal("baz"))
-			Expect(data.Metadata[0].Value).To(Equal("bar"))
+			data := []*modelsv2.StoredFile{}
+			Expect(db.Preload("File").Preload("Metadata").Find(&data).Error).To(Succeed())
+			Expect(data).To(HaveLen(200))
+
+			file := modelsv2.StoredFile{}
+			Expect(db.Preload("File").Preload("Metadata").First(&file).Error).To(Succeed())
+			Expect(file.File.Checksum).ToNot(BeEmpty())
+			Expect(file.File.Size).ToNot(BeZero())
+			Expect(file.File.Content).To(HavePrefix("foo"))
+			Expect(file.Metadata).To(HaveLen(2))
+			Expect(file.Metadata[0].Key).To(Equal("baz"))
+			Expect(file.Metadata[0].Value).To(Equal("bar"))
+
+			Expect(db.Migrator().HasTable("files")).To(BeFalse())
+			Expect(db.Migrator().HasTable("metadata")).To(BeFalse())
+			Expect(db.Migrator().HasTable("file_metadata")).To(BeFalse())
+			Expect(db.Migrator().HasTable("file_contents")).To(BeFalse())
 		})
 	})
 })

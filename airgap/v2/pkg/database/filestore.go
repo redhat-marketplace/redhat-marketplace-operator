@@ -147,7 +147,7 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (id str
 	db := d.DB.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true})
 
 	if file.ID == 0 {
-		foundFile := &modelsv2.StoredFile{}
+		foundFile := modelsv2.StoredFile{}
 
 		err = db.Where(&modelsv2.StoredFile{
 			Name:       file.Name,
