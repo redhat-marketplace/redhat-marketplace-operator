@@ -52,21 +52,11 @@ func StoredFileFromProto(finfo *dataservicev1.FileInfo) (*StoredFile, error) {
 	}, nil
 }
 
-func StoredFileToProto(file StoredFile) (fileInfo *dataservicev1.FileInfo, err error) {
-	var createdAt, updatedAt, deletedAt *timestamppb.Timestamp
+func StoredFileToProto(file *StoredFile) (fileInfo *dataservicev1.FileInfo, err error) {
+	var createdAt, updatedAt *timestamppb.Timestamp
 
 	createdAt = timestamppb.New(file.CreatedAt)
 	updatedAt = timestamppb.New(file.UpdatedAt)
-
-	if !file.DeletedAt.Time.IsZero() {
-		deletedAt = timestamppb.New(file.DeletedAt.Time)
-	}
-
-	metadata := map[string]string{}
-
-	for i := range file.Metadata {
-		metadata[file.Metadata[i].Key] = file.Metadata[i].Value
-	}
 
 	fileInfo = &dataservicev1.FileInfo{
 		Id:         fmt.Sprintf("%d", file.ID),
@@ -75,53 +65,20 @@ func StoredFileToProto(file StoredFile) (fileInfo *dataservicev1.FileInfo, err e
 		SourceType: file.SourceType,
 		CreatedAt:  createdAt,
 		UpdatedAt:  updatedAt,
-		Metadata:   metadata,
+		Checksum:   file.File.Checksum,
+		Size:       uint32(file.File.Size),
+		MimeType:   file.File.MimeType,
+		Metadata:   map[string]string{},
 	}
-
-	if deletedAt != nil {
-		fileInfo.DeletedAt = deletedAt
-	}
-
-	fileInfo.Checksum = file.File.Checksum
-	fileInfo.Size = uint32(file.File.Size)
-	fileInfo.MimeType = file.File.MimeType
-
-	return
-}
-
-func ListStoredFileToProto(file ListStoredFile) (fileInfo *dataservicev1.FileInfo, err error) {
-	var createdAt, updatedAt, deletedAt *timestamppb.Timestamp
-
-	createdAt = timestamppb.New(file.CreatedAt)
-	updatedAt = timestamppb.New(file.UpdatedAt)
-
-	if !file.DeletedAt.Time.IsZero() {
-		deletedAt = timestamppb.New(file.DeletedAt.Time)
-	}
-
-	metadata := map[string]string{}
 
 	for i := range file.Metadata {
-		metadata[file.Metadata[i].Key] = file.Metadata[i].Value
+		fileInfo.Metadata[file.Metadata[i].Key] = file.Metadata[i].Value
 	}
 
-	fileInfo = &dataservicev1.FileInfo{
-		Id:         fmt.Sprintf("%d", file.ID),
-		Name:       file.Name,
-		Source:     file.Source,
-		SourceType: file.SourceType,
-		CreatedAt:  createdAt,
-		UpdatedAt:  updatedAt,
-		Metadata:   metadata,
-	}
-
-	if deletedAt != nil {
+	if !file.DeletedAt.Time.IsZero() {
+		deletedAt := timestamppb.New(file.DeletedAt.Time)
 		fileInfo.DeletedAt = deletedAt
 	}
-
-	fileInfo.Checksum = file.Checksum
-	fileInfo.Size = uint32(file.Size)
-	fileInfo.MimeType = file.MimeType
 
 	return
 }

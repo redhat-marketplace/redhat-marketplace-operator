@@ -19,9 +19,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	dataservicev1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -33,6 +35,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type UploadRun interface {
+	RunGeneric(ctx context.Context) error
+	RunReport(ctx context.Context, report *marketplacev1alpha1.MeterReport) error
+}
+
 // Task to upload the reports from dataservice to redhat-insights
 type UploadTask struct {
 	logger      logr.Logger
@@ -43,9 +50,50 @@ type UploadTask struct {
 	uploaders   uploaders.Uploaders
 }
 
-func (r *UploadTask) Run(ctx context.Context) error {
+// RunReport uses status fields on the Report to get identifiers
+// for the file
+func (r *UploadTask) RunReport(ctx context.Context, report *marketplacev1alpha1.MeterReport) error {
 	logger := r.logger
-	logger.Info("upload task run start")
+	logger.Info("upload task run report", "name", report.Name)
+
+	if report.Status.DataServiceStatus == nil || report.Status.DataServiceStatus.ID == "" {
+		return errors.New("Report does not have an DataService file ID")
+	}
+
+	fileID := report.Status.DataServiceStatus.ID
+
+	file, err := r.fileStorage.GetFile(ctx, fileID)
+
+	statuses := r.uploadFile(ctx, file)
+	success, condition := findStatus(statuses)
+
+	if err = updateMeterReportStatus(ctx, r.k8SClient, report.Name, report.Namespace,
+		func(m marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+			m.Conditions.SetCondition(condition)
+			m.UploadStatus.Append(statuses)
+
+			if !success {
+				m.RetryUpload = m.RetryUpload + 1
+			}
+
+			dataServiceStatus := m.UploadStatus.Get(uploaders.UploaderTargetDataService.Name())
+
+			if dataServiceStatus != nil {
+				m.DataServiceStatus = dataServiceStatus
+			}
+
+			return m
+		}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Run checks for just files in DataService and sends them if it can.
+func (r *UploadTask) RunGeneric(ctx context.Context) error {
+	logger := r.logger
+	logger.Info("upload task run generic start")
 
 	// List the files from DataService
 	logger.Info("Listing files in data-service")
@@ -53,7 +101,8 @@ func (r *UploadTask) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("ListFiles", "Listed files in data-service", fileList)
+
+	logger.Info("ListFiles", "files", fileList)
 
 	for _, file := range fileList {
 		if file.GetDeletedAt() != nil && !file.GetDeletedAt().AsTime().IsZero() {
@@ -61,94 +110,92 @@ func (r *UploadTask) Run(ctx context.Context) error {
 			continue
 		}
 
-		// Download the file from DataService
-		logger.Info("DownloadFile", "Downloading file from data-service", file)
-		localFileName, err := r.fileStorage.DownloadFile(ctx, file)
-		if err != nil {
-			logger.Error(err, "failed to download file", "id", file.Id)
-			continue
+		statuses := r.uploadFile(ctx, file)
+		success, _ := findStatus(statuses)
+
+		var uploadAttemptsInt int
+		if uploadAttemptsStr, ok := file.Metadata["uploadAttempts"]; ok {
+			uploadAttemptsInt, err = strconv.Atoi(uploadAttemptsStr)
+			if err != nil {
+				uploadAttemptsInt = 0
+			}
 		}
 
-		logger.Info("DownloadFile", "Downloaded file from data-service", file)
-		statuses := []*marketplacev1alpha1.UploadDetails{}
-
-		// Upload the file to uploaders
-		for _, uploader := range r.uploaders {
-			details := &marketplacev1alpha1.UploadDetails{}
-			details.Target = uploader.Name()
-
-			logger.Info("Uploaded file", "file", file, "target", uploader.Name())
-			data, err := os.ReadFile(localFileName)
-
-			onError := func(err error, msg string) {
-				logger.Error(err, msg)
-				details.Error = fmt.Sprintf("error: %s details: %+v", err.Error(), errors.GetDetails(err))
-				details.Status = marketplacev1alpha1.UploadStatusFailure
-				statuses = append(statuses, details)
-			}
-
+		if !success && uploadAttemptsInt < 3 {
+			logger.Info("failed to complete upload without an issue, will not delete the file", "attempts", uploadAttemptsInt)
+			uploadAttemptsInt = uploadAttemptsInt + 1
+			file.Metadata["uploadAttempts"] = fmt.Sprintf("%d", uploadAttemptsInt)
+			err := r.fileStorage.UpdateMetadata(ctx, file)
 			if err != nil {
-				onError(err, "failed to open local file")
-				continue
+				logger.Error(err, "failed to update metadata")
 			}
+			continue
+		}
+	}
 
-			var id string
-			id, err = uploader.UploadFile(ctx, file.Name, bytes.NewReader(data))
+	return nil
+}
 
-			if err != nil {
-				logger.Error(err, "failed to upload file", errors.GetDetails(err)...)
-				onError(err, "failed to upload file")
-				continue
-			}
+func (r *UploadTask) uploadFile(
+	ctx context.Context,
+	file *dataservicev1.FileInfo,
+) (statuses []*marketplacev1alpha1.UploadDetails) {
+	logger.Info("DownloadFile", "Downloading file from data-service", file)
+	localFileName, downloadErr := r.fileStorage.DownloadFile(ctx, file)
 
-			details.ID = id
-			details.Status = marketplacev1alpha1.UploadStatusSuccess
+	// Upload the file to uploaders
+	for _, uploader := range r.uploaders {
+		details := &marketplacev1alpha1.UploadDetails{}
+		details.Target = uploader.Name()
+
+		if downloadErr != nil {
+			logger.Error(downloadErr, "failed to download file", "id", file.Id)
+			details.Error = fmt.Sprintf("error: %s details: %+v", downloadErr.Error(), errors.GetDetails(downloadErr))
+			details.Status = marketplacev1alpha1.UploadStatusFailure
+			statuses = append(statuses, details)
+			return
+		}
+
+		logger.Info("Uploaded file", "file", file, "target", uploader.Name())
+		data, err := os.ReadFile(localFileName)
+
+		onError := func(err error, msg string) {
+			logger.Error(err, msg)
+			details.Error = fmt.Sprintf("error: %s details: %+v", err.Error(), errors.GetDetails(err))
+			details.Status = marketplacev1alpha1.UploadStatusFailure
 			statuses = append(statuses, details)
 		}
 
-		metadata := &dataservice.MeterReportMetadata{}
-		if err := metadata.From(file.Metadata); err != nil {
-			logger.Error(err, "error parsing metadata")
-			continue
-		}
-
-		if metadata.IsEmpty() {
-			continue
-		}
-
-		success, condition := findStatus(statuses)
-
-		if err := updateMeterReportStatus(ctx, r.k8SClient, metadata.ReportName, metadata.ReportNamespace,
-			func(m marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
-				m.Conditions.SetCondition(condition)
-				m.UploadStatus.Append(statuses)
-
-				dataServiceStatus := m.UploadStatus.Get(uploaders.UploaderTargetDataService.Name())
-
-				if dataServiceStatus != nil {
-					m.DataServiceStatus = dataServiceStatus
-				}
-
-				return m
-			}); err != nil {
-			logger.Error(err, "failed to update meter report")
-			continue
-		}
-
-		if !success {
-			logger.Info("failed to complete upload without an issue, will not delete the file")
-			continue
-		}
-
-		// Mark the file as deleted in DataService
-		err = r.fileStorage.DeleteFile(ctx, file)
 		if err != nil {
-			logger.Error(err, "failed to delete a file")
+			onError(err, "failed to open local file")
 			continue
 		}
-		logger.Info("DeleteFile", "Deleted file from data-service", file)
+
+		var id string
+		id, err = uploader.UploadFile(ctx, file.Name, bytes.NewReader(data))
+
+		if err != nil {
+			logger.Error(err, "failed to upload file", errors.GetDetails(err)...)
+			onError(err, "failed to upload file")
+			continue
+		}
+
+		details.ID = id
+		details.Status = marketplacev1alpha1.UploadStatusSuccess
+		statuses = append(statuses, details)
 	}
 
+	return
+}
+
+func (r *UploadTask) deleteFile(ctx context.Context, file *dataservicev1.FileInfo) error {
+	// Mark the file as deleted in DataService
+	err := r.fileStorage.DeleteFile(ctx, file)
+	if err != nil {
+		logger.Error(err, "failed to delete a file")
+		return err
+	}
+	logger.Info("DeleteFile", "Deleted file from data-service", file)
 	return nil
 }
 
@@ -157,7 +204,7 @@ func findStatus(statuses marketplacev1alpha1.UploadDetailConditions) (success bo
 	success = false
 
 	// if one of our required uploaders work it's a success
-	if statuses.OneSucessOf(
+	if statuses.OneSuccessOf(
 		[]string{
 			uploaders.UploaderTargetMarketplace.Name(),
 			uploaders.UploaderTargetRedHatInsights.Name(),

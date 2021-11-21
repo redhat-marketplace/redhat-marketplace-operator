@@ -265,7 +265,7 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 		}
 	}
 
-	savedSet, err := r.getBackedUpMeterDefinitions()
+	savedSet, err := r.getMeterDefinitions()
 
 	if err != nil {
 		logger.Error(err, "error retrieving saved meter defs")
@@ -303,7 +303,7 @@ func (r *MarketplaceReporter) WriteReport(
 	return r.reportWriter.WriteReport(reportID, metrics, r.Config.OutputDirectory, *r.Config.MetricsPerFile)
 }
 
-func (r *MarketplaceReporter) getBackedUpMeterDefinitions() (map[types.NamespacedName][]*meterDefPromQuery, error) {
+func (r *MarketplaceReporter) getMeterDefinitions() (map[types.NamespacedName][]*meterDefPromQuery, error) {
 	var result model.Value
 	var warnings v1.Warnings
 	var err error
@@ -311,7 +311,7 @@ func (r *MarketplaceReporter) getBackedUpMeterDefinitions() (map[types.Namespace
 	err = utils.Retry(func() error {
 		query := &MeterDefinitionQuery{
 			Start: r.report.Spec.StartTime.Time.UTC(),
-			End:   r.report.Spec.EndTime.Time.Add(-1 * time.Second).UTC(),
+			End:   r.report.Spec.EndTime.Time.Add(-1 * time.Millisecond).UTC(),
 			Step:  time.Hour,
 		}
 

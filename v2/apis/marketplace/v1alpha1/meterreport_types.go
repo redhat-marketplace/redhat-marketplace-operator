@@ -103,6 +103,12 @@ type MeterReportStatus struct {
 	// +optional
 	MetricUploadCount *int `json:"metricUploadCount,omitempty"`
 
+	// UploadAttempts track the number of times a file has failed due to
+	// unrecoverable errors
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	RetryUpload int `json:"uploadAttempts,omitempty"`
+
 	// UploadID is the ID associated with the upload
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
@@ -226,7 +232,7 @@ func (u UploadDetailConditions) Get(target string) *UploadDetails {
 	return nil
 }
 
-func (u UploadDetailConditions) OneSucessOf(targets []string) bool {
+func (u UploadDetailConditions) OneSuccessOf(targets []string) bool {
 	for _, target := range targets {
 		status := u.Get(target)
 
@@ -301,6 +307,9 @@ const (
 	ReportConditionReasonJobFinished       status.ConditionReason = "Finished"
 	ReportConditionReasonJobErrored        status.ConditionReason = "Errored"
 	ReportConditionReasonJobIsDisconnected status.ConditionReason = "Disconn"
+	ReportConditionReasonJobNoData         status.ConditionReason = "NoData"
+	ReportConditionReasonJobSkipped        status.ConditionReason = "Skipped"
+	ReportConditionReasonJobMaxRetries     status.ConditionReason = "MaxRetries"
 
 	ReportConditionTypeStorageStatus status.ConditionType = "Stored"
 	ReportConditionTypeUploadStatus  status.ConditionType = "Uploaded"
@@ -362,6 +371,22 @@ var (
 		Status:  corev1.ConditionFalse,
 		Reason:  ReportConditionReasonJobIsDisconnected,
 		Message: "Report is running in a disconnected environment",
+	}
+	ReportConditionJobHasNoData = status.Condition{
+		Type:    ReportConditionTypeUploadStatus,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReportConditionReasonJobNoData,
+		Message: "Report has no data",
+	}
+	ReportConditionJobSkipped = status.Condition{
+		Type:   ReportConditionTypeUploadStatus,
+		Status: corev1.ConditionFalse,
+		Reason: ReportConditionReasonJobSkipped,
+	}
+	ReportConditionFailedAttempts = status.Condition{
+		Type:   ReportConditionTypeUploadStatus,
+		Status: corev1.ConditionFalse,
+		Reason: ReportConditionReasonJobMaxRetries,
 	}
 	ReportConditionUploadStatusFinished = status.Condition{
 		Type:   ReportConditionTypeUploadStatus,

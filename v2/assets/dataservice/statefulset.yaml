@@ -58,7 +58,7 @@ spec:
               command:
                 - grpc_health_probe
                 - -addr=localhost:8003
-            initialDelaySeconds: 5
+            initialDelaySeconds: 60
             periodSeconds: 5
           ports:
             - containerPort: 9001

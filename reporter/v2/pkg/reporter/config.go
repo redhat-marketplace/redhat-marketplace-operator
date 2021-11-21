@@ -21,6 +21,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	kconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type Name types.NamespacedName
@@ -46,6 +48,8 @@ type Config struct {
 	PrometheusPort       string
 	uploaders.UploaderTargets
 	ReporterSchema string
+
+	K8sRestConfig *rest.Config
 }
 
 const (
@@ -68,6 +72,10 @@ func (c *Config) SetDefaults() {
 
 	if c.UploaderTargets == nil {
 		c.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
+	}
+
+	if c.K8sRestConfig == nil {
+		c.K8sRestConfig = kconfig.GetConfigOrDie()
 	}
 }
 

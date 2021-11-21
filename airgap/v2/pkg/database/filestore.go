@@ -30,7 +30,7 @@ import (
 )
 
 type StoredFileStore interface {
-	List(ctx context.Context, opts ...ListOption) (files []modelsv2.ListStoredFile, nextPageToken string, total int64, err error)
+	List(ctx context.Context, opts ...ListOption) (files []modelsv2.StoredFile, nextPageToken string, err error)
 	Get(ctx context.Context, id string) (*modelsv2.StoredFile, error)
 	GetByFileKey(ctx context.Context, fileKey *modelsv2.StoredFileKey) (*modelsv2.StoredFile, error)
 	Save(ctx context.Context, file *modelsv2.StoredFile) (id string, err error)
@@ -77,6 +77,7 @@ type metaDataQuery struct {
 
 const (
 	ErrInvalidInput = errors.Sentinel("invalid input")
+	ErrNotFound     = errors.Sentinel("not found")
 )
 
 func (d *fileStore) Close() error {
@@ -128,8 +129,13 @@ func (d *fileStore) GetByFileKey(ctx context.Context, fileKey *modelsv2.StoredFi
 		}).
 		Where(&fileKey).
 		First(&file).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
+
 	return &file, nil
 }
 
@@ -147,19 +153,39 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (id str
 	db := d.DB.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true})
 
 	if file.ID == 0 {
-		foundFile := modelsv2.StoredFile{}
+		func() {
+			foundFile := modelsv2.StoredFile{}
 
-		err = db.Where(&modelsv2.StoredFile{
-			Name:       file.Name,
-			Source:     file.Source,
-			SourceType: file.SourceType,
-		}).Find(&foundFile).Error
+			err = db.Unscoped().Where(&modelsv2.StoredFile{
+				Name:       file.Name,
+				Source:     file.Source,
+				SourceType: file.SourceType,
+			}).
+				Preload("Metadata", func(db *gorm.DB) *gorm.DB {
+					return db.Unscoped()
+				}).
+				First(&foundFile).Error
 
-		if err != nil {
-			return "", err
-		}
+			if err != nil {
+				return
+			}
 
-		file.ID = foundFile.ID
+			file.ID = foundFile.ID
+			file.CreatedAt = foundFile.CreatedAt
+
+			if !foundFile.DeletedAt.Time.IsZero() {
+				foundFile.DeletedAt = gorm.DeletedAt{}
+			}
+
+			for i := range file.Metadata {
+				for j := range foundFile.Metadata {
+					if file.Metadata[i].Key == foundFile.Metadata[j].Key {
+						file.Metadata[i].ID = foundFile.Metadata[j].ID
+					}
+				}
+			}
+			return
+		}()
 	}
 
 	err = db.Save(file).Error
@@ -200,39 +226,34 @@ func (d *fileStore) Delete(ctx context.Context, id string, permanent bool) (err 
 	return err
 }
 
-func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []modelsv2.ListStoredFile, nextPageToken string, total int64, err error) {
+func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []modelsv2.StoredFile, nextPageToken string, err error) {
 	listOpts := *(&ListOptions{}).ApplyOptions(opts)
 
 	listOpts2 := listOpts
 	listOpts2.Pagination = nil
 
-	idQuery := d.DB.Model(&modelsv2.StoredFile{}).
+	db := d.DB.WithContext(ctx)
+
+	idQuery := db.Model(&modelsv2.StoredFile{}).
 		Unscoped().
 		Scopes(listOpts2.scopes()...).
 		Joins("left join stored_file_metadata on stored_files.id = stored_file_metadata.file_id").
 		Joins("left join stored_file_contents on stored_file_contents.file_id = stored_files.id").
 		Distinct("stored_files.id")
 
-	idQuery2 := *idQuery
-
-	if err = idQuery2.Session(&gorm.Session{}).Count(&total).Error; err != nil {
-		return
-	}
-
-	if total == 0 {
-		return
-	}
-
 	// reset filters for this
 	listOpts.Filters = []*fileserver.Filter{}
 
-	query := d.DB.WithContext(ctx).
-		Table("stored_files as f").
+	query := db.Model(&modelsv2.StoredFile{}).
 		Scopes(listOpts.scopes()...).
-		Joins("join stored_file_contents as c on f.id = c.file_id").
-		Select("f.id, f.name, f.source, f.source_type, c.checksum, c.mime_type, c.size, f.updated_at, f.created_at, f.deleted_at").
-		Where("f.id in (?)", idQuery).
-		Order("f.created_at desc").
+		Where("stored_files.id in (?)", idQuery).
+		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("File", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Order("stored_files.created_at desc").
 		Find(&files)
 
 	err = query.Error
@@ -245,32 +266,6 @@ func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []model
 		// We trim to the page size to prevent having too many
 		// results on each call
 		files = files[:len(files)-1]
-	}
-
-	metadataSlice := []modelsv2.StoredFileMetadata{}
-
-	metadataQ := d.DB.WithContext(ctx).
-		Unscoped().
-		Where("file_id in (?)", idQuery).
-		Find(&metadataSlice)
-
-	err = metadataQ.Error
-
-	fileMap := map[uint]*modelsv2.ListStoredFile{}
-
-	for i := range files {
-		fileMap[files[i].ID] = &files[i]
-	}
-
-	for _, metadata := range metadataSlice {
-		if _, ok := fileMap[metadata.FileID]; !ok {
-			continue
-		}
-
-		if fileMap[metadata.FileID].Metadata == nil {
-			fileMap[metadata.FileID].Metadata = []modelsv2.StoredFileMetadata{}
-		}
-		fileMap[metadata.FileID].Metadata = append(fileMap[metadata.FileID].Metadata, metadata)
 	}
 
 	return

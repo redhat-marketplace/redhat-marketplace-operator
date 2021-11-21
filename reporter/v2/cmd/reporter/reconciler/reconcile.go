@@ -101,6 +101,8 @@ var ReconcileCmd = &cobra.Command{
 			cfg,
 			broadcaster,
 			reporter.Namespace(namespace),
+			reporter.NewTask,
+			reporter.NewUploadTask,
 		)
 
 		if err != nil {
