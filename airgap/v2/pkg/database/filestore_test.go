@@ -279,11 +279,11 @@ var _ = Describe("filestore", func() {
 	})
 
 	Context("saveOverwrite", func() {
-		var file modelsv2.StoredFile
+		var file *modelsv2.StoredFile
 
 		BeforeEach(func() {
-			file = modelsv2.StoredFile{
-				Name:       "foo.txt",
+			file = &modelsv2.StoredFile{
+				Name:       "foo-overwrite.txt",
 				Source:     "redhat-marketplace",
 				SourceType: "report",
 				File: modelsv2.StoredFileContent{
@@ -298,9 +298,9 @@ var _ = Describe("filestore", func() {
 				},
 			}
 
-			id, err := sut.Save(ctx, &file)
+			id, err := sut.Save(ctx, file)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
+			Expect(id).ToNot(Equal("0"))
 		})
 
 		AfterEach(func() {
@@ -308,7 +308,7 @@ var _ = Describe("filestore", func() {
 		})
 
 		It("should override with changes", func() {
-			file2 := file
+			file2 := *file
 			file2.Model = gorm.Model{}
 			file2.Metadata = []modelsv2.StoredFileMetadata{
 				{
@@ -323,19 +323,53 @@ var _ = Describe("filestore", func() {
 
 			id, err := sut.Save(ctx, &file2)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
-			sut.Delete(ctx, id, false)
+			Expect(id).ToNot(Equal("0"))
+
+			file2.Metadata = []modelsv2.StoredFileMetadata{
+				{
+					Key:   "intervalStart",
+					Value: fmt.Sprintf("%s", time.Now()),
+				},
+				{
+					Key:   "newKey",
+					Value: fmt.Sprintf("%s", time.Now()),
+				},
+			}
 
 			id, err = sut.Save(ctx, &file2)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
+			Expect(id).ToNot(Equal("0"))
 
 			file3, err := sut.Get(ctx, id)
 			Expect(err).To(Succeed())
-			Expect(file3.Metadata).To(HaveLen(2))
+			Expect(file3.Metadata).To(HaveLen(3))
 			Expect(file3.DeletedAt.Time.IsZero()).To(BeTrue())
-		})
 
+			file3.Metadata = append(file3.Metadata, modelsv2.StoredFileMetadata{
+				Key:   "uploadAttempts",
+				Value: "1",
+			})
+
+			id, err = sut.Save(ctx, file3)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+			Expect(file3.Metadata).To(HaveLen(4))
+
+			file3.Metadata[3] = modelsv2.StoredFileMetadata{
+				Key:   "uploadAttempts",
+				Value: "2",
+			}
+
+			id, err = sut.Save(ctx, file3)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+			Expect(file3.Metadata).To(HaveLen(4))
+
+			file4, err := sut.Download(ctx, id)
+			Expect(err).To(Succeed())
+			Expect(file4.File.Content).To(Equal(file.File.Content))
+			Expect(file4.Metadata).To(HaveLen(4))
+		})
 	})
 
 	Context("crud", func() {
@@ -366,11 +400,10 @@ var _ = Describe("filestore", func() {
 		It("should save, update, soft delete and cleanup", func() {
 			id, err := sut.Save(ctx, &file)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
+			Expect(id).To(Equal("1"))
 
-			fileCopy := file
-			fileCopy.ID = 0
-			id2, err := sut.Save(ctx, &fileCopy)
+			file.Model = gorm.Model{}
+			id2, err := sut.Save(ctx, &file)
 			Expect(err).To(Succeed())
 			Expect(id2).To(Equal(id))
 
@@ -423,7 +456,6 @@ var _ = Describe("filestore", func() {
 			content := []modelsv2.StoredFileContent{}
 			Expect(db.Unscoped().Find(&content).Error).To(Succeed())
 			Expect(content).To(HaveLen(1))
-			Expect(content[0].DeletedAt.Valid).To(BeTrue())
 
 			results, _, err = sut.List(ctx)
 			Expect(results).To(HaveLen(0))
@@ -432,7 +464,7 @@ var _ = Describe("filestore", func() {
 
 			affected, err := sut.CleanTombstones(ctx)
 			Expect(err).To(Succeed())
-			Expect(affected).To(Equal(int64(3)))
+			Expect(affected).To(Equal(int64(1)))
 
 			files = []modelsv2.StoredFile{}
 			Expect(db.Unscoped().Find(&files).Error).To(Succeed())
@@ -448,7 +480,7 @@ var _ = Describe("filestore", func() {
 
 			id, err = sut.Save(ctx, &file)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
+			Expect(id).ToNot(Equal("0"))
 
 			deletedFile, err := sut.Get(ctx, id)
 			Expect(err).To(Succeed())

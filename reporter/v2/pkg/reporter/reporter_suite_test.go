@@ -66,7 +66,8 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "v2", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "..", "tests", "v2", "testdata"),
-		}, KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
+		},
+		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
 	k8sScheme = provideScheme()
@@ -76,7 +77,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	k8sInter = kubernetes.NewForConfigOrDie(cfg)
+	k8sInter, err = kubernetes.NewForConfig(cfg)
+	Expect(err).ToNot(HaveOccurred())
 	eb, closeEB = provideReporterEventBroadcaster(k8sInter)
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})

@@ -1,3 +1,17 @@
+// Copyright 2021 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package reporter
 
 import (
@@ -26,15 +40,12 @@ var _ = Describe("reconcile_task", func() {
 		sut *ReconcileTask
 
 		mockReportTask *mockTask
-
 		meterReports   = []*marketplacev1alpha1.MeterReport{}
-		isDisconnected = ptr.Bool(false)
 	)
 
 	BeforeEach(func() {
 		var err error
 		ctx = context.Background()
-
 		mockReportTask = &mockTask{}
 
 		sut, err = NewReconcileTask(ctx,
@@ -43,7 +54,7 @@ var _ = Describe("reconcile_task", func() {
 				UploaderTargets: uploaders.UploaderTargets{
 					&uploaders.NoOpUploader{},
 				},
-				IsDisconnected: *isDisconnected,
+				IsDisconnected: false,
 			},
 			eb,
 			Namespace(ns),
@@ -55,9 +66,8 @@ var _ = Describe("reconcile_task", func() {
 			},
 		)
 		Expect(err).To(Succeed())
-	})
 
-	BeforeEach(func() {
+		meterReports = []*marketplacev1alpha1.MeterReport{}
 		for i := 0; i < 5; i = i + 1 {
 			report := marketplacev1alpha1.MeterReport{
 				ObjectMeta: metav1.ObjectMeta{
@@ -86,13 +96,15 @@ var _ = Describe("reconcile_task", func() {
 		Expect(sut.report(ctx)).To(Succeed())
 
 		for i := range meterReports {
-			meterReports[i].Status.DataServiceStatus = &marketplacev1alpha1.UploadDetails{
+			report := meterReports[i]
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(report), report)).To(Succeed())
+			report.Status.DataServiceStatus = &marketplacev1alpha1.UploadDetails{
 				Target: uploaders.UploaderTargetDataService.Name(),
 				ID:     fmt.Sprintf("%d", i),
 				Status: marketplacev1alpha1.UploadStatusSuccess,
 			}
-			meterReports[i].Status.MetricUploadCount = ptr.Int(50)
-			Expect(k8sClient.Status().Update(context.Background(), meterReports[i])).To(Succeed())
+			report.Status.MetricUploadCount = ptr.Int(50)
+			k8sClient.Status().Update(context.Background(), report)
 		}
 
 		Expect(sut.upload(ctx)).To(Succeed())
@@ -199,6 +211,16 @@ var _ = Describe("reconcile_task", func() {
 
 			reason, ok = sut.CanRunUploadReportTask(nil, report)
 			Expect(ok).To(BeTrue())
+			Expect(reason).To(Equal(SkipEmpty))
+
+			report.Status.UploadStatus.Set(marketplacev1alpha1.UploadDetails{
+				Target: uploaders.UploaderTargetMarketplace.Name(),
+				Status: marketplacev1alpha1.UploadStatusSuccess,
+			})
+
+			reason, ok = sut.CanRunUploadReportTask(nil, report)
+			Expect(ok).To(BeFalse())
+			Expect(reason).To(Equal(SkipComplete))
 		})
 	})
 

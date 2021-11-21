@@ -169,8 +169,9 @@ const (
 	SkipNoFileID     ReportSkipReason = "NoFileID"
 	SkipDone         ReportSkipReason = "Done"
 	SkipMaxAttempts  ReportSkipReason = "OutOfRetry"
+	SkipComplete     ReportSkipReason = "Complete"
 
-	NoSkip ReportSkipReason = ""
+	SkipEmpty ReportSkipReason = ""
 )
 
 func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplacev1alpha1.MeterReport) bool {
@@ -230,13 +231,18 @@ func (r *ReconcileTask) CanRunGenericUpload(ctx context.Context) (bool, ReportSk
 		return false, SkipDisconnected
 	}
 
-	return true, NoSkip
+	return true, SkipEmpty
 }
 
 const maxUploadAttempts = 3
 
 // IsDisconnected defaults to false
 func (r *ReconcileTask) CanRunUploadReportTask(ctx context.Context, report marketplacev1alpha1.MeterReport) (ReportSkipReason, bool) {
+	now := time.Now().UTC()
+	if now.Before(report.Spec.EndTime.Time.UTC()) {
+		return SkipEmpty, false
+	}
+
 	if r.Config.IsDisconnected {
 		return SkipDisconnected, false
 	}
@@ -253,7 +259,17 @@ func (r *ReconcileTask) CanRunUploadReportTask(ctx context.Context, report marke
 		return SkipMaxAttempts, false
 	}
 
-	return NoSkip, true
+	// skip if it's already complete
+	if report.Status.UploadStatus.OneSuccessOf(
+		[]string{
+			uploaders.UploaderTargetMarketplace.Name(),
+			uploaders.UploaderTargetRedHatInsights.Name(),
+		},
+	) {
+		return SkipComplete, false
+	}
+
+	return SkipEmpty, true
 }
 
 func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
@@ -291,7 +307,9 @@ func (r *ReconcileTask) setSkipReason(
 		condition = marketplacev1alpha1.ReportConditionJobHasNoData
 	case SkipMaxAttempts:
 		condition = marketplacev1alpha1.ReportConditionFailedAttempts
-	case NoSkip:
+	case SkipComplete:
+		return
+	case SkipEmpty:
 		r.logger.Info("no skip was passed for report", "name", mreport.Name)
 		return
 	default:

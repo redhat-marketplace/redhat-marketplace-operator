@@ -202,6 +202,10 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 	if req.GetId() != "" {
 		file, err = fs.FileStore.Get(ctx, req.GetId())
 
+		if errors.Is(err, database.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "not found")
+		}
+
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get file %s=%s %s=%s", "id", req.GetId(), "err", err)
 		}
@@ -212,6 +216,10 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 			Source:     key.Source,
 			SourceType: key.SourceType,
 		})
+
+		if errors.Is(err, database.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "not found")
+		}
 
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get file %s=%s %s=%s", "id", req.GetKey(), "err", err)

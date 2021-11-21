@@ -57,7 +57,7 @@ const (
 	defaultMaxRoutines    = 50
 )
 
-func (c *Config) SetDefaults() {
+func (c *Config) SetDefaults() error {
 	if c.MetricsPerFile == nil {
 		c.MetricsPerFile = ptr.Int(defaultMetricsPerFile)
 	}
@@ -74,9 +74,13 @@ func (c *Config) SetDefaults() {
 		c.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
 	}
 
+	var err error
 	if c.K8sRestConfig == nil {
-		c.K8sRestConfig = kconfig.GetConfigOrDie()
+		c.K8sRestConfig, err = kconfig.GetConfig()
+		logger.Error(err, "failed to get config")
 	}
+
+	return err
 }
 
 var ReporterSet = wire.NewSet(

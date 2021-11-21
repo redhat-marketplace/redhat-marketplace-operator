@@ -37,11 +37,8 @@ var _ = Describe("marketplace uploaders", func() {
 		getResponse, getResponse2 MarketplaceUsageResponse
 		retryPostResponse         MarketplaceUsageResponse
 
-		fileName = "test"
-
-		testId = "testId"
-
-		testBody = []byte("foo")
+		fileName, testId string
+		testBody         []byte
 
 		config *MarketplaceUploaderConfig
 	)
@@ -59,7 +56,9 @@ var _ = Describe("marketplace uploaders", func() {
 		}
 		sut, err = NewMarketplaceUploader(config)
 		Expect(err).To(Succeed())
-
+		fileName = "test"
+		testId = "testId"
+		testBody = []byte("foo")
 		postReponse = MarketplaceUsageResponse{RequestID: testId}
 		retryPostResponse = MarketplaceUsageResponse{
 			Details: &MarketplaceUsageResponseDetails{

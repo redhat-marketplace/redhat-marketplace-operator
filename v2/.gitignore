@@ -108,7 +108,7 @@ tags
 cover.out
 cover.out.tmp
 cover-int.out.tmp
-cover-unit.out.tmp
+cover-unit.out
 .envrc
 .crc
 .DS_Store

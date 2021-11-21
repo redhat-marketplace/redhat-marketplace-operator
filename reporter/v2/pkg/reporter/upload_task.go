@@ -63,6 +63,10 @@ func (r *UploadTask) RunReport(ctx context.Context, report *marketplacev1alpha1.
 	fileID := report.Status.DataServiceStatus.ID
 
 	file, err := r.fileStorage.GetFile(ctx, fileID)
+	if err != nil {
+		logger.Error(err, "error getting file")
+		return err
+	}
 
 	statuses := r.uploadFile(ctx, file)
 	success, condition := findStatus(statuses)
@@ -87,8 +91,14 @@ func (r *UploadTask) RunReport(ctx context.Context, report *marketplacev1alpha1.
 		return err
 	}
 
+	if err = r.deleteFile(ctx, file); err != nil {
+		logger.Error(err, "failed to delete metadata")
+	}
+
 	return nil
 }
+
+const uploadAttempts = "uploadAttempts"
 
 // Run checks for just files in DataService and sends them if it can.
 func (r *UploadTask) RunGeneric(ctx context.Context) error {
@@ -110,26 +120,44 @@ func (r *UploadTask) RunGeneric(ctx context.Context) error {
 			continue
 		}
 
-		statuses := r.uploadFile(ctx, file)
-		success, _ := findStatus(statuses)
+		file, err = r.fileStorage.GetFile(ctx, file.Id)
+		if err != nil {
+			logger.Error(err, "failed to get file", "id", file.Id)
+			continue
+		}
+
+		if file.Metadata == nil {
+			file.Metadata = map[string]string{}
+		}
 
 		var uploadAttemptsInt int
-		if uploadAttemptsStr, ok := file.Metadata["uploadAttempts"]; ok {
+		if uploadAttemptsStr, ok := file.Metadata[uploadAttempts]; ok {
 			uploadAttemptsInt, err = strconv.Atoi(uploadAttemptsStr)
 			if err != nil {
 				uploadAttemptsInt = 0
 			}
 		}
 
-		if !success && uploadAttemptsInt < 3 {
+		if uploadAttemptsInt >= maxUploadAttempts {
+			continue
+		}
+
+		statuses := r.uploadFile(ctx, file)
+		success, _ := findStatus(statuses)
+
+		if !success && uploadAttemptsInt < maxUploadAttempts {
 			logger.Info("failed to complete upload without an issue, will not delete the file", "attempts", uploadAttemptsInt)
 			uploadAttemptsInt = uploadAttemptsInt + 1
-			file.Metadata["uploadAttempts"] = fmt.Sprintf("%d", uploadAttemptsInt)
+			file.Metadata[uploadAttempts] = fmt.Sprintf("%d", uploadAttemptsInt)
 			err := r.fileStorage.UpdateMetadata(ctx, file)
 			if err != nil {
 				logger.Error(err, "failed to update metadata")
 			}
 			continue
+		}
+
+		if err = r.deleteFile(ctx, file); err != nil {
+			logger.Error(err, "failed to delete metadata")
 		}
 	}
 
@@ -140,6 +168,7 @@ func (r *UploadTask) uploadFile(
 	ctx context.Context,
 	file *dataservicev1.FileInfo,
 ) (statuses []*marketplacev1alpha1.UploadDetails) {
+	logger := r.logger
 	logger.Info("DownloadFile", "Downloading file from data-service", file)
 	localFileName, downloadErr := r.fileStorage.DownloadFile(ctx, file)
 
