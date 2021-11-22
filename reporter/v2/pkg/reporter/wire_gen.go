@@ -13,22 +13,18 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
 
-func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*Task, error) {
-	restConfig, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
+func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (TaskRun, error) {
+	config := taskConfig.K8sRestConfig
+	restMapper, err := managers.NewDynamicRESTMapper(config)
 	if err != nil {
 		return nil, err
 	}
 	scheme := provideScheme()
-	simpleClient, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme)
+	simpleClient, err := managers.ProvideSimpleClient(config, restMapper, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -58,11 +54,8 @@ var (
 )
 
 func NewEventBroadcaster(erConfig *Config) (record.EventBroadcaster, func(), error) {
-	restConfig, err := config.GetConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
+	config := erConfig.K8sRestConfig
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,7 +66,7 @@ func NewEventBroadcaster(erConfig *Config) (record.EventBroadcaster, func(), err
 }
 
 func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) {
-	reporterConfig := task.Config
+	config := task.Config
 	simpleClient := task.K8SClient
 	scheme := task.K8SScheme
 	logrLogger := _wireLogrLoggerValue
@@ -87,15 +80,15 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
-	service, err := getPrometheusService(ctx, meterReport, clientCommandRunner, reporterConfig)
+	service, err := getPrometheusService(ctx, meterReport, clientCommandRunner, config)
 	if err != nil {
 		return nil, err
 	}
-	servicePort, err := getPrometheusPort(reporterConfig, service)
+	servicePort, err := getPrometheusPort(config, service)
 	if err != nil {
 		return nil, err
 	}
-	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service, servicePort)
+	prometheusAPISetup := providePrometheusSetup(config, meterReport, service, servicePort)
 	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
@@ -104,15 +97,15 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
-	dataBuilder, err := ProvideDataBuilder(reporterConfig, logrLogger)
+	dataBuilder, err := ProvideDataBuilder(config, logrLogger)
 	if err != nil {
 		return nil, err
 	}
-	reportWriter, err := ProvideWriter(reporterConfig, marketplaceConfig, logrLogger)
+	reportWriter, err := ProvideWriter(config, marketplaceConfig, logrLogger)
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v, dataBuilder, reportWriter)
+	marketplaceReporter, err := NewMarketplaceReporter(config, meterReport, marketplaceConfig, prometheusAPI, v, dataBuilder, reportWriter)
 	if err != nil {
 		return nil, err
 	}
@@ -123,12 +116,9 @@ var (
 	_wireLogrLoggerValue = logger
 )
 
-func NewUploadTask(ctx context.Context, config2 *Config, namespace Namespace) (*UploadTask, error) {
+func NewUploadTask(ctx context.Context, config *Config, namespace Namespace) (UploadRun, error) {
 	logrLogger := _wireLoggerValue2
-	restConfig, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
+	restConfig := config.K8sRestConfig
 	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return nil, err
@@ -138,7 +128,7 @@ func NewUploadTask(ctx context.Context, config2 *Config, namespace Namespace) (*
 	if err != nil {
 		return nil, err
 	}
-	dataServiceConfig, err := provideDataServiceConfig(config2)
+	dataServiceConfig, err := provideDataServiceConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -147,13 +137,13 @@ func NewUploadTask(ctx context.Context, config2 *Config, namespace Namespace) (*
 		return nil, err
 	}
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploaders, err := ProvideUploaders(ctx, clientCommandRunner, simpleClient, logrLogger, config2)
+	uploaders, err := ProvideUploaders(ctx, clientCommandRunner, simpleClient, logrLogger, config)
 	if err != nil {
 		return nil, err
 	}
 	uploadTask := &UploadTask{
 		logger:      logrLogger,
-		config:      config2,
+		config:      config,
 		k8SClient:   simpleClient,
 		k8SScheme:   scheme,
 		fileStorage: dataService,
@@ -166,12 +156,9 @@ var (
 	_wireLoggerValue2 = logger
 )
 
-func NewReconcileTask(ctx context.Context, config2 *Config, broadcaster record.EventBroadcaster, namespace Namespace) (*ReconcileTask, error) {
+func NewReconcileTask(ctx context.Context, config *Config, broadcaster record.EventBroadcaster, namespace Namespace, newReportTask func(ctx context.Context, reportName ReportName, taskConfig *Config) (TaskRun, error), newUploadTask func(ctx context.Context, config *Config, namespace Namespace) (UploadRun, error)) (*ReconcileTask, error) {
 	logrLogger := _wireLoggerValue3
-	restConfig, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
+	restConfig := config.K8sRestConfig
 	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return nil, err
@@ -182,18 +169,15 @@ func NewReconcileTask(ctx context.Context, config2 *Config, broadcaster record.E
 		return nil, err
 	}
 	eventRecorder := provideReporterEventRecorder(broadcaster, scheme)
-	uploadTask, err := NewUploadTask(ctx, config2, namespace)
-	if err != nil {
-		return nil, err
-	}
 	reconcileTask := &ReconcileTask{
-		logger:     logrLogger,
-		K8SClient:  simpleClient,
-		Config:     config2,
-		K8SScheme:  scheme,
-		Namespace:  namespace,
-		recorder:   eventRecorder,
-		UploadTask: uploadTask,
+		logger:    logrLogger,
+		K8SClient: simpleClient,
+		Config:    config,
+		K8SScheme: scheme,
+		Namespace: namespace,
+		recorder:  eventRecorder,
+		NewTask:   newReportTask,
+		NewUpload: newUploadTask,
 	}
 	return reconcileTask, nil
 }

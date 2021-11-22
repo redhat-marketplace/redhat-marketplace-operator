@@ -167,25 +167,21 @@ var _ = Describe("filestore", func() {
 		})
 
 		It("should paginate by default", func() {
-			results, token, total, err := sut.List(context.Background())
+			results, token, err := sut.List(context.Background())
 			Expect(err).To(Succeed())
 			Expect(token).To(Equal("2"))
 			Expect(results).To(HaveLen(10))
-			Expect(total).To(BeEquivalentTo(60))
 		})
 
 		It("should paginate", func() {
-			results, token, total, err := sut.List(context.Background(), Paginate("", 10))
+			results, token, err := sut.List(context.Background(), Paginate("", 10))
 			Expect(err).To(Succeed())
 			Expect(token).To(Equal("2"))
-			Expect(total).To(BeEquivalentTo(60))
-
 			Expect(results).To(HaveLen(10))
 
-			results2, token, total, err := sut.List(context.Background(), Paginate(token, 10))
+			results2, token, err := sut.List(context.Background(), Paginate(token, 10))
 			Expect(err).To(Succeed())
 			Expect(token).To(Equal("3"))
-			Expect(total).To(BeEquivalentTo(60))
 			Expect(results2).To(HaveLen(10))
 
 			newResults := []interface{}{}
@@ -196,23 +192,20 @@ var _ = Describe("filestore", func() {
 
 			Expect(results).ToNot(ContainElements(newResults...))
 
-			results3, token, total, err := sut.List(context.Background(), Paginate(token, 10))
+			results3, token, err := sut.List(context.Background(), Paginate(token, 10))
 			Expect(err).To(Succeed())
 			Expect(token).To(Equal("4"))
 			Expect(results3).To(HaveLen(10))
-			Expect(total).To(BeEquivalentTo(60))
 
-			results4, token, total, err := sut.List(context.Background(), Paginate(token, 10))
+			results4, token, err := sut.List(context.Background(), Paginate(token, 10))
 			Expect(err).To(Succeed())
 			Expect(token).To(Equal("5"))
 			Expect(results4).To(HaveLen(10))
-			Expect(total).To(BeEquivalentTo(60))
 
-			lastResults, token, total, err := sut.List(context.Background(), Paginate("", 100))
+			lastResults, token, err := sut.List(context.Background(), Paginate("", 100))
 			Expect(err).To(Succeed())
 			Expect(token).To(Equal(""))
 			Expect(lastResults).To(HaveLen(60))
-			Expect(total).To(BeEquivalentTo(60))
 		})
 
 		Context("should filter", func() {
@@ -220,36 +213,38 @@ var _ = Describe("filestore", func() {
 
 			It("should apply simple filter", func() {
 				filters.UnmarshalText([]byte(`source == "test-2"`))
-				lastResults, token, total, err := sut.List(context.Background(), ApplyFilters(filters))
+				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(10))
-				Expect(total).To(BeEquivalentTo(total))
+				Expect(lastResults).To(MatchMetadata(Not(BeEmpty())))
 			})
 
 			It("should apply harder filter", func() {
 				filters = fileserver.Filters{}
 				filters.UnmarshalText([]byte(`sourceType == "report1" && source=="test-2"`))
-				lastResults, token, _, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(10))
+				Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
 			})
 
 			It("should apply an or", func() {
 				filters = fileserver.Filters{}
 				filters.UnmarshalText([]byte(`sourceType == "report1" || source=="test-2"`))
-				lastResults, token, _, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(20))
+				Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
 			})
 
 			It("should handle dates", func() {
 				filters = fileserver.Filters{}
 				t1 := time.Now().Add(-time.Hour).Format(time.RFC3339)
 				filters.UnmarshalText([]byte(`createdAt > "` + t1 + `"`))
-				lastResults, token, _, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(60))
@@ -257,21 +252,16 @@ var _ = Describe("filestore", func() {
 				filters = fileserver.Filters{}
 				t1 = time.Now().Add(-time.Hour).Format(time.RFC3339)
 				filters.UnmarshalText([]byte(`createdAt < "` + t1 + `"`))
-				lastResults, token, _, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+				lastResults, token, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(0))
-
-				filters = fileserver.Filters{}
-				filters.UnmarshalText([]byte(`createdAt < "baddate"`))
-				lastResults, token, _, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(HaveOccurred())
 			})
 
 			It("should handle metadata", func() {
 				filters = fileserver.Filters{}
 				filters.UnmarshalText([]byte(`key == "foo"`))
-				lastResults, token, _, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(40))
@@ -279,13 +269,106 @@ var _ = Describe("filestore", func() {
 
 				filters = fileserver.Filters{}
 				filters.UnmarshalText([]byte(`key == "foo" && value == "test-1"`))
-				lastResults, token, _, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+				lastResults, token, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
 				Expect(err).To(Succeed())
 				Expect(token).To(Equal(""))
 				Expect(lastResults).To(HaveLen(3))
 				Expect(lastResults).To(MatchMetadata(Or(HaveLen(3), HaveLen(2))))
-
 			})
+		})
+	})
+
+	Context("saveOverwrite", func() {
+		var file *modelsv2.StoredFile
+
+		BeforeEach(func() {
+			file = &modelsv2.StoredFile{
+				Name:       "foo-overwrite.txt",
+				Source:     "redhat-marketplace",
+				SourceType: "report",
+				File: modelsv2.StoredFileContent{
+					Content:  []byte("test"),
+					MimeType: "text/plain",
+				},
+				Metadata: []modelsv2.StoredFileMetadata{
+					{
+						Key:   "intervalStart",
+						Value: fmt.Sprintf("%s", time.Now()),
+					},
+				},
+			}
+
+			id, err := sut.Save(ctx, file)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+		})
+
+		AfterEach(func() {
+			db.Unscoped().Association(clause.Associations).Delete(&file)
+		})
+
+		It("should override with changes", func() {
+			file2 := *file
+			file2.Model = gorm.Model{}
+			file2.Metadata = []modelsv2.StoredFileMetadata{
+				{
+					Key:   "intervalStart",
+					Value: fmt.Sprintf("%s", time.Now()),
+				},
+				{
+					Key:   "intervalEnd",
+					Value: fmt.Sprintf("%s", time.Now()),
+				},
+			}
+
+			id, err := sut.Save(ctx, &file2)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+
+			file2.Metadata = []modelsv2.StoredFileMetadata{
+				{
+					Key:   "intervalStart",
+					Value: fmt.Sprintf("%s", time.Now()),
+				},
+				{
+					Key:   "newKey",
+					Value: fmt.Sprintf("%s", time.Now()),
+				},
+			}
+
+			id, err = sut.Save(ctx, &file2)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+
+			file3, err := sut.Get(ctx, id)
+			Expect(err).To(Succeed())
+			Expect(file3.Metadata).To(HaveLen(3))
+			Expect(file3.DeletedAt.Time.IsZero()).To(BeTrue())
+
+			file3.Metadata = append(file3.Metadata, modelsv2.StoredFileMetadata{
+				Key:   "uploadAttempts",
+				Value: "1",
+			})
+
+			id, err = sut.Save(ctx, file3)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+			Expect(file3.Metadata).To(HaveLen(4))
+
+			file3.Metadata[3] = modelsv2.StoredFileMetadata{
+				Key:   "uploadAttempts",
+				Value: "2",
+			}
+
+			id, err = sut.Save(ctx, file3)
+			Expect(err).To(Succeed())
+			Expect(id).ToNot(Equal("0"))
+			Expect(file3.Metadata).To(HaveLen(4))
+
+			file4, err := sut.Download(ctx, id)
+			Expect(err).To(Succeed())
+			Expect(file4.File.Content).To(Equal(file.File.Content))
+			Expect(file4.Metadata).To(HaveLen(4))
 		})
 	})
 
@@ -317,11 +400,10 @@ var _ = Describe("filestore", func() {
 		It("should save, update, soft delete and cleanup", func() {
 			id, err := sut.Save(ctx, &file)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
+			Expect(id).To(Equal("1"))
 
-			fileCopy := file
-			fileCopy.ID = 0
-			id2, err := sut.Save(ctx, &fileCopy)
+			file.Model = gorm.Model{}
+			id2, err := sut.Save(ctx, &file)
 			Expect(err).To(Succeed())
 			Expect(id2).To(Equal(id))
 
@@ -332,6 +414,11 @@ var _ = Describe("filestore", func() {
 			Expect(file2.File.Content).To(BeEmpty())
 			Expect(file2.File.Checksum).ToNot(BeEmpty())
 			Expect(file2).To(MatchMetadata(HaveLen(1)))
+
+			proto, err := modelsv2.StoredFileToProto(file2)
+			Expect(err).To(Succeed())
+			Expect(proto.Metadata).To(HaveLen(1))
+			Expect(proto.Checksum).To(Equal(file2.File.Checksum))
 
 			keyFile, err := sut.GetByFileKey(ctx, &modelsv2.StoredFileKey{
 				Name:       file2.Name,
@@ -357,7 +444,7 @@ var _ = Describe("filestore", func() {
 			Expect(file3.Metadata).To(HaveLen(1))
 			Expect(file3).To(MatchMetadata(HaveLen(1)))
 
-			results, _, _, err := sut.List(ctx)
+			results, _, err := sut.List(ctx)
 
 			err = sut.Delete(ctx, id, false)
 			Expect(err).To(Succeed())
@@ -369,18 +456,15 @@ var _ = Describe("filestore", func() {
 			content := []modelsv2.StoredFileContent{}
 			Expect(db.Unscoped().Find(&content).Error).To(Succeed())
 			Expect(content).To(HaveLen(1))
-			Expect(content[0].DeletedAt.Valid).To(BeTrue())
 
-			results, _, _, err = sut.List(ctx)
+			results, _, err = sut.List(ctx)
 			Expect(results).To(HaveLen(0))
-			results, _, _, err = sut.List(ctx, ShowDeleted())
+			results, _, err = sut.List(ctx, ShowDeleted())
 			Expect(results).To(HaveLen(1))
-			Expect(results[0].Checksum).ToNot(Equal(""))
-			Expect(results).To(MatchMetadata(HaveLen(1)))
 
 			affected, err := sut.CleanTombstones(ctx)
 			Expect(err).To(Succeed())
-			Expect(affected).To(Equal(int64(3)))
+			Expect(affected).To(Equal(int64(1)))
 
 			files = []modelsv2.StoredFile{}
 			Expect(db.Unscoped().Find(&files).Error).To(Succeed())
@@ -396,7 +480,7 @@ var _ = Describe("filestore", func() {
 
 			id, err = sut.Save(ctx, &file)
 			Expect(err).To(Succeed())
-			Expect(id).ToNot(BeZero())
+			Expect(id).ToNot(Equal("0"))
 
 			deletedFile, err := sut.Get(ctx, id)
 			Expect(err).To(Succeed())
@@ -410,7 +494,7 @@ var _ = Describe("filestore", func() {
 			Expect(deletedFile.ID).To(Not(BeNumerically("==", 0)))
 
 			Expect(sut.Delete(ctx, id, true)).To(Succeed())
-			results, _, _, err = sut.List(ctx, ShowDeleted())
+			results, _, err = sut.List(ctx, ShowDeleted())
 			Expect(results).To(HaveLen(0))
 		})
 
@@ -422,7 +506,7 @@ type hasMetadata struct {
 }
 
 func (h hasMetadata) Match(actual interface{}) (success bool, err error) {
-	if v, ok := actual.([]modelsv2.ListStoredFile); ok {
+	if v, ok := actual.([]modelsv2.StoredFile); ok {
 		for _, vr := range v {
 			ok, err := MatchFields(IgnoreExtras, Fields{
 				"Metadata": h.metadataMatcher,
@@ -457,18 +541,6 @@ func (h hasMetadata) Match(actual interface{}) (success bool, err error) {
 	}
 
 	if v, ok := actual.(modelsv2.StoredFile); ok {
-		return MatchFields(IgnoreExtras, Fields{
-			"Metadata": h.metadataMatcher,
-		}).Match(v)
-	}
-
-	if v, ok := actual.(*modelsv2.ListStoredFile); ok {
-		return PointTo(MatchFields(IgnoreExtras, Fields{
-			"Metadata": h.metadataMatcher,
-		})).Match(v)
-	}
-
-	if v, ok := actual.(modelsv2.ListStoredFile); ok {
 		return MatchFields(IgnoreExtras, Fields{
 			"Metadata": h.metadataMatcher,
 		}).Match(v)

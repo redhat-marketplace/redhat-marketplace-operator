@@ -79,7 +79,11 @@ var ReportCmd = &cobra.Command{
 			DeployedNamespace:    deployedNamespace,
 			ReporterSchema:       reporterSchema,
 		}
-		cfg.SetDefaults()
+		err := cfg.SetDefaults()
+		if err != nil {
+			log.Error(err, "error default config")
+			os.Exit(1)
+		}
 
 		task, err := reporter.NewTask(
 			ctx,

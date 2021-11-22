@@ -78,8 +78,8 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	d.id = meterDef.Hash()
 
 	key := &MarketplaceReportData{
-		IntervalStart:        meterDef.IntervalStart.Sub(time.Unix(0, 0)).Milliseconds(),
-		IntervalEnd:          meterDef.IntervalEnd.Sub(time.Unix(0, 0)).Milliseconds(),
+		IntervalStart:        meterDef.IntervalStart.UTC().Sub(time.Unix(0, 0)).Milliseconds(),
+		IntervalEnd:          meterDef.IntervalEnd.UTC().Sub(time.Unix(0, 0)).Milliseconds(),
 		AccountID:            d.accountID,
 		AdditionalAttributes: make(map[string]interface{}),
 		MeasuredUsage:        make([]MeasuredUsage, 0, len(d.values)),

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"emperror.dev/errors"
@@ -30,7 +31,7 @@ import (
 )
 
 type StoredFileStore interface {
-	List(ctx context.Context, opts ...ListOption) (files []modelsv2.ListStoredFile, nextPageToken string, total int64, err error)
+	List(ctx context.Context, opts ...ListOption) (files []modelsv2.StoredFile, nextPageToken string, err error)
 	Get(ctx context.Context, id string) (*modelsv2.StoredFile, error)
 	GetByFileKey(ctx context.Context, fileKey *modelsv2.StoredFileKey) (*modelsv2.StoredFile, error)
 	Save(ctx context.Context, file *modelsv2.StoredFile) (id string, err error)
@@ -77,6 +78,7 @@ type metaDataQuery struct {
 
 const (
 	ErrInvalidInput = errors.Sentinel("invalid input")
+	ErrNotFound     = errors.Sentinel("not found")
 )
 
 func (d *fileStore) Close() error {
@@ -99,11 +101,10 @@ func (d *fileStore) Get(ctx context.Context, id string) (*modelsv2.StoredFile, e
 	file := modelsv2.StoredFile{}
 
 	if err := db.Unscoped().
-		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		}).
+		Model(&file).
+		Preload("Metadata").
 		Preload("File", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Omit("content")
+			return db.Omit("content")
 		}).
 		Find(&file, idInt).Error; err != nil {
 		return nil, err
@@ -120,119 +121,170 @@ func (d *fileStore) GetByFileKey(ctx context.Context, fileKey *modelsv2.StoredFi
 	file := modelsv2.StoredFile{}
 
 	if err := db.Unscoped().
-		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		}).
+		Model(&file).
+		Preload("Metadata").
 		Preload("File", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Omit("content")
+			return db.Omit("content")
 		}).
-		Where(&fileKey).
+		Where(modelsv2.StoredFile{
+			Name:       fileKey.Name,
+			Source:     fileKey.Source,
+			SourceType: fileKey.SourceType,
+		}).
 		First(&file).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
+
 	return &file, nil
 }
 
-func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (id string, err error) {
+func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string, error) {
 	if file == nil {
-		err = errors.WrapWithDetails(ErrInvalidInput, "type", "file is nil")
-		return
+		err := errors.Wrap(ErrInvalidInput, "file is nil")
+		return "", err
 	}
 
-	if len(file.File.Content) == 0 {
-		err = errors.WrapWithDetails(ErrInvalidInput, "type", "no content provided")
-		return
-	}
+	db := d.DB.WithContext(ctx)
+	foundFile := &modelsv2.StoredFile{}
 
-	db := d.DB.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true})
-
-	if file.ID == 0 {
-		foundFile := modelsv2.StoredFile{}
-
-		err = db.Where(&modelsv2.StoredFile{
+	// attempt to find file
+	if file.ID != 0 {
+		var err error
+		foundFile, err = d.Get(ctx, strconv.Itoa(int(file.ID)))
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return "", err
+		}
+	} else if file.Name != "" &&
+		file.Source != "" &&
+		file.SourceType != "" {
+		var err error
+		foundFile, err = d.GetByFileKey(ctx, &modelsv2.StoredFileKey{
 			Name:       file.Name,
 			Source:     file.Source,
 			SourceType: file.SourceType,
-		}).Find(&foundFile).Error
-
-		if err != nil {
+		})
+		if err != nil && !errors.Is(err, ErrNotFound) {
 			return "", err
 		}
-
-		file.ID = foundFile.ID
 	}
 
-	err = db.Save(file).Error
-	id = fmt.Sprintf("%d", file.ID)
+	//notFound create it
+	if foundFile == nil || foundFile.ID == 0 {
+		err := d.DB.WithContext(ctx).
+			Create(file).Error
+		return fmt.Sprintf("%d", file.ID), err
+	}
+
+	if !foundFile.DeletedAt.Time.IsZero() {
+		file.DeletedAt = gorm.DeletedAt{}
+	}
+
+	for i := range file.Metadata {
+		metadata := &file.Metadata[i]
+
+		foundMetadata := &modelsv2.StoredFileMetadata{}
+		err := db.Model(&modelsv2.StoredFileMetadata{}).
+			Where("file_id == ? AND key == ?", foundFile.ID, metadata.Key).
+			First(foundMetadata).Error
+
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.WithStack(err)
+			return "", err
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			metadata.FileID = foundFile.ID
+			err := db.Create(metadata).Error
+			if err != nil {
+				err = errors.WithStack(err)
+				return "", err
+			}
+		} else {
+			err := db.Model(foundMetadata).Updates(metadata).Error
+			if err != nil {
+				err = errors.WithStack(err)
+				return "", err
+			}
+		}
+	}
+
+	content := &file.File
+	if len(content.Content) != 0 {
+		if content.ID != 0 {
+			foundContent := &foundFile.File
+			err := db.Model(foundContent).
+				Updates(content).Error
+
+			if err != nil {
+				err = errors.WithStack(err)
+				return "", err
+			}
+		} else {
+			content.FileID = foundFile.ID
+			err := db.Create(content).Error
+
+			if err != nil {
+				err = errors.WithStack(err)
+				return "", err
+			}
+		}
+	}
+
+	err := d.DB.WithContext(ctx).
+		Omit("Content").
+		Model(foundFile).
+		Where("id = ?", foundFile.ID).
+		Updates(*file).Error
+	id := fmt.Sprintf("%d", foundFile.ID)
 	return id, err
 }
 
 func (d *fileStore) Delete(ctx context.Context, id string, permanent bool) (err error) {
-	var file *modelsv2.StoredFile
-	file, err = d.Get(ctx, id)
+	db := d.DB.WithContext(ctx)
+
+	if permanent {
+		db = db.Unscoped().Select(clause.Associations)
+	}
+
+	idInt, err := modelsv2.ConvertStrToUint(id)
 
 	if err != nil {
 		return err
 	}
 
-	if file == nil {
-		return
-	}
-
-	db := d.DB.WithContext(ctx)
-
-	if permanent {
-		db = db.Unscoped()
-	}
-
-	err = db.Transaction(func(tx *gorm.DB) error {
-		if inErr := tx.Where("file_id = ?", file.ID).Delete(&modelsv2.StoredFileContent{}).Error; inErr != nil {
-			return inErr
-		}
-
-		if inErr := tx.Where("file_id = ?", file.ID).Delete(&modelsv2.StoredFileMetadata{}).Error; inErr != nil {
-			return inErr
-		}
-
-		return tx.Delete(file).Error
-	})
+	err = db.Model(&modelsv2.StoredFile{}).
+		Delete(&modelsv2.StoredFile{}, idInt).Error
 
 	return err
 }
 
-func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []modelsv2.ListStoredFile, nextPageToken string, total int64, err error) {
+func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []modelsv2.StoredFile, nextPageToken string, err error) {
 	listOpts := *(&ListOptions{}).ApplyOptions(opts)
 
 	listOpts2 := listOpts
 	listOpts2.Pagination = nil
 
-	idQuery := d.DB.Model(&modelsv2.StoredFile{}).
+	db := d.DB.WithContext(ctx)
+
+	idQuery := db.Model(&modelsv2.StoredFile{}).
 		Unscoped().
 		Scopes(listOpts2.scopes()...).
 		Joins("left join stored_file_metadata on stored_files.id = stored_file_metadata.file_id").
 		Joins("left join stored_file_contents on stored_file_contents.file_id = stored_files.id").
 		Distinct("stored_files.id")
 
-	idQuery2 := *idQuery
-
-	if err = idQuery2.Session(&gorm.Session{}).Count(&total).Error; err != nil {
-		return
-	}
-
-	if total == 0 {
-		return
-	}
-
 	// reset filters for this
 	listOpts.Filters = []*fileserver.Filter{}
 
-	query := d.DB.WithContext(ctx).
-		Table("stored_files as f").
+	query := db.Model(&modelsv2.StoredFile{}).
 		Scopes(listOpts.scopes()...).
-		Joins("join stored_file_contents as c on f.id = c.file_id").
-		Select("f.id, f.name, f.source, f.source_type, c.checksum, c.mime_type, c.size, f.updated_at, f.created_at, f.deleted_at").
-		Where("f.id in (?)", idQuery).
-		Order("f.created_at desc").
+		Where("stored_files.id in (?)", idQuery).
+		Preload("Metadata").
+		Preload("File").
+		Order("stored_files.created_at desc").
 		Find(&files)
 
 	err = query.Error
@@ -247,32 +299,6 @@ func (d *fileStore) List(ctx context.Context, opts ...ListOption) (files []model
 		files = files[:len(files)-1]
 	}
 
-	metadataSlice := []modelsv2.StoredFileMetadata{}
-
-	metadataQ := d.DB.WithContext(ctx).
-		Unscoped().
-		Where("file_id in (?)", idQuery).
-		Find(&metadataSlice)
-
-	err = metadataQ.Error
-
-	fileMap := map[uint]*modelsv2.ListStoredFile{}
-
-	for i := range files {
-		fileMap[files[i].ID] = &files[i]
-	}
-
-	for _, metadata := range metadataSlice {
-		if _, ok := fileMap[metadata.FileID]; !ok {
-			continue
-		}
-
-		if fileMap[metadata.FileID].Metadata == nil {
-			fileMap[metadata.FileID].Metadata = []modelsv2.StoredFileMetadata{}
-		}
-		fileMap[metadata.FileID].Metadata = append(fileMap[metadata.FileID].Metadata, metadata)
-	}
-
 	return
 }
 
@@ -280,12 +306,8 @@ func (d *fileStore) Download(ctx context.Context, id string) (file *modelsv2.Sto
 	file = &modelsv2.StoredFile{}
 	err = d.WithContext(ctx).
 		Unscoped().
-		Preload("Metadata", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		}).
-		Preload("File", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		}).
+		Preload("Metadata").
+		Preload("File").
 		First(file, id).Error
 	return
 }
@@ -296,20 +318,41 @@ func (d *fileStore) CleanTombstones(ctx context.Context) (int64, error) {
 
 	d.Log.Info("cleaning up all files older than", "now", now.String())
 
-	tx1 := d.WithContext(ctx).Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(modelsv2.StoredFile{})
-	if tx1.Error != nil {
-		return 0, tx1.Error
+	q := d.WithContext(ctx).
+		Unscoped().
+		Model(&modelsv2.StoredFile{}).
+		Where("deleted_at < ?", now).
+		Select("id")
+
+	var rowsAffected int64
+	err := d.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&modelsv2.StoredFileContent{}).
+			Where("file_id in (?)", q).
+			Delete(&[]modelsv2.StoredFileContent{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&modelsv2.StoredFileMetadata{}).
+			Where("file_id in (?)", q).
+			Delete(&[]modelsv2.StoredFileMetadata{}).Error; err != nil {
+			return err
+		}
+
+		tx1 := tx.Unscoped().
+			Model(&modelsv2.StoredFile{}).
+			Where("id in (?)", q).
+			Delete(&[]modelsv2.StoredFile{})
+		if err := tx1.Error; err != nil {
+			return err
+		}
+
+		rowsAffected = tx1.RowsAffected
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
 	}
 
-	tx2 := d.WithContext(ctx).Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(modelsv2.StoredFileContent{})
-	if tx2.Error != nil {
-		return 0, tx2.Error
-	}
-
-	tx3 := d.WithContext(ctx).Unscoped().Select(clause.Associations).Where("deleted_at < ?", now).Delete(modelsv2.StoredFileMetadata{})
-	if tx3.Error != nil {
-		return 0, tx3.Error
-	}
-
-	return tx1.RowsAffected + tx2.RowsAffected + tx3.RowsAffected, nil
+	return rowsAffected, nil
 }

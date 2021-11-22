@@ -42,7 +42,9 @@ var (
 type FileStorage interface {
 	DownloadFile(context.Context, *dataservicev1.FileInfo) (file string, err error)
 	ListFiles(context.Context) ([]*dataservicev1.FileInfo, error)
+	GetFile(ctx context.Context, id string) (*dataservicev1.FileInfo, error)
 	Upload(context.Context, *dataservicev1.FileInfo, io.Reader) (id string, err error)
+	UpdateMetadata(context.Context, *dataservicev1.FileInfo) (err error)
 	DeleteFile(context.Context, *dataservicev1.FileInfo) error
 }
 
@@ -86,6 +88,15 @@ func createDataServiceDownloadClient(
 	return fileserver.NewFileServerClient(conn), nil
 }
 
+func (d *DataService) GetFile(ctx context.Context, id string) (*dataservicev1.FileInfo, error) {
+	fileResp, err := d.fileServer.GetFile(ctx, &fileserver.GetFileRequest{
+		IdLookup: &fileserver.GetFileRequest_Id{
+			Id: id,
+		},
+	})
+	return fileResp.GetInfo(), err
+}
+
 func (d *DataService) ListFiles(ctx context.Context) ([]*dataservicev1.FileInfo, error) {
 	fileList := []*dataservicev1.FileInfo{}
 	pageToken := ""
@@ -94,6 +105,7 @@ func (d *DataService) ListFiles(ctx context.Context) ([]*dataservicev1.FileInfo,
 		req := &fileserver.ListFilesRequest{
 			PageSize:  100,
 			PageToken: pageToken,
+			Filter:    "",
 		}
 
 		response, err := d.fileServer.ListFiles(ctx, req)
@@ -113,6 +125,14 @@ func (d *DataService) ListFiles(ctx context.Context) ([]*dataservicev1.FileInfo,
 
 	return fileList, nil
 
+}
+
+func (d *DataService) UpdateMetadata(ctx context.Context, file *dataservicev1.FileInfo) error {
+	_, err := d.fileServer.UpdateFileMetadata(ctx, &fileserver.UpdateFileMetadataRequest{
+		Id:       file.Id,
+		Metadata: file.Metadata,
+	})
+	return err
 }
 
 func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.FileInfo) (file string, err error) {

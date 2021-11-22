@@ -289,7 +289,7 @@ func (p *PrometheusAPI) ReportQuery(query *PromQuery) (model.Value, v1.Warnings,
 
 	timeRange := v1.Range{
 		Start: query.Start,
-		End:   query.End,
+		End:   query.End.Add(-time.Millisecond),
 		Step:  query.Step,
 	}
 

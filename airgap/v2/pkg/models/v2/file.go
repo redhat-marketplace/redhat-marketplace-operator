@@ -17,12 +17,15 @@ package modelsv2
 import (
 	"crypto/sha256"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
 
 type StoredFileMetadata struct {
-	gorm.Model
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	FileID uint   `gorm:"uniqueIndex:idx_stored_file_metadata"`
 	Key    string `gorm:"uniqueIndex:idx_stored_file_metadata"`
@@ -30,9 +33,11 @@ type StoredFileMetadata struct {
 }
 
 type StoredFileContent struct {
-	gorm.Model
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
-	FileID uint
+	FileID uint `gorm:"uniqueIndex"`
 
 	Checksum string
 	Size     int
@@ -49,20 +54,6 @@ type StoredFile struct {
 	SourceType string `gorm:"uniqueIndex:idx_stored_file-name"`
 
 	File     StoredFileContent    `gorm:"foreignKey:FileID"`
-	Metadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
-}
-
-// Not a table - a view
-type ListStoredFile struct {
-	gorm.Model
-
-	Name       string
-	Source     string
-	SourceType string
-	Checksum   string
-	Size       int
-	MimeType   string
-
 	Metadata []StoredFileMetadata `gorm:"foreignKey:FileID"`
 }
 
