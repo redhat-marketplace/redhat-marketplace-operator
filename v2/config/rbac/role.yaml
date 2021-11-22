@@ -104,23 +104,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apiextensions.k8s.io
-  resourceNames:
-  - meterdefinitions.marketplace.redhat.com
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - patch
-  - update
-- apiGroups:
   - apps
   resources:
   - deployments
@@ -427,15 +410,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmap
-  - secret
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - configmaps
   verbs:
   - create
@@ -487,16 +461,6 @@ rules:
   verbs:
   - create
   - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - service
-  verbs:
   - get
   - list
   - patch

@@ -23,13 +23,9 @@ type Runnables []manager.Runnable
 
 var RunnableSet = wire.NewSet(
 	ProvideRunnables,
-	wire.Struct(new(CRDUpdater), "*"),
 )
 
-func ProvideRunnables(
-	crdUpdater *CRDUpdater,
-) Runnables {
-	return []manager.Runnable{
-		crdUpdater,
-	}
+// DEPRECATED remove this
+func ProvideRunnables() Runnables {
+	return []manager.Runnable{}
 }
