@@ -74,13 +74,16 @@ func (c *Config) SetDefaults() error {
 		c.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
 	}
 
-	var err error
 	if c.K8sRestConfig == nil {
+		var err error
 		c.K8sRestConfig, err = kconfig.GetConfig()
-		logger.Error(err, "failed to get config")
+		if err != nil {
+			logger.Error(err, "failed to get config")
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 var ReporterSet = wire.NewSet(
