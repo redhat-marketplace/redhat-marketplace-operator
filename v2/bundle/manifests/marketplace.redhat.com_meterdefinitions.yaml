@@ -8,19 +8,6 @@ metadata:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: meterdefinitions.marketplace.redhat.com
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        caBundle: Cg==
-        service:
-          name: redhat-marketplace-controller-manager-service
-          namespace: openshift-redhat-marketplace
-          path: /convert
-          port: 9443
-      conversionReviewVersions:
-      - v1beta1
-      - v1alpha1
   group: marketplace.redhat.com
   names:
     kind: MeterDefinition
@@ -433,7 +420,7 @@ spec:
                 type: array
             type: object
         type: object
-    served: true
+    served: false
     storage: false
     subresources:
       status: {}

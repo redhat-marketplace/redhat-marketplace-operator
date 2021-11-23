@@ -192,6 +192,7 @@ type MeterDefinitionStatus struct {
 // +kubebuilder:object:root=true
 //
 // +k8s:openapi-gen=true
+// +kubebuilder:unservedversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterdefinitions,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Meter Definitions"

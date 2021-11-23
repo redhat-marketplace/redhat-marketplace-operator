@@ -180,8 +180,6 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	$(YQ) eval -i '(.spec.installModes[] | select(.type != "AllNamespaces").supported) |= false' $(CSV_YAML_CONFIG_FILE)
-	$(YQ) eval -i '(.spec.installModes[] | select(.type == "AllNamespaces").supported) |= true' $(CSV_YAML_CONFIG_FILE)
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
@@ -196,22 +194,10 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
-	# for i in RELATED_IMAGE_METRIC_STATE,$(METRIC_STATE_IMAGE) RELATED_IMAGE_REPORTER,$(REPORTER_IMAGE) RELATED_IMAGE_AUTHCHECK,$(AUTHCHECK_IMAGE); do \
-	# 	IFS=","; set -- $$i; \
-	# 	$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
-	# done
 	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
-
-	$(YQ) eval -i '(.spec.installModes[] | select(.type != "AllNamespaces").supported) |= true' $(CSV_YAML_CONFIG_FILE)
-	$(YQ) eval -i '(.spec.installModes[] | select(.type == "AllNamespaces").supported) |= false' $(CSV_YAML_CONFIG_FILE)
-	$(YQ) eval -i '(.spec.installModes[] | select(.type != "AllNamespaces").supported) |= true' $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '(.spec.installModes[] | select(.type == "AllNamespaces").supported) |= false' $(CSV_YAML_BUNDLE_FILE)
-
-	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
 	cp -p ./config/samples/*v1alpha1*.yaml ./config/samples/*v1beta1*.yaml ./deploy/crds
-	#generate all yaml for the deploy directory to be used in the bundle
 
 BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 
@@ -274,9 +260,9 @@ bundle-uninstall:
 	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 
-skaffold-build:
+skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses
-	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+	$(SKAFFOLD) build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 INSTALL_DEBUG ?= false
 
@@ -313,11 +299,14 @@ uninstall: helm yq
 	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
-skaffold-dev: install
-	skaffold dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+skaffold-dev: skaffold
+	$(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
-skaffold-run:
-	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+skaffold-run: skaffold
+	$(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+
+skaffold-delete: skaffold
+	$(SKAFFOLD) delete --default-repo $(IMAGE_REGISTRY)
 
 current-version:
 	@echo $(VERSION)

@@ -7,6 +7,8 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
 VERSION ?= $(shell $(SVU) next --prefix "")
 TAG ?= $(VERSION)
+export VERSION
+export TAG
 
 BINDIR ?= ./bin
 GO_VERSION ?= 1.16.8
@@ -71,20 +73,6 @@ endif
 endif
 HELM=$(shell which helm)
 
-skaffold:
-ifeq (, $(shell which skaffold))
-ifeq ($(UNAME_S),Linux)
-	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
-	sudo install skaffold /usr/local/bin/
-endif
-ifeq ($(UNAME_S),Darwin)
-	brew install skaffold
-endif
-SKAFFOLD=$(shell which skaffold)
-else
-SKAFFOLD=$(shell which skaffold)
-endif
-
 GINKGO_VERSION=v1.16.5
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
@@ -134,6 +122,11 @@ pc-tool:
 	@[ -f $(VERSION_TOOL) ] || { \
 	cd v2/tools/connect && go build -o $(PC_TOOL) ./main.go ; \
 	}
+
+SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
+SKAFFOLD_VERSION=v1.35.0
+skaffold:
+	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 
 BUF=$(PROJECT_DIR)/bin/buf
 BUF_VERSION=v1.0.0-rc8
