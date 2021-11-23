@@ -14,7 +14,7 @@ resources:
   - ../crd
   - ../rbac
   - ../manager
-  - ../webhook-openshift
+  #  - ../webhook-openshift
   - ../prometheus
   - ../samples
   - ../scorecard

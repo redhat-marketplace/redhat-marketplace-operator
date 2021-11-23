@@ -197,7 +197,7 @@ metadata:
     categories: Developer Tools
     certified: "true"
     containerImage: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
-    createdAt: "2021-11-22T15:09:40Z"
+    createdAt: "2021-11-22T21:20:07Z"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.5.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
@@ -1184,75 +1184,33 @@ spec:
   provider:
     name: Red Hat Marketplace
   relatedImages:
-    - image: quay.io/razee/watch-keeper@sha256:76ab668d92d8473a97fe26ecf5a9f687b8e37820b9c293c39dc72a8e3bc7a507
-      name: rhm_watch_keeper_deployment
+    - image: registry.redhat.io/openshift4/ose-configmap-reloader@sha256:b1d88293fbbf70451214978cd29ad791eae16903808d2d33caaf9b667f6b1f42
+      name: configmap_reloader
     - image: registry.redhat.io/openshift4/ose-prometheus@sha256:8e925d050b2789cac4b4115fbb5e2173807f00a3b9aaff587155695c1dcd106c
       name: prometheus
     - image: registry.redhat.io/openshift4/ose-prometheus-operator@sha256:8efefbad4dba108286f521b2706cfc84aa384b51e8d7af1291c632f368ad3757
       name: prometheus_operator
-    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader@sha256:13be6173e9af8274cd8ae0971ad051dad4603b7b761830a85a5f082fe0abf92f
-      name: prometheus_configmap_reloader
-    - image: quay.io/zach_source/redhat-marketplace-reporter@sha256:65baaba9dbf88dfde4337a3d970b698342c0170a4fefb7d6954edc62c4dafe00
-      name: reporter
-    - image: quay.io/zach_source/redhat-marketplace-authcheck@sha256:6995e5a4439e576c72170c5fb43e6f49c391a4759f6de099cda96c2ff76222df
-      name: authcheck
-    - image: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
-      name: manager
-    - image: quay.io/razee/remoteresources3@sha256:a77eedbe78497d974109695355c1f104a7d1cba7dcb68fa27bf140c4e6be3a2b
-      name: rhm_rrs3_deployment
     - image: quay.io/zach_source/redhat-marketplace-data-service@sha256:6c48e98f01686df57ad09cd431195243e9bd37e0cbaae901117037ffa2535eae
       name: dqlite
     - image: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
       name: redhat-marketplace-operator-2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f-annotation
-    - image: registry.redhat.io/openshift4/ose-configmap-reloader@sha256:b1d88293fbbf70451214978cd29ad791eae16903808d2d33caaf9b667f6b1f42
-      name: configmap_reloader
-    - image: quay.io/zach_source/redhat-marketplace-metric-state@sha256:44b0ec2c739db8ee968d006cec07eda0bb9b5a011f8aa8265fc19343bccf6f70
-      name: metric_state
-    - image: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:dee06a88f4949af82071ea69515057c3fccfc328eb0392c5c5b8617663fd4888
-      name: oauth_proxy
     - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:8b4f814c112d7b91dc5e7904d4f3c684f3d77227344d2b553a84d4a1bc2829d3
       name: kube_rbac_proxy
+    - image: quay.io/zach_source/redhat-marketplace-reporter@sha256:65baaba9dbf88dfde4337a3d970b698342c0170a4fefb7d6954edc62c4dafe00
+      name: reporter
+    - image: quay.io/zach_source/redhat-marketplace-metric-state@sha256:44b0ec2c739db8ee968d006cec07eda0bb9b5a011f8aa8265fc19343bccf6f70
+      name: metric_state
+    - image: quay.io/zach_source/redhat-marketplace-authcheck@sha256:6995e5a4439e576c72170c5fb43e6f49c391a4759f6de099cda96c2ff76222df
+      name: authcheck
+    - image: quay.io/razee/remoteresources3@sha256:a77eedbe78497d974109695355c1f104a7d1cba7dcb68fa27bf140c4e6be3a2b
+      name: rhm_rrs3_deployment
+    - image: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:dee06a88f4949af82071ea69515057c3fccfc328eb0392c5c5b8617663fd4888
+      name: oauth_proxy
+    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader@sha256:13be6173e9af8274cd8ae0971ad051dad4603b7b761830a85a5f082fe0abf92f
+      name: prometheus_configmap_reloader
+    - image: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
+      name: manager
+    - image: quay.io/razee/watch-keeper@sha256:76ab668d92d8473a97fe26ecf5a9f687b8e37820b9c293c39dc72a8e3bc7a507
+      name: rhm_watch_keeper_deployment
   version: 2.5.0
-  webhookdefinitions:
-    - admissionReviewVersions:
-        - v1beta1
-        - v1alpha1
-      containerPort: 9443
-      deploymentName: redhat-marketplace-controller-manager
-      failurePolicy: Fail
-      generateName: mmeterdefinition.marketplace.redhat.com
-      rules:
-        - apiGroups:
-            - marketplace.redhat.com
-          apiVersions:
-            - v1beta1
-          operations:
-            - CREATE
-            - UPDATE
-          resources:
-            - meterdefinitions
-      sideEffects: None
-      targetPort: 9443
-      type: MutatingAdmissionWebhook
-      webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
-    - admissionReviewVersions:
-        - v1beta1
-        - v1alpha1
-      containerPort: 9443
-      deploymentName: redhat-marketplace-controller-manager
-      failurePolicy: Fail
-      generateName: vmeterdefinition.marketplace.redhat.com
-      rules:
-        - apiGroups:
-            - marketplace.redhat.com
-          apiVersions:
-            - v1beta1
-          operations:
-            - CREATE
-            - UPDATE
-          resources:
-            - meterdefinitions
-      sideEffects: None
-      targetPort: 9443
-      type: ValidatingAdmissionWebhook
-      webhookPath: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+  webhookdefinitions: []
