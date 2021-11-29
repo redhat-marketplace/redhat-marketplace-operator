@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build wireinject
 // +build wireinject
 
 package reporter
@@ -21,50 +22,51 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	kconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func NewTask(
 	ctx context.Context,
 	reportName ReportName,
 	taskConfig *Config,
-) (*Task, error) {
+) (TaskRun, error) {
 	panic(wire.Build(
+		wire.FieldsOf(new(*Config), "K8sRestConfig"),
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideSimpleClientSet,
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		ProvideUploaders,
+		ProvideUploader,
 		provideScheme,
+		wire.Bind(new(TaskRun), new(*Task)),
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
-		kconfig.GetConfig,
 	))
 }
 
 func NewEventBroadcaster(
-	ctx context.Context,
 	erConfig *Config,
 ) (record.EventBroadcaster, func(), error) {
 	panic(wire.Build(
-		config.GetConfig,
+		wire.FieldsOf(new(*Config), "K8sRestConfig"),
 		managers.ProvideSimpleClientSet,
 		provideReporterEventBroadcaster,
 	))
 }
 
 func NewReporter(
+	ctx context.Context,
 	task *Task,
 ) (*MarketplaceReporter, error) {
 	panic(wire.Build(
 		wire.FieldsOf(new(*Task),
-			"ReportName", "K8SClient", "Ctx", "Config", "K8SScheme"),
+			"ReportName", "K8SClient", "Config", "K8SScheme"),
 		providePrometheusSetup,
 		prometheus.NewPrometheusAPIForReporter,
 		reconcileutils.CommandRunnerProviderSet,
@@ -84,18 +86,21 @@ func NewReporter(
 func NewUploadTask(
 	ctx context.Context,
 	config *Config,
-) (*UploadTask, error) {
+	namespace Namespace,
+) (UploadRun, error) {
 	panic(wire.Build(
-		reconcileutils.CommandRunnerProviderSet,
+		wire.FieldsOf(new(*Config), "K8sRestConfig"),
 		managers.ProvideSimpleClientSet,
-		kconfig.GetConfig,
-		wire.Struct(new(UploadTask), "*"),
-		wire.InterfaceValue(new(logr.Logger), logger),
-		ProvideDownloader,
-		ProvideUploaders,
-		ProvideAdmin,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+		wire.Bind(new(dataservice.FileStorage), new(*dataservice.DataService)),
+		ProvideUploaders,
+		dataservice.NewDataService,
+		provideDataServiceConfig,
+		wire.Struct(new(UploadTask), "*"),
+		wire.InterfaceValue(new(logr.Logger), logger),
+		wire.Bind(new(UploadRun), new(*UploadTask)),
+		reconcileutils.CommandRunnerProviderSet,
 	))
 }
 
@@ -104,13 +109,16 @@ func NewReconcileTask(
 	config *Config,
 	broadcaster record.EventBroadcaster,
 	namespace Namespace,
+	newReportTask func(ctx context.Context, reportName ReportName, taskConfig *Config) (TaskRun, error),
+	newUploadTask func(ctx context.Context, config *Config, namespace Namespace) (UploadRun, error),
 ) (*ReconcileTask, error) {
 	panic(wire.Build(
+		wire.FieldsOf(new(*Config), "K8sRestConfig"),
 		managers.ProvideSimpleClientSet,
-		kconfig.GetConfig,
 		wire.Struct(new(ReconcileTask), "*"),
 		provideScheme,
 		provideReporterEventRecorder,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+		wire.InterfaceValue(new(logr.Logger), logger),
 	))
 }

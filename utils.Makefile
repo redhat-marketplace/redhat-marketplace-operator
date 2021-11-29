@@ -2,6 +2,14 @@ comma := ,
 space :=
 space +=
 
+UNAME_S := $(shell uname -s)
+UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
+
+VERSION ?= $(shell $(SVU) next --prefix "")
+TAG ?= $(VERSION)
+export VERSION
+export TAG
+
 BINDIR ?= ./bin
 GO_VERSION ?= 1.16.8
 ARCHS ?= amd64 ppc64le s390x arm64
@@ -19,25 +27,40 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
+CONTROLLER_GEN_VERSION=v0.7.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.2)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
+
+CODEGEN_VERSION=kubernetes-1.22.3
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
+	@[ -d $(CODEGEN_PKG) ] && { \
+		cd $(CODEGEN_PKG) && \
+			if [ "$$(git describe --tags)" != "$(CODEGEN_VERSION)" ]; \
+				then git fetch --tags && git checkout tags/$(CODEGEN_VERSION) ; \
+			fi;
+	}
 	@[ -d $(CODEGEN_PKG) ] || { \
-	GO111MODULE=off go get k8s.io/code-generator ;\
+		git clone -b tags/$(CODEGEN_VERSION) git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
+KUSTOMIZE_VERSION=v4.4.0
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.1.3)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
+
+OMT_VERSION=v0.1.6
+OMT=$(PROJECT_DIR)/bin/operator-manifest-tools
+omt:
+	$(call go-get-tool,$(OMT),github.com/operator-framework/operator-manifest-tools@$(OMT_VERSION),$(OMT_VERSION))
 
 export KUSTOMIZE
 
 OPENAPI_GEN=$(PROJECT_DIR)/bin/openapi-gen
 openapi-gen:
-	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09)
+	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09,690f563)
 
 helm:
 ifeq (, $(shell which helm))
@@ -50,48 +73,43 @@ endif
 endif
 HELM=$(shell which helm)
 
-skaffold:
-ifeq (, $(shell which skaffold))
-ifeq ($(UNAME_S),Linux)
-	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
-	sudo install skaffold /usr/local/bin/
-endif
-ifeq ($(UNAME_S),Darwin)
-	brew install skaffold
-endif
-SKAFFOLD=$(shell which skaffold)
-else
-SKAFFOLD=$(shell which skaffold)
-endif
-
+GINKGO_VERSION=v1.16.5
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
-	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@v1.16.2)
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
 
 LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
+	$(call go-get-tool,$(LICENSE),github.com/google/addlicense,latest)
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses,latest)
+
+YQ_VERSION=v4.8.0
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:
-	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.8.0)
+	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION),$(YQ_VERSION))
+
+OPERATOR_SDK_VERSION=v1.14.0
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
-	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.7.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
+
+OPM_VERSION=v1.19.1
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
-	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
+	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION),$(UNAME)-$(ARCH)-opm,$(OPM),$(OPM_VERSION))
+
+SVU_VERSION=v1.8.0
 
 .SILENT: svu
 SVU=$(PROJECT_DIR)/bin/svu
 svu:
-	$(call go-get-tool,$(SVU),github.com/caarlos0/svu@v1.3.2)
+	$(call go-get-tool,$(SVU),github.com/caarlos0/svu@$(SVU_VERSION),$(SVU_VERSION))
 
 VERSION_TOOL=$(PROJECT_DIR)/bin/version-tool
 version-tool:
@@ -104,6 +122,19 @@ pc-tool:
 	@[ -f $(VERSION_TOOL) ] || { \
 	cd v2/tools/connect && go build -o $(PC_TOOL) ./main.go ; \
 	}
+
+SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
+SKAFFOLD_VERSION=v1.35.0
+skaffold:
+	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
+
+BUF=$(PROJECT_DIR)/bin/buf
+BUF_VERSION=v1.0.0-rc8
+ifeq ($(UNAME_S),Linux)
+WILDCARDS=--wildcards
+endif
+buf:
+	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 $(WILDCARDS) "*/bin/*")
 
 # --COMMON--
 
@@ -173,7 +204,7 @@ endef
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 define go-get-tool
-@[ -f $(1) ] || { \
+@[ -f $(1)-$(3) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
@@ -181,18 +212,39 @@ go mod init tmp ;\
 echo $(1) ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
+touch $(1)-$(3) ;\
 }
 endef
 
 # install-binary will 'curl' any package url $1 with file $2 and install it to $3
 define install-binary
-@[ -f $(3) ] || { \
+@[ -f $(3)-$(4) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 echo "Downloading $(1)" ;\
-curl -LO $(1)/$(2) ;\
-chmod +x $(2) && mv $(2) $(3) ;\
+curl -o $(3) -LO $(1)/$(2) ;\
+chmod +x $(3) ;\
 rm -rf $$TMP_DIR ;\
+touch $(3)-$(4) ;\
 }
+endef
+
+# $1 url $2 bin path $3 version $4 is the bin path to extract to $5 is optional extract args
+define install-targz
+[ -f $(2)-$(3) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading $(1)"; \
+curl -sSL $(1) | tar -xvzf - -C "$(4)" $(5) ;\
+rm -rf $$TMP_DIR ;\
+touch $(2)-$(3); \
+}
+endef
+
+
+# $1 is the image
+define get-image-sha
+$$(IMAGE=$(1); echo $${IMAGE%:*}@sha256:$$(skopeo inspect --raw docker://$(1) | sha256sum | cut -d " " -f 1))
 endef

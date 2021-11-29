@@ -55,7 +55,9 @@ var _ = Describe("Template", func() {
 			WorkloadType:       "Pod",
 		}
 
-		now := model.Now()
+		setT, _ := time.Parse(time.RFC3339, "2020-02-11T20:04:05Z-05:00")
+		now := model.TimeFromUnixNano(setT.UnixNano())
+
 		pair := model.SamplePair{
 			Timestamp: now,
 			Value:     model.SampleValue(1.0),
@@ -74,7 +76,7 @@ var _ = Describe("Template", func() {
 		})))
 
 		parsedDate, _ := time.Parse(justDateFormat, "2020-02-11")
-		year, month, day := parsedDate.Date()
+		year, month, day := parsedDate.UTC().Date()
 		hour, minute, second := now.Time().UTC().Clock()
 
 		expectedDate := time.Date(year, month, day, hour, minute, second, 0, time.UTC)

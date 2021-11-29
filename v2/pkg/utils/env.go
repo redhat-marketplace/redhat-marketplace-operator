@@ -111,6 +111,9 @@ const (
 
 	/* Certificate */
 	DQLITE_COMMONNAME_PREFIX = "*.rhm-data-service" // wildcard.ServiceName
+
+	ProductionURL = "https://marketplace.redhat.com"
+	StageURL      = "https://sandbox.marketplace.redhat.com"
 )
 
 var (
@@ -131,7 +134,6 @@ func DataServiceAudience(ns string) string {
 // Getenv will return the value for the passed key (which is typically an environment variable)
 // If it is not found, return the fallback
 func Getenv(key, fallback string) string {
-
 	image, found := os.LookupEnv(key)
 	if !found {
 		return fallback

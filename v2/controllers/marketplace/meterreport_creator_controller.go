@@ -18,14 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	merrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -33,6 +32,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,7 +53,7 @@ type MeterReportCreatorReconciler struct {
 	cfg    *config.OperatorConfig
 }
 
-func (r *MeterReportCreatorReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log
 
 	// Fetch the MeterBase instance
@@ -93,6 +93,28 @@ func (r *MeterReportCreatorReconciler) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, nil
 	}
 
+	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(r.CC, r.cfg.Infrastructure, reqLogger)
+	if err != nil {
+		reqLogger.Error(err, "failed to get user workload monitoring")
+	}
+
+	var userWorkloadMonitoringEnabledSpec bool
+
+	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
+	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
+		userWorkloadMonitoringEnabledSpec = true
+	} else {
+		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
+	}
+
+	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(r.CC, reqLogger)
+	if userWorkloadErr != nil {
+		reqLogger.Info(userWorkloadErr.Error())
+	}
+
+	// userWorkloadMonitoringEnabled is considered enabled if the Spec,cluster configuration,and user workload config validation are satisfied
+	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigurationIsValid
+
 	meterReportList := &marketplacev1alpha1.MeterReportList{}
 	if result, err := r.CC.Do(
 		context.TODO(),
@@ -100,8 +122,10 @@ func (r *MeterReportCreatorReconciler) Reconcile(request reconcile.Request) (rec
 			ListAction(meterReportList, client.InNamespace(request.Namespace)),
 			OnContinue(Call(func() (ClientAction, error) {
 				loc := time.UTC
-				dateRangeInDays := -30
+				dateRangeInDays := -90
+
 				meterReportNames := r.sortMeterReports(meterReportList)
+
 				// prune old reports
 				meterReportNames, err := r.removeOldReports(meterReportNames, loc, dateRangeInDays, request)
 				if err != nil {
@@ -121,14 +145,14 @@ func (r *MeterReportCreatorReconciler) Reconcile(request reconcile.Request) (rec
 				if err != nil {
 					return nil, err
 				}
+
 				reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
 
-				missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
-				err = r.createMissingReports(missingReports, request, instance)
+				// Create the report with the active/to-be userWorkloadMonitoringEnabled state, regardless of transition state
+				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance, userWorkloadMonitoringEnabled)
 				if err != nil {
 					return nil, err
 				}
-
 				return nil, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -174,19 +198,22 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 		defer close(events)
 		defer ticker.Stop()
 
-		meta := &metav1.ObjectMeta{
-			Name:      utils.METERBASE_NAME,
-			Namespace: r.cfg.DeployedNamespace,
+		meta := &marketplacev1alpha1.MeterBase{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.METERBASE_NAME,
+				Namespace: r.cfg.DeployedNamespace,
+			},
 		}
 
 		for {
+			events <- event.GenericEvent(CheckMeterReports{
+				Object: meta,
+			})
+
 			select {
 			case <-doneChannel:
 				return
 			case <-ticker.C:
-				events <- event.GenericEvent(CheckMeterReports{
-					Meta: meta,
-				})
 			}
 		}
 	}()
@@ -214,18 +241,27 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 		Complete(r)
 }
 
-func (r *MeterReportCreatorReconciler) createMissingReports(missingReports []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase) error {
+func (r *MeterReportCreatorReconciler) newMeterReportNameFromDate(date time.Time) string {
+	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
+	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
+}
+
+func (r *MeterReportCreatorReconciler) newMeterReportNameFromString(dateString string) string {
+	dateSuffix := dateString
+	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
+}
+
+func (r *MeterReportCreatorReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase, userWorkloadMonitoringEnabled bool) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
+	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
+	missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
 	for _, missingReportDateString := range missingReports {
-		missingReportName, nameErr := r.newMeterReportNameFromString(missingReportDateString)
-		if nameErr != nil {
-			return nameErr
-		}
+		missingReportName := r.newMeterReportNameFromString(missingReportDateString)
 		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
-		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName)
+		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, userWorkloadMonitoringEnabled)
 		err := r.Client.Create(context.TODO(), missingMeterReport)
 		if err != nil {
 			return err
@@ -276,54 +312,28 @@ func (r *MeterReportCreatorReconciler) sortMeterReports(meterReportList *marketp
 }
 
 func (r *MeterReportCreatorReconciler) retrieveCreatedDate(reportName string) (time.Time, error) {
-	splitAll := strings.SplitN(reportName, "-", -1)
-	if len(splitAll) == 5 {
-		splitStr := strings.SplitN(reportName, "-", 3)
-		dateString := splitStr[2:]
-		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
-	} else if len(splitAll) == 4 {
-		splitStr := strings.SplitN(reportName, "-", 4)
-		dateString := splitStr[:3]
-		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, "-"))
-	}
-	return time.Now(), errors.New("failed to get date")
-}
+	splitStr := strings.SplitN(reportName, "-", 3)
 
-func processCategoryString(category string) string {
-	// Make a Regex to say we only want letters and numbers for category name
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
-	if err != nil {
-		log.Fatal(err)
+	if len(splitStr) != 3 {
+		return time.Now(), errors.New("failed to get date")
 	}
-	return reg.ReplaceAllString(category, "")
-}
 
-func (r *MeterReportCreatorReconciler) newMeterReportNameFromDate(category string, date time.Time) string {
-	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
-	return fmt.Sprintf("%s-%s", dateSuffix, processCategoryString(category))
-}
-
-func (r *MeterReportCreatorReconciler) newMeterReportNameFromString(dateString string) (string, error) {
-	dateSuffix := dateString
-	reportName := strings.ToLower(fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix))
-	if len(reportName) > 64 {
-		return reportName, errors.New("report name must be no more than 63 characters")
-	}
-	return reportName, nil
+	dateString := splitStr[2:]
+	return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
 }
 
 func (r *MeterReportCreatorReconciler) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
 	reqLogger := r.Log.WithValues("func", "generateFoundCreatedDates")
 	var foundCreatedDates []string
 	for _, reportName := range meterReportNames {
-		splitStr := strings.SplitN(reportName, "-", 4)
+		splitStr := strings.SplitN(reportName, "-", 3)
 
-		if len(splitStr) != 4 {
+		if len(splitStr) != 3 {
 			reqLogger.Info("meterreport name was irregular", "name", reportName)
 			continue
 		}
 
-		dateString := splitStr[3:]
+		dateString := splitStr[2:]
 		foundCreatedDates = append(foundCreatedDates, strings.Join(dateString, ""))
 	}
 	return foundCreatedDates, nil
@@ -355,9 +365,25 @@ func (r *MeterReportCreatorReconciler) newMeterReport(
 	endTime time.Time,
 	meterReportName string,
 	instance *marketplacev1alpha1.MeterBase,
-	prometheusServiceName string,
+	userWorkloadMonitoringEnabled bool,
 ) *marketplacev1alpha1.MeterReport {
-	return &marketplacev1alpha1.MeterReport{
+	promService := &common.ServiceReference{}
+
+	if userWorkloadMonitoringEnabled {
+		promService = &common.ServiceReference{
+			Name:       utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
+			Namespace:  utils.OPENSHIFT_MONITORING_NAMESPACE,
+			TargetPort: intstr.FromString("web"),
+		}
+	} else {
+		promService = &common.ServiceReference{
+			Name:       utils.METERBASE_PROMETHEUS_SERVICE_NAME,
+			Namespace:  instance.Namespace,
+			TargetPort: intstr.FromString("rbac"),
+		}
+	}
+
+	mreport := &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
 			Namespace: namespace,
@@ -368,7 +394,14 @@ func (r *MeterReportCreatorReconciler) newMeterReport(
 		Spec: marketplacev1alpha1.MeterReportSpec{
 			StartTime:         metav1.NewTime(startTime),
 			EndTime:           metav1.NewTime(endTime),
-			PrometheusService: nil,
+			PrometheusService: promService,
 		},
 	}
+
+	if instance.Spec.IsDataServiceEnabled() {
+		mreport.Spec.ExtraArgs = append(mreport.Spec.ExtraArgs, "--uploadTargets=data-service")
+		return mreport
+	}
+
+	return mreport
 }

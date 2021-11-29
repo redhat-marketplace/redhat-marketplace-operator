@@ -87,7 +87,6 @@ func (r *DataServiceReconciler) InjectFactory(f *manifests.Factory) error {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -129,10 +128,9 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
-func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling DataService")
-	ctx := context.Background()
 
 	// Fetch the MeterBase instance
 	meterBase := &marketplacev1alpha1.MeterBase{}

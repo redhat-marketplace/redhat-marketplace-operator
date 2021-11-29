@@ -109,13 +109,13 @@ func (t *TestHarness) Stop() error {
 	return nil
 }
 
-func (t *TestHarness) Upsert(ctx context.Context, obj runtime.Object) error {
+func (t *TestHarness) Upsert(ctx context.Context, obj client.Object) error {
 	err := t.Create(ctx, obj)
 
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			oldObj := obj.DeepCopyObject()
-			key, _ := client.ObjectKeyFromObject(oldObj)
+			key := client.ObjectKeyFromObject(oldObj)
 			err := t.Get(ctx, key, oldObj)
 
 			if err != nil {

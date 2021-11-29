@@ -17,10 +17,10 @@ package reconcileutils
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SetFinalizer(instance runtime.Object, finalizer string) func() (ClientAction, error) {
+func SetFinalizer(instance client.Object, finalizer string) func() (ClientAction, error) {
 	return func() (ClientAction, error) {
 		accessor, err := meta.Accessor(instance)
 		if err != nil {
@@ -39,7 +39,7 @@ func SetFinalizer(instance runtime.Object, finalizer string) func() (ClientActio
 }
 
 func RunFinalizer(
-	instance runtime.Object,
+	instance client.Object,
 	finalizer string,
 	actions ...ClientAction,
 ) func() (ClientAction, error) {

@@ -12,6 +12,10 @@ spec:
       port: 8004
       protocol: TCP
       targetPort: 8004
+    - name: grpc-web
+      port: 8008
+      protocol: TCP
+      targetPort: 8008
     - name: db
       port: 9001
       protocol: TCP

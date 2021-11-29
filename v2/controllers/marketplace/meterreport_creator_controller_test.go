@@ -86,17 +86,8 @@ var _ = Describe("MeterbaseController", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
 			minDate := endDate.AddDate(0, 0, 0)
 			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			nameFromString, err := ctrl.newMeterReportNameFromString(exp[0])
-			Expect(err).To(BeNil())
+			nameFromString := ctrl.newMeterReportNameFromString(exp[0])
 			Expect(nameFromString).To(Equal("meter-report-2021-06-01"))
-		})
-
-		It("should return an error for report name longer than 63 characters", func() {
-			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
-			minDate := endDate.AddDate(0, 0, 0)
-			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			_, err := ctrl.newMeterReportNameFromString(exp[0] + "abasdasbasdfgasdfasbasbsadfgabasdfasdfasbasfasfasabasbasdfasfabasbaasqaf")
-			Expect(err).NotTo(BeNil())
 		})
 
 		It("should retrieve date properly for report name for old and new format (with and without category)", func() {
@@ -104,10 +95,6 @@ var _ = Describe("MeterbaseController", func() {
 			// old report name: meter-report-[date]
 			foundTime, _ := ctrl.retrieveCreatedDate("meter-report-2021-06-01")
 			Expect(foundTime).To(Equal(endDate))
-			// new report name: [date]-[category label]
-			foundTime2, err := ctrl.retrieveCreatedDate("2021-06-01-label")
-			Expect(foundTime2).To(Equal(endDate))
-			Expect(err).To(BeNil())
 		})
 
 		It("should return only non-duplicated categories", func() {

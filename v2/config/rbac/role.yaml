@@ -104,23 +104,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apiextensions.k8s.io
-  resourceNames:
-  - meterdefinitions.marketplace.redhat.com
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - patch
-  - update
-- apiGroups:
   - apps
   resources:
   - deployments
@@ -339,16 +322,17 @@ rules:
   - catalogsources
   verbs:
   - create
-  - delete
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - catalogsources
-  - operatorsources
-  verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - operators.coreos.com
+  resourceNames:
+  - ibm-operator-catalog
+  resources:
+  - catalogsources
+  verbs:
+  - delete
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -378,12 +362,6 @@ rules:
   - list
   - update
   - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - operatorsources
-  verbs:
-  - create
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -429,15 +407,6 @@ metadata:
   name: manager-role
   namespace: system
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmap
-  - secret
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -492,16 +461,6 @@ rules:
   verbs:
   - create
   - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - service
-  verbs:
   - get
   - list
   - patch

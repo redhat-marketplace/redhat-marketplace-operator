@@ -53,15 +53,15 @@ func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				watchResourceTag, ok := evt.MetaNew.GetLabels()[watchResourceTag]
+				watchResourceTag, ok := evt.ObjectNew.GetLabels()[watchResourceTag]
 				return !(ok && watchResourceTag == watchResourceValue)
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				watchResourceTag, ok := evt.Meta.GetLabels()[watchResourceTag]
+				watchResourceTag, ok := evt.Object.GetLabels()[watchResourceTag]
 				return !(ok && watchResourceTag == watchResourceValue)
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				watchResourceTag, ok := evt.Meta.GetLabels()[watchResourceTag]
+				watchResourceTag, ok := evt.Object.GetLabels()[watchResourceTag]
 				return !(ok && watchResourceTag == watchResourceValue)
 			},
 		},
@@ -76,7 +76,7 @@ func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
-func (r *NodeReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *NodeReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Name", request.Name)
 	reqLogger.Info("Reconciling Node")
 
@@ -111,6 +111,6 @@ func (r *NodeReconciler) Reconcile(request reconcile.Request) (reconcile.Result,
 	} else {
 		reqLogger.Info("No patch needed on node resource")
 	}
-	reqLogger.Info("reconcilation complete")
+	reqLogger.Info("reconciliation complete")
 	return reconcile.Result{}, nil
 }

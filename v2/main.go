@@ -21,7 +21,6 @@ import (
 	"flag"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -98,7 +97,6 @@ func main() {
 	opts := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
@@ -118,17 +116,6 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
-	}
-
-	openshiftPath := filepath.Join(WebhookCertDir, WebhookKeyName)
-	ctrl.Log.Info("looking up path", "path", openshiftPath)
-	if _, err := os.Stat(openshiftPath); !os.IsNotExist(err) {
-		ctrl.Log.Info("path exists using openshift path", "path", WebhookCertDir)
-		server := mgr.GetWebhookServer()
-		server.CertDir = WebhookCertDir
-		server.KeyName = WebhookKeyName
-		server.CertName = WebhookCertName
-		server.Port = WebhookPort
 	}
 
 	injector, err := inject.ProvideInjector(mgr)
@@ -265,10 +252,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&marketplacev1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
@@ -326,22 +309,22 @@ func (s *shutdownHandler) InjectOperatorConfig(cfg *config.OperatorConfig) error
 	return nil
 }
 
-func (s *shutdownHandler) SetupSignalHandler() (stopCh <-chan struct{}) {
+func (s *shutdownHandler) SetupSignalHandler() context.Context {
 	close(onlyOneSignalHandler) // panics when called twice
 
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, shutdownSignals...)
 	go func() {
 		<-c
 		setupLog.Info("shutdown signal received")
-		close(stop)
+		cancel()
 		<-c
 		setupLog.Info("second shutdown signal received, killing")
 		os.Exit(1) // second signal. Exit directly.
 	}()
 
-	return stop
+	return ctx
 }
 
 func (s *shutdownHandler) cleanupOperatorGroup() error {

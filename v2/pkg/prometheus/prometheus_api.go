@@ -107,7 +107,6 @@ func ProvidePrometheusAPI(
 	deployedNamespace string,
 	reqLogger logr.Logger,
 	userWorkloadMonitoringEnabled bool) (*PrometheusAPI, error) {
-
 	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return nil, err

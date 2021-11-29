@@ -4,7 +4,7 @@ package reconcileutils
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ApplyCreateActionOptionFunc func(c *createActionOptions) error
@@ -41,14 +41,14 @@ func CreateWithPatch(o patch.PatchAnnotator) ApplyCreateActionOptionFunc {
 	}
 }
 
-func CreateWithAddOwner(o runtime.Object) ApplyCreateActionOptionFunc {
+func CreateWithAddOwner(o client.Object) ApplyCreateActionOptionFunc {
 	return func(c *createActionOptions) error {
 		c.WithAddOwner = o
 		return nil
 	}
 }
 
-func CreateWithAddController(o runtime.Object) ApplyCreateActionOptionFunc {
+func CreateWithAddController(o client.Object) ApplyCreateActionOptionFunc {
 	return func(c *createActionOptions) error {
 		c.WithAddController = o
 		return nil

@@ -97,7 +97,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
-		k8scache.Start(ctx.Done())
+		k8scache.Start(ctx)
 	}()
 }, 60)
 

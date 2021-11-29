@@ -12,6 +12,7 @@ spec:
         spec:
           serviceAccount: redhat-marketplace-operator
           restartPolicy: Never
+          schedule: '*/10 * * * *'
           containers:
             - name: reporter
               image: redhat-markplace-reporter
@@ -20,11 +21,13 @@ spec:
               args:
                 - 'reconcile'
               env:
-              - name: JOB_NAME
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.labels['job-name']
-              - name: POD_NAMESPACE
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.namespace
+                - name: JOB_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['job-name']
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: IS_DISCONNECTED
+                  value: "false"

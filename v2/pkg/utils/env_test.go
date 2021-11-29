@@ -15,8 +15,9 @@
 package utils
 
 import (
-	. "github.com/onsi/ginkgo"
 	"os"
+
+	. "github.com/onsi/ginkgo"
 )
 
 var _ = Describe("Testing with Ginkgo", func() {

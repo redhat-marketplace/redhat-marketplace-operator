@@ -21,7 +21,6 @@ import (
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -40,7 +39,7 @@ const (
 
 var log = logf.Log.WithName("client")
 
-func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []client.Object) error {
 	for _, rType := range types {
 		err := fieldIndexer.IndexField(context.Background(), rType, IndexOwnerRefContains, indexOwner)
 
@@ -52,13 +51,13 @@ func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []runtime.
 	return nil
 }
 
-func AddUIDIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+func AddUIDIndex(fieldIndexer client.FieldIndexer, types []client.Object) error {
 	for _, rType := range types {
 		err := fieldIndexer.IndexField(
 			context.Background(),
 			rType,
 			IndexUID,
-			func(obj runtime.Object) []string {
+			func(obj client.Object) []string {
 				if meta, ok := obj.(metav1.Object); ok {
 					return []string{string(meta.GetUID())}
 				}
@@ -88,7 +87,7 @@ func AddOperatorSourceIndex(fieldIndexer client.FieldIndexer) error {
 		indexOperatorSourceProvidedAPIs)
 }
 
-func AddAnnotationIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+func AddAnnotationIndex(fieldIndexer client.FieldIndexer, types []client.Object) error {
 	for _, rType := range types {
 		err := fieldIndexer.IndexField(
 			context.Background(),
@@ -113,10 +112,9 @@ func ObjRefToStr(apiversion, kind string) string {
 	return strings.ToLower(fmt.Sprintf("%s.%s.%s", kind, version, group))
 }
 
-func indexAnnotations(obj runtime.Object) []string {
+func indexAnnotations(obj client.Object) []string {
 	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
-
 		for key, val := range meta.GetAnnotations() {
 			results = append(results, fmt.Sprintf("%s=%s", key, val))
 		}
@@ -125,7 +123,7 @@ func indexAnnotations(obj runtime.Object) []string {
 	return results
 }
 
-func indexOwner(obj runtime.Object) []string {
+func indexOwner(obj client.Object) []string {
 	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
 		for _, ref := range meta.GetOwnerReferences() {
@@ -156,7 +154,7 @@ func getOwnersReferences(object metav1.Object, isController bool) []metav1.Owner
 	return nil
 }
 
-func indexOperatorSourceNamespaces(obj runtime.Object) []string {
+func indexOperatorSourceNamespaces(obj client.Object) []string {
 	og, ok := obj.(*olmv1.OperatorGroup)
 
 	if !ok {
@@ -166,7 +164,7 @@ func indexOperatorSourceNamespaces(obj runtime.Object) []string {
 	return og.Status.Namespaces
 }
 
-func indexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
+func indexOperatorSourceProvidedAPIs(obj client.Object) []string {
 	og, ok := obj.(*olmv1.OperatorGroup)
 
 	if !ok {

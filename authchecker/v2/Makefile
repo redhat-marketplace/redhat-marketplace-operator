@@ -1,9 +1,8 @@
-VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
-export VERSION
+include ../../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-authcheck
-IMAGE_TAG ?= $(VERSION)
+IMAGE_TAG ?= $(TAG)
 QUAY_EXPIRATION?=never
 
 IMG ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
@@ -13,7 +12,7 @@ export IMAGE
 
 include ../../utils.Makefile
 
-all: generate vet fmt
+all: svu generate vet fmt
 
 build:
 	$(call multiarch-build,redhat-marketplace-authchecker,./cmd/)
@@ -45,4 +44,4 @@ generate:
 # Run the test
 .PHONY: test
 test: ginkgo
-	- $(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+	- $(GINKGO) -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --v --trace ./...

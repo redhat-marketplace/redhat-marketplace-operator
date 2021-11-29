@@ -17,8 +17,12 @@ package reporter
 import (
 	"github.com/google/wire"
 	"github.com/gotidy/ptr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	kconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type Name types.NamespacedName
@@ -38,11 +42,14 @@ type Config struct {
 	DeployedNamespace    string
 	Local                bool
 	Upload               bool
+	IsDisconnected       bool
 	PrometheusService    string
 	PrometheusNamespace  string
 	PrometheusPort       string
-	UploaderTargets
+	uploaders.UploaderTargets
 	ReporterSchema string
+
+	K8sRestConfig *rest.Config
 }
 
 const (
@@ -50,7 +57,7 @@ const (
 	defaultMaxRoutines    = 50
 )
 
-func (c *Config) SetDefaults() {
+func (c *Config) SetDefaults() error {
 	if c.MetricsPerFile == nil {
 		c.MetricsPerFile = ptr.Int(defaultMetricsPerFile)
 	}
@@ -64,11 +71,22 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.UploaderTargets == nil {
-		c.UploaderTargets = UploaderTargets{&DataServiceUploader{}}
+		c.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
 	}
+
+	if c.K8sRestConfig == nil {
+		var err error
+		c.K8sRestConfig, err = kconfig.GetConfig()
+		if err != nil {
+			logger.Error(err, "failed to get config")
+			return err
+		}
+	}
+
+	return nil
 }
 
 var ReporterSet = wire.NewSet(
 	NewMarketplaceReporter,
-	NewRedHatInsightsUploader,
+	uploaders.NewRedHatInsightsUploader,
 )

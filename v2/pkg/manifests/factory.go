@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	mathrand "math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,15 +49,12 @@ import (
 )
 
 const (
-	PrometheusOperatorDeploymentV45 = "prometheus-operator/deployment-v4.5.yaml"
 	PrometheusOperatorDeploymentV46 = "prometheus-operator/deployment-v4.6.yaml"
-	PrometheusOperatorServiceV45    = "prometheus-operator/service-v4.5.yaml"
 	PrometheusOperatorServiceV46    = "prometheus-operator/service-v4.6.yaml"
 
 	PrometheusAdditionalScrapeConfig = "prometheus/additional-scrape-configs.yaml"
 	PrometheusHtpasswd               = "prometheus/htpasswd-secret.yaml"
 	PrometheusRBACProxySecret        = "prometheus/kube-rbac-proxy-secret.yaml"
-	PrometheusDeploymentV45          = "prometheus/prometheus-v4.5.yaml"
 	PrometheusDeploymentV46          = "prometheus/prometheus-v4.6.yaml"
 	PrometheusProxySecret            = "prometheus/proxy-secret.yaml"
 	PrometheusService                = "prometheus/service.yaml"
@@ -71,7 +69,6 @@ const (
 	ReporterMeterDefinition = "reporter/meterdefinition.yaml"
 
 	MetricStateDeployment        = "metric-state/deployment.yaml"
-	MetricStateServiceMonitorV45 = "metric-state/service-monitor-v4.5.yaml"
 	MetricStateServiceMonitorV46 = "metric-state/service-monitor-v4.6.yaml"
 	MetricStateService           = "metric-state/service.yaml"
 	MetricStateMeterDefinition   = "metric-state/meterdefinition.yaml"
@@ -194,6 +191,21 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 
 	envChanges.Merge(container)
 	return nil
+}
+
+func (f *Factory) UpdateEnvVar(container *corev1.Container, isDisconnected bool) {
+	envChanges := envvar.Changes{}
+	isDisconnectedEnvVar := envvar.Changes{
+		envvar.Add(
+			corev1.EnvVar{
+				Name:  "IS_DISCONNECTED",
+				Value: strconv.FormatBool(isDisconnected),
+			},
+		),
+	}
+
+	envChanges.Append(isDisconnectedEnvVar)
+	envChanges.Merge(container)
 }
 
 var (
@@ -381,7 +393,7 @@ var (
 	}
 )
 
-func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1beta1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -394,6 +406,8 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool) (*batchv1beta1.Cr
 	j.Spec.JobTemplate.Spec.BackoffLimit = f.operatorConfig.ReportController.RetryLimit
 	container := &j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
 	f.ReplaceImages(container)
+
+	f.UpdateEnvVar(container, isDisconnected)
 
 	dataServiceArgs := []string{
 		"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt",
@@ -581,10 +595,7 @@ func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, err
 }
 
 func (f *Factory) prometheusOperatorDeployment() string {
-	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		return PrometheusOperatorDeploymentV46
-	}
-	return PrometheusOperatorDeploymentV45
+	return PrometheusOperatorDeploymentV46
 }
 
 func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
@@ -632,10 +643,7 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 }
 
 func (f *Factory) prometheusDeployment() string {
-	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		return PrometheusDeploymentV46
-	}
-	return PrometheusDeploymentV45
+	return PrometheusDeploymentV46
 }
 
 func (f *Factory) NewPrometheusDeployment(
@@ -714,10 +722,7 @@ func (f *Factory) NewPrometheusDeployment(
 }
 
 func (f *Factory) prometheusOperatorService() string {
-	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		return PrometheusOperatorServiceV46
-	}
-	return PrometheusOperatorServiceV45
+	return PrometheusOperatorServiceV46
 }
 
 func (f *Factory) NewPrometheusOperatorService() (*corev1.Service, error) {
@@ -958,12 +963,7 @@ func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
 }
 
 func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
-	fileName := MetricStateServiceMonitorV45
-	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		fileName = MetricStateServiceMonitorV46
-	}
-
-	sm, err := f.NewServiceMonitor(MustAssetReader(fileName))
+	sm, err := f.NewServiceMonitor(MustAssetReader(MetricStateServiceMonitorV46))
 	if err != nil {
 		return nil, err
 	}

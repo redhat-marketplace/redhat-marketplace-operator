@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -137,7 +136,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
 				ListWithFilter(
 					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 					assert.Truef(t, ok, "expected csv list got type %T", i)
@@ -149,7 +148,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithObj(&olmv1alpha1.SubscriptionList{}),
 				ListWithFilter(
 					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1alpha1.SubscriptionList)
 
 					assert.Truef(t, ok, "expected subscription list got type %T", i)
@@ -159,7 +158,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithObj(&olmv1.OperatorGroupList{}),
 				ListWithFilter(
 					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -183,7 +182,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 					client.MatchingLabels(map[string]string{
 						operatorTag: "true",
 					})),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -201,7 +200,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ReconcileWithExpectedResults(DoneResult)),
 			ListStep(opts,
 				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -212,14 +211,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	}
 
 	var testDeleteOperatorGroupIfTooMany = func(t GinkgoTInterface) {
-		listObjs := []ListStepOption{
-			ListWithObj(&olmv1.OperatorGroupList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-				client.MatchingLabels(map[string]string{
-					operatorTag: "true",
-				})),
-		}
 		t.Parallel()
 		reconcilerTest := NewReconcilerTest(setup, subscription)
 		reconcilerTest.TestAll(t,
@@ -228,29 +219,39 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 			// List and check results
 			ListStep(opts,
-				append(listObjs,
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
-						list, ok := i.(*olmv1.OperatorGroupList)
+				ListWithObj(&olmv1.OperatorGroupList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag: "true",
+					})),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+					list, ok := i.(*olmv1.OperatorGroupList)
 
-						assert.Truef(t, ok, "expected operator group list got type %T", i)
-						assert.Equal(t, 1, len(list.Items))
+					assert.Truef(t, ok, "expected operator group list got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
 
-						r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
-					}))...),
+					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
+				})),
 			// Reconcile again to delete the extra operator group
 			ReconcileStep(opts,
 				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 			// Check to make sure we've deleted it
 			ListStep(opts,
-				append(listObjs,
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
-						list, ok := i.(*olmv1.OperatorGroupList)
+				ListWithObj(&olmv1.OperatorGroupList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag: "true",
+					})),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+					list, ok := i.(*olmv1.OperatorGroupList)
 
-						assert.Truef(t, ok, "expected operator group list got type %T", i)
-						assert.Equal(t, 1, len(list.Items))
+					assert.Truef(t, ok, "expected operator group list got type %T", i)
+					assert.Equal(t, 0, len(list.Items))
 
-						r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
-					}))...),
+					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
+				})),
 		)
 	}
 

@@ -160,7 +160,6 @@ release_status: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -220,7 +219,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -253,7 +251,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -287,7 +284,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -321,7 +317,6 @@ publish: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
 				_#getVersion & {
 					env: {
 						"REF": "${{ steps.pr.outputs.prRef }}"
@@ -341,22 +336,22 @@ publish: _#bashWorkflow & {
 build_base_images: _#bashWorkflow & {
 	name: "Build Bases"
 	on: {
-    workflow_dispatch: {}
-    schedule: [{ cron: "0 0 * * *"}] //nightly
-  }
+		workflow_dispatch: {}
+		schedule: [{cron: "0 0 * * *"}] //nightly
+	}
 	jobs: {
 		"base": _#job & {
-			name:                "Build Base"
-			"runs-on":           _#linuxMachine
+			name:      "Build Base"
+			"runs-on": _#linuxMachine
 			env: {
 				GO_VERSION: _#goVersion
 			}
-	strategy: matrix: {
-		command: ["base", "data-service"]
-	}
-	env: {
-		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-	}
+			strategy: matrix: {
+				command: ["base", "data-service"]
+			}
+			env: {
+				"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+			}
 			steps: [
 				_#checkoutCode,
 				_#installGo,
@@ -466,11 +461,6 @@ branch_build: _#bashWorkflow & {
 		"test": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
-			outputs: {
-				version: "${{ steps.version.outputs.version }}"
-				isDev:   "${{ steps.version.outputs.isDev }}"
-				tag:     "${{ steps.version.outputs.tag }}"
-			}
 			steps: [
 				_#checkoutCode & {
 					with: "fetch-depth": 0
@@ -483,7 +473,6 @@ branch_build: _#bashWorkflow & {
 					name: "Test"
 					run:  "make operator/test"
 				},
-				_#getVersion,
 			]
 		}
 		"matrix-test": _#job & {
@@ -506,9 +495,7 @@ branch_build: _#bashWorkflow & {
 		"images": _#job & {
 			name:      "Build Images"
 			"runs-on": _#linuxMachine
-			needs: ["test"]
 			env: {
-				VERSION:    "${{ needs.test.outputs.tag }}"
 				GO_VERSION: _#goVersion
 			}
 			strategy: matrix: {
@@ -532,35 +519,31 @@ branch_build: _#bashWorkflow & {
 				]
 			}
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: {
+						"fetch-depth": 0
+					}
+				},
 				_#installGo,
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
-				_#installYQ,
 				_#quayLogin,
+				_#getVersion,
 				_#step & {
 					id:   "build"
-					name: "Build images"
+					name: "Build and push images"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"IMAGE_PUSH":        "false"
+						"IMAGE_PUSH":        "true"
 					}
 					run: """
+						if [ "$IS_DEV" == "true" ]; then
+							export ARCHS="amd64"
+						fi
+
 						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
-						"""
-				},
-				_#step & {
-					id:   "push"
-					name: "Push images"
-					env: {
-						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
-						"PUSH":              "true"
-					}
-					run: """
-						make ${{ matrix.project }}/docker-build
 						"""
 				},
 			]
@@ -569,30 +552,31 @@ branch_build: _#bashWorkflow & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
 			needs: ["test", "matrix-test", "images"]
-			env: {
-				VERSION:   "${{ needs.test.outputs.version }}"
-				IMAGE_TAG: "${{ needs.test.outputs.tag }}"
-				IS_DEV:    "${{ needs.test.outputs.isDev }}"
-			}
 			outputs: {
 				isDev:   "${{ steps.bundle.outputs.isDev }}"
 				version: "${{ steps.bundle.outputs.version }}"
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: {
+						"fetch-depth": 0
+					}
+				},
 				_#installGo,
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-				_#installOperatorSDK,
-				_#installYQ,
 				_#quayLogin,
+				_#redhatConnectLogin,
+        _#redhatDockerLogin,
+				_#getVersion,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
-					run:  """
+					env: "IMAGE_TAG": "${{ steps.version.outputs.tag }}"
+					run: """
 						REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
 						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
@@ -699,9 +683,9 @@ _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
 	uses: "docker/setup-buildx-action@v1"
 	id:   "buildx"
-  with: {
-    "config": ".github/buildkitd.toml"
-  }
+	with: {
+		"config": ".github/buildkitd.toml"
+	}
 }
 
 _#hasWriteAccess: _#step & {
@@ -714,10 +698,10 @@ _#hasWriteAccess: _#step & {
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
 	uses: "docker/setup-qemu-action@v1"
-  with: {
-    image: "tonistiigi/binfmt:qemu-v6.1.0"
-    platforms: "all"
-  }
+	with: {
+		image:     "tonistiigi/binfmt:qemu-v6.1.0"
+		platforms: "all"
+	}
 }
 
 _#checkoutCode: _#step & {
@@ -762,7 +746,7 @@ _#getBundleRunID: _#step & {
 		  exit 1
 		fi
 
-		status=$(echo $BRANCH_BUILD | jq -r '.status')
+		status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
 		conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
 		if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
@@ -783,7 +767,7 @@ _#getVersion: _#step & {
 	name: "Get Version"
 	run: """
 		make svu
-		export VERSION="$(./bin/svu next)"
+		export VERSION="$(./bin/svu next --prefix '')"
 
 		if [ "$REF" == "" ]; then
 			REF="$GITHUB_REF"
@@ -791,23 +775,25 @@ _#getVersion: _#step & {
 
 		if [[ "$GITHUB_HEAD_REF" != "" ]]; then
 			echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-		  REF="$GITHUB_HEAD_REF"
+			REF="$GITHUB_HEAD_REF"
 		fi
 
 		echo "Found ref $REF"
 
 		if [[ "$VERSION" == "" ]]; then
-		  echo "failed to find version"
-		  exit 1
+			echo "failed to find version"
+			exit 1
 		fi
 
-		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
 		echo "using release version and github_run_number"
-		export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+		export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
+		export TAG="${VERSION}"
 		export IS_DEV="false"
 		else
 		echo "using beta in version"
-		export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+		export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
+		export TAG="${VERSION}"
 		export IS_DEV="true"
 		fi
 
@@ -1184,6 +1170,14 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 	}
 }).res
 
+_#redhatDockerLogin: (_#registryLoginStep & {
+	#args: {
+		registry: "registry.redhat.io"
+		user:     "${{secrets['REDHAT_IO_USER']}}"
+		pass:     "${{secrets['REDHAT_IO_PASSWORD']}}"
+	}
+}).res
+
 _#defineImage: {
 	#args: {
 		image: _#image
@@ -1426,11 +1420,6 @@ _#githubUpdateActionStep: {
 				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
 			"""
 	}
-}
-
-_#installYQ: _#step & {
-	name: "Install YQ"
-	run:  "sudo snap install yq"
 }
 
 _#addRocketToComment: _#step & {

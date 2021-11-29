@@ -65,7 +65,7 @@ type ClusterRegistrationReconciler struct {
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
 // and what is in the ClusterRegistration.Spec
-func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ClusterRegistration")
 
@@ -127,16 +127,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	token := string(pullSecret)
-
-	mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
-		NewMarketplaceClient(token, tokenClaims)
-
-	if err != nil {
-		reqLogger.Error(err, "failed to build marketplaceclient")
-		return reconcile.Result{}, nil
-	}
-
 	newMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{
 		Namespace: request.Namespace,
@@ -147,7 +137,18 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		newMarketplaceConfig = nil
 	}
 
-	if newMarketplaceConfig != nil {
+	//only check registration status, compare pull secret from COS if we are not in a disconnected environment
+	if newMarketplaceConfig != nil && !r.cfg.IsDisconnected {
+		token := string(pullSecret)
+
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+			NewMarketplaceClient(token, tokenClaims)
+
+		if err != nil {
+			reqLogger.Error(err, "failed to build marketplaceclient")
+			return reconcile.Result{}, nil
+		}
+
 		reqLogger.Info("MarketPlace config object found, check status if its installed or not")
 		//Setting MarketplaceClientAccount
 
@@ -176,57 +177,57 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 				reqLogger.Info("Secret updated with status on success")
 			}
 		}
-	}
 
-	reqLogger.Info("RHMarketPlace Pull Secret token found")
-	//Calling POST endpoint to pull the secret definition
-	newOptSecretObj, err := mclient.GetMarketplaceSecret()
-	if err != nil {
-		reqLogger.Info("RHMarketPlaceSecret failure")
-		reqLogger.Error(err, "RHMarketPlaceSecret failure")
-		annotations[utils.RHMPullSecretStatus] = "error"
-		annotations[utils.RHMPullSecretMessage] = err.Error()
-		rhmPullSecret.SetAnnotations(annotations)
-		if err := r.Client.Update(context.TODO(), &rhmPullSecret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-		}
-		return reconcile.Result{}, err
-	}
-	newOptSecretObj.SetNamespace(request.Namespace)
-
-	//Fetch the Secret with name redhat-Operator-secret
-	secretKeyname := types.NamespacedName{
-		Name:      newOptSecretObj.Name,
-		Namespace: newOptSecretObj.Namespace,
-	}
-
-	reqLogger.Info("retrieving secret", "name", secretKeyname.Name, "namespace", secretKeyname.Namespace)
-
-	optSecret := &v1.Secret{}
-	err = r.Client.Get(context.TODO(), secretKeyname, optSecret)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			reqLogger.Error(err, "bad error getting secret")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("secret not found, creating")
-		err = r.Client.Create(context.TODO(), newOptSecretObj)
+		reqLogger.Info("RHMarketPlace Pull Secret token found")
+		//Calling POST endpoint to pull the secret definition
+		newOptSecretObj, err := mclient.GetMarketplaceSecret()
 		if err != nil {
-			reqLogger.Error(err, "Failed to Create Secret Object")
+			reqLogger.Info("RHMarketPlaceSecret failure")
+			reqLogger.Error(err, "RHMarketPlaceSecret failure")
+			annotations[utils.RHMPullSecretStatus] = "error"
+			annotations[utils.RHMPullSecretMessage] = err.Error()
+			rhmPullSecret.SetAnnotations(annotations)
+			if err := r.Client.Update(context.TODO(), &rhmPullSecret); err != nil {
+				reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			}
 			return reconcile.Result{}, err
 		}
-	} else {
-		reqLogger.Info("Comparing old and new rhm-operator-secret")
+		newOptSecretObj.SetNamespace(request.Namespace)
 
-		if !reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data) {
-			reqLogger.Info("rhm-operator-secret are different copy")
-			optSecret.Data = newOptSecretObj.Data
+		//Fetch the Secret with name redhat-Operator-secret
+		secretKeyname := types.NamespacedName{
+			Name:      newOptSecretObj.Name,
+			Namespace: newOptSecretObj.Namespace,
+		}
 
-			err := r.Client.Update(context.TODO(), optSecret)
-			if err != nil {
-				reqLogger.Error(err, "could not update rhm-operator-secret with new object", "Resource", utils.RHMOperatorSecretName)
+		reqLogger.Info("retrieving secret", "name", secretKeyname.Name, "namespace", secretKeyname.Namespace)
+
+		optSecret := &v1.Secret{}
+		err = r.Client.Get(context.TODO(), secretKeyname, optSecret)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				reqLogger.Error(err, "bad error getting secret")
 				return reconcile.Result{}, err
+			}
+
+			reqLogger.Info("secret not found, creating")
+			err = r.Client.Create(context.TODO(), newOptSecretObj)
+			if err != nil {
+				reqLogger.Error(err, "Failed to Create Secret Object")
+				return reconcile.Result{}, err
+			}
+		} else {
+			reqLogger.Info("Comparing old and new rhm-operator-secret")
+
+			if !reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data) {
+				reqLogger.Info("rhm-operator-secret are different copy")
+				optSecret.Data = newOptSecretObj.Data
+
+				err := r.Client.Update(context.TODO(), optSecret)
+				if err != nil {
+					reqLogger.Error(err, "could not update rhm-operator-secret with new object", "Resource", utils.RHMOperatorSecretName)
+					return reconcile.Result{}, err
+				}
 			}
 		}
 	}
@@ -307,7 +308,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
 		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) ||
 		!reflect.DeepEqual(newMarketplaceConfig.Annotations, annotations) {
-
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
 		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 		newMarketplaceConfig.Annotations = annotations

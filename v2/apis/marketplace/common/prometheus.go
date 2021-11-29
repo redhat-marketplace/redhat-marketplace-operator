@@ -345,7 +345,7 @@ type Result struct {
 type ResultValues struct {
 	Timestamp int64             `json:"timestamp"`
 	Value     string            `json:"value"`
-	Labels    map[string]string `json:"labels"`
+	Labels    map[string]string `json:"labels,omitempty"`
 }
 
 // Target is used by meterbase as a list of prometheus activeTargets with failed health, without DiscoveredLabels

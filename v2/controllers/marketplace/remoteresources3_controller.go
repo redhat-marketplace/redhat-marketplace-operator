@@ -55,10 +55,10 @@ func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return evt.MetaOld.GetNamespace() == cfg.DeployedNamespace && evt.MetaNew.GetNamespace() == cfg.DeployedNamespace
+				return evt.ObjectNew.GetNamespace() == cfg.DeployedNamespace && evt.ObjectNew.GetNamespace() == cfg.DeployedNamespace
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				return evt.Meta.GetNamespace() == cfg.DeployedNamespace
+				return evt.Object.GetNamespace() == cfg.DeployedNamespace
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
 				return false
@@ -80,7 +80,7 @@ func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
-func (r *RemoteResourceS3Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *RemoteResourceS3Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling RemoteResourceS3")
 
