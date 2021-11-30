@@ -34,7 +34,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -68,9 +67,9 @@ type Service struct {
 	cc              reconcileutils.ClientCommandRunner
 	indexed         managers.CacheIsIndexed
 	started         managers.CacheIsStarted
-	engine          *engine.Engine
-	razeeengine     *engine.RazeeEngine
-	prometheusData  *metrics.PrometheusData
+	//engine          *engine.Engine
+	razeeengine *engine.RazeeEngine
+	//prometheusData  *metrics.PrometheusData
 
 	mutex deadlock.Mutex `wire:"-"`
 }
@@ -79,14 +78,16 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := s.engine.Start(ctx)
+	/*
+		err := s.engine.Start(ctx)
 
-	if err != nil {
-		log.Error(err, "failed to start engine")
-		panic(err)
-	}
+		if err != nil {
+			log.Error(err, "failed to start engine")
+			panic(err)
+		}
+	*/
 
-	err = s.razeeengine.Start(ctx)
+	err := s.razeeengine.Start(ctx)
 
 	if err != nil {
 		log.Error(err, "failed to start razee engine")

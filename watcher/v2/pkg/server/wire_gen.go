@@ -6,7 +6,6 @@
 package server
 
 import (
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -57,11 +56,6 @@ func NewServer(opts *Options) (*Service, error) {
 		return nil, err
 	}
 	namespaces := ProvideNamespaces(opts)
-	prometheusData := metrics.ProvidePrometheusData()
-	engineEngine, err := engine.NewEngine(context, namespaces, scheme, clientOptions, restConfig, logger, prometheusData)
-	if err != nil {
-		return nil, err
-	}
 	razeeEngine, err := engine.NewRazeeEngine(context, namespaces, scheme, clientOptions, restConfig, logger)
 	if err != nil {
 		return nil, err
@@ -75,9 +69,7 @@ func NewServer(opts *Options) (*Service, error) {
 		cc:              clientCommandRunner,
 		indexed:         cacheIsIndexed,
 		started:         cacheIsStarted,
-		engine:          engineEngine,
 		razeeengine:     razeeEngine,
-		prometheusData:  prometheusData,
 	}
 	return service, nil
 }

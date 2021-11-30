@@ -1,4 +1,4 @@
-module github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2
+module github.com/redhat-marketplace/redhat-marketplace-operator/watcher/v2
 
 go 1.16
 
@@ -23,6 +23,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator v0.44.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.46.0
 	github.com/prometheus/client_golang v1.11.0
+	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 v2.0.0-20211130000046-e489167aa34d // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-00010101000000-000000000000
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/spf13/cobra v1.1.3
@@ -44,6 +45,7 @@ replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
+	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
 	k8s.io/api => k8s.io/api v0.22.2
 	k8s.io/client-go => k8s.io/client-go v0.22.2
 )
