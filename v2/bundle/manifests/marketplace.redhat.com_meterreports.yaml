@@ -1351,6 +1351,10 @@ spec:
               metricUploadCount:
                 description: MetricUploadCount is the number of metrics in the report
                 type: integer
+              uploadAttempts:
+                description: UploadAttempts track the number of times a file has failed
+                  due to unrecoverable errors
+                type: integer
               uploadStatus:
                 description: UploadStatus displays the last status for upload targets.
                 items:

@@ -45,7 +45,6 @@ func init() {
 		lookupCache = utils.Must(func() (interface{}, error) {
 			limit, _ := strconv.Atoi(os.Getenv("MEMORY_LIMIT"))
 			limit = int(float64(limit) * pct)
-			fmt.Println(fmt.Sprintf("dac debug memory limit %v", limit))
 			cache, err := bigcache.NewBigCache(bigcache.Config{
 				Shards:             1024,
 				LifeWindow:         cacheTimeout,

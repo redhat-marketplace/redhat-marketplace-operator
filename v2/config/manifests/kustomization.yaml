@@ -14,23 +14,23 @@ resources:
   - ../crd
   - ../rbac
   - ../manager
-  - ../webhook-openshift
+  #  - ../webhook-openshift
   - ../prometheus
   - ../samples
   - ../scorecard
 
-patchesStrategicMerge:
-  - manager_auth_proxy_patch.yaml
-  - manager_webhook_patch.yaml
+#patchesStrategicMerge:
+#- manager_auth_proxy_patch.yaml
+#- manager_webhook_patch.yaml
 
 configurations:
   - kustomizeconfig.yaml
 vars:
-  - name: SERVICE_NAME
-    objref:
-      kind: Service
-      version: v1
-      name: controller-manager-service
+  # - name: SERVICE_NAME
+  #   objref:
+  #     kind: Service
+  #     version: v1
+  #     name: controller-manager-service
   - name: REPORTER_IMAGE_MARKER
     objref:
       kind: Deployment

@@ -50,7 +50,7 @@ var _ = Describe("meterreport_types", func() {
 			Expect(details.Get("foo")).ToNot(BeNil())
 			Expect(details.Get("foo").ID).ToNot(Equal("foo"))
 			Expect(details.AllSuccesses()).To(BeFalse())
-			Expect(details.OneSucessOf([]string{"foo"})).To(BeTrue())
+			Expect(details.OneSuccessOf([]string{"foo"})).To(BeTrue())
 
 			details.Append(UploadDetailConditions{
 				{
@@ -67,14 +67,14 @@ var _ = Describe("meterreport_types", func() {
 			Expect(details.Get("bar")).ToNot(BeNil())
 			Expect(details.AllSuccesses()).To(BeTrue())
 
-			Expect(details.OneSucessOf([]string{"doesn'texist"})).To(BeFalse())
+			Expect(details.OneSuccessOf([]string{"doesn'texist"})).To(BeFalse())
 		})
 
 		It("should handle no objects", func() {
 			Expect(details).To(HaveLen(0))
 			Expect(details.Get("foo")).To(BeNil())
 			Expect(details.AllSuccesses()).To(BeFalse())
-			Expect(details.OneSucessOf([]string{"foo"})).To(BeFalse())
+			Expect(details.OneSuccessOf([]string{"foo"})).To(BeFalse())
 		})
 
 		It("should handle nil", func() {
@@ -83,7 +83,7 @@ var _ = Describe("meterreport_types", func() {
 			Expect(details).To(HaveLen(0))
 			Expect(details.Get("foo")).To(BeNil())
 			Expect(details.AllSuccesses()).To(BeFalse())
-			Expect(details.OneSucessOf([]string{"foo"})).To(BeFalse())
+			Expect(details.OneSuccessOf([]string{"foo"})).To(BeFalse())
 
 			details.Set(UploadDetails{
 				Target: "bar",

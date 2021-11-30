@@ -88,7 +88,10 @@ var ReconcileCmd = &cobra.Command{
 			PrometheusPort:       prometheusPort,
 			ReporterSchema:       reporterSchema,
 		}
-		cfg.SetDefaults()
+		err = cfg.SetDefaults()
+		if err != nil {
+			return errors.Wrap(err, "couldn't get defaults")
+		}
 
 		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(cfg)
 		if err != nil {
@@ -101,6 +104,8 @@ var ReconcileCmd = &cobra.Command{
 			cfg,
 			broadcaster,
 			reporter.Namespace(namespace),
+			reporter.NewTask,
+			reporter.NewUploadTask,
 		)
 
 		if err != nil {

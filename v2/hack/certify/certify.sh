@@ -72,7 +72,7 @@ checksub () {
 
 if [ -z ${PYXIS_API_KEY+x} ]; then echo "PYXIS_API_KEY is unset"; exit 1; fi
 
-
+if [ ${SUBMIT} == "true" ] && [ -z ${GITHUB_TOKEN+x} ]; then echo "GITHUB_TOKEN is unset for SUBMIT=true"; exit 1; fi
 
 # Install Subscription
 oc apply -f sub.yaml
@@ -119,10 +119,6 @@ cd operator-pipelines
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/pipelines
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/tasks
 
-# Temporary fix - appears to be resolved
-# oc apply -f https://raw.githubusercontent.com/tonytcampbell/operator-pipelines/preflight-fixes/ansible/roles/operator-pipeline/templates/openshift/tasks/preflight.yml
-
-
 # Add bundle to the fork on version branch
 cd $TMP_DIR
 git clone git@github.com:redhat-marketplace/certified-operators.git
@@ -149,8 +145,8 @@ cp -r $OP_DIR/bundle/metadata operators/redhat-marketplace-operator/$VERSION/
 # kustomize questionable capability to remove the service account
 rm -Rf operators/redhat-marketplace-operator/$VERSION/manifests/redhat-marketplace-operator_v1_serviceaccount.yaml
 
-# Set our organization
-echo "organization: redhat-marketplace" > config.yaml
+# Set our organization, should be default
+# echo "organization: certified-operators" > config.yaml
 
 # This should automatically be present 
 # echo "cert_project_id: 5f68c9457115dbd1183ccab6" > operators/redhat-marketplace-operator/ci.yaml
@@ -170,6 +166,7 @@ GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators.git
 BUNDLE_PATH=operators/redhat-marketplace-operator/$VERSION
 
 if [ "$SUBMIT" == "true" ]; then
+    oc create secret generic github-api-token --from-literal GITHUB_TOKEN=$GITHUB_TOKEN
     ./tkn pipeline start operator-ci-pipeline \
     --param git_repo_url=$GIT_REPO_URL \
     --param git_branch=$VERSION \

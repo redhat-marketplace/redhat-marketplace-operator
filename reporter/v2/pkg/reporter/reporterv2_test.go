@@ -66,6 +66,20 @@ var _ = Describe("ReporterV2", func() {
 
 		metricIds []string
 		eventIds  []string
+
+		checkTime = WithTransform(func(unIn float64) map[string]int {
+			t := time.Unix(int64(unIn), 0).UTC()
+			return map[string]int{
+				"minute": t.Minute(),
+				"second": t.Second(),
+			}
+		}, Or(Equal(map[string]int{
+			"minute": 0,
+			"second": 0,
+		}), Equal(map[string]int{
+			"minute": 0,
+			"second": 0,
+		})))
 	)
 
 	BeforeEach(func() {
@@ -178,8 +192,8 @@ var _ = Describe("ReporterV2", func() {
 				"service":             Equal("example-app-service"),
 				"metricType":          Equal("license"),
 			}),
-			"start":     BeNumerically(">", 0),
-			"end":       BeNumerically(">", 0),
+			"start":     checkTime,
+			"end":       checkTime,
 			"eventId":   BeAssignableToTypeOf(""),
 			"accountId": Equal("foo"),
 			"measuredUsage": MatchAllElements(func(element interface{}) string {
@@ -404,8 +418,8 @@ var _ = Describe("ReporterV2", func() {
 				"service":             Equal("example-app-service"),
 				"metricType":          Equal("license"),
 			}),
-			"start":     BeNumerically(">", 0),
-			"end":       BeNumerically(">", 0),
+			"start":     checkTime,
+			"end":       checkTime,
 			"eventId":   BeAssignableToTypeOf(""),
 			"accountId": Equal("foo"),
 

@@ -54,6 +54,10 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+type TaskRun interface {
+	Run(ctx context.Context) error
+}
+
 type Task struct {
 	ReportName ReportName
 

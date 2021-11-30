@@ -2,7 +2,7 @@ include ../../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-reporter
-IMAGE_TAG ?= $(VERSION)
+IMAGE_TAG ?= $(TAG)
 QUAY_EXPIRATION?=never
 
 IMG ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
@@ -43,4 +43,4 @@ generate:
 # Run the test
 .PHONY: test
 test: ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+	$(GINKGO) -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --v --trace ./...

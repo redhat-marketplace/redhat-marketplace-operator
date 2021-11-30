@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type FileServer struct {
@@ -165,8 +166,12 @@ func (fs *FileServer) ListFiles(ctx context.Context, req *fileserver.ListFilesRe
 
 	errs := []error{}
 
+	if len(files) > 0 {
+		fs.Log.Info("spot checking file", "metadataLen", len(files[0].Metadata), "size", files[0].File.Size)
+	}
+
 	for i := range files {
-		protoFile, err := modelsv2.StoredFileToProto(files[i])
+		protoFile, err := modelsv2.StoredFileToProto(&files[i])
 
 		if err != nil {
 			errs = append(errs, err)
@@ -197,6 +202,10 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 	if req.GetId() != "" {
 		file, err = fs.FileStore.Get(ctx, req.GetId())
 
+		if errors.Is(err, database.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "not found")
+		}
+
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get file %s=%s %s=%s", "id", req.GetId(), "err", err)
 		}
@@ -207,6 +216,10 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 			Source:     key.Source,
 			SourceType: key.SourceType,
 		})
+
+		if errors.Is(err, database.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "not found")
+		}
 
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get file %s=%s %s=%s", "id", req.GetKey(), "err", err)
@@ -219,7 +232,7 @@ func (fs *FileServer) GetFile(ctx context.Context, req *fileserver.GetFileReques
 		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	info, err := modelsv2.StoredFileToProto(*file)
+	info, err := modelsv2.StoredFileToProto(file)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to convert file %s=%d %s=%s", "id", file.ID, "err", err)
@@ -235,6 +248,10 @@ func (fs *FileServer) UpdateFileMetadata(
 	req *fileserver.UpdateFileMetadataRequest,
 ) (*fileserver.UpdateFileMetadataResponse, error) {
 	file, err := fs.FileStore.Get(ctx, req.Id)
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, status.Errorf(codes.NotFound, "not found %s=%s", "id", req.Id)
+	}
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get file %s=%s %s=%s", "id", req.Id, "err", err)
@@ -265,7 +282,7 @@ func (fs *FileServer) UpdateFileMetadata(
 		return nil, status.Errorf(codes.Internal, "failed to save file %s=%s %s=%s", "id", req.Id, "err", err)
 	}
 
-	protoFile, err := modelsv2.StoredFileToProto(*file)
+	protoFile, err := modelsv2.StoredFileToProto(file)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to convert file %s=%s %s=%s", "id", req.Id, "err", err)
 	}

@@ -24,6 +24,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	dqlite "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite/driver"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type DatabaseConfig struct {
@@ -61,10 +63,15 @@ func (dc *DatabaseConfig) InitDB(
 	if err != nil {
 		return nil, err
 	}
-
+	writer := logger.Writer(log.New(os.Stdout, "gorm-", log.LstdFlags))
+	log := logger.New(writer, logger.Config{
+		LogLevel: logger.Info,
+	})
 	dqliteDialector := dqlite.Open(dc.dqliteDB)
 
-	db, err := gorm.Open(dqliteDialector, &gorm.Config{})
+	db, err := gorm.Open(dqliteDialector, &gorm.Config{
+		Logger: log,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -125,19 +132,7 @@ func (dc *DatabaseConfig) initDqlite() error {
 
 // TryMigrate  performs database migration
 func (dc *DatabaseConfig) TryMigrate() error {
-	isLeader, err := dc.IsLeader()
-	if err != nil {
-		dc.Log.Error(err, "error while verifying leadership")
-		return err
-	}
-	if !isLeader {
-		return nil
-	} else if dc.gormDB != nil {
-		dc.Log.Info("Performing migration")
-		return database.Migrate(dc.gormDB)
-	} else {
-		return errors.New("GORM connection has not initialised: Connection of type *gorm.DB is nil")
-	}
+	return database.Migrate(dc.gormDB)
 }
 
 // IsLeader returns true if running node is leader

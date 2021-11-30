@@ -16,24 +16,30 @@ package scheduler
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 )
 
 type SchedulerConfig struct {
 	Log            logr.Logger
 	Fs             database.StoredFileStore
-	IsLeader       func() (bool, error)
+	DB             *dqlite.DatabaseConfig
 	CleanAfter     string
 	CronExpression string
 }
 
+var (
+	migrateOnce sync.Once
+)
+
 // handler cleans/purges files based on given time duration and purge flag
 func (sfg *SchedulerConfig) handler() (int64, error) {
-	isLeader, err := sfg.IsLeader()
+	isLeader, err := sfg.DB.IsLeader()
 	if err != nil {
 		sfg.Log.Error(err, "error while verifying leader")
 	}
@@ -41,6 +47,13 @@ func (sfg *SchedulerConfig) handler() (int64, error) {
 	if !isLeader {
 		return 0, nil
 	}
+
+	migrateOnce.Do(func() {
+		err := sfg.DB.TryMigrate()
+		if err != nil {
+			sfg.Log.Error(err, "error migrating")
+		}
+	})
 
 	count, err := sfg.Fs.CleanTombstones(context.Background())
 	if err != nil {
