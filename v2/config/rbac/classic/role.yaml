@@ -12,30 +12,6 @@ rules:
       - '*'
     verbs:
       - '*'
-  - apiGroups:
-      - ''
-    resources:
-      - namespaces
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - update
-    resourceNames:
-      - meterdefinitions.marketplace.redhat.com
-  - apiGroups:
-      - 'route.openshift.io'
-    resources:
-      - routes
-    verbs:
-      - get
-      - list
-      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -205,7 +181,9 @@ rules:
       - ''
     resources:
       - pods
+      - secrets
     verbs:
+      - get
       - watch
       - list
 ---
@@ -229,6 +207,7 @@ rules:
     resources:
       - secrets
     verbs:
+      - get
       - list
       - watch
 ---

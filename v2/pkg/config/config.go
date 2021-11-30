@@ -16,6 +16,9 @@ package config
 
 import (
 	"bytes"
+	"fmt"
+	"net"
+	"net/url"
 	"reflect"
 	"strconv"
 	"sync"
@@ -49,7 +52,8 @@ type OperatorConfig struct {
 	OLMInformation
 	MeterBaseValues
 	MeterdefinitionCatalog
-	Config EnvConfig `env:"CONFIG"`
+	Config         EnvConfig `env:"CONFIG"`
+	IsDisconnected bool      `env:"IS_DISCONNECTED" envDefault:"false"`
 }
 
 // ENVCONFIG is a map of containerName to a corev1 resource requirements
@@ -69,15 +73,15 @@ type Resources struct {
 // RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
 	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.8"`
+	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.9"`
 	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
 	DQLite                      string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
-	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:latest"`
-	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:latest"`
-	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:latest"`
-	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest"`
-	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
+	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:v4.9"`
+	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:v4.9"`
+	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:v4.9"`
+	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.9"`
+	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:v4.9"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
 	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/mxpaspa/rhm-meterdefinition-file-server:sub-annotations-1.0.0"`
@@ -117,7 +121,7 @@ type ControllerValues struct {
 }
 
 type MeterBaseValues struct {
-	TransitionTime time.Duration `env:"METERBASE_TRANSITION_TIME" envDefault:"24h" json:"transitionTime"`
+	TransitionTime time.Duration `env:"METERBASE_TRANSITION_TIME" envDefault:"72h" json:"transitionTime"`
 }
 
 // ReportConfig stores some changeable information for creating a report
@@ -179,6 +183,8 @@ func ProvideConfig() (*OperatorConfig, error) {
 			return nil, err
 		}
 
+		cfg.IsDisconnected = setDisconnectedStatus(&cfg)
+
 		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
 	}
@@ -210,34 +216,22 @@ func ProvideInfrastructureAwareConfig(
 		}
 
 		// Use OCP version related images on Openshift 4.6+ instead of default v4.5 images
-		if inf.HasOpenshift() && inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+		// Do not override RelatedImages in disconnected environment
+		if inf.HasOpenshift() && !cfg.IsDisconnected {
+			ocpVersion := inf.OpenshiftParsedVersion()
+			if ocpVersion != nil {
+				ocpTag := strconv.FormatUint(ocpVersion.Major, 10) + "." + strconv.FormatUint(ocpVersion.Minor, 10)
 
-			// version 4.8 is latest one tested with RHMP operator, use it on newer releases than 4.8
-			ocpTag := "4.8"
+				log.Info("using version override on images", "version", ocpTag)
 
-			if inf.OpenshiftParsedVersion().LT(utils.ParsedVersion480) {
-				// on version 4.6 and 4.7 use images for given OCP release
-				ocpVersion := inf.OpenshiftParsedVersion()
-				ocpTag = strconv.FormatUint(ocpVersion.Major, 10) + "." + strconv.FormatUint(ocpVersion.Minor, 10)
-			}
-
-			if cfg.RelatedImages.Prometheus == "registry.redhat.io/openshift4/ose-prometheus:v4.5" {
 				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v" + ocpTag
-			}
-			if cfg.RelatedImages.PrometheusOperator == "registry.redhat.io/openshift4/ose-prometheus-operator:v4.5" {
 				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v" + ocpTag
-			}
-			if cfg.RelatedImages.OAuthProxy == "registry.redhat.io/openshift4/ose-oauth-proxy:v4.5" {
 				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v" + ocpTag
-			}
-			if cfg.RelatedImages.ConfigMapReloader == "registry.redhat.io/openshift4/ose-configmap-reloader:v4.5" {
 				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v" + ocpTag
-			}
-			if cfg.RelatedImages.PrometheusConfigMapReloader == "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5" {
 				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v" + ocpTag
-			}
-			if cfg.RelatedImages.KubeRbacProxy == "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5" {
 				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v" + ocpTag
+			} else {
+				log.Info("couldn't determind version, using default images")
 			}
 		}
 
@@ -249,6 +243,66 @@ func ProvideInfrastructureAwareConfig(
 	}
 
 	return global, nil
+}
+
+func setDisconnectedStatus(cfg *OperatorConfig) bool {
+	var rhmURL string
+
+	rhmURL = utils.ProductionURL
+
+	if cfg.URL != "" {
+		rhmURL = cfg.URL
+	}
+
+	var ipLookUpFailed bool
+	_, err := net.LookupIP(rhmURL)
+	if err != nil {
+		ipLookUpFailed = checkError(err)
+	}
+
+	var dialTimeoutFailed bool
+	u, _ := url.Parse(utils.ProductionURL)
+	trimmedProdUrl := u.Host
+	timeoutURL := fmt.Sprintf("%s:https", trimmedProdUrl)
+	timeout := 1 * time.Second
+	_, err = net.DialTimeout("tcp", timeoutURL, timeout)
+	if err != nil {
+		dialTimeoutFailed = checkError(err)
+	}
+
+	if ipLookUpFailed && dialTimeoutFailed {
+		log.Info("ip lookup and timeout failed")
+		return true
+	}
+
+	log.Info("found IP for redhat marketplace")
+	return false
+}
+
+func checkError(err error) bool {
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		log.Info("DialTimeout exceeded timeout", "response", netError)
+		return true
+	}
+
+	switch t := err.(type) {
+	case *net.OpError:
+		if t.Op == "dial" {
+			log.Info("DialTimeout could not find host", "response", t)
+			return true
+
+		} else if t.Op == "read" {
+			log.Info("DialTimeout connection refused", "response", t)
+			return true
+		}
+	case *net.DNSError:
+		if t.IsNotFound {
+			log.Info("LookupIP could not find host", "response", t)
+			return true
+		}
+	}
+
+	return false
 }
 
 var GetConfig = ProvideConfig

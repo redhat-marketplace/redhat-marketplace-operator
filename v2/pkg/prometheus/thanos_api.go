@@ -19,7 +19,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +56,6 @@ func ProvideThanosQuerierAPI(
 	kubeInterface kubernetes.Interface,
 	deployedNamespace string,
 	reqLogger logr.Logger) (*PrometheusAPI, error) {
-
 	service, err := queryForThanosQuerierService(context, cc)
 	if err != nil {
 		return nil, err

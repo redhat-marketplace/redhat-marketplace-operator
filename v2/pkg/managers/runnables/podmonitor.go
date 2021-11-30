@@ -61,21 +61,10 @@ func (a *PodMonitor) NeedLeaderElection() bool {
 	return true
 }
 
-func (a *PodMonitor) Start(stop <-chan struct{}) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func (a *PodMonitor) Start(ctx context.Context) error {
 	go a.Run(ctx)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-stop:
-			cancel()
-			return nil
-		}
-	}
+	<-ctx.Done()
+	return nil
 }
 
 func (a *PodMonitor) Run(ctx context.Context) error {

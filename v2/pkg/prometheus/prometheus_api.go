@@ -20,7 +20,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
@@ -108,7 +107,6 @@ func ProvidePrometheusAPI(
 	deployedNamespace string,
 	reqLogger logr.Logger,
 	userWorkloadMonitoringEnabled bool) (*PrometheusAPI, error) {
-
 	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return nil, err

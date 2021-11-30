@@ -19,7 +19,6 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -27,12 +26,12 @@ import (
 var NotListTypeErr = emperrors.New("type is not a list type")
 
 type listAction struct {
-	list    runtime.Object
+	list    client.ObjectList
 	filters []client.ListOption
 	*BaseAction
 }
 
-func ListAction(list runtime.Object, filters ...client.ListOption) *listAction {
+func ListAction(list client.ObjectList, filters ...client.ListOption) *listAction {
 	return &listAction{
 		list:       list,
 		filters:    filters,
@@ -55,12 +54,12 @@ func (l *listAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, e
 }
 
 type listAppendAction struct {
-	list    runtime.Object
+	list    client.ObjectList
 	filters []client.ListOption
 	*BaseAction
 }
 
-func ListAppendAction(listType runtime.Object, filters ...client.ListOption) *listAppendAction {
+func ListAppendAction(listType client.ObjectList, filters ...client.ListOption) *listAppendAction {
 	return &listAppendAction{
 		list:       listType,
 		filters:    filters,
@@ -82,11 +81,10 @@ func (l *listAppendAction) Exec(ctx context.Context, c *ClientCommand) (*ExecRes
 		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error extracting original list")
 	}
 
-	newList := l.list.DeepCopyObject()
-	_ = meta.SetList(newList, []runtime.Object{})
+	newList, ok := (l.list.DeepCopyObject()).(client.ObjectList)
 
-	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error while listing")
+	if !ok {
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "lsit isn't an objectlist")
 	}
 
 	err = c.client.List(ctx, newList, l.filters...)

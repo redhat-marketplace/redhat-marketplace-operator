@@ -81,7 +81,7 @@ func (a *PodMonitor) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(a)
 }
 
-func (a *PodMonitor) Reconcile(req reconcile.Request) (reconcile.Result, error) {
+func (a *PodMonitor) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	pod := &corev1.Pod{}
 	err := a.Client.Get(context.TODO(), types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, pod)
 

@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	"github.com/imdario/mergo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -111,14 +113,13 @@ func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg *config.OperatorCon
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
-
 	// This mapFn will queue the default named razeedeployment
-	mapFn := handler.ToRequestsFunc(
-		func(a handler.MapObject) []reconcile.Request {
+	mapFn := handler.MapFunc(
+		func(obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
 					Name:      utils.RAZEE_NAME,
-					Namespace: a.Meta.GetNamespace(),
+					Namespace: obj.GetNamespace(),
 				}},
 			}
 		})
@@ -132,7 +133,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 			// The object doesn't contain label "foo", so the event will be
 			// ignored.
-			if _, ok := e.MetaOld.GetLabels()[label]; !ok {
+			if _, ok := e.ObjectOld.GetLabels()[label]; !ok {
 				return false
 			}
 
@@ -141,11 +142,11 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		CreateFunc: func(e event.CreateEvent) bool {
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 
-			if e.Meta.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
+			if e.Object.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
 				return true
 			}
 
-			if _, ok := e.Meta.GetLabels()[label]; !ok {
+			if _, ok := e.Object.GetLabels()[label]; !ok {
 				return false
 			}
 
@@ -154,7 +155,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 
-			if _, ok := e.Meta.GetLabels()[label]; !ok {
+			if _, ok := e.Object.GetLabels()[label]; !ok {
 				return false
 			}
 
@@ -171,10 +172,10 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			return false
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Meta.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
+			return e.Object.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Meta.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
+			return e.Object.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
 		},
 	}
 
@@ -199,14 +200,10 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 		}).
 		Watches(&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
-			},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(p)).
 		Watches(&source.Kind{Type: &corev1.Pod{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
-			},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pp)).
 		Watches(
 			&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}},
@@ -240,7 +237,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
-func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
@@ -611,7 +608,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		}
 
 		reqLogger.V(0).Info("No change detected on resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
-
 	}
 
 	razeePrereqs = append(razeePrereqs, utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
@@ -911,7 +907,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 
-		if !reflect.DeepEqual(watchKeeperSecret.Data, updatedWatchKeeperSecret.Data) {
+		if !isMapStringByteEqual(watchKeeperSecret.Data, updatedWatchKeeperSecret.Data) {
 			err = r.Client.Update(context.TODO(), &watchKeeperSecret)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
@@ -981,13 +977,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 
-		if !reflect.DeepEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
+		if !isMapStringByteEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
 			err = r.Client.Update(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.COS_READER_KEY_NAME)
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Resource updated successfully", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.COS_READER_KEY_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		}
 
@@ -1077,7 +1073,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 
 	//Only create the parent s3 resource when the razee deployment is enabled
 	if rrs3DeploymentEnabled {
-
 		var op controllerutil.OperationResult
 		parentRRS3 := r.makeParentRemoteResourceS3(instance)
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -1278,7 +1273,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
-
 }
 
 // addFinalizer adds finalizers to the RazeeDeployment CR
@@ -1446,7 +1440,6 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 // Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
 func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
 	instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
-
 	return r.updateParentRemoteResourceS3(&marketplacev1alpha1.RemoteResourceS3{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
@@ -1456,7 +1449,6 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
 }
 
 func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *marketplacev1alpha1.RemoteResourceS3, instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
-
 	parentRRS3.Spec = marketplacev1alpha1.RemoteResourceS3Spec{
 		Auth: marketplacev1alpha1.Auth{
 			Iam: &marketplacev1alpha1.Iam{
@@ -1518,14 +1510,13 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		}
 
 		return fmt.Errorf("error on deletion of childRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-
 	}, maxRetry)
 
 	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
 		reqLogger.Info("retry limit exceeded, removing finalizers on childRRS3", "err", err.Error())
 
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key, _ := client.ObjectKeyFromObject(&childRRS3)
+			key := client.ObjectKeyFromObject(&childRRS3)
 
 			err := r.Client.Get(context.TODO(), key, &childRRS3)
 			if err != nil {
@@ -1571,14 +1562,13 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		}
 
 		return fmt.Errorf("error on deletion of parentRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-
 	}, maxRetry)
 
 	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
 		reqLogger.Info("retry limit exceeded, removing finalizers on parentRRS3", "err", err.Error())
 
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key, _ := client.ObjectKeyFromObject(&parentRRS3)
+			key := client.ObjectKeyFromObject(&parentRRS3)
 
 			err := r.Client.Get(context.TODO(), key, &parentRRS3)
 			if err != nil {
@@ -1655,7 +1645,6 @@ func (r *RazeeDeploymentReconciler) removeWatchkeeperDeployment(req *marketplace
 	}
 	//deployment deleted - requeue
 	return &reconcile.Result{Requeue: true}, nil
-
 }
 
 // fullUninstall deletes resources created by razee deployment
@@ -1756,7 +1745,6 @@ func (r *RazeeDeploymentReconciler) uninstallLegacyResources(
 		if err != nil && !errors.IsNotFound(err) && err.Error() != "resource name may not be empty" {
 			reqLogger.Error(err, "cleaning up install job failed")
 		}
-
 	}
 
 	customResourceKinds := []string{
@@ -1790,7 +1778,7 @@ func (r *RazeeDeploymentReconciler) uninstallLegacyResources(
 
 		if err == nil {
 			for _, cr := range customResourceList.Items {
-				reqLogger.Info("Deleteing custom resource", "custom resource", cr)
+				reqLogger.Info("Deleting custom resource", "custom resource", cr)
 				err := r.Client.Delete(context.TODO(), &cr)
 				if err != nil && !errors.IsNotFound(err) {
 					reqLogger.Error(err, "could not delete custom resource", "custom resource", cr)
@@ -1877,15 +1865,15 @@ func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	rrs3Deployment, err := r.factory.NewRemoteResourceS3Deployment()
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
-			r.factory.SetControllerReference(instance, rrs3Deployment)
-			return r.factory.UpdateRemoteResourceS3Deployment(rrs3Deployment)
+			rrs3Dep, _ := r.factory.NewRemoteResourceS3Deployment()
+			r.factory.SetControllerReference(instance, rrs3Dep)
+			return mergo.Merge(rrs3Deployment, rrs3Dep, mergo.WithOverride)
 		})
 		return err
 	})
@@ -1922,8 +1910,9 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
-			r.factory.SetControllerReference(instance, watchKeeperDeployment)
-			return r.factory.UpdateWatchKeeperDeployment(watchKeeperDeployment)
+			watchKeeperDep, _ := r.factory.NewWatchKeeperDeployment()
+			r.factory.SetControllerReference(instance, watchKeeperDep)
+			return mergo.Merge(watchKeeperDeployment, watchKeeperDep, mergo.WithOverride)
 		})
 		return err
 	})
@@ -1947,4 +1936,26 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func isMapStringByteEqual(d1, d2 map[string][]byte) bool {
+	for key, value := range d1 {
+		value2, ok := d2[key]
+		if !ok {
+			return false
+		}
+
+		if bytes.Compare(value, value2) != 0 {
+			return false
+		}
+	}
+
+	for key := range d2 {
+		_, ok := d1[key]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
 }

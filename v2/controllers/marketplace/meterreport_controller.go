@@ -49,7 +49,7 @@ var _ reconcile.Reconciler = &MeterReportReconciler{}
 // +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs;jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range,verbs=get;create
+// +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range;/api/v1/targets,verbs=get;create
 
 // MeterReportReconciler reconciles a MeterReport object
 type MeterReportReconciler struct {
@@ -100,7 +100,7 @@ const rerunTime = 1 * 24 * time.Hour // 1 day - reducing rerun time
 
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterReportReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterReport")
 
@@ -123,7 +123,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 
 	job := batchv1.Job{}
 
-	// getting && deleteing job; new process uses a single cronjob
+	// getting && deleting job; new process uses a single cronjob
 	if instance.Status.AssociatedJob != nil {
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Status.AssociatedJob.Name, Namespace: instance.Status.AssociatedJob.Namespace}, &job)
 

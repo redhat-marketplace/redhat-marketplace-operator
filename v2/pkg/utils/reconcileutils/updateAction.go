@@ -21,7 +21,6 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,7 +28,7 @@ import (
 
 type updateAction struct {
 	*BaseAction
-	updateObject runtime.Object
+	updateObject client.Object
 	updateActionOptions
 }
 
@@ -40,7 +39,7 @@ type updateActionOptions struct {
 }
 
 func UpdateAction(
-	updateObject runtime.Object,
+	updateObject client.Object,
 	updateOptions ...UpdateActionOption,
 ) *updateAction {
 	opts, _ := newUpdateActionOptions(updateOptions...)
@@ -65,7 +64,7 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 		return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), err
 	}
 
-	key, _ := client.ObjectKeyFromObject(updatedObject)
+	key := client.ObjectKeyFromObject(updatedObject)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", updatedObject), "key", key)
 	var err error
 
@@ -92,14 +91,14 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 }
 
 type updateStatusConditionAction struct {
-	instance   runtime.Object
+	instance   client.Object
 	conditions *status.Conditions
 	condition  status.Condition
 	*BaseAction
 }
 
 func UpdateStatusCondition(
-	instance runtime.Object,
+	instance client.Object,
 	conditions *status.Conditions,
 	condition status.Condition,
 ) *updateStatusConditionAction {
@@ -131,7 +130,7 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 		return NewExecResult(Error, reconcile.Result{}, u.BaseAction, err), emperrors.New("conditions cannot be nil")
 	}
 
-	key, _ := client.ObjectKeyFromObject(u.instance)
+	key := client.ObjectKeyFromObject(u.instance)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", u.instance), "key", key)
 
 	if u.conditions.SetCondition(u.condition) {
@@ -152,14 +151,14 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 
 type updateWithPatchAction struct {
 	*BaseAction
-	object    runtime.Object
+	object    client.Object
 	patchData []byte
 	patchType types.PatchType
 	patcher   patch.Patcher
 }
 
 func UpdateWithPatchAction(
-	object runtime.Object,
+	object client.Object,
 	patchType types.PatchType,
 	patchData []byte,
 ) *updateWithPatchAction {

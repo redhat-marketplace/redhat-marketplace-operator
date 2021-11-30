@@ -64,7 +64,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 
 	ctx, cancel = context.WithCancel(context.Background())

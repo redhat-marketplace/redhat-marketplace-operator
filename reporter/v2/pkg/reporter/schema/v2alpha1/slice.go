@@ -46,11 +46,7 @@ type MarketplaceReportData struct {
 		See measuredUsage.additionalAttributes for details and the Additional Attributes section below.
 	*/
 	AdditionalAttributes map[string]interface{} `json:"additionalAttributes,omitempty"`
-	/*
-		A group name indicates a chargeback/tag group for the usage coming from containerized environments.
-		This will be used to identify a namespace, the labels on the namespace and apply matching RHM tags to the usage.
-	*/
-	GroupName string `json:"groupName"`
+
 	// An array of usage objects.
 	MeasuredUsage []MeasuredUsage `json:"measuredUsage"`
 }

@@ -17,12 +17,14 @@ package reconciler
 import (
 	"context"
 	"os"
+	"strconv"
 	"time"
 
 	"emperror.dev/errors"
 
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -34,6 +36,7 @@ var localFilePath, deployedNamespace string
 var dataServiceTokenFile, dataServiceCertFile string
 var prometheusService, prometheusNamespace, prometheusPort string
 var reporterSchema string
+var isDisconnected string
 var uploadTargets []string
 var local, upload bool
 var retry int
@@ -51,16 +54,21 @@ var ReconcileCmd = &cobra.Command{
 
 		tmpDir := os.TempDir()
 
-		targets := reporter.UploaderTargets{}
+		targets := uploaders.UploaderTargets{}
 		for _, uploadTarget := range uploadTargets {
-			uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
+			uploadTarget := uploaders.MustParseUploaderTarget(uploadTarget)
 			log.Info("upload target", "target set to", uploadTarget.Name())
 
 			switch v := uploadTarget.(type) {
-			case *reporter.LocalFilePathUploader:
+			case *uploaders.LocalFilePathUploader:
 				v.LocalFilePath = localFilePath
 			}
 			targets = append(targets, uploadTarget)
+		}
+
+		isDisconnectedBool, err := strconv.ParseBool(isDisconnected)
+		if err != nil {
+			return errors.Wrap(err, "error converting IS_DISCONNECTED to bool")
 		}
 
 		cfg := &reporter.Config{
@@ -72,6 +80,7 @@ var ReconcileCmd = &cobra.Command{
 			DataServiceCertFile:  dataServiceCertFile,
 			Local:                local,
 			Upload:               upload,
+			IsDisconnected:       isDisconnectedBool,
 			UploaderTargets:      targets,
 			DeployedNamespace:    deployedNamespace,
 			PrometheusService:    prometheusService,
@@ -79,9 +88,12 @@ var ReconcileCmd = &cobra.Command{
 			PrometheusPort:       prometheusPort,
 			ReporterSchema:       reporterSchema,
 		}
-		cfg.SetDefaults()
+		err = cfg.SetDefaults()
+		if err != nil {
+			return errors.Wrap(err, "couldn't get defaults")
+		}
 
-		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(ctx, cfg)
+		broadcaster, stopBroadcast, err := reporter.NewEventBroadcaster(cfg)
 		if err != nil {
 			return errors.Wrap(err, "couldn't initialize event broadcaster")
 		}
@@ -92,6 +104,8 @@ var ReconcileCmd = &cobra.Command{
 			cfg,
 			broadcaster,
 			reporter.Namespace(namespace),
+			reporter.NewTask,
+			reporter.NewUploadTask,
 		)
 
 		if err != nil {
@@ -116,10 +130,11 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
 	ReconcileCmd.Flags().StringVar(&dataServiceCertFile, "dataServiceCertFile", "", "cert file for the data service")
 
-	ReconcileCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-insights"}, "comma seperated list of targets to upload to")
+	ReconcileCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-marketplace"}, "comma seperated list of targets to upload to")
 	ReconcileCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReconcileCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
+	ReconcileCmd.Flags().StringVar(&isDisconnected, "isDisconnected", os.Getenv("IS_DISCONNECTED"), "is the reporter running in a disconnected environment")
 	ReconcileCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
 	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 
@@ -127,5 +142,5 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&prometheusNamespace, "prometheus-namespace", "openshift-redhat-marketplace", "cert file for the data service")
 	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
 
-	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
+	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v2alpha1", "reporter version schema to write")
 }

@@ -14,7 +14,7 @@ include utils.Makefile
 .DEFAULT_GOAL := all
 
 .PHONY: all
-all: fmt vet generate build
+all: svu fmt vet generate docker-build
 
 skaffold-dev:
 	make operator/skaffold-dev
@@ -45,6 +45,7 @@ tidy-all:
 	for project in $(TIDY_TARGETS) ; do \
 		echo "go mod $$curent_dir/$$project" && cd $$current_dir/$$project && go mod tidy ; \
 	done
+	cd ./airgap/v2/ && $(BUF) mod update
 
 .PHONY: download-all
 download-all:

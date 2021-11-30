@@ -56,5 +56,5 @@ func (l *Logger) Trace(msg string, keysAndValues ...interface{}) {
 }
 
 func SetLoggerToDevelopmentZap() {
-	logf.SetLogger(zap.Logger(true))
+	logf.SetLogger(zap.New(zap.UseDevMode(true)))
 }

@@ -6,7 +6,7 @@ linters-settings:
       # is allowed to use only in logutils package
       - github.com/sirupsen/logrus
     packages-with-error-message:
-      - github.com/sirupsen/logrus: "logging is allowed only by logutils.Log"
+      - github.com/sirupsen/logrus: 'logging is allowed only by logutils.Log'
   dupl:
     threshold: 100
   funlen:
@@ -76,20 +76,19 @@ linters:
     - gofmt
     - goimports
     - exhaustive
-    - golint
+    - revive
     - gomnd
     - goprintffuncname
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     - lll
     - misspell
     - nakedret
     - nolintlint
     - rowserrcheck
-    - scopelint
+    - exportloopref
     - staticcheck
     - structcheck
     - stylecheck
@@ -102,7 +101,7 @@ linters:
 
     # don't enable:
     - godox
-    - gocyclo # gocyclo figures complexity of a function
+    #- gocyclo # gocyclo figures complexity of a function
     # - gochecknoinits # errors on init functions
     # - asciicheck
     # - gochecknoglobals
@@ -124,7 +123,7 @@ issues:
     - linters:
         - lll
         - gocyclo
-      source: "^//go:generate "
+      source: '^//go:generate '
 
 # run:
 #   skip-dirs:

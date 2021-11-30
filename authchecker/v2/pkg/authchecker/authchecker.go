@@ -80,10 +80,10 @@ func (a *AuthChecker) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1.Pod{}, builder.WithPredicates(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
-					return e.Meta.GetName() == a.Podname
+					return e.Object.GetName() == a.Podname
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return e.MetaNew.GetName() == a.Podname
+					return e.ObjectNew.GetName() == a.Podname
 				},
 				DeleteFunc: func(event.DeleteEvent) bool {
 					return false
@@ -95,7 +95,7 @@ func (a *AuthChecker) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(a)
 }
 
-func (a *AuthChecker) Reconcile(req reconcile.Request) (reconcile.Result, error) {
+func (a *AuthChecker) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	pod := &v1.Pod{}
 	secrets := &v1.SecretList{}
 	err := a.Client.Get(context.TODO(), types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, pod)
@@ -109,7 +109,7 @@ func (a *AuthChecker) Reconcile(req reconcile.Request) (reconcile.Result, error)
 	err = a.Client.List(context.TODO(), secrets)
 
 	if err != nil {
-		a.Logger.Error(err, "failed to get pod")
+		a.Logger.Error(err, "failed to list secrets")
 		a.Checker.SetErr(err)
 		return reconcile.Result{}, err
 	}

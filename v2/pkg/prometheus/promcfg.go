@@ -23,7 +23,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/blang/semver"
-	log "github.com/go-logr/logr"
+	logf "github.com/go-logr/logr"
 	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/prometheus-operator/prometheus-operator/pkg/assets"
 	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
@@ -46,10 +46,10 @@ var (
 )
 
 type configGenerator struct {
-	logger log.Logger
+	logger logf.Logger
 }
 
-func NewConfigGenerator(logger log.Logger) *configGenerator {
+func NewConfigGenerator(logger logf.Logger) *configGenerator {
 	cg := &configGenerator{
 		logger: logger,
 	}
@@ -214,7 +214,6 @@ func (cg *configGenerator) generateServiceMonitorConfig(
 	overrideHonorLabels bool,
 	overrideHonorTimestamps bool,
 	ignoreNamespaceSelectors bool) yaml.MapSlice {
-
 	hl := honorLabels(ep.HonorLabels, overrideHonorLabels)
 	cfg := yaml.MapSlice{
 		{

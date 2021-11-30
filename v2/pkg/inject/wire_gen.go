@@ -21,10 +21,15 @@ import (
 // Injectors from wire.go:
 
 func initializeInjectDependencies(cache2 cache.Cache, fields *managers.ControllerFields) (injectorDependencies, error) {
-	logger := fields.Logger
+	runnablesRunnables := runnables.ProvideRunnables()
 	client := fields.Client
 	scheme := fields.Scheme
+	logger := fields.Logger
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
+	clientCommandInjector := &ClientCommandInjector{
+		Fields:        fields,
+		CommandRunner: clientCommandRunner,
+	}
 	restConfig := fields.Config
 	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
@@ -42,35 +47,22 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	if err != nil {
 		return injectorDependencies{}, err
 	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return injectorDependencies{}, err
-	}
-	factory := manifests.NewFactory(operatorConfig, scheme)
-	crdUpdater := &runnables.CRDUpdater{
-		Logger:  logger,
-		CC:      clientCommandRunner,
-		Config:  operatorConfig,
-		Rest:    restConfig,
-		Client:  clientset,
-		Factory: factory,
-	}
-	runnablesRunnables := runnables.ProvideRunnables(crdUpdater)
-	clientCommandInjector := &ClientCommandInjector{
-		Fields:        fields,
-		CommandRunner: clientCommandRunner,
-	}
 	operatorConfigInjector := &OperatorConfigInjector{
 		Config: operatorConfig,
 	}
 	patchInjector := &PatchInjector{}
 	deployedNamespace := ProvideNamespace(operatorConfig)
+	factory := manifests.NewFactory(operatorConfig, scheme)
 	factoryInjector := &FactoryInjector{
 		Fields:    fields,
 		Config:    operatorConfig,
 		Namespace: deployedNamespace,
 		Scheme:    scheme,
 		Factory:   factory,
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return injectorDependencies{}, err
 	}
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,

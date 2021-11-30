@@ -54,7 +54,6 @@ func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName s
 	}
 
 	if now.UTC().After(s.Token.ExpirationTimestamp.Time) {
-
 		reqLogger.Info("service account token is expired")
 
 		return s.getToken(targetServiceAccountName, s.Client, tr, opts)

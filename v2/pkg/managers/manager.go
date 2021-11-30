@@ -149,7 +149,6 @@ func StartCache(
 	isIndexed CacheIsIndexed,
 ) (CacheIsStarted, error) {
 	errChan := make(chan error)
-	stopCh := make(chan struct{})
 	doneChan := make(chan bool)
 	timer := time.NewTimer(time.Minute)
 	defer func() {
@@ -158,12 +157,11 @@ func StartCache(
 		}
 	}()
 	defer close(doneChan)
-	defer close(stopCh)
 	defer close(errChan)
 
 	go func() {
 		log.Info("starting cache")
-		err := cache.Start(ctx.Done())
+		err := cache.Start(ctx)
 		if err != nil {
 			errChan <- err
 			log.Error(err, "error starting cache")
@@ -175,7 +173,7 @@ func StartCache(
 
 	go func() {
 		log.Info("checking if cache is started")
-		for !cache.WaitForCacheSync(stopCh) {
+		for !cache.WaitForCacheSync(ctx) {
 		}
 		doneChan <- true
 	}()
@@ -254,14 +252,10 @@ func newCachedClient(ca cache.Cache, config *rest.Config, options client.Options
 		return nil, err
 	}
 
-	return &client.DelegatingClient{
-		Reader: &client.DelegatingReader{
-			CacheReader:  ca,
-			ClientReader: c,
-		},
-		Writer:       c,
-		StatusClient: c,
-	}, nil
+	return client.NewDelegatingClient(client.NewDelegatingClientInput{
+		CacheReader: ca,
+		Client:      c,
+	})
 }
 
 // newSimpleClient creates a new client

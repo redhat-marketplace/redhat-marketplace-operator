@@ -63,7 +63,7 @@ const (
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
-	RRS3_FINALIZER = "children.downloads.deploy.razee.io"
+	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
 	CLUSTER_ROLE              = "redhat-marketplace-operator"
@@ -116,6 +116,8 @@ const (
 
 	DeploymentConfigName = "rhm-meterdefinition-file-server"
 	FileServerAudience   = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
+	ProductionURL        = "https://marketplace.redhat.com"
+	StageURL             = "https://sandbox.marketplace.redhat.com"
 )
 
 var (
@@ -136,7 +138,6 @@ func DataServiceAudience(ns string) string {
 // Getenv will return the value for the passed key (which is typically an environment variable)
 // If it is not found, return the fallback
 func Getenv(key, fallback string) string {
-
 	image, found := os.LookupEnv(key)
 	if !found {
 		return fallback

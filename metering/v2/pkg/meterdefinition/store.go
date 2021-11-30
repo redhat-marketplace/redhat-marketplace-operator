@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MeterDefinitionStores = map[string]*MeterDefinitionStore
@@ -386,7 +387,7 @@ func (s *MeterDefinitionStore) Resync() error {
 			return err
 		}
 
-		key, _ := s.keyFunc(obj.(runtime.Object))
+		key, _ := s.keyFunc(obj.(client.Object))
 		if !exists {
 			s.log.Info("adding obj from objectsSeen", "obj", key)
 			if err := s.Add(obj); err != nil {

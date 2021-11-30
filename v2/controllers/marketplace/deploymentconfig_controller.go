@@ -136,16 +136,16 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	deploymentConfigPred := []predicate.Predicate{
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return e.Meta.GetName() == utils.DeploymentConfigName
+				return e.Object.GetName() == utils.DeploymentConfigName
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.MetaNew.GetName() == utils.DeploymentConfigName
+				return e.ObjectNew.GetName() == utils.DeploymentConfigName
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return e.Meta.GetName() == utils.DeploymentConfigName
+				return e.Object.GetName() == utils.DeploymentConfigName
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
-				return e.Meta.GetName() == utils.DeploymentConfigName
+				return e.Object.GetName() == utils.DeploymentConfigName
 			},
 		},
 	}
@@ -184,7 +184,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
 // Reconcile reads that state of the cluster for a DeploymentConfig object and makes changes based on the state read
-func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	reqLogger.Info("begin reconcile")

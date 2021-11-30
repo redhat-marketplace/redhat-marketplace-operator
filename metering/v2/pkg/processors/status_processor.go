@@ -84,13 +84,9 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 	)
 
 	for i := range enhancedObj.MeterDefinitions {
-		key, err := client.ObjectKeyFromObject(&enhancedObj.MeterDefinitions[i])
+		key := client.ObjectKeyFromObject(&enhancedObj.MeterDefinitions[i])
 
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			u.mutex.Lock()
 			defer u.mutex.Unlock()
 

@@ -36,8 +36,6 @@ import (
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -95,7 +93,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig.Spec.ClusterUUID = "test"
 		marketplaceconfig.Spec.Features = features
 		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-		meterbase = utils.BuildMeterBaseCr(namespace, marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+		meterbase = utils.BuildMeterBaseCr(namespace, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 		tokenClaims := marketplace.MarketplaceClaims{
 			AccountID: "foo",
 			APIKey:    "test",
@@ -178,13 +176,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				}
 				return nil
 			}
-			foundOpSrc := &unstructured.Unstructured{}
-			foundOpSrc.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "operators.coreos.com",
-				Kind:    "OperatorSource",
-				Version: "v1",
-			})
-
 			marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 			marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 
@@ -198,10 +189,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				GetStep(opts,
 					GetWithNamespacedName(meterBaseName, namespace),
 					GetWithObj(&marketplacev1alpha1.MeterBase{}),
-				),
-				GetStep(opts,
-					GetWithNamespacedName(utils.OPSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
-					GetWithObj(foundOpSrc),
 				),
 				GetStep(opts,
 					GetWithNamespacedName(utils.IBM_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),

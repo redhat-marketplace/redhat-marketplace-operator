@@ -29,8 +29,10 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_patch"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kubectl/pkg/scheme"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -52,8 +54,11 @@ var _ = Describe("UpdateAction", func() {
 		patcher = mock_patch.NewMockPatchMaker(ctrl)
 		client = mock_client.NewMockClient(ctrl)
 		statusWriter = mock_client.NewMockStatusWriter(ctrl)
-		marketplacev1alpha1.AddToScheme(scheme.Scheme)
-		cc = NewClientCommand(client, scheme.Scheme, logger)
+
+		scheme := runtime.NewScheme()
+		utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+		marketplacev1alpha1.AddToScheme(scheme)
+		cc = NewClientCommand(client, scheme, logger)
 		ctx = context.TODO()
 
 		pod = &corev1.Pod{
