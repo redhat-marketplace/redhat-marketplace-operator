@@ -72,20 +72,20 @@ func hasOperatorTag(meta metav1.Object) bool {
 
 var rhmSubPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return hasOperatorTag(e.MetaNew)
+		return hasOperatorTag(e.ObjectNew)
 	},
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return hasOperatorTag(e.Meta)
+		return hasOperatorTag(e.Object)
 	},
 
 	CreateFunc: func(e event.CreateEvent) bool {
-		return hasOperatorTag(e.Meta)
+		return hasOperatorTag(e.Object)
 
 	},
 
 	GenericFunc: func(e event.GenericEvent) bool {
-		return hasOperatorTag(e.Meta)
+		return hasOperatorTag(e.Object)
 	},
 }
 
@@ -123,7 +123,7 @@ func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager)
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and creates corresponding meter definitions if found
-func (r *MeterDefinitionInstallReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling Object")
 

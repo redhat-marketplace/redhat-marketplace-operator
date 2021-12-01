@@ -58,24 +58,11 @@ jobs:
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
-    - name: Install operatorsdk
-      run: |-
-        version=v1.7.2
-        export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
-        export OS=$(uname | awk '{print tolower($0)}')
-        export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
-        curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-        grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-        chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
       run: |-
         make svu
-        export VERSION="$(./bin/svu next)"
+        export VERSION="$(./bin/svu next --prefix '')"
 
         if [ "$REF" == "" ]; then
         	REF="$GITHUB_REF"
@@ -83,23 +70,25 @@ jobs:
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
         	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-          REF="$GITHUB_HEAD_REF"
+        	REF="$GITHUB_HEAD_REF"
         fi
 
         echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
-          echo "failed to find version"
-          exit 1
+        	echo "failed to find version"
+        	exit 1
         fi
 
-        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
-        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="false"
         else
         echo "using beta in version"
-        export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="true"
         fi
 
@@ -127,7 +116,7 @@ jobs:
           exit 1
         fi
 
-        status=$(echo $BRANCH_BUILD | jq -r '.status')
+        status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
         conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
         if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
@@ -144,39 +133,7 @@ jobs:
       uses: actions/checkout@v2
     - id: mirror
       name: Scan images
-      run: |-
-        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-operator"
-        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
-        digest=$(skopeo --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG | jq -r '.Digest')
-        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
-        --header 'Content-Type: application/json' \
-        --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-operator@$digest\",\"tag\": \"$TAG\"}"
-        echo "::endgroup::"
-        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
-        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
-        digest=$(skopeo --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG | jq -r '.Digest')
-        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
-        --header 'Content-Type: application/json' \
-        --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-metric-state@$digest\",\"tag\": \"$TAG\"}"
-        echo "::endgroup::"
-        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
-        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
-        digest=$(skopeo --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG | jq -r '.Digest')
-        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
-        --header 'Content-Type: application/json' \
-        --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-reporter@$digest\",\"tag\": \"$TAG\"}"
-        echo "::endgroup::"
-        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
-        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-ffed416e-c18d-4b88-8660-f586a4792785" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
-        digest=$(skopeo --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG | jq -r '.Digest')
-        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
-        --header 'Content-Type: application/json' \
-        --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-authcheck@$digest\",\"tag\": \"$TAG\"}"
-        echo "::endgroup::"
+      run: .github/workflows/scripts/scan_images.sh
       env:
         REDHAT_TOKEN: ${{ secrets.redhat_api_key }}
     - uses: peter-evans/create-or-update-comment@v1
@@ -241,24 +198,11 @@ jobs:
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
-    - name: Install operatorsdk
-      run: |-
-        version=v1.7.2
-        export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
-        export OS=$(uname | awk '{print tolower($0)}')
-        export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
-        curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-        grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-        chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
       run: |-
         make svu
-        export VERSION="$(./bin/svu next)"
+        export VERSION="$(./bin/svu next --prefix '')"
 
         if [ "$REF" == "" ]; then
         	REF="$GITHUB_REF"
@@ -266,23 +210,25 @@ jobs:
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
         	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-          REF="$GITHUB_HEAD_REF"
+        	REF="$GITHUB_HEAD_REF"
         fi
 
         echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
-          echo "failed to find version"
-          exit 1
+        	echo "failed to find version"
+        	exit 1
         fi
 
-        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
-        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="false"
         else
         echo "using beta in version"
-        export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="true"
         fi
 
@@ -310,7 +256,7 @@ jobs:
           exit 1
         fi
 
-        status=$(echo $BRANCH_BUILD | jq -r '.status')
+        status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
         conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
         if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
@@ -334,7 +280,7 @@ jobs:
     - name: Publish Operator Images
       run: |-
         make pc-tool
-        ./bin/partner-connect-tool publish --username $RH_USER --password $RH_PASSWORD  --images https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,,$TAG --images https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,,$TAG --images https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,,$TAG --images https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,,$TAG --images https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images,,$TAG
+        ./bin/partner-connect-tool publish --username $RH_USER --password $RH_PASSWORD  --images https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,,$TAG --images https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,,$TAG --images https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,,$TAG --images https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,,$TAG --images https://connect.redhat.com/projects/61649f78d3e2f8d3bcfe30d5/images,,$TAG --images https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images,,$TAG
       env:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
@@ -401,24 +347,11 @@ jobs:
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
-    - name: Install operatorsdk
-      run: |-
-        version=v1.7.2
-        export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
-        export OS=$(uname | awk '{print tolower($0)}')
-        export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
-        curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-        grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-        chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
       run: |-
         make svu
-        export VERSION="$(./bin/svu next)"
+        export VERSION="$(./bin/svu next --prefix '')"
 
         if [ "$REF" == "" ]; then
         	REF="$GITHUB_REF"
@@ -426,23 +359,25 @@ jobs:
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
         	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-          REF="$GITHUB_HEAD_REF"
+        	REF="$GITHUB_HEAD_REF"
         fi
 
         echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
-          echo "failed to find version"
-          exit 1
+        	echo "failed to find version"
+        	exit 1
         fi
 
-        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
-        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="false"
         else
         echo "using beta in version"
-        export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="true"
         fi
 
@@ -470,7 +405,7 @@ jobs:
           exit 1
         fi
 
-        status=$(echo $BRANCH_BUILD | jq -r '.status')
+        status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
         conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
         if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
@@ -560,24 +495,11 @@ jobs:
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
-    - name: Install operatorsdk
-      run: |-
-        version=v1.7.2
-        export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
-        export OS=$(uname | awk '{print tolower($0)}')
-        export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
-        curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-        curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-        grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-        chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-        curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - id: version
       name: Get Version
       run: |-
         make svu
-        export VERSION="$(./bin/svu next)"
+        export VERSION="$(./bin/svu next --prefix '')"
 
         if [ "$REF" == "" ]; then
         	REF="$GITHUB_REF"
@@ -585,23 +507,25 @@ jobs:
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
         	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-          REF="$GITHUB_HEAD_REF"
+        	REF="$GITHUB_HEAD_REF"
         fi
 
         echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
-          echo "failed to find version"
-          exit 1
+        	echo "failed to find version"
+        	exit 1
         fi
 
-        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* || "$REF" == *"refs/head/master"* || "$REF" == *"refs/head/develop"* ]] ; then
         echo "using release version and github_run_number"
-        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="false"
         else
         echo "using beta in version"
-        export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
+        export TAG="${VERSION}"
         export IS_DEV="true"
         fi
 
@@ -629,7 +553,7 @@ jobs:
           exit 1
         fi
 
-        status=$(echo $BRANCH_BUILD | jq -r '.status')
+        status=$(echo $BRANCH_BUILD | jq -r ' pffastatus')
         conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
 
         if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then

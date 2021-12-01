@@ -88,7 +88,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 	os.Setenv("POD_NAMESPACE", operatorNamespace)
 	os.Setenv("IMAGE_STREAM_ID", imageStreamID)
@@ -118,11 +118,6 @@ var _ = BeforeSuite(func() {
 	operatorCfg.ReportController.PollTime = 5 * time.Second
 
 	operatorCfg.DeployedNamespace = operatorNamespace
-
-	// factory := manifests.NewFactory(
-	// 	operatorCfg,
-	// 	scheme,
-	// )
 
 	// +kubebuilder:scaffold:scheme
 	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})

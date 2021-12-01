@@ -55,10 +55,14 @@ var _ = Describe("Template", func() {
 			WorkloadType:       "Pod",
 		}
 
+		setT, _ := time.Parse(time.RFC3339, "2020-02-11T20:04:05Z-05:00")
+		now := model.TimeFromUnixNano(setT.UnixNano())
+
 		pair := model.SamplePair{
-			Timestamp: model.Now(),
+			Timestamp: now,
 			Value:     model.SampleValue(1.0),
 		}
+
 		results, err := promLabels.PrintTemplate(values, pair)
 		Expect(err).To(Succeed())
 
@@ -72,8 +76,24 @@ var _ = Describe("Template", func() {
 		})))
 
 		parsedDate, _ := time.Parse(justDateFormat, "2020-02-11")
-		Expect(results.IntervalStart).To(Equal(parsedDate))
-		Expect(results.IntervalEnd).To(Equal(parsedDate.Add(time.Hour)))
+		year, month, day := parsedDate.UTC().Date()
+		hour, minute, second := now.Time().UTC().Clock()
+
+		expectedDate := time.Date(year, month, day, hour, minute, second, 0, time.UTC)
+
+		Expect(results.IntervalStart).To(Equal(expectedDate))
+		Expect(results.IntervalEnd).To(Equal(expectedDate.Add(time.Hour)))
+		Expect(results.Value).To(Equal("1"))
+
+		pair2 := model.SamplePair{
+			Timestamp: now.Add(time.Hour),
+			Value:     model.SampleValue(1.0),
+		}
+		results, err = promLabels.PrintTemplate(values, pair2)
+		Expect(err).To(Succeed())
+
+		Expect(results.IntervalStart).To(Equal(expectedDate.Add(time.Hour)))
+		Expect(results.IntervalEnd).To(Equal(expectedDate.Add(2 * time.Hour)))
 		Expect(results.Value).To(Equal("1"))
 	})
 })

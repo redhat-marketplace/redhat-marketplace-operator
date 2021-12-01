@@ -33,9 +33,9 @@ import (
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Engine struct {
@@ -112,7 +112,7 @@ func (e *Engine) Start(ctx context.Context) error {
 }
 
 type reflectorConfig struct {
-	expectedType runtime.Object
+	expectedType client.Object
 	lister       func(string) cache.ListerWatcher
 
 	startContext context.Context

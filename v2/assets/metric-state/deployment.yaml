@@ -39,13 +39,19 @@ spec:
         - name: metric-state
           image: metric-state
           imagePullPolicy: IfNotPresent
+          env:
+          - name: MEMORY_LIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
+                divisor: 1Mi
           resources:
             requests:
               cpu: 50m
               memory: 150Mi
             limits:
               cpu: 100m
-              memory: 700Mi
+              memory: 400Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -68,7 +74,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 20m
-              memory: 40Mi
+              memory: 45Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -98,7 +104,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 20m
-              memory: 25Mi
+              memory: 30Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -135,7 +141,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 20m
-              memory: 25Mi
+              memory: 30Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

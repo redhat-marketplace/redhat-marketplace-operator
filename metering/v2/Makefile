@@ -1,11 +1,8 @@
-VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
-export VERSION
-
 include ../../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-metric-state
-IMAGE_TAG ?= $(VERSION)
+IMAGE_TAG ?= $(TAG)
 QUAY_EXPIRATION?=never
 
 IMG ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
@@ -13,7 +10,7 @@ export IMG
 IMAGE ?= $(IMG)
 export IMAGE
 
-all: generate vet fmt
+all: svu generate vet fmt
 
 build:
 	$(call multiarch-build,redhat-marketplace-metric-state,./cmd/)
@@ -26,7 +23,6 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
-ARCHS ?= amd64 ppc64le s390x
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
@@ -47,4 +43,4 @@ generate:
 #... Run the test
 .PHONY: test
 test: ginkgo
-	- $(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+	- $(GINKGO) -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --v --trace ./...

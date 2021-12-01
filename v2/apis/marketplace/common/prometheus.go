@@ -202,8 +202,12 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 			t = t2
 		}
 
-		intervalStart = t
-		intervalEnd = t.Add(result.MetricPeriod.Duration)
+		// Get the Clock() HMS from original intervalStart and combine with DateLabelOverride YMD
+		year, month, day := t.Date()
+		hour, minute, second := intervalStart.Clock()
+
+		intervalStart = time.Date(year, month, day, hour, minute, second, 0, time.UTC)
+		intervalEnd = intervalStart.Add(result.MetricPeriod.Duration)
 	}
 
 	result.IntervalStart = intervalStart
@@ -341,7 +345,7 @@ type Result struct {
 type ResultValues struct {
 	Timestamp int64             `json:"timestamp"`
 	Value     string            `json:"value"`
-	Labels    map[string]string `json:"labels"`
+	Labels    map[string]string `json:"labels,omitempty"`
 }
 
 // Target is used by meterbase as a list of prometheus activeTargets with failed health, without DiscoveredLabels

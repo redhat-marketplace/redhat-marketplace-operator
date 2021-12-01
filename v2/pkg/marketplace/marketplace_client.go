@@ -38,11 +38,6 @@ import (
 
 var logger = logf.Log.WithName("marketplace")
 
-const (
-	ProductionURL = "https://marketplace.redhat.com"
-	StageURL      = "https://sandbox.marketplace.redhat.com"
-)
-
 // endpoints
 const (
 	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
@@ -85,7 +80,7 @@ type MarketplaceClientBuilder struct {
 func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder {
 	builder := &MarketplaceClientBuilder{}
 
-	builder.Url = ProductionURL
+	builder.Url = utils.ProductionURL
 
 	if cfg.URL != "" {
 		builder.Url = cfg.URL
@@ -106,9 +101,9 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(
 	marketplaceURL := b.Url
 
 	if tokenClaims != nil &&
-		b.Url == ProductionURL &&
+		b.Url == utils.ProductionURL &&
 		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
-		marketplaceURL = StageURL
+		marketplaceURL = utils.StageURL
 		logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
 	}
 

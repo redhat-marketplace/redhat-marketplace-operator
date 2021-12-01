@@ -233,7 +233,7 @@ var (
 
 func setup() client.Client {
 	marketplaceconfig.Spec.Features = features
-	meterbase = BuildMeterBaseCr(testNamespace1, marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+	meterbase = BuildMeterBaseCr(testNamespace1, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("features", defaultFeatures)
 	testNs1.ObjectMeta.Name = testNamespace1
@@ -258,7 +258,6 @@ func setup() client.Client {
 }
 
 func setupResources(rclient client.Client) error {
-
 	testPod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod-1",

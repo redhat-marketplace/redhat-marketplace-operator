@@ -22,7 +22,11 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,21 +37,26 @@ import (
 )
 
 type ReconcileTask struct {
+	logger    logr.Logger
 	K8SClient client.Client
 	Config    *Config
 	K8SScheme *runtime.Scheme
 	Namespace
 	recorder record.EventRecorder
+
+	NewTask   func(ctx context.Context, reportName ReportName, taskConfig *Config) (TaskRun, error)
+	NewUpload func(ctx context.Context, config *Config, namespace Namespace) (UploadRun, error)
 }
 
 func (r *ReconcileTask) Run(ctx context.Context) error {
+	reportErr := r.report(ctx)
+	uploadErr := r.upload(ctx)
 
-	err := r.run(ctx)
-
+	err := errors.Combine(reportErr, uploadErr)
 	if err != nil {
 		terr := r.recordTaskError(ctx, err)
 		if terr != nil {
-			logger.Error(terr, "error recording task error to events")
+			logger.Error(terr, "error recording error to events")
 		}
 
 		return err
@@ -56,10 +65,9 @@ func (r *ReconcileTask) Run(ctx context.Context) error {
 	return nil
 }
 
-func (r *ReconcileTask) run(ctx context.Context) error {
-	logger.Info("reconcile run start")
+func (r *ReconcileTask) report(ctx context.Context) error {
+	logger.Info("reconcile report start")
 	meterReports := marketplacev1alpha1.MeterReportList{}
-
 	err := r.K8SClient.List(ctx, &meterReports, client.InNamespace(r.Namespace))
 
 	if err != nil {
@@ -80,9 +88,10 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 		}
 	}
 
-	logger.Info("meter reports ready to run", "reports", strings.Join(meterReportsToRunNames, ", "))
+	logger.Info("report: meter reports ready to run", "reports", strings.Join(meterReportsToRunNames, ", "))
 
 	for _, report := range meterReportsToRun {
+		logger.Info("report: running report", "report", report.Name)
 		if err := r.ReportTask(ctx, report); err != nil {
 			logger.Error(err, "error running report")
 			errs = append(errs, err)
@@ -90,16 +99,80 @@ func (r *ReconcileTask) run(ctx context.Context) error {
 		}
 	}
 
-	// Get reports from data service to upload
-	if r.CanRunUploadTask(ctx) {
-		if err := r.UploadTask(ctx); err != nil {
-			logger.Error(err, "error uploading files from data service")
-			return err
+	return errors.Combine(errs...)
+}
+
+func (r *ReconcileTask) upload(ctx context.Context) error {
+	logger.Info("reconcile upload start")
+	meterReports := marketplacev1alpha1.MeterReportList{}
+	err := r.K8SClient.List(ctx, &meterReports, client.InNamespace(r.Namespace))
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+
+	meterReportsToRunNames := []string{}
+	meterReportsToRun := []*marketplacev1alpha1.MeterReport{}
+
+	// Run reports and upload to data service
+	for i := range meterReports.Items {
+		report := meterReports.Items[i]
+		reason, ok := r.CanRunUploadReportTask(ctx, report)
+		if ok {
+			logger.Info("not skipping", "report", report.Name)
+			meterReportsToRun = append(meterReportsToRun, &report)
+			meterReportsToRunNames = append(meterReportsToRunNames, report.Name)
+		} else {
+			logger.Info("skipping for reason", "report", report.Name, "reason", reason)
+			r.setSkipReason(ctx, &report, reason)
 		}
 	}
 
-	return nil
+	logger.Info("upload: meter reports ready to run", "reports", strings.Join(meterReportsToRunNames, ", "))
+
+	uploadTask, err := r.NewUpload(ctx, r.Config, r.Namespace)
+	if err != nil {
+		return err
+	}
+
+	// Get reports from data service to upload
+	for _, report := range meterReportsToRun {
+		logger.Info("upload: running report", "report", report.Name)
+		if err := uploadTask.RunReport(ctx, report); err != nil {
+			details := errors.GetDetails(err)
+			logger.Error(err, "error uploading files from data service", details...)
+			errs = append(errs, err)
+		}
+	}
+
+	ok, reason := r.CanRunGenericUpload(ctx)
+	if ok {
+		if err := uploadTask.RunGeneric(ctx); err != nil {
+			details := errors.GetDetails(err)
+			logger.Error(err, "error uploading files from data service", details...)
+			errs = append(errs, err)
+		}
+	} else {
+		logger.Info("not running generalized upload because of reason", "reason", reason)
+	}
+
+	return errors.Combine(errs...)
 }
+
+type ReportSkipReason string
+
+const (
+	SkipNotReady     ReportSkipReason = "NotReady"
+	SkipDisconnected ReportSkipReason = "Disconn"
+	SkipNoData       ReportSkipReason = "NoData"
+	SkipNoFileID     ReportSkipReason = "NoFileID"
+	SkipDone         ReportSkipReason = "Done"
+	SkipMaxAttempts  ReportSkipReason = "OutOfRetry"
+	SkipComplete     ReportSkipReason = "Complete"
+
+	SkipEmpty ReportSkipReason = ""
+)
 
 func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplacev1alpha1.MeterReport) bool {
 	now := time.Now().UTC()
@@ -107,9 +180,21 @@ func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplace
 		return false
 	}
 
-	uploadStatus := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeUploadStatus)
+	if report.Status.DataServiceStatus != nil && report.Status.DataServiceStatus.Success() {
+		return false
+	}
 
-	if uploadStatus != nil && uploadStatus.IsTrue() {
+	stat := report.Status.UploadStatus.Get(uploaders.UploaderTargetDataService.Name())
+	if stat != nil && stat.Success() {
+		return false
+	}
+
+	if report.Status.UploadStatus.OneSuccessOf(
+		[]string{
+			uploaders.UploaderTargetMarketplace.Name(),
+			uploaders.UploaderTargetRedHatInsights.Name(),
+		},
+	) {
 		return false
 	}
 
@@ -117,14 +202,11 @@ func (r *ReconcileTask) CanRunReportTask(ctx context.Context, report marketplace
 }
 
 func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alpha1.MeterReport) error {
-	key, err := client.ObjectKeyFromObject(report)
-	if err != nil {
-		return err
-	}
+	key := client.ObjectKeyFromObject(report)
 
 	cfg := *r.Config
-	cfg.UploaderTargets = UploaderTargets{&DataServiceUploader{}}
-	task, err := NewTask(
+	cfg.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
+	task, err := r.NewTask(
 		ctx,
 		ReportName(key),
 		&cfg,
@@ -134,7 +216,7 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 		return err
 	}
 
-	err = task.Run()
+	err = task.Run(ctx)
 	if err != nil {
 		logger.Error(err, "error running task")
 		return err
@@ -143,35 +225,55 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 	return nil
 }
 
-func (r *ReconcileTask) CanRunUploadTask(ctx context.Context) bool {
-	return true
+//
+func (r *ReconcileTask) CanRunGenericUpload(ctx context.Context) (bool, ReportSkipReason) {
+	if r.Config.IsDisconnected {
+		return false, SkipDisconnected
+	}
+
+	return true, SkipEmpty
 }
 
-func (r *ReconcileTask) UploadTask(ctx context.Context) error {
-	cfg := *r.Config
+const maxUploadAttempts = 3
 
-	uploadTask, err := NewUploadTask(
-		ctx,
-		&cfg,
-	)
-
-	if err != nil {
-		logger.Error(err, "error running task")
-		return err
+// IsDisconnected defaults to false
+func (r *ReconcileTask) CanRunUploadReportTask(ctx context.Context, report marketplacev1alpha1.MeterReport) (ReportSkipReason, bool) {
+	now := time.Now().UTC()
+	if now.Before(report.Spec.EndTime.Time.UTC()) {
+		return SkipEmpty, false
 	}
 
-	err = uploadTask.Run()
-	if err != nil {
-		logger.Error(err, "error running task")
-		return err
+	if r.Config.IsDisconnected {
+		return SkipDisconnected, false
 	}
 
-	return nil
+	if report.Status.MetricUploadCount == nil || *report.Status.MetricUploadCount == 0 {
+		return SkipNoData, false
+	}
+
+	if report.Status.DataServiceStatus == nil || report.Status.DataServiceStatus.ID == "" || !report.Status.DataServiceStatus.Success() {
+		return SkipNoFileID, false
+	}
+
+	if report.Status.RetryUpload >= maxUploadAttempts {
+		return SkipMaxAttempts, false
+	}
+
+	// skip if it's already complete
+	if report.Status.UploadStatus.OneSuccessOf(
+		[]string{
+			uploaders.UploaderTargetMarketplace.Name(),
+			uploaders.UploaderTargetRedHatInsights.Name(),
+		},
+	) {
+		return SkipComplete, false
+	}
+
+	return SkipEmpty, true
 }
 
 func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
-
-	var comp *ReportJobError
+	var comp *uploaders.ReportJobError
 
 	if errors.As(err, &comp) {
 
@@ -191,3 +293,81 @@ func (r *ReconcileTask) recordTaskError(ctx context.Context, err error) error {
 
 	return nil
 }
+
+func (r *ReconcileTask) setSkipReason(
+	ctx context.Context,
+	mreport *marketplacev1alpha1.MeterReport,
+	skip ReportSkipReason,
+) {
+	var condition status.Condition
+	switch skip {
+	case SkipDisconnected:
+		condition = marketplacev1alpha1.ReportConditionJobIsDisconnected
+	case SkipNoData:
+		condition = marketplacev1alpha1.ReportConditionJobHasNoData
+	case SkipMaxAttempts:
+		condition = marketplacev1alpha1.ReportConditionFailedAttempts
+	case SkipComplete:
+		return
+	case SkipEmpty:
+		r.logger.Info("no skip was passed for report", "name", mreport.Name)
+		return
+	default:
+		condition = marketplacev1alpha1.ReportConditionJobSkipped
+		condition.Message = fmt.Sprintf("Report skipped because %s", skip)
+	}
+
+	if err := updateMeterReportStatus(ctx, r.K8SClient, mreport.Name, mreport.Namespace,
+		func(m marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+			m.Conditions.SetCondition(condition)
+			return m
+		}); err != nil {
+		logger.Error(err, "failed to update meter report")
+	}
+}
+
+// idea to use indices to filter the meter report list
+// var uploadStatusIndexer, storageStatusIndexer client.FieldIndexer
+// const uploadedStatus = "status.conditions.Uploaded"
+
+// _ = uploadStatusIndexer.IndexField(context.TODO(), &marketplacev1alpha1.MeterReport{}, uploadedStatus, func(o client.Object) []string {
+// 	var res []string
+// 	cond := o.(*marketplacev1alpha1.MeterReport).Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeUploadStatus)
+// 	if cond != nil {
+// 		if cond.IsTrue() {
+// 			res = append(res, "true")
+// 			return res
+// 		}
+
+// 		switch cond.Reason {
+// 		case marketplacev1alpha1.ReportConditionReasonJobIsDisconnected:
+// 			if !r.Config.IsDisconnected {
+// 				res = append(res, "false")
+// 				return res
+// 			}
+// 			fallthrough
+// 		case marketplacev1alpha1.ReportConditionReasonJobMaxRetries:
+// 			fallthrough
+// 		case marketplacev1alpha1.ReportConditionReasonJobNoData:
+// 			fallthrough
+// 		default:
+// 			res = append(res, "true")
+// 			return res
+// 		}
+// 	}
+
+// 	res = append(res, "false")
+// 	return res
+// })
+
+// const storedStatus = "status.conditions.Stored"
+
+// _ = storageStatusIndexer.IndexField(context.TODO(), &marketplacev1alpha1.MeterReport{}, storedStatus, func(o client.Object) []string {
+// 	var res []string
+// 	cond := o.(*marketplacev1alpha1.MeterReport).Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeStorageStatus)
+// 	if cond != nil && cond.IsTrue() {
+// 		res = append(res, "true")
+// 	}
+// 	res = append(res, "false")
+// 	return res
+// })

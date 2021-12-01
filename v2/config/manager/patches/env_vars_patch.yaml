@@ -10,32 +10,20 @@ spec:
         - name: manager
           env:
             - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-              value: quay.io/razee/remoteresources3:0.9.3
+              value: quay.io/razee/remoteresources3:0.9.7
             - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-              value: quay.io/razee/watch-keeper:0.7.7
+              value: quay.io/razee/watch-keeper:0.7.10
             - name: RELATED_IMAGE_PROMETHEUS
-              value: registry.redhat.io/openshift4/ose-prometheus:v4.6
+              value: registry.redhat.io/openshift4/ose-prometheus:v4.9
             - name: RELATED_IMAGE_OAUTH_PROXY
-              value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+              value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.9
             - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-              value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+              value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.9
             - name: RELATED_IMAGE_CONFIGMAP_RELOADER
-              value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+              value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.9
             - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-              value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+              value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.9
             - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-              value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.8
+              value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.9
             - name: IBMCATALOGSOURCE
               value: 'true'
-            - name: OS_IMAGE_KUBE_RBAC_PROXY
-              value: quay.io/coreos/kube-rbac-proxy:v0.5.0
-            - name: OS_IMAGE_PROMETHEUS
-              value: quay.io/prometheus/prometheus:v2.24.0
-            - name: OS_IMAGE_PROMETHEUS_OPERATOR
-              value: quay.io/coreos/prometheus-operator:v0.42.1
-            - name: OS_IMAGE_CONFIGMAP_RELOADER
-              value: quay.io/coreos/configmap-reload:v0.0.1
-            - name: OS_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-              value: quay.io/coreos/prometheus-config-reloader:v0.42.1
-            - name: OS_IMAGE_OAUTH_PROXY
-              value: quay.io/oauth2-proxy/oauth2-proxy:v6.1.1

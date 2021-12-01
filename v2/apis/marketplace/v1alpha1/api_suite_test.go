@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
-		err = mgr.Start(ctx.Done())
+		err = mgr.Start(ctx)
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}

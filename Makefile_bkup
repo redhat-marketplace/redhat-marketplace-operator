@@ -371,8 +371,8 @@ test-ci: test-ci test-ci-unit test-join
 
 .PHONY: test-ci-unit
 test-ci-unit: ## test-ci-unit runs all tests for CI builds
-	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
-	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
+	ginkgo -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --v ./pkg ./cmd ./internal
+	cat cover-unit.out | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds

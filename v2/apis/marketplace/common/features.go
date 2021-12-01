@@ -39,7 +39,7 @@ type Features struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable MeterDefinition Catalog Server Deployment"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +optional
-	EnableMeterDefinitionCatalogServer *bool `json:"enableMeterDefinitionCatalogServer,omitempty"`
+	EnableMeterDefinitionCatalogServer *bool `json:"meterDefinitionCatalogServer,omitempty"`
 }
 
 // TODO: not using omit empty here, we don't want these to default to false because the dc controller looks for false to uninstall

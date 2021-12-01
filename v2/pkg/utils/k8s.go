@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"time"
 
 	emperrors "emperror.dev/errors"
@@ -33,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -214,7 +213,6 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 
 // BuildRazeeCrd returns a RazeeDeployment cr with default values
 func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, features *common.Features) *marketplacev1alpha1.RazeeDeployment {
-
 	cr := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RAZEE_NAME,
@@ -231,27 +229,35 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, featu
 	return cr
 }
 
+func NewMeterDefinitionCatalogConfig(
+	enabled bool,
+) *common.MeterDefinitionCatalogServerConfig {
+	return &common.MeterDefinitionCatalogServerConfig{
+		DeployMeterDefinitionCatalogServer: enabled,
+		SyncCommunityMeterDefinitions:      enabled,
+		SyncSystemMeterDefinitions:         false, //always making this false for now
+	}
+}
+
+func UpdateMeterDefinitionCatalogConfig(
+	base *marketplacev1alpha1.MeterBase,
+	config *common.MeterDefinitionCatalogServerConfig,
+) bool {
+	if config == nil {
+		return false
+	}
+
+	if base.Spec.MeterdefinitionCatalogServerConfig == nil {
+		base.Spec.MeterdefinitionCatalogServerConfig = config
+		return true
+	}
+
+	baseConfig := *base.Spec.MeterdefinitionCatalogServerConfig
+	return !reflect.DeepEqual(baseConfig, *config)
+}
+
 // BuildMeterBaseCr returns a MeterBase cr with default values
-func BuildMeterBaseCr(namespace string, deployMdefCatalogServer *bool) *marketplacev1alpha1.MeterBase {
-
-	var mdefCatalogServer *common.MeterDefinitionCatalogServerConfig
-
-	if *deployMdefCatalogServer {
-		mdefCatalogServer = &common.MeterDefinitionCatalogServerConfig{
-			DeployMeterDefinitionCatalogServer: true,
-			SyncCommunityMeterDefinitions:      true,
-			SyncSystemMeterDefinitions:         true,
-		}
-	}
-
-	if !*deployMdefCatalogServer {
-		mdefCatalogServer = &common.MeterDefinitionCatalogServerConfig{
-			DeployMeterDefinitionCatalogServer: false,
-			SyncCommunityMeterDefinitions:      false,
-			SyncSystemMeterDefinitions:         false,
-		}
-	}
-
+func BuildMeterBaseCr(namespace string, deployMdefCatalogServer bool) *marketplacev1alpha1.MeterBase {
 	cr := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      METERBASE_NAME,
@@ -264,20 +270,10 @@ func BuildMeterBaseCr(namespace string, deployMdefCatalogServer *bool) *marketpl
 					Size: resource.MustParse("20Gi"),
 				},
 			},
-			MeterdefinitionCatalogServerConfig: mdefCatalogServer,
+			MeterdefinitionCatalogServerConfig: NewMeterDefinitionCatalogConfig(deployMdefCatalogServer),
 		},
 	}
 	return cr
-}
-
-func ObjectToNamespaceNamed(obj runtime.Object) (types.NamespacedName, error) {
-	key, err := client.ObjectKeyFromObject(obj)
-
-	if err != nil {
-		return types.NamespacedName{}, err
-	}
-
-	return key, nil
 }
 
 func LoadYAML(filename string, i interface{}) (interface{}, error) {
@@ -305,8 +301,8 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	return genericTypeVal, nil
 }
 
-// filterByNamespace returns the runtime.Object filtered by namespaces ListOptions
-func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) error {
+// filterByNamespace returns the client.Object filtered by namespaces ListOptions
+func FilterByNamespace(obj client.ObjectList, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) error {
 	var err error
 	var listOpts []client.ListOption
 	for _, opt := range options {
@@ -317,7 +313,6 @@ func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClien
 		// if no namespaces are passed, return resources across all namespaces
 		listOpts = append(listOpts, client.InNamespace(""))
 		return getResources(obj, listOpts, rClient)
-
 	}
 
 	if len(namespaces) == 1 {
@@ -362,17 +357,15 @@ func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClien
 	return err
 }
 
-// getResources() is a helper function for FilterByNamespace(), it returns a the runtime.Object filled with resources from the requested namespaces
+// getResources() is a helper function for FilterByNamespace(), it returns a the client.Object filled with resources from the requested namespaces
 // the namespaces are preset in listOpts
-func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) error {
-
+func getResources(obj client.ObjectList, listOpts []client.ListOption, rClient client.Client) error {
 	err := rClient.List(context.TODO(), obj, listOpts...)
 	if err != nil {
 		return err
 	}
 
 	return nil
-
 }
 
 var eq = conversion.EqualitiesOrDie(

@@ -145,6 +145,7 @@ type Header map[string]string
 
 // RemoteResourceS3Spec defines the desired state of RemoteResourceS3
 // +k8s:openapi-gen=true
+// +kubebuilder:pruning:PreserveUnknownFields
 type RemoteResourceS3Spec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// Auth provides options to authenticate to a remote location
