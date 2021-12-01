@@ -49,7 +49,6 @@ LABEL name="Red Hat Marketplace ${name}" \
 RUN microdnf install yum procps-ng \
   && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
   && yum clean all \
-  && microdnf remove yum \
   && microdnf clean all
 
 ENV USER_UID=1001 \
