@@ -7,3 +7,4 @@ reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
 authCheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:latest
 dqLiteImage: quay.io/rh-marketplace/redhat-marketplace-data-service:latest
+watcherImage: quay.io/rh-marketplace/redhat-marketplace-watcher:latest

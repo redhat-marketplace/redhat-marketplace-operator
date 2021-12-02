@@ -1902,17 +1902,35 @@ func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
 func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
-	watchKeeperDeployment, err := r.factory.NewWatchKeeperDeployment()
+
+	/*
+		watchKeeperDeployment, err := r.factory.NewWatchKeeperDeployment()
+
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
+				watchKeeperDep, _ := r.factory.NewWatchKeeperDeployment()
+				r.factory.SetControllerReference(instance, watchKeeperDep)
+				return mergo.Merge(watchKeeperDeployment, watchKeeperDep, mergo.WithOverride)
+			})
+			return err
+		})
+	*/
+
+	watcherDeployment, err := r.factory.WatcherDeployment()
 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
-			watchKeeperDep, _ := r.factory.NewWatchKeeperDeployment()
-			r.factory.SetControllerReference(instance, watchKeeperDep)
-			return mergo.Merge(watchKeeperDeployment, watchKeeperDep, mergo.WithOverride)
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watcherDeployment, func() error {
+			watcherDep, _ := r.factory.WatcherDeployment()
+			r.factory.SetControllerReference(instance, watcherDep)
+			return mergo.Merge(watcherDeployment, watcherDep, mergo.WithOverride)
 		})
 		return err
 	})

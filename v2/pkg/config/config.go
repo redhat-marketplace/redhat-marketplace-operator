@@ -83,6 +83,7 @@ type RelatedImages struct {
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:v4.9"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.10.0"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.9.11"`
+	Watcher                     string `env:"RELATED_IMAGE_WATCHER" envDefault:"watcher:latest"`
 }
 
 // OSRelatedImages stores open source related images for the operator
@@ -99,6 +100,7 @@ type OSRelatedImages struct {
 	OAuthProxy                  string `env:"OS_IMAGE_OAUTH_PROXY" envDefault:"quay.io/oauth2-proxy/oauth2-proxy:v6.1.1"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.10.0"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.9.11"`
+	Watcher                     string `env:"RELATED_IMAGE_WATCHER" envDefault:"watcher:latest"`
 }
 
 // Features store feature flags

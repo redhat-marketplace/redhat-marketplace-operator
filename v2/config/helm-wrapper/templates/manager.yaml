@@ -7,6 +7,7 @@ metadata:
     reporterImage: {{ .Values.reporterImage }}
     metricStateImage: {{ .Values.metricStateImage }}
     authcheckImage: {{ .Values.authCheckImage }}
+    watcherImage: {{ .Values.watcherImage }}
 spec:
   selector:
     matchLabels:
@@ -71,6 +72,8 @@ spec:
               value: {{ .Values.authCheckImage }}
             - name: RELATED_IMAGE_DQLITE
               value: {{ .Values.dqLiteImage }}
+            - name: RELATED_IMAGE_WATCHER
+              value: {{ .Values.watcherImage }}
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

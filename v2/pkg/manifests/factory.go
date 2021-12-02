@@ -88,6 +88,7 @@ const (
 	DataServiceService       = "dataservice/service.yaml"
 	DataServiceRoute         = "dataservice/route.yaml"
 	DataServiceTLSSecret     = "dataservice/secret.yaml"
+	WatcherDeployment        = "watcher/deployment.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -187,6 +188,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		envChanges.Remove(corev1.EnvVar{
 			Name: "HTTPS_PROXY",
 		})
+	case container.Name == "watcher":
+		container.Image = f.config.RelatedImages.Watcher
 	}
 
 	envChanges.Merge(container)
@@ -1350,6 +1353,26 @@ func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, 
 	s.Data["tls.key"] = serverCertPEM
 
 	return s, nil
+}
+
+func (f *Factory) WatcherDeployment() (*appsv1.Deployment, error) {
+	d, err := f.NewDeployment(MustAssetReader(WatcherDeployment))
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range d.Spec.Template.Spec.Containers {
+		container := &d.Spec.Template.Spec.Containers[i]
+		err := f.ReplaceImages(container)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	d.Namespace = f.namespace
+
+	return d, nil
 }
 
 func init() {
