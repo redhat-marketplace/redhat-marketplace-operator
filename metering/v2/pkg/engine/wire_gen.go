@@ -102,10 +102,7 @@ func NewRazeeEngine(ctx context.Context, namespaces types.Namespaces, scheme *ru
 	if err != nil {
 		return nil, err
 	}
-	cacheIsIndexed, err := managers.AddIndices(ctx, cache)
-	if err != nil {
-		return nil, err
-	}
+	cacheIsIndexed := managers.CacheIsIndexed{}
 	cacheIsStarted, err := managers.StartCache(ctx, cache, log, cacheIsIndexed)
 	if err != nil {
 		return nil, err

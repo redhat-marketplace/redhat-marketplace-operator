@@ -39,7 +39,7 @@ var (
 		Run:   run,
 	}
 
-	log = logf.Log.WithName("metrics_cmd")
+	log = logf.Log.WithName("watcher_cmd")
 )
 
 func run(cmd *cobra.Command, args []string) {

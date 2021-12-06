@@ -660,7 +660,6 @@ var EngineSet = wire.NewSet(
 
 var RazeeEngineSet = wire.NewSet(
 	ProvideRazeeEngine,
-	//ProvideRazeeStoreRunnable,
 	razee.NewRazeeStore,
 	wire.FieldsOf(new(razee.RazeeStoreGroup), "Store", "Stores"),
 )

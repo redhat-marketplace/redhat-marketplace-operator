@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhm-watcher
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: rhm-watcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/name: rhm-watcher
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: rhm-watcher
+      annotations:
+        productName: 'Red Hat Marketplace Operator'
+        productID: '36cdaba810c348c096b85800dd62bcf1'
+        productMetric: 'FREE'
+    spec:
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - ppc64le
+                      - s390x
+      containers:
+        - name: watcher
+          image: watcher
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: MEMORY_LIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
+                divisor: 1Mi
+          resources:
+            requests:
+              cpu: 50m
+              memory: 150Mi
+            limits:
+              cpu: 100m
+              memory: 400Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePolicy: FallbackToLogsOnError
+          ports:
+            - containerPort: 8080
+              name: web
+            - containerPort: 8081
+              name: metrics
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+        node-role.kubernetes.io/master: ''
+      priorityClassName: system-cluster-critical
+      serviceAccountName: redhat-marketplace-watcher
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists

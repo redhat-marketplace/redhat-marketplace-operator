@@ -29,7 +29,6 @@ func NewServer(
 	opts *Options,
 ) (*Service, error) {
 	panic(wire.Build(
-		//		engine.NewEngine,
 		engine.NewRazeeEngine,
 		ProvideNamespaces,
 		managers.ProvideCachedClientSet,
@@ -38,10 +37,8 @@ func NewServer(
 		reconcileutils.CommandRunnerProviderSet,
 		ConvertOptions,
 		wire.Struct(new(Service), "*"),
-		//metrics.ProvidePrometheusData,
 		wire.InterfaceValue(new(logr.Logger), log),
-		provideRegistry,
-		managers.AddIndices,
+		wire.Struct(new(managers.CacheIsIndexed)),
 		provideContext,
 		config.GetConfig,
 	))

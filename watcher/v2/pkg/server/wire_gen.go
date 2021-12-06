@@ -43,14 +43,10 @@ func NewServer(opts *Options) (*Service, error) {
 		return nil, err
 	}
 	options := ConvertOptions(opts)
-	registry := provideRegistry()
 	logger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
+	cacheIsIndexed := managers.CacheIsIndexed{}
 	context := provideContext()
-	cacheIsIndexed, err := managers.AddIndices(context, cache)
-	if err != nil {
-		return nil, err
-	}
 	cacheIsStarted, err := managers.StartCache(context, cache, logger, cacheIsIndexed)
 	if err != nil {
 		return nil, err
@@ -61,15 +57,14 @@ func NewServer(opts *Options) (*Service, error) {
 		return nil, err
 	}
 	service := &Service{
-		k8sclient:       client,
-		k8sRestClient:   clientset,
-		opts:            options,
-		cache:           cache,
-		metricsRegistry: registry,
-		cc:              clientCommandRunner,
-		indexed:         cacheIsIndexed,
-		started:         cacheIsStarted,
-		razeeengine:     razeeEngine,
+		k8sclient:     client,
+		k8sRestClient: clientset,
+		opts:          options,
+		cache:         cache,
+		cc:            clientCommandRunner,
+		indexed:       cacheIsIndexed,
+		started:       cacheIsStarted,
+		razeeengine:   razeeEngine,
 	}
 	return service, nil
 }

@@ -76,6 +76,6 @@ func NewRazeeEngine(
 		configv1client.NewForConfig,
 		rhmclient.NewFindOwnerHelper,
 		client.NewDynamicClient,
-		managers.AddIndices,
+		wire.Struct(new(managers.CacheIsIndexed)),
 	))
 }
