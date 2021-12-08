@@ -133,7 +133,7 @@ spec:
                     description: Deployment represents the enablement of the razee
                       deployment, defaults to true when not set
                     type: boolean
-                  enableMeterDefinitionCatalogServer:
+                  meterDefinitionCatalogServer:
                     description: EnableMeterDefinitionCatalogServer represents the
                       enablement of the meterdefinition catalog server, defaults to
                       true when not set

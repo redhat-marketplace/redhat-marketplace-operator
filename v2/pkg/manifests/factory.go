@@ -1252,7 +1252,23 @@ func (f *Factory) NewMeterdefintionFileServerImageStream() (*osimagev1.ImageStre
 }
 
 func (f *Factory) NewMeterdefintionFileServerService() (*corev1.Service, error) {
-	return f.NewService(MustAssetReader(MeterdefinitionFileServerService))
+	s, err := f.NewService(MustAssetReader(MeterdefinitionFileServerService))
+	if err != nil {
+		return nil, err
+	}
+
+	if v, ok := s.GetAnnotations()["service.beta.openshift.io/serving-cert-secret-name"]; !ok || v != "rhm-meterdefinition-file-server-tls" {
+		annotations := s.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		annotations["service.beta.openshift.io/serving-cert-secret-name"] = "rhm-meterdefinition-file-server-tls"
+
+		s.SetAnnotations(annotations)
+	}
+
+	return s, nil
 }
 
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {

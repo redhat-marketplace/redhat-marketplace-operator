@@ -36,7 +36,7 @@ spec:
             memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
       - name: rhm-meterdefinition-file-server
-        image: RELATED_IMAGE_DEPLOYMENT_CONFIG
+        image: rhm-meterdefinition-file-server-image
         livenessProbe:
             httpGet:
               path: /healthz
