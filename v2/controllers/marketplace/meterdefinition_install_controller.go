@@ -192,7 +192,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 		CSVInfo: catalog.CSVInfo{
 			Name:      csvName,
 			Namespace: csv.Namespace,
-			Version:   csv.Spec.Version.Version.String(),
+			Version:   fmt.Sprintf("%d.%d.%d", csv.Spec.Version.Version.Major, csv.Spec.Version.Version.Minor, csv.Spec.Version.Version.Patch),
 		},
 		SubInfo: catalog.SubInfo{
 			PackageName:   sub.Spec.Package,
