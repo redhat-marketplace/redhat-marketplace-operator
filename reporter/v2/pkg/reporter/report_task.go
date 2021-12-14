@@ -271,14 +271,16 @@ func getMarketplaceReport(
 
 func getPrometheusService(
 	ctx context.Context,
-	report *marketplacev1alpha1.MeterReport,
 	cc ClientCommandRunner,
 	cfg *Config,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
+	if cfg.Local {
+		return nil, nil
+	}
 
-	if report.Spec.PrometheusService == nil {
-		returnErr = errors.New("cannot retrieve service as the report doesn't have a value for it")
+	if cfg.PrometheusService == "" || cfg.PrometheusNamespace == "" {
+		returnErr = fmt.Errorf("no prometheus configured")
 		return
 	}
 
@@ -289,6 +291,7 @@ func getPrometheusService(
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
 		returnErr = errors.Wrap(result, "failed to get report")
+		return
 	}
 
 	logger.Info("retrieved prometheus service")
@@ -299,6 +302,10 @@ func getPrometheusPort(
 	cfg *Config,
 	service *corev1.Service,
 ) (*corev1.ServicePort, error) {
+	if cfg.Local {
+		return nil, nil
+	}
+
 	var port *corev1.ServicePort
 
 	for i, portB := range service.Spec.Ports {
