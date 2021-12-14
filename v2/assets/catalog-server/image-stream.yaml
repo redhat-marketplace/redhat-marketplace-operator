@@ -9,14 +9,14 @@ spec:
   lookupPolicy:
     local: false
   tags:
-  - annotations:
-      openshift.io/imported-from: RELATED_IMAGE_DEPLOYMENT_CONFIG
-    from:
-      kind: DockerImage
-      name: RELATED_IMAGE_DEPLOYMENT_CONFIG
-    importPolicy:
-      insecure: true
-      scheduled: true
-    name: IMAGE_STREAM_TAG
-    referencePolicy:
-      type: Source
+    - annotations:
+        openshift.io/imported-from: RELATED_IMAGE_METERDEF_FILE_SERVER
+      from:
+        kind: DockerImage
+        name: RELATED_IMAGE_METERDEF_FILE_SERVER
+      importPolicy:
+        insecure: false
+        scheduled: true
+      name: IMAGE_STREAM_TAG
+      referencePolicy:
+        type: Source

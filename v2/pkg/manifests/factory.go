@@ -178,7 +178,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 	case container.Name == "rhm-data-service":
 		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == "rhm-meterdefinition-file-server":
-		container.Image = f.config.RelatedImages.DeploymentConfig
+		container.Image = f.config.RelatedImages.MeterDefFileServer
 	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
 		container.Image = f.config.RelatedImages.RemoteResourceS3
 
@@ -418,8 +418,8 @@ func (f *Factory) ReplaceDeploymentConfigValues(dc *osappsv1.DeploymentConfig) {
 }
 
 func (f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream) {
-	is.Spec.Tags[0].Annotations["openshift.io/imported-from"] = f.config.RelatedImages.DeploymentConfig
-	is.Spec.Tags[0].From.Name = f.config.RelatedImages.DeploymentConfig
+	is.Spec.Tags[0].Annotations["openshift.io/imported-from"] = f.config.RelatedImages.MeterDefFileServer
+	is.Spec.Tags[0].From.Name = f.config.RelatedImages.MeterDefFileServer
 	is.Spec.Tags[0].Name = f.operatorConfig.ImageStreamTag
 }
 
@@ -445,11 +445,11 @@ func (f *Factory) UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentC
 func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (updated bool) {
 	logger := log.WithValues("func", "UpdateImageStreamOnChange")
 	for _, tag := range clusterIS.Spec.Tags {
-		if tag.From.Name != f.config.RelatedImages.DeploymentConfig {
+		if tag.From.Name != f.config.RelatedImages.MeterDefFileServer {
 			logger.Info("ImageStream docker image reference needs to be updated")
 			logger.Info("Docker image reference found on cluster", "image", tag.From.Name)
-			logger.Info("Docker image reference found in config", "image", f.config.RelatedImages.DeploymentConfig)
-			tag.From.Name = f.config.RelatedImages.DeploymentConfig
+			logger.Info("Docker image reference found in config", "image", f.config.RelatedImages.MeterDefFileServer)
+			tag.From.Name = f.config.RelatedImages.MeterDefFileServer
 			updated = true
 		}
 
@@ -461,11 +461,11 @@ func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (u
 			updated = true
 		}
 
-		if tag.Annotations["openshift.io/imported-from"] != f.config.RelatedImages.DeploymentConfig {
+		if tag.Annotations["openshift.io/imported-from"] != f.config.RelatedImages.MeterDefFileServer {
 			logger.Info("ImageStream imported-from annotation needs to be updated")
 			logger.Info("ImageStream imported-from annotation on cluster", "value", tag.Annotations["openshift.io/imported-from"])
-			logger.Info("ImageStream imported-from annotation in config", "value", f.config.RelatedImages.DeploymentConfig)
-			tag.Annotations["openshift.io/imported-from"] = f.config.RelatedImages.DeploymentConfig
+			logger.Info("ImageStream imported-from annotation in config", "value", f.config.RelatedImages.MeterDefFileServer)
+			tag.Annotations["openshift.io/imported-from"] = f.config.RelatedImages.MeterDefFileServer
 			updated = true
 		}
 	}

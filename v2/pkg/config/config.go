@@ -84,7 +84,7 @@ type RelatedImages struct {
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:v4.9"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
-	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/maxpaspa/rhm-meterdefinition-file-server:multi-arch-3.0.0"`
+	MeterDefFileServer          string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
 // OSRelatedImages stores open source related images for the operator
@@ -101,7 +101,7 @@ type OSRelatedImages struct {
 	OAuthProxy                  string `env:"OS_IMAGE_OAUTH_PROXY" envDefault:"quay.io/oauth2-proxy/oauth2-proxy:v6.1.1"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
-	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/maxpaspa/rhm-meterdefinition-file-server:multi-arch-3.0.0"`
+	MeterDefFileServer          string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
 // Features store feature flags
