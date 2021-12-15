@@ -196,7 +196,7 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 			t2, err2 := time.Parse(justDateFormat, result.DateLabelOverride)
 
 			if err2 != nil {
-				return nil, errors.Combine(err, err2)
+				return nil, errors.Errorf("failed to parse overrideDate value %q", result.DateLabelOverride)
 			}
 
 			t = t2

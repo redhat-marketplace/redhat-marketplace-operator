@@ -89,7 +89,14 @@ func (r *Task) report(ctx context.Context) error {
 		details := append(
 			[]interface{}{"cause", errors.Cause(err)},
 			errors.GetDetails(err)...)
-		logger.Info(fmt.Sprintf("warning: %v", errors.Cause(err)), details...)
+		logger.Info(fmt.Sprintf("warning: %v", err.Error()), details...)
+	}
+
+	for _, err := range errorList {
+		details := append(
+			[]interface{}{"cause", errors.Cause(err)},
+			errors.GetDetails(err)...)
+		logger.Info(fmt.Sprintf("error: %v", err), details...)
 	}
 
 	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
@@ -171,24 +178,26 @@ func (r *Task) report(ctx context.Context) error {
 		)
 	}
 
-	err = updateMeterReportStatus(ctx, r.K8SClient, r.ReportName.Name, r.ReportName.Namespace,
-		func(status marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
-			status.UploadStatus.Append(uploadStatuses)
-			status.MetricUploadCount = ptr.Int(len(metrics))
-			status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
-			status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
-			status.Conditions.SetCondition(uploadCondition)
+	if !r.Config.Local {
+		err = updateMeterReportStatus(ctx, r.K8SClient, r.ReportName.Name, r.ReportName.Namespace,
+			func(status marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+				status.UploadStatus.Append(uploadStatuses)
+				status.MetricUploadCount = ptr.Int(len(metrics))
+				status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
+				status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
+				status.Conditions.SetCondition(uploadCondition)
 
-			dataServiceStatus := uploadStatuses.Get(uploaders.UploaderTargetDataService.Name())
-			if dataServiceStatus != nil {
-				status.DataServiceStatus = dataServiceStatus
-			}
+				dataServiceStatus := uploadStatuses.Get(uploaders.UploaderTargetDataService.Name())
+				if dataServiceStatus != nil {
+					status.DataServiceStatus = dataServiceStatus
+				}
 
-			return status
-		},
-	)
-	if err != nil {
-		log.Error(err, "failed to update report status")
+				return status
+			},
+		)
+		if err != nil {
+			log.Error(err, "failed to update report status")
+		}
 	}
 
 	if len(errorList) != 0 {
