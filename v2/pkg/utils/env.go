@@ -104,6 +104,8 @@ const (
 	RazeeWatchLevelDetail = "detail"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
+	OperatorTag      = "marketplace.redhat.com/operator"
+	OperatorTagValue = "true"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
@@ -112,8 +114,10 @@ const (
 	/* Certificate */
 	DQLITE_COMMONNAME_PREFIX = "*.rhm-data-service" // wildcard.ServiceName
 
-	ProductionURL = "https://marketplace.redhat.com"
-	StageURL      = "https://sandbox.marketplace.redhat.com"
+	DeploymentConfigName = "rhm-meterdefinition-file-server"
+	FileServerAudience   = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
+	ProductionURL        = "https://marketplace.redhat.com"
+	StageURL             = "https://sandbox.marketplace.redhat.com"
 )
 
 var (

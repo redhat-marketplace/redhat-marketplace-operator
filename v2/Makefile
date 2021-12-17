@@ -299,7 +299,7 @@ uninstall: helm yq
 	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
-skaffold-dev: skaffold
+skaffold-dev: skaffold kustomize
 	$(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run: skaffold

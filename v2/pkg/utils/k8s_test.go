@@ -218,12 +218,13 @@ var (
 	testNamespace2        = "testing-namespace-2"
 	testNamespace3        = "testing-namespace-3"
 	features              = &common.Features{
-		Deployment: ptr.Bool(true),
+		Deployment:                         ptr.Bool(true),
+		EnableMeterDefinitionCatalogServer: ptr.Bool(true),
 	}
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
 	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-	meterbase         = BuildMeterBaseCr(testNamespace1)
+	meterbase         *marketplacev1alpha1.MeterBase
 
 	testNs1 = &corev1.Namespace{}
 	testNs2 = &corev1.Namespace{}
@@ -231,6 +232,8 @@ var (
 )
 
 func setup() client.Client {
+	marketplaceconfig.Spec.Features = features
+	meterbase = BuildMeterBaseCr(testNamespace1, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("features", defaultFeatures)
 	testNs1.ObjectMeta.Name = testNamespace1

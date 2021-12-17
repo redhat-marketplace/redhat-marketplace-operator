@@ -2,6 +2,10 @@
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
+if [[ "$KUSTOMIZE" == "" ]]; then
+  KUSTOMIZE=$(which kustomize)
+fi
+
 pushd $DIR &>/dev/null
 
 cat <&0 >../manager/manager.yaml

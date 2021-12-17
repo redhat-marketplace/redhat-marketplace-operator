@@ -35,7 +35,7 @@ var _ = Describe("Remote resource S3 controller", func() {
 
 	var (
 		name      = "remoteresources3"
-		namespace = "default"
+		namespace = operatorNamespace
 		created   *marketplacev1alpha1.RemoteResourceS3
 	)
 
