@@ -89,7 +89,14 @@ func (r *Task) report(ctx context.Context) error {
 		details := append(
 			[]interface{}{"cause", errors.Cause(err)},
 			errors.GetDetails(err)...)
-		logger.Info(fmt.Sprintf("warning: %v", errors.Cause(err)), details...)
+		logger.Info(fmt.Sprintf("warning: %v", err.Error()), details...)
+	}
+
+	for _, err := range errorList {
+		details := append(
+			[]interface{}{"cause", errors.Cause(err)},
+			errors.GetDetails(err)...)
+		logger.Info(fmt.Sprintf("error: %v", err), details...)
 	}
 
 	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
@@ -171,24 +178,26 @@ func (r *Task) report(ctx context.Context) error {
 		)
 	}
 
-	err = updateMeterReportStatus(ctx, r.K8SClient, r.ReportName.Name, r.ReportName.Namespace,
-		func(status marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
-			status.UploadStatus.Append(uploadStatuses)
-			status.MetricUploadCount = ptr.Int(len(metrics))
-			status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
-			status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
-			status.Conditions.SetCondition(uploadCondition)
+	if !r.Config.Local {
+		err = updateMeterReportStatus(ctx, r.K8SClient, r.ReportName.Name, r.ReportName.Namespace,
+			func(status marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+				status.UploadStatus.Append(uploadStatuses)
+				status.MetricUploadCount = ptr.Int(len(metrics))
+				status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
+				status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
+				status.Conditions.SetCondition(uploadCondition)
 
-			dataServiceStatus := uploadStatuses.Get(uploaders.UploaderTargetDataService.Name())
-			if dataServiceStatus != nil {
-				status.DataServiceStatus = dataServiceStatus
-			}
+				dataServiceStatus := uploadStatuses.Get(uploaders.UploaderTargetDataService.Name())
+				if dataServiceStatus != nil {
+					status.DataServiceStatus = dataServiceStatus
+				}
 
-			return status
-		},
-	)
-	if err != nil {
-		log.Error(err, "failed to update report status")
+				return status
+			},
+		)
+		if err != nil {
+			log.Error(err, "failed to update report status")
+		}
 	}
 
 	if len(errorList) != 0 {
@@ -271,14 +280,16 @@ func getMarketplaceReport(
 
 func getPrometheusService(
 	ctx context.Context,
-	report *marketplacev1alpha1.MeterReport,
 	cc ClientCommandRunner,
 	cfg *Config,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
+	if cfg.Local {
+		return nil, nil
+	}
 
-	if report.Spec.PrometheusService == nil {
-		returnErr = errors.New("cannot retrieve service as the report doesn't have a value for it")
+	if cfg.PrometheusService == "" || cfg.PrometheusNamespace == "" {
+		returnErr = fmt.Errorf("no prometheus configured")
 		return
 	}
 
@@ -289,6 +300,7 @@ func getPrometheusService(
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
 		returnErr = errors.Wrap(result, "failed to get report")
+		return
 	}
 
 	logger.Info("retrieved prometheus service")
@@ -299,6 +311,10 @@ func getPrometheusPort(
 	cfg *Config,
 	service *corev1.Service,
 ) (*corev1.ServicePort, error) {
+	if cfg.Local {
+		return nil, nil
+	}
+
 	var port *corev1.ServicePort
 
 	for i, portB := range service.Spec.Ports {

@@ -125,13 +125,6 @@ func providePrometheusAPI(
 func providePrometheusAPIForReporter(
 	setup *PrometheusAPISetup,
 ) (v1.API, error) {
-	if setup.PromService == nil {
-		return nil, errors.New("prom service is not provided")
-	}
-	if setup.PromPort == nil {
-		return nil, errors.New("prom port is not provided")
-	}
-
 	if setup.RunLocal {
 		client, err := api.NewClient(api.Config{
 			Address: "http://127.0.0.1:9090",
@@ -143,6 +136,20 @@ func providePrometheusAPIForReporter(
 
 		localClient := v1.NewAPI(client)
 		return localClient, nil
+	} else {
+		if setup.PromService == nil {
+			return nil, errors.New("prom service is not provided")
+		}
+		if setup.PromPort == nil {
+			return nil, errors.New("prom port is not provided")
+		}
+	}
+
+	if setup.PromService == nil {
+		return nil, errors.New("prom service is not provided")
+	}
+	if setup.PromPort == nil {
+		return nil, errors.New("prom port is not provided")
 	}
 
 	name := setup.PromService.Name

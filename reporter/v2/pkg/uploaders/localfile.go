@@ -40,7 +40,7 @@ func (r *LocalFilePathUploader) UploadFile(ctx context.Context, file string, rea
 	fileName := filepath.Join(r.LocalFilePath, baseName)
 
 	log.Info("creating file", "name", fileName)
-	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		log.Error(err, "Error creating", "name", fileName)
 		return "", err
