@@ -55,7 +55,7 @@ const (
 	healthzPath = "/healthz"
 )
 
-var log = logf.Log.WithName("meteric_generator")
+var log = logf.Log.WithName("watcher")
 var reg = prometheus.NewRegistry()
 
 type Service struct {

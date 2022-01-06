@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/heartbeat"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
@@ -24,6 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -140,7 +142,12 @@ func NewRazeeEngine(ctx context.Context, namespaces types.Namespaces, scheme *ru
 	}
 	razeeProcessorSender := processorsenders.ProvideRazeeProcessorSender(log, clientClient, mailboxMailbox, scheme)
 	razeeChannelProducer := mailbox.ProvideRazeeChannelProducer(razeeStore, mailboxMailbox, log)
-	runnables := ProvideRazeeRunnables(razeeStoreRunnable, mailboxMailbox, razeeProcessorSender, razeeChannelProducer)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
+	heartbeatHeartbeat := heartbeat.ProvideHeartbeat(log, clientClient, discoveryClient)
+	runnables := ProvideRazeeRunnables(razeeStoreRunnable, mailboxMailbox, razeeProcessorSender, razeeChannelProducer, heartbeatHeartbeat)
 	razeeEngine := ProvideRazeeEngine(cacheIsStarted, razeeStore, namespaces, log, clientset, runnables)
 	return razeeEngine, nil
 }

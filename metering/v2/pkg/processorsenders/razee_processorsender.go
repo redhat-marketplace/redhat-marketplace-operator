@@ -17,19 +17,14 @@ package processorsenders
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
-	"io"
-	"io/ioutil"
-	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razeeclient"
 	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,14 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	merrors "emperror.dev/errors"
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const maxToSend = 50
@@ -184,23 +175,13 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 
 func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 	if !r.processedEventObjs.IsEmpty() {
-		// Fetch the Openshift ClusterVersion
-		instance := &openshiftconfigv1.ClusterVersion{}
-		err := r.kubeClient.Get(context.TODO(), types.NamespacedName{Name: "version"}, instance)
+
+		clusterID, err := razeeclient.GetClusterID(r.kubeClient)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				r.log.Error(err, "ClusterVersion does not exist")
-				return err
-			}
-			r.log.Error(err, "Failed to get ClusterVersion")
 			return err
 		}
 
-		clusterID := instance.Spec.ClusterID
-		r.log.Info(string(clusterID))
-
-		// read razeedash url secret & org secret for header
-		baseurl, razeeOrgKey, err := r.getRazeeDashKeys()
+		baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeys(r.kubeClient, razeeclient.GetNamespace())
 		if err != nil {
 			return err
 		}
@@ -218,12 +199,13 @@ func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 		}
 
 		// Post
-		r.log.Info("Attempt to send Objects to Destination", "URL", fullurl)
-
-		err = r.postToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
+		err = razeeclient.PostToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
 		if err != nil {
 			return err
 		}
+
+		r.log.Info("Sent Objects to Destination", "URL", fullurl)
+
 	}
 	return nil
 }
@@ -299,43 +281,6 @@ func (r *RazeeProcessorSender) prepObject2Send(obj interface{}) {
 	}
 }
 
-// Get the RazeeDash URL & Org Key from the rhm-operator-secret
-func (r *RazeeProcessorSender) getRazeeDashKeys() ([]byte, []byte, error) {
-	var url []byte
-	var key []byte
-
-	rhmOperatorSecret := corev1.Secret{}
-	err := r.kubeClient.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RHM_OPERATOR_SECRET_NAME,
-		Namespace: r.getNamespace(),
-	}, &rhmOperatorSecret)
-	if err != nil {
-		return url, key, err
-	}
-
-	url, err = utils.ExtractCredKey(&rhmOperatorSecret, corev1.SecretKeySelector{
-		LocalObjectReference: corev1.LocalObjectReference{
-			Name: utils.RHM_OPERATOR_SECRET_NAME,
-		},
-		Key: utils.RAZEE_DASH_URL_FIELD,
-	})
-	if err != nil {
-		return url, key, err
-	}
-
-	key, err = utils.ExtractCredKey(&rhmOperatorSecret, corev1.SecretKeySelector{
-		LocalObjectReference: corev1.LocalObjectReference{
-			Name: utils.RHM_OPERATOR_SECRET_NAME,
-		},
-		Key: utils.RAZEE_DASH_ORG_KEY_FIELD,
-	})
-	if err != nil {
-		return url, key, err
-	}
-
-	return url, key, nil
-}
-
 func (r *RazeeProcessorSender) getRazeeDashURL(baseurl string, clusterID string) (string, error) {
 	var urlStr string
 
@@ -346,51 +291,4 @@ func (r *RazeeProcessorSender) getRazeeDashURL(baseurl string, clusterID string)
 	}
 
 	return url.String(), nil
-}
-
-func (r *RazeeProcessorSender) postToRazeeDash(url string, body io.Reader, razeeOrgKey string) error {
-
-	client := retryablehttp.NewClient()
-	client.RetryWaitMin = 3000 * time.Millisecond
-	client.RetryWaitMax = 5000 * time.Millisecond
-	client.RetryMax = 5
-
-	req, err := retryablehttp.NewRequest("POST", url, body)
-	if err != nil {
-		return merrors.Wrap(err, "Error constructing RazeeDash POST request")
-	}
-
-	req.Header.Set("razee-org-key", razeeOrgKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	if os.Getenv("INSECURE_CLIENT") == "true" {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client.HTTPClient.Transport = tr
-	}
-
-	_, err = client.Do(req)
-	if err != nil {
-		return merrors.Wrap(err, "Error POSTing to RazeeDash")
-	}
-
-	r.log.Info("Sent Objects to Destination", "URL", url)
-
-	return nil
-}
-
-func (r *RazeeProcessorSender) getNamespace() string {
-	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
-		return ns
-	}
-
-	// Fall back to the namespace associated with the service account token, if available
-	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
-		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
-			return ns
-		}
-	}
-
-	return "default"
 }

@@ -31,7 +31,6 @@ func NewServer(
 ) (*Service, error) {
 	panic(wire.Build(
 		engine.NewEngine,
-		engine.NewRazeeEngine,
 		ProvideNamespaces,
 		managers.ProvideCachedClientSet,
 		provideScheme,

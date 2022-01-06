@@ -20,6 +20,7 @@ import (
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/heartbeat"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processorsenders"
@@ -88,6 +89,7 @@ func ProvideRazeeRunnables(
 	mailbox *mailbox.Mailbox,
 	razeeProcessorSender *processorsenders.RazeeProcessorSender,
 	razeeChannelProducer *mailbox.RazeeChannelProducer,
+	heartbeat *heartbeat.Heartbeat,
 ) Runnables {
 	// this is the start up order
 	return Runnables{
@@ -95,6 +97,7 @@ func ProvideRazeeRunnables(
 		razeeChannelProducer,
 		razeeProcessorSender,
 		razeeStore,
+		heartbeat,
 	}
 }
 
@@ -104,4 +107,5 @@ var RazeeRunnablesSet = wire.NewSet(
 	ProvideRazeeStoreRunnable,
 	processorsenders.ProvideRazeeProcessorSender,
 	mailbox.ProvideRazeeChannelProducer,
+	heartbeat.ProvideHeartbeat,
 )

@@ -73,7 +73,6 @@ type Service struct {
 	indexed         managers.CacheIsIndexed
 	started         managers.CacheIsStarted
 	engine          *engine.Engine
-	razeeengine     *engine.RazeeEngine
 	prometheusData  *metrics.PrometheusData
 
 	mutex deadlock.Mutex `wire:"-"`
@@ -87,13 +86,6 @@ func (s *Service) Serve(done <-chan struct{}) error {
 
 	if err != nil {
 		log.Error(err, "failed to start engine")
-		panic(err)
-	}
-
-	err = s.razeeengine.Start(ctx)
-
-	if err != nil {
-		log.Error(err, "failed to start razee engine")
 		panic(err)
 	}
 

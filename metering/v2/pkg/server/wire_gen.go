@@ -62,10 +62,6 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	razeeEngine, err := engine.NewRazeeEngine(context, namespaces, scheme, clientOptions, restConfig, logger)
-	if err != nil {
-		return nil, err
-	}
 	service := &Service{
 		k8sclient:       client,
 		k8sRestClient:   clientset,
@@ -76,7 +72,6 @@ func NewServer(opts *Options) (*Service, error) {
 		indexed:         cacheIsIndexed,
 		started:         cacheIsStarted,
 		engine:          engineEngine,
-		razeeengine:     razeeEngine,
 		prometheusData:  prometheusData,
 	}
 	return service, nil

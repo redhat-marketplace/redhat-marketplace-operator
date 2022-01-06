@@ -34,6 +34,8 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 )
 
@@ -68,6 +70,7 @@ func NewRazeeEngine(
 	log logr.Logger,
 ) (*RazeeEngine, error) {
 	panic(wire.Build(
+		discovery.NewDiscoveryClientForConfig,
 		managers.ProvideCachedClientSet,
 		RazeeRunnablesSet,
 		RazeeEngineSet,
