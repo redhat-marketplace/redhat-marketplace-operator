@@ -89,6 +89,21 @@ build:
             - Dockerfile
           ignore:
             - '**/*_test.go'
+    - image: redhat-marketplace-watcher
+      context: ../watcher/v2
+      custom:
+        buildCommand: ARCHS=amd64 make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - apis/**
+            - cmd/server/**
+            - pkg/**
+            - internal/**
+            - Dockerfile
+          ignore:
+            - '**/*_test.go'
 deploy:
   helm:
     releases:

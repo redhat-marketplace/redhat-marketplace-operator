@@ -499,7 +499,7 @@ branch_build: _#bashWorkflow & {
 				GO_VERSION: _#goVersion
 			}
 			strategy: matrix: {
-				project: ["operator", "authchecker", "metering", "reporter", "airgap"]
+				project: ["operator", "authchecker", "metering", "reporter", "airgap", "watcher"]
 				include: [
 					{
 						project: "operator"
@@ -515,6 +515,9 @@ branch_build: _#bashWorkflow & {
 					},
 					{
 						project: "airgap"
+					},
+					{
+						project: "watcher"
 					},
 				]
 			}

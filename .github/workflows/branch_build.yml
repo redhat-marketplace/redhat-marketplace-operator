@@ -216,12 +216,14 @@ jobs:
         - metering
         - reporter
         - airgap
+        - watcher
         include:
         - project: operator
         - project: authchecker
         - project: metering
         - project: reporter
         - project: airgap
+        - project: watcher
   deploy:
     name: Deploy
     needs:
