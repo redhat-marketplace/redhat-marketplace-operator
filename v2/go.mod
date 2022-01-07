@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/IBM/ibm-cos-sdk-go v1.8.0
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/blang/semver v3.5.1+incompatible
@@ -40,7 +41,6 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.2
-	k8s.io/apiextensions-apiserver v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a

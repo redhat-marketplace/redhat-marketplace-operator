@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
-	github.com/IBM/ibm-cos-sdk-go v1.7.0
+	github.com/IBM/ibm-cos-sdk-go v1.8.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.2.0

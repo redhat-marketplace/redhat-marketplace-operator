@@ -207,6 +207,17 @@ rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
+  - '*'
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
   - marketplaceconfigs
   verbs:
   - get
@@ -360,6 +371,18 @@ rules:
   - delete
   - get
   - list
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
+  - subscriptions
+  verbs:
+  - create
+  - get
+  - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -639,6 +662,7 @@ rules:
   - remoteresources3s
   - remoteresources3s/status
   verbs:
+  - create
   - get
   - list
   - patch
