@@ -170,8 +170,6 @@ func (c *connectClient) GetTag(opsid, digest string) (*pcTag, error) {
 	q.Add("digests", digest)
 	req.URL.RawQuery = q.Encode()
 
-	fmt.Println(req.URL.String())
-
 	resp, err := c.Do(req)
 	defer resp.Body.Close()
 
