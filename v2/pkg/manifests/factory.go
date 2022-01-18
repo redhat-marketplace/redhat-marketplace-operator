@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/gotidy/ptr"
+	osappsv1 "github.com/openshift/api/apps/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -88,6 +90,10 @@ const (
 	DataServiceService       = "dataservice/service.yaml"
 	DataServiceRoute         = "dataservice/route.yaml"
 	DataServiceTLSSecret     = "dataservice/secret.yaml"
+
+	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
+	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
+	MeterdefinitionFileServerImageStream      = "catalog-server/image-stream.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -171,6 +177,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.OAuthProxy
 	case container.Name == "rhm-data-service":
 		container.Image = f.config.RelatedImages.DQLite
+	case container.Name == "rhm-meterdefinition-file-server":
+		container.Image = f.config.RelatedImages.MeterDefFileServer
 	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
 		container.Image = f.config.RelatedImages.RemoteResourceS3
 
@@ -354,6 +362,115 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	return j, nil
+}
+
+func (f *Factory) NewImageStream(manifest io.Reader) (*osimagev1.ImageStream, error) {
+	is, err := NewImageStream(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if is.GetNamespace() == "" {
+		is.SetNamespace(f.namespace)
+	}
+
+	if is.GetAnnotations() == nil {
+		is.Annotations = make(map[string]string)
+	}
+
+	f.ReplaceImageStreamValues(is)
+
+	return is, nil
+}
+
+func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
+	d, err := NewDeploymentConfig(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	for i := range d.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+	}
+
+	f.ReplaceDeploymentConfigValues(d)
+
+	return d, nil
+}
+
+func (f *Factory) ReplaceDeploymentConfigValues(dc *osappsv1.DeploymentConfig) {
+	triggers := osappsv1.DeploymentTriggerPolicies(dc.Spec.Triggers)
+	trigger := triggers[1]
+
+	trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
+}
+
+func (f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream) {
+	is.Spec.Tags[0].Annotations["openshift.io/imported-from"] = f.config.RelatedImages.MeterDefFileServer
+	is.Spec.Tags[0].From.Name = f.config.RelatedImages.MeterDefFileServer
+	is.Spec.Tags[0].Name = f.operatorConfig.ImageStreamTag
+}
+
+func (f *Factory) UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig) (updated bool) {
+	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
+
+	triggers := osappsv1.DeploymentTriggerPolicies(clusterDC.Spec.Triggers)
+	trigger := triggers[0]
+
+	if trigger.ImageChangeParams != nil {
+		if trigger.ImageChangeParams.From.Name != f.operatorConfig.ImageStreamID {
+			logger.Info("DeploymentConfig docker image reference needs to be updated")
+			logger.Info("ImageStreamID found on cluster", "imagestream ID", trigger.ImageChangeParams.From.Name)
+			logger.Info("ImageStreamID found in config", "imagestream ID", f.operatorConfig.ImageStreamID)
+			trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
+			updated = true
+		}
+	}
+
+	return updated
+}
+
+func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (updated bool) {
+	logger := log.WithValues("func", "UpdateImageStreamOnChange")
+	for _, tag := range clusterIS.Spec.Tags {
+		if tag.From.Name != f.config.RelatedImages.MeterDefFileServer {
+			logger.Info("ImageStream docker image reference needs to be updated")
+			logger.Info("Docker image reference found on cluster", "image", tag.From.Name)
+			logger.Info("Docker image reference found in config", "image", f.config.RelatedImages.MeterDefFileServer)
+			tag.From.Name = f.config.RelatedImages.MeterDefFileServer
+			updated = true
+		}
+
+		if tag.Name != f.operatorConfig.ImageStreamTag {
+			logger.Info("ImageStream tag needs to be updated")
+			logger.Info("ImageStream tag found on cluster", "tag", tag.Name)
+			logger.Info("ImageStream tag found in config", "tag", f.operatorConfig.ImageStreamTag)
+			tag.Name = f.operatorConfig.ImageStreamTag
+			updated = true
+		}
+
+		if tag.Annotations["openshift.io/imported-from"] != f.config.RelatedImages.MeterDefFileServer {
+			logger.Info("ImageStream imported-from annotation needs to be updated")
+			logger.Info("ImageStream imported-from annotation on cluster", "value", tag.Annotations["openshift.io/imported-from"])
+			logger.Info("ImageStream imported-from annotation in config", "value", f.config.RelatedImages.MeterDefFileServer)
+			tag.Annotations["openshift.io/imported-from"] = f.config.RelatedImages.MeterDefFileServer
+			updated = true
+		}
+	}
+
+	return updated
 }
 
 func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
@@ -1126,6 +1243,34 @@ func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
 	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
 }
 
+func (f *Factory) NewMeterdefintionFileServerDeploymentConfig() (*osappsv1.DeploymentConfig, error) {
+	return f.NewDeploymentConfig(MustAssetReader(MeterdefinitionFileServerDeploymentConfig))
+}
+
+func (f *Factory) NewMeterdefintionFileServerImageStream() (*osimagev1.ImageStream, error) {
+	return f.NewImageStream(MustAssetReader(MeterdefinitionFileServerImageStream))
+}
+
+func (f *Factory) NewMeterdefintionFileServerService() (*corev1.Service, error) {
+	s, err := f.NewService(MustAssetReader(MeterdefinitionFileServerService))
+	if err != nil {
+		return nil, err
+	}
+
+	if v, ok := s.GetAnnotations()["service.beta.openshift.io/serving-cert-secret-name"]; !ok || v != "rhm-meterdefinition-file-server-tls" {
+		annotations := s.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		annotations["service.beta.openshift.io/serving-cert-secret-name"] = "rhm-meterdefinition-file-server-tls"
+
+		s.SetAnnotations(annotations)
+	}
+
+	return s, nil
+}
+
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := NewServiceMonitor(manifest)
 	if err != nil {
@@ -1233,6 +1378,36 @@ func NewRoute(manifest io.Reader) (*routev1.Route, error) {
 		return nil, err
 	}
 	return &r, nil
+}
+
+func NewImageStream(manifest io.Reader) (*osimagev1.ImageStream, error) {
+	is := osimagev1.ImageStream{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&is)
+	if err != nil {
+		return nil, err
+	}
+
+	return &is, nil
+}
+
+func NewImageStreamTag(manifest io.Reader) (*osimagev1.ImageStreamTag, error) {
+	it := osimagev1.ImageStreamTag{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&it)
+	if err != nil {
+		return nil, err
+	}
+
+	return &it, nil
+}
+
+func NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
+	d := osappsv1.DeploymentConfig{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
 }
 
 // GeneratePassword returns a base64 encoded securely random bytes.

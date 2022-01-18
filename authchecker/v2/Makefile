@@ -10,8 +10,6 @@ export IMG
 IMAGE ?= $(IMG)
 export IMAGE
 
-include ../../utils.Makefile
-
 all: svu generate vet fmt
 
 build:

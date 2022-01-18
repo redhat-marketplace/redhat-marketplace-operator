@@ -152,6 +152,13 @@ func providePrometheusAPIForReporter(
 		return nil, errors.New("prom port is not provided")
 	}
 
+	if setup.PromService == nil {
+		return nil, errors.New("prom service is not provided")
+	}
+	if setup.PromPort == nil {
+		return nil, errors.New("prom port is not provided")
+	}
+
 	name := setup.PromService.Name
 	namespace := setup.PromService.Namespace
 	port := setup.PromPort.Port

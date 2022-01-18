@@ -59,7 +59,7 @@ var _ = Describe("filestore", func() {
 
 	AfterEach(func() {
 		Expect(closer.Close()).To(Succeed())
-		//os.Remove("filestore.gorm.db")
+		os.Remove("filestore.gorm.db")
 	})
 
 	Context("Paginate", func() {
@@ -162,7 +162,7 @@ var _ = Describe("filestore", func() {
 
 		AfterEach(func() {
 			for _, file := range files {
-				db.Association(clause.Associations).Delete(&file)
+				db.Unscoped().Association(clause.Associations).Delete(&file)
 			}
 		})
 
@@ -208,73 +208,70 @@ var _ = Describe("filestore", func() {
 			Expect(lastResults).To(HaveLen(60))
 		})
 
-		Context("should filter", func() {
+		It("should apply simple filter", func() {
 			filters := fileserver.Filters{}
+			filters.UnmarshalText([]byte(`source == "test-2"`))
+			lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(10))
+			Expect(lastResults).To(MatchMetadata(Not(BeEmpty())))
+		})
 
-			It("should apply simple filter", func() {
-				filters.UnmarshalText([]byte(`source == "test-2"`))
-				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(10))
-				Expect(lastResults).To(MatchMetadata(Not(BeEmpty())))
-			})
+		It("should apply harder filter", func() {
+			filters := fileserver.Filters{}
+			filters.UnmarshalText([]byte(`sourceType == "report1" && source=="test-2"`))
+			lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(10))
+			Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
+		})
 
-			It("should apply harder filter", func() {
-				filters = fileserver.Filters{}
-				filters.UnmarshalText([]byte(`sourceType == "report1" && source=="test-2"`))
-				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(10))
-				Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
-			})
+		It("should apply an or", func() {
+			filters := fileserver.Filters{}
+			filters.UnmarshalText([]byte(`sourceType == "report1" || source=="test-2"`))
+			lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(20))
+			Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
+		})
 
-			It("should apply an or", func() {
-				filters = fileserver.Filters{}
-				filters.UnmarshalText([]byte(`sourceType == "report1" || source=="test-2"`))
-				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(20))
-				Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
-			})
+		It("should handle dates", func() {
+			filters := fileserver.Filters{}
+			t1 := time.Now().Add(-time.Hour).Format(time.RFC3339)
+			filters.UnmarshalText([]byte(`createdAt > "` + t1 + `"`))
+			lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(60))
 
-			It("should handle dates", func() {
-				filters = fileserver.Filters{}
-				t1 := time.Now().Add(-time.Hour).Format(time.RFC3339)
-				filters.UnmarshalText([]byte(`createdAt > "` + t1 + `"`))
-				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(60))
+			filters = fileserver.Filters{}
+			t1 = time.Now().Add(-time.Hour).Format(time.RFC3339)
+			filters.UnmarshalText([]byte(`createdAt < "` + t1 + `"`))
+			lastResults, token, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(0))
+		})
 
-				filters = fileserver.Filters{}
-				t1 = time.Now().Add(-time.Hour).Format(time.RFC3339)
-				filters.UnmarshalText([]byte(`createdAt < "` + t1 + `"`))
-				lastResults, token, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(0))
-			})
+		It("should handle metadata", func() {
+			filters := fileserver.Filters{}
+			filters.UnmarshalText([]byte(`key == "foo"`))
+			lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(40))
+			Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
 
-			It("should handle metadata", func() {
-				filters = fileserver.Filters{}
-				filters.UnmarshalText([]byte(`key == "foo"`))
-				lastResults, token, err := sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(40))
-				Expect(lastResults).To(MatchMetadata(Or(HaveLen(2), HaveLen(3))))
-
-				filters = fileserver.Filters{}
-				filters.UnmarshalText([]byte(`key == "foo" && value == "test-1"`))
-				lastResults, token, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
-				Expect(err).To(Succeed())
-				Expect(token).To(Equal(""))
-				Expect(lastResults).To(HaveLen(3))
-				Expect(lastResults).To(MatchMetadata(Or(HaveLen(3), HaveLen(2))))
-			})
+			filters = fileserver.Filters{}
+			filters.UnmarshalText([]byte(`key == "foo" && value == "test-1"`))
+			lastResults, token, err = sut.List(context.Background(), ApplyFilters(filters), Paginate("", 100))
+			Expect(err).To(Succeed())
+			Expect(token).To(Equal(""))
+			Expect(lastResults).To(HaveLen(3))
+			Expect(lastResults).To(MatchMetadata(Or(HaveLen(3), HaveLen(2))))
 		})
 	})
 

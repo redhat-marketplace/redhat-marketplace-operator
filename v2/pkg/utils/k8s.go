@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"time"
 
 	emperrors "emperror.dev/errors"
@@ -228,22 +229,48 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, featu
 	return cr
 }
 
+func NewMeterDefinitionCatalogConfig(
+	enabled bool,
+) *common.MeterDefinitionCatalogServerConfig {
+	return &common.MeterDefinitionCatalogServerConfig{
+		DeployMeterDefinitionCatalogServer: enabled,
+		SyncCommunityMeterDefinitions:      enabled,
+		SyncSystemMeterDefinitions:         false, //always making this false for now
+	}
+}
+
+func UpdateMeterDefinitionCatalogConfig(
+	base *marketplacev1alpha1.MeterBase,
+	config *common.MeterDefinitionCatalogServerConfig,
+) bool {
+	if config == nil {
+		return false
+	}
+
+	if base.Spec.MeterdefinitionCatalogServerConfig == nil {
+		base.Spec.MeterdefinitionCatalogServerConfig = config
+		return true
+	}
+
+	baseConfig := *base.Spec.MeterdefinitionCatalogServerConfig
+	return !reflect.DeepEqual(baseConfig, *config)
+}
+
 // BuildMeterBaseCr returns a MeterBase cr with default values
-func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
+func BuildMeterBaseCr(namespace string, deployMdefCatalogServer bool) *marketplacev1alpha1.MeterBase {
 	cr := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      METERBASE_NAME,
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled:                       true,
-			DataServiceEnabled:            ptr.Bool(true),
-			UserWorkloadMonitoringEnabled: ptr.Bool(true),
+			Enabled: true,
 			Prometheus: &marketplacev1alpha1.PrometheusSpec{
 				Storage: marketplacev1alpha1.StorageSpec{
 					Size: resource.MustParse("20Gi"),
 				},
 			},
+			MeterdefinitionCatalogServerConfig: NewMeterDefinitionCatalogConfig(deployMdefCatalogServer),
 		},
 	}
 	return cr

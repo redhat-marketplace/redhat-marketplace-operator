@@ -15,6 +15,7 @@
 package testutils
 
 import (
+	osappsv1 "github.com/openshift/api/apps/v1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -37,5 +38,6 @@ func GetScheme() *runtime.Scheme {
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
+	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	return scheme
 }
