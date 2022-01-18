@@ -75,8 +75,8 @@ const (
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
-	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "quay.io/razee/remoteresources3:0.6.2"
-	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "quay.io/razee/watch-keeper:0.6.6"
+	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "quay.io/razee/remoteresources3:0.10.0"
+	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "quay.io/razee/watch-keeper:0.7.11"
 	IBM_COS_READER_KEY_FIELD                  = "IBM_COS_READER_KEY"
 	BUCKET_NAME_FIELD                         = "BUCKET_NAME"
 	IBM_COS_URL_FIELD                         = "IBM_COS_URL"
@@ -104,6 +104,8 @@ const (
 	RazeeWatchLevelDetail = "detail"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
+	OperatorTag      = "marketplace.redhat.com/operator"
+	OperatorTagValue = "true"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
@@ -112,8 +114,10 @@ const (
 	/* Certificate */
 	DQLITE_COMMONNAME_PREFIX = "*.rhm-data-service" // wildcard.ServiceName
 
-	ProductionURL = "https://marketplace.redhat.com"
-	StageURL      = "https://sandbox.marketplace.redhat.com"
+	DeploymentConfigName = "rhm-meterdefinition-file-server"
+	FileServerAudience   = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
+	ProductionURL        = "https://marketplace.redhat.com"
+	StageURL             = "https://sandbox.marketplace.redhat.com"
 )
 
 var (

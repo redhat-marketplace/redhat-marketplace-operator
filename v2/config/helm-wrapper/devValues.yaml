@@ -1,5 +1,7 @@
 devEnvVars:
+  - name: RELATED_IMAGE_METERDEF_FILE_SERVER
+    value: ''
   - name: METERBASE_TRANSITION_TIME
     value: 5m
   - name: IS_DISCONNECTED
-    value:  "true"
+    value: 'false'

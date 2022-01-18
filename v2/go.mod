@@ -18,6 +18,7 @@ require (
 	github.com/google/wire v0.4.0
 	github.com/goph/emperror v0.17.2
 	github.com/gotidy/ptr v1.3.0
+	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/imdario/mergo v0.3.12
 	github.com/jpillora/backoff v1.0.0
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
@@ -40,7 +41,6 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.2
-	k8s.io/apiextensions-apiserver v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a

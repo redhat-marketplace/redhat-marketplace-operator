@@ -132,8 +132,6 @@ func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectRespon
 	projectURL := fmt.Sprintf("%s/projects/%s/containers/%s/tags/%s/publish?latest=true", domain, opsid, digest, tag)
 	u, _ := url.Parse(projectURL)
 
-	fmt.Println(u.String())
-
 	resp, err := c.Post(u.String(), "application/json", strings.NewReader("{}"))
 	defer resp.Body.Close()
 
@@ -171,8 +169,6 @@ func (c *connectClient) GetTag(opsid, digest string) (*pcTag, error) {
 	q := req.URL.Query()
 	q.Add("digests", digest)
 	req.URL.RawQuery = q.Encode()
-
-	fmt.Println(req.URL.String())
 
 	resp, err := c.Do(req)
 	defer resp.Body.Close()
