@@ -194,7 +194,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		marketplaceConfig.Spec.Features = &common.Features{
 			Deployment:                         ptr.Bool(true),
 			Registration:                       ptr.Bool(true),
-			EnableMeterDefinitionCatalogServer: ptr.Bool(true),
+			EnableMeterDefinitionCatalogServer: ptr.Bool(false),
 		}
 	} else {
 		var updateMarketplaceConfig bool
@@ -209,7 +209,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil {
 			reqLogger.Info("updating marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer")
 			updateMarketplaceConfig = true
-			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(true)
+			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(false)
 		}
 
 		if updateMarketplaceConfig {
@@ -331,7 +331,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 			marketplaceConfig.Status.MeterBaseSubConditions = status.Conditions{}
 		}
 
-		// update meter definition catalgo config
+		// update meter definition catalog config
 		result, err := func() (reconcile.Result, error) {
 			catalogServerEnabled := true
 
@@ -624,10 +624,10 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
 			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
 			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-				SyncCommunityMeterDefinitions: true,
 				//TODO: are we setting this to false in production ?
-				SyncSystemMeterDefinitions:         true,
-				DeployMeterDefinitionCatalogServer: true,
+				SyncCommunityMeterDefinitions:      false,
+				SyncSystemMeterDefinitions:         false,
+				DeployMeterDefinitionCatalogServer: false,
 			}
 
 			reqLogger.Info("setting MeterdefinitionCatalog features")
@@ -646,7 +646,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !foundMeterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
 			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
 			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-				DeployMeterDefinitionCatalogServer: true,
+				DeployMeterDefinitionCatalogServer: false,
 			}
 
 			reqLogger.Info("setting MeterdefinitionCatalog features")
@@ -666,6 +666,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
 
 		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+			//TODO: probably not necessary but setting to false here just to be safe
 			SyncCommunityMeterDefinitions:      false,
 			SyncSystemMeterDefinitions:         false,
 			DeployMeterDefinitionCatalogServer: false,
