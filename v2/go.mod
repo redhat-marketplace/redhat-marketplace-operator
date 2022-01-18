@@ -19,6 +19,7 @@ require (
 	github.com/google/wire v0.4.0
 	github.com/goph/emperror v0.17.2
 	github.com/gotidy/ptr v1.3.0
+	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/imdario/mergo v0.3.12
 	github.com/jpillora/backoff v1.0.0
 	github.com/mitchellh/mapstructure v1.3.2 // indirect

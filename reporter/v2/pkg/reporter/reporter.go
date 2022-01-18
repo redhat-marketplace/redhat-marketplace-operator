@@ -43,10 +43,12 @@ var (
 const (
 	ErrNoMeterDefinitionsFound = errors.Sentinel("no meterDefinitions found")
 	WarningDuplicateData       = errors.Sentinel("duplicate data")
+	WarningPrintTemplate       = errors.Sentinel("template error")
 )
 
 var warningsFilter = map[error]interface{}{
 	WarningDuplicateData: nil,
+	WarningPrintTemplate: nil,
 }
 
 // Goals of the reporter:
@@ -439,11 +441,15 @@ func (r *MarketplaceReporter) Process(
 					func() {
 						labels := getAllKeysFromMetric(matrix.Metric)
 						kvMap, err := kvToMap(labels)
+						name := ""
+						namespace := ""
 
 						if pmodel.mdef.query.MeterDef.Name != "" &&
 							pmodel.mdef.query.MeterDef.Namespace != "" {
-							kvMap["meter_def_name"] = pmodel.mdef.query.MeterDef.Name
-							kvMap["meter_def_namespace"] = pmodel.mdef.query.MeterDef.Namespace
+							name = pmodel.mdef.query.MeterDef.Name
+							namespace = pmodel.mdef.query.MeterDef.Namespace
+							kvMap["meter_def_name"] = name
+							kvMap["meter_def_namespace"] = namespace
 						}
 
 						if err != nil {
@@ -458,6 +464,7 @@ func (r *MarketplaceReporter) Process(
 						}, pair)
 
 						if err != nil {
+							err = errors.WithMessagef(WarningPrintTemplate, "%s/%s %s", namespace, name, err.Error())
 							errorsch <- err
 							return
 						}

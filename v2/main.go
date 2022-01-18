@@ -47,6 +47,7 @@ import (
 	"net/http/pprof"
 	_ "net/http/pprof"
 
+	osappsv1 "github.com/openshift/api/apps/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
@@ -78,6 +79,8 @@ func init() {
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -121,6 +124,24 @@ func main() {
 	injector, err := inject.ProvideInjector(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to inject manager")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.DeploymentConfigReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.MeterDefinitionInstallReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
 		os.Exit(1)
 	}
 

@@ -69,7 +69,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}
 
 		features = &common.Features{
-			Deployment: ptr.Bool(true),
+			Deployment:                         ptr.Bool(true),
+			EnableMeterDefinitionCatalogServer: ptr.Bool(true),
 		}
 
 		deployedNamespace = &corev1.Namespace{
@@ -90,8 +91,9 @@ var _ = Describe("Testing with Ginkgo", func() {
 	BeforeEach(func() {
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 		marketplaceconfig.Spec.ClusterUUID = "test"
+		marketplaceconfig.Spec.Features = features
 		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-		meterbase = utils.BuildMeterBaseCr(namespace)
+		meterbase = utils.BuildMeterBaseCr(namespace, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
 		tokenClaims := marketplace.MarketplaceClaims{
 			AccountID: "foo",
 			APIKey:    "test",

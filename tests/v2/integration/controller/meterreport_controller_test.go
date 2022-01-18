@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -176,28 +177,28 @@ var _ = Describe("MeterReportController", func() {
 		It("should upload to the data service if the upload target is set", func() {
 			Eventually(func() bool {
 				meterbase := &v1alpha1.MeterBase{}
-		
-				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: "rhm-marketplaceconfig-meterbase",Namespace: "openshift-redhat-marketplace"} ,meterbase)
+
+				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "rhm-marketplaceconfig-meterbase", Namespace: "openshift-redhat-marketplace"}, meterbase)
 				if err != nil {
 					return false
 				}
 
 				newMeterBase := meterbase.DeepCopy()
-		
-				newMeterBase.Spec.DataServiceEnabled = true
-		
-				err = testHarness.Update(context.TODO(),newMeterBase)			
+
+				newMeterBase.Spec.DataServiceEnabled = ptr.Bool(true)
+
+				err = testHarness.Update(context.TODO(), newMeterBase)
 				if err != nil {
 					return false
 				}
 
-				return true		
-			
+				return true
+
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
 				ss := &appsv1.StatefulSet{}
-				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: "rhm-data-service",Namespace: "openshift-redhat-marketplace"} ,ss)
+				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "rhm-data-service", Namespace: "openshift-redhat-marketplace"}, ss)
 				if err != nil {
 					return false
 				}
@@ -207,7 +208,7 @@ var _ = Describe("MeterReportController", func() {
 				}
 
 				return false
-			},dataServiceTimeout, interval).Should(BeTrue())
+			}, dataServiceTimeout, interval).Should(BeTrue())
 			job := &batchv1.Job{}
 			Eventually(func() bool {
 				meterreport.Spec.ExtraArgs = []string{"--uploadTarget=data-service"}
@@ -216,8 +217,8 @@ var _ = Describe("MeterReportController", func() {
 					CreateAction(meterreport),
 				)
 
-				if err !=nil {
-					fmt.Printf("error creating meterreport %s",err)
+				if err != nil {
+					fmt.Printf("error creating meterreport %s", err)
 				}
 
 				result, _ = testHarness.Do(
