@@ -119,6 +119,9 @@ deploy:
         wait: false
         upgradeOnChange: true
         chartPath: ./config/helm-wrapper
+        setValueTemplates:
+          'devEnvVars[0].name': 'RELATED_IMAGE_METERDEF_FILE_SERVER'
+          'devEnvVars[0].value': '{{.IMAGE_REGISTRY}}/rhm-meterdefinition-file-server:v1'
         valuesFiles:
           - ./config/helm-wrapper/values.yaml
           - ./config/helm-wrapper/devValues.yaml
