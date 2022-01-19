@@ -80,7 +80,7 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
-	service, err := getPrometheusService(ctx, meterReport, clientCommandRunner, config)
+	service, err := getPrometheusService(ctx, clientCommandRunner, config)
 	if err != nil {
 		return nil, err
 	}
