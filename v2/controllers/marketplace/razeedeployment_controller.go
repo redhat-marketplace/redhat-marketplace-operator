@@ -1600,38 +1600,41 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 func (r *RazeeDeploymentReconciler) removeRRS3Deployment(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) {
-	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-			Namespace: *req.Spec.TargetNamespace,
-		},
-	}
-
-	//Delete the deployment
-	err := utils.Retry(func() error {
-		err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment)
-		if errors.IsNotFound(err) {
-			return nil
+	// Don't run the delete until the reconciler has populated TargetNamespace
+	if req.Spec.TargetNamespace != nil {
+		reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				Namespace: *req.Spec.TargetNamespace,
+			},
 		}
 
-		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-		err = r.Client.Delete(context.TODO(), deployment)
-		if err != nil {
+		//Delete the deployment
+		err := utils.Retry(func() error {
+			err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment)
 			if errors.IsNotFound(err) {
-				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
 				return nil
 			}
 
-			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-			return err
+			reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			err = r.Client.Delete(context.TODO(), deployment)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+					return nil
+				}
+
+				reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return err
+			}
+
+			return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+		}, maxRetry)
+
+		if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+			reqLogger.Error(err, "error deleting rrs3 deployment resources")
 		}
-
-		return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Error(err, "error deleting rrs3 deployment resources")
 	}
 }
 
