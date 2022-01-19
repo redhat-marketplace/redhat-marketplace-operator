@@ -14,7 +14,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/mock v1.4.4
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.1.2
 	github.com/google/wire v0.4.0
 	github.com/goph/emperror v0.17.2
@@ -41,7 +41,6 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.2
-	k8s.io/apiextensions-apiserver v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
