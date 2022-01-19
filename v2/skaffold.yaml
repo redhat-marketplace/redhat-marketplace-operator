@@ -97,10 +97,9 @@ build:
           paths:
             - go.mod
             - go.sum
-            - apis/**
-            - cmd/server/**
+            - cmd/**
             - pkg/**
-            - internal/**
+            - './**/*.go'
             - Dockerfile
           ignore:
             - '**/*_test.go'
