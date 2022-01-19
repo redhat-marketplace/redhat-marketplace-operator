@@ -56,6 +56,7 @@ var _ = Describe("RazeeEngineTest", func() {
 		body           []byte
 		bodychan       chan []byte
 		ctx            context.Context
+		cancel         context.CancelFunc
 	)
 
 	BeforeEach(func() {
@@ -134,10 +135,11 @@ var _ = Describe("RazeeEngineTest", func() {
 			},
 		))
 		ctx = context.Background()
-		ctx, _ = context.WithTimeout(ctx, 30*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	})
 
 	AfterEach(func() {
+		defer cancel()
 		close(bodychan)
 		server.Close()
 		Expect(k8sClient.Delete(context.TODO(), secret)).Should(Succeed())
