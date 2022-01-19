@@ -11,7 +11,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
-	github.com/hashicorp/go-retryablehttp v0.5.3
+	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
