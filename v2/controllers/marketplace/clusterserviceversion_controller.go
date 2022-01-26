@@ -306,11 +306,16 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		return reconcile.Result{}, false, nil
 	}
 
-	if ns, ok := CSV.GetAnnotations()[olmNamespace]; ok && ns != CSV.GetNamespace() {
+	ns, ok := CSV.GetAnnotations()[olmNamespace]
+	if ok && ns != CSV.GetNamespace() {
 		reqLogger.Info("MeterDef is global and this CSV is not the head")
 		return reconcile.Result{}, false, nil
 	}
 
+	if !ok {
+		reqLogger.Info("olm.operatorNamespace is not set yet, requeuing")
+		return reconcile.Result{RequeueAfter: time.Second * 5}, true, err
+	}
 	// builds a meterdefinition from our string (from the annotation)
 	reqLogger.Info("retrieval successful", "str", meterDefinitionString)
 
@@ -486,10 +491,8 @@ func csvFilter(metaNew metav1.Object) int {
 	_, hasCopiedFrom := ann[olmCopiedFromTag]
 	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 
-	sameNamespace := ann[olmNamespace] == metaNew.GetNamespace()
-
 	switch {
-	case hasMeterDefinition && !hasCopiedFrom && sameNamespace:
+	case hasMeterDefinition && !hasCopiedFrom:
 		return 1
 	case !hasMeterDefinition && (!hasIgnoreTag || ignoreVal != ignoreTagValue):
 		return 2
