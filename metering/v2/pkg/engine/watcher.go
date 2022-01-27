@@ -110,6 +110,19 @@ func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.List
 	}
 }
 
+func CreateNamespaceListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return kubeClient.CoreV1().Namespaces().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return kubeClient.CoreV1().Namespaces().Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
 // Watch only RRS3 Deployment
 func CreateDeploymentListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {

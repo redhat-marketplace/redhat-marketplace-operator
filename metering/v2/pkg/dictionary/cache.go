@@ -38,7 +38,7 @@ var result_t = []byte{1}
 var result_f = []byte{0}
 
 const cacheTimeout = 30 * time.Minute
-const pct = 0.50
+const pct = 0.35
 
 func init() {
 	initLookupCache.Do(func() {

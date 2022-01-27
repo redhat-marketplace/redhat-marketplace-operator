@@ -40,11 +40,18 @@ spec:
           image: watcher
           imagePullPolicy: IfNotPresent
           env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
           - name: MEMORY_LIMIT
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
                 divisor: 1Mi
+          - name: PPROF_DEBUG
+            value: "true"
           resources:
             requests:
               cpu: 50m
@@ -66,12 +73,6 @@ spec:
               name: web
             - containerPort: 8081
               name: metrics
-          env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
       nodeSelector:
         beta.kubernetes.io/os: linux
         node-role.kubernetes.io/master: ''

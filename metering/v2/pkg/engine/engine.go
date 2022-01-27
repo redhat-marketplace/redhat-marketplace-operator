@@ -492,6 +492,7 @@ func ProvideRazeeStoreRunnable(
 			log:        log.WithName("razee"),
 			Reflectors: []Runnable{
 				provideNodeListerRunnable(kubeClient, store),
+				provideNamespaceListerRunnable(kubeClient, store),
 				provideDeploymentListerRunnable(kubeClient, nses, store),
 				provideClusterServiceVersionListerRunnable(olmv1alpha1Client, nses, store),
 				provideClusterVersionListerRunnable(configv1Client, store),
@@ -520,6 +521,26 @@ func provideNodeListerRunnable(
 			reflectorConfig: reflectorConfig{
 				expectedType: &corev1.Node{},
 				lister:       CreateNodeListWatch(kubeClient),
+			},
+			Store:      store,
+			namespaces: clusterScoped,
+		},
+	}
+}
+
+type NamespaceListerRunnable struct {
+	ListerRunnable
+}
+
+func provideNamespaceListerRunnable(
+	kubeClient clientset.Interface,
+	store cache.Store,
+) *NamespaceListerRunnable {
+	return &NamespaceListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &corev1.Namespace{},
+				lister:       CreateNamespaceListWatch(kubeClient),
 			},
 			Store:      store,
 			namespaces: clusterScoped,

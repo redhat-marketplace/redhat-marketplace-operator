@@ -38,16 +38,16 @@ func GetRazeeDashKeys(client client.Client, namespace string) ([]byte, []byte, e
 	var url []byte
 	var key []byte
 
-	rhmOperatorSecret := corev1.Secret{}
+	rhmOperatorSecret := &corev1.Secret{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.RHM_OPERATOR_SECRET_NAME,
 		Namespace: namespace,
-	}, &rhmOperatorSecret)
+	}, rhmOperatorSecret)
 	if err != nil {
 		return url, key, err
 	}
 
-	url, err = utils.ExtractCredKey(&rhmOperatorSecret, corev1.SecretKeySelector{
+	url, err = utils.ExtractCredKey(rhmOperatorSecret, corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{
 			Name: utils.RHM_OPERATOR_SECRET_NAME,
 		},
@@ -57,7 +57,7 @@ func GetRazeeDashKeys(client client.Client, namespace string) ([]byte, []byte, e
 		return url, key, err
 	}
 
-	key, err = utils.ExtractCredKey(&rhmOperatorSecret, corev1.SecretKeySelector{
+	key, err = utils.ExtractCredKey(rhmOperatorSecret, corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{
 			Name: utils.RHM_OPERATOR_SECRET_NAME,
 		},
