@@ -103,7 +103,7 @@ func (h *Heartbeat) heartbeat() error {
 		return err
 	}
 
-	err = razeeclient.PostToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
+	err = razeeclient.PostToRazeeDash(fullurl, bytes.NewBuffer(b), string(razeeOrgKey))
 	if err != nil {
 		return err
 	}

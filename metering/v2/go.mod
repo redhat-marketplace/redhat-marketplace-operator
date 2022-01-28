@@ -9,6 +9,7 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/go-logr/logr v0.4.0
+	github.com/golang/mock v1.5.0 // indirect
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
 	github.com/hashicorp/go-retryablehttp v0.7.0

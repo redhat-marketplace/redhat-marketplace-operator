@@ -199,7 +199,7 @@ func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 		}
 
 		// Post
-		err = razeeclient.PostToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
+		err = razeeclient.PostToRazeeDash(fullurl, bytes.NewBuffer(b), string(razeeOrgKey))
 		if err != nil {
 			return err
 		}
