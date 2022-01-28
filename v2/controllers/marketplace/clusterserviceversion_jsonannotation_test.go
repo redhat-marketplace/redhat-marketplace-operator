@@ -61,6 +61,9 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "n",
 				Namespace: "ns",
+				Annotations: map[string]string{
+					olmNamespace: "test-namespace",
+				},
 			},
 		}
 	})
@@ -96,7 +99,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			  }
 			}
 		  }`
-			annBad       = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJsonBad}
+			annBad       = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJsonBad, olmNamespace: "test-namespace"}
 			meterDefJson = `{
         "apiVersion": "marketplace.redhat.com/v1alpha1",
         "kind": "MeterDefinition",
@@ -131,7 +134,6 @@ var _ = Describe("JsonMeterDefValidation", func() {
 
 		BeforeEach(func() {
 			meterDefinition = &marketplacev1alpha1.MeterDefinition{}
-
 			//meterDefinitionNew = nil
 			gvk = &schema.GroupVersionKind{}
 			gvk.Kind = "ClusterServiceVersion"

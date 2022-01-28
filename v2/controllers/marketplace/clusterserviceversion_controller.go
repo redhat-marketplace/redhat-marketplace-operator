@@ -314,8 +314,9 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	if !ok {
 		reqLogger.Info("olm.operatorNamespace is not set yet, requeuing")
-		return reconcile.Result{RequeueAfter: time.Second * 5}, true, err
+		return reconcile.Result{RequeueAfter: time.Second * 5}, true, nil
 	}
+
 	// builds a meterdefinition from our string (from the annotation)
 	reqLogger.Info("retrieval successful", "str", meterDefinitionString)
 
