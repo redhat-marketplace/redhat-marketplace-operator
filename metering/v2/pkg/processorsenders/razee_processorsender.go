@@ -18,9 +18,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
@@ -49,6 +51,7 @@ type RazeeProcessorSender struct {
 	mutex              deadlock.Mutex
 	scheme             *runtime.Scheme
 	processedEventObjs ProcessedEventObjs
+	pollStarted        string
 }
 
 // EventObj is the obj to be marshal and sent
@@ -163,6 +166,11 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return nil
 	}
 
+	// Track start of event batch for poll-cycle header
+	if r.processedEventObjs.IsEmpty() {
+		r.pollStarted = time.Now().Format(time.RFC3339)
+	}
+
 	// Build the eventObj, as per Razee
 	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: rtObjCopy})
 
@@ -198,8 +206,13 @@ func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 			return err
 		}
 
+		header := make(http.Header)
+		header.Set("razee-org-key", string(razeeOrgKey))
+		header.Set("Content-Type", "application/json")
+		header.Set("poll-cycle", r.pollStarted)
+
 		// Post
-		err = razeeclient.PostToRazeeDash(fullurl, bytes.NewBuffer(b), string(razeeOrgKey))
+		err = razeeclient.PostToRazeeDash(fullurl, bytes.NewBuffer(b), header)
 		if err != nil {
 			return err
 		}

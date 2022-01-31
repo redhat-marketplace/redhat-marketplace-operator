@@ -70,7 +70,7 @@ func GetRazeeDashKeys(client client.Client, namespace string) ([]byte, []byte, e
 	return url, key, nil
 }
 
-func PostToRazeeDash(url string, body io.Reader, razeeOrgKey string) error {
+func PostToRazeeDash(url string, body io.Reader, header http.Header) error {
 
 	client := retryablehttp.NewClient()
 	client.RetryWaitMin = 3000 * time.Millisecond
@@ -82,8 +82,7 @@ func PostToRazeeDash(url string, body io.Reader, razeeOrgKey string) error {
 		return errors.Wrap(err, "Error constructing POST request")
 	}
 
-	req.Header.Set("razee-org-key", razeeOrgKey)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header = header
 
 	if os.Getenv("INSECURE_CLIENT") == "true" {
 		tr := &http.Transport{

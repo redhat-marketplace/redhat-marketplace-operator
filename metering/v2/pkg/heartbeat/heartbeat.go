@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -103,7 +104,11 @@ func (h *Heartbeat) heartbeat() error {
 		return err
 	}
 
-	err = razeeclient.PostToRazeeDash(fullurl, bytes.NewBuffer(b), string(razeeOrgKey))
+	header := make(http.Header)
+	header.Set("razee-org-key", string(razeeOrgKey))
+	header.Set("Content-Type", "application/json")
+
+	err = razeeclient.PostToRazeeDash(fullurl, bytes.NewBuffer(b), header)
 	if err != nil {
 		return err
 	}
