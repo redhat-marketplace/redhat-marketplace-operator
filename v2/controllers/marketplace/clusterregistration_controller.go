@@ -378,7 +378,7 @@ func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.Operato
 func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, reqLogger logr.Logger) (*SecretInfo, error) {
 	pullSecret, pullSecretErr := m.GetPullSecret(request)
 	if pullSecretErr != nil {
-		reqLogger.Error(pullSecretErr, "error finding secret", utils.RHMPullSecretName)
+		reqLogger.Error(pullSecretErr, "error finding secret", "secret", utils.RHMPullSecretName)
 	}
 	if pullSecret != nil {
 		reqLogger.Info("found secret", "secret type", utils.RHMPullSecretName)
@@ -394,9 +394,8 @@ func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, 
 
 	entitlementKeySecret, entitlementKeySecretErr := m.GetEntitlementKey(request)
 	if entitlementKeySecretErr != nil {
-		reqLogger.Error(entitlementKeySecretErr, "error finding secret", utils.IBMEntitlementKeySecretName)
+		reqLogger.Error(entitlementKeySecretErr, "error finding secret", "secret", utils.IBMEntitlementKeySecretName)
 	}
-
 	if pullSecret == nil && entitlementKeySecret != nil {
 		reqLogger.Info("found secret", "secret type", utils.IBMEntitlementKeySecretName)
 		return &SecretInfo{
@@ -468,13 +467,20 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 					if !ok {
 						return false
 					}
-					if _, ok := secret.Data[utils.RHMPullSecretKey]; !ok {
-						return false
+
+					if secretName == utils.RHMPullSecretName {
+						if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && e.ObjectOld != e.ObjectNew {
+							return true
+						}
 					}
-					if secretName != utils.RHMPullSecretName {
-						return false
+
+					if secretName == utils.IBMEntitlementKeySecretName {
+						if _, ok := secret.Data[utils.IBMEntitlementDataKey]; ok && e.ObjectOld != e.ObjectNew {
+							return true
+						}
 					}
-					return e.ObjectOld != e.ObjectNew
+
+					return false
 				},
 				DeleteFunc: func(event.DeleteEvent) bool {
 					return false
@@ -486,6 +492,10 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 					}
 					secretName := secret.ObjectMeta.Name
 					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
+						return true
+					}
+
+					if _, ok := secret.Data[utils.IBMEntitlementDataKey]; ok && secretName == utils.IBMEntitlementKeySecretName {
 						return true
 					}
 					return false
