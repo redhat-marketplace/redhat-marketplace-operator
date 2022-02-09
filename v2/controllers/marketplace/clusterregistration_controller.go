@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 
 	emperrors "emperror.dev/errors"
@@ -199,7 +200,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		reqLogger.Info("RHMarketPlace Pull Secret token found")
+		reqLogger.Info("token found", "from secret", si.TypeOf)
 		//Calling POST endpoint to pull the secret definition
 		newOptSecretObj, err := mclient.GetMarketplaceSecret()
 		if err != nil {
@@ -377,10 +378,10 @@ func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.Operato
 func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, reqLogger logr.Logger) (*SecretInfo, error) {
 	pullSecret, pullSecretErr := m.GetPullSecret(request)
 	if pullSecretErr != nil {
-		reqLogger.Error(pullSecretErr, "error finding redhat-marketplace-pull-secret")
+		reqLogger.Error(pullSecretErr, "error finding secret", utils.RHMPullSecretName)
 	}
 	if pullSecret != nil {
-		reqLogger.Info("using rhm-pull-secret")
+		reqLogger.Info("found secret", "secret type", utils.RHMPullSecretName)
 		return &SecretInfo{
 			TypeOf:     utils.RHMPullSecretName,
 			Secret:     pullSecret,
@@ -393,11 +394,11 @@ func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, 
 
 	entitlementKeySecret, entitlementKeySecretErr := m.GetEntitlementKey(request)
 	if entitlementKeySecretErr != nil {
-		reqLogger.Error(entitlementKeySecretErr, "error finding ibm-entitlement-key")
+		reqLogger.Error(entitlementKeySecretErr, "error finding secret", utils.IBMEntitlementKeySecretName)
 	}
 
 	if pullSecret == nil && entitlementKeySecret != nil {
-		reqLogger.Info("using ibm-entitlement-key")
+		reqLogger.Info("found secret", "secret type", utils.IBMEntitlementKeySecretName)
 		return &SecretInfo{
 			TypeOf:     utils.IBMEntitlementKeySecretName,
 			Secret:     entitlementKeySecret,
@@ -409,7 +410,7 @@ func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, 
 	}
 
 	if entitlementKeySecretErr != nil && pullSecretErr != nil {
-		return nil, emperrors.New("could not find ibm-entitlement-key or rhm-pull-secret")
+		return nil, emperrors.New(fmt.Sprintf("could not find %s or %s", utils.RHMPullSecretName, utils.IBMEntitlementKeySecretName))
 	}
 
 	return nil, nil
