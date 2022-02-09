@@ -52,3 +52,10 @@ vars:
       apiVersion: apps/v1
     fieldref:
       fieldpath: metadata.annotations.authcheckImage
+  - name: WATCHER_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.watcherImage

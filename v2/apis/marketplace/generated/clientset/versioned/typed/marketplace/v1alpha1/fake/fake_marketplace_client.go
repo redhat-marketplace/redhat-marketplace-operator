@@ -28,6 +28,10 @@ type FakeMarketplaceV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeMarketplaceV1alpha1) MarketplaceConfigs(namespace string) v1alpha1.MarketplaceConfigInterface {
+	return &FakeMarketplaceConfigs{c, namespace}
+}
+
 func (c *FakeMarketplaceV1alpha1) MeterDefinitions(namespace string) v1alpha1.MeterDefinitionInterface {
 	return &FakeMeterDefinitions{c, namespace}
 }

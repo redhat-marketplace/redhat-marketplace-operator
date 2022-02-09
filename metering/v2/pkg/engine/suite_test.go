@@ -54,6 +54,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var engine *Engine
+var razeeengine *RazeeEngine
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -99,6 +100,16 @@ var _ = BeforeSuite(func() {
 
 	err = engine.Start(ctx)
 	Expect(err).ToNot(HaveOccurred())
+
+	razeeengine, err = NewRazeeEngine(ctx, types.Namespaces{""}, scheme, managers.ClientOptions{
+		Namespace:    "",
+		DryRunClient: false,
+	}, cfg, logf.Log.WithName("razeeengine"))
+	Expect(err).ToNot(HaveOccurred())
+
+	err = razeeengine.Start(ctx)
+	Expect(err).ToNot(HaveOccurred())
+
 }, 60)
 
 var _ = AfterSuite(func() {

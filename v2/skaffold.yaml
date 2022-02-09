@@ -89,6 +89,20 @@ build:
             - Dockerfile
           ignore:
             - '**/*_test.go'
+    - image: redhat-marketplace-watcher
+      context: ../watcher/v2
+      custom:
+        buildCommand: ARCHS=amd64 make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - cmd/**
+            - pkg/**
+            - './**/*.go'
+            - Dockerfile
+          ignore:
+            - '**/*_test.go'
 deploy:
   helm:
     releases:
@@ -100,6 +114,7 @@ deploy:
           metricStateImage: redhat-marketplace-metric-state
           authCheckImage: redhat-marketplace-authcheck
           dqLiteImage: redhat-marketplace-data-service
+          watcherImage: redhat-marketplace-watcher
         wait: false
         upgradeOnChange: true
         chartPath: ./config/helm-wrapper

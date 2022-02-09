@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// MarketplaceConfigListerExpansion allows custom methods to be added to
+// MarketplaceConfigLister.
+type MarketplaceConfigListerExpansion interface{}
+
+// MarketplaceConfigNamespaceListerExpansion allows custom methods to be added to
+// MarketplaceConfigNamespaceLister.
+type MarketplaceConfigNamespaceListerExpansion interface{}
+
 // MeterDefinitionListerExpansion allows custom methods to be added to
 // MeterDefinitionLister.
 type MeterDefinitionListerExpansion interface{}

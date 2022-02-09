@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    razee/watch-resource: lite
+  name: rhm-remoteresources3-controller
+  namespace: openshift-redhat-marketplace
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: rhm-remoteresources3-controller
+      owned-by: marketplace.redhat.com-razee
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: rhm-remoteresources3-controller
+        owned-by: marketplace.redhat.com-razee
+        razee/watch-resource: lite
+      name: rhm-remoteresources3-controller
+    spec:
+      containers:
+      - args:
+        - --namespace
+        - openshift-redhat-marketplace
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: quay.io/rh-marketplace/redhat-marketplace-authcheck@sha256:7a4a458b18523ce1689c4581f857284aebdf62a04fafc680a2cde37c02320abd
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8089
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: authcheck
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8089
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 20m
+            memory: 40Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+      - env:
+        - name: CRD_WATCH_TIMEOUT_SECONDS
+          valueFrom:
+            configMapKeyRef:
+              key: CRD_WATCH_TIMEOUT_SECONDS
+              name: razeedeploy-overrides
+              optional: true
+        - name: GROUP
+          value: marketplace.redhat.com
+        - name: VERSION
+          value: v1alpha1
+        image: quay.io/razee/remoteresources3:0.9.3
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - sh/liveness.sh
+          failureThreshold: 1
+          initialDelaySeconds: 30
+          periodSeconds: 150
+          successThreshold: 1
+          timeoutSeconds: 30
+        name: rhm-remoteresources3-controller
+        resources:
+          limits:
+            cpu: 100m
+            memory: 200Mi
+          requests:
+            cpu: 40m
+            memory: 75Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /usr/src/app/download-cache
+          name: cache-volume
+        - mountPath: /usr/src/app/config
+          name: razeedeploy-config
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: redhat-marketplace-remoteresources3deployment
+      serviceAccountName: redhat-marketplace-remoteresources3deployment
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: cache-volume
+      - configMap:
+          defaultMode: 440
+          name: razeedeploy-config
+          optional: true
+        name: razeedeploy-config
+

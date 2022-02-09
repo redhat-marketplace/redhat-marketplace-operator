@@ -5,36 +5,37 @@
 package mock_patch
 
 import (
+	reflect "reflect"
+
 	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
 	gomock "github.com/golang/mock/gomock"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	reflect "reflect"
 )
 
-// MockPatchAnnotator is a mock of PatchAnnotator interface
+// MockPatchAnnotator is a mock of PatchAnnotator interface.
 type MockPatchAnnotator struct {
 	ctrl     *gomock.Controller
 	recorder *MockPatchAnnotatorMockRecorder
 }
 
-// MockPatchAnnotatorMockRecorder is the mock recorder for MockPatchAnnotator
+// MockPatchAnnotatorMockRecorder is the mock recorder for MockPatchAnnotator.
 type MockPatchAnnotatorMockRecorder struct {
 	mock *MockPatchAnnotator
 }
 
-// NewMockPatchAnnotator creates a new mock instance
+// NewMockPatchAnnotator creates a new mock instance.
 func NewMockPatchAnnotator(ctrl *gomock.Controller) *MockPatchAnnotator {
 	mock := &MockPatchAnnotator{ctrl: ctrl}
 	mock.recorder = &MockPatchAnnotatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPatchAnnotator) EXPECT() *MockPatchAnnotatorMockRecorder {
 	return m.recorder
 }
 
-// GetModifiedConfiguration mocks base method
+// GetModifiedConfiguration mocks base method.
 func (m *MockPatchAnnotator) GetModifiedConfiguration(arg0 runtime.Object, arg1 bool) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModifiedConfiguration", arg0, arg1)
@@ -43,13 +44,13 @@ func (m *MockPatchAnnotator) GetModifiedConfiguration(arg0 runtime.Object, arg1 
 	return ret0, ret1
 }
 
-// GetModifiedConfiguration indicates an expected call of GetModifiedConfiguration
+// GetModifiedConfiguration indicates an expected call of GetModifiedConfiguration.
 func (mr *MockPatchAnnotatorMockRecorder) GetModifiedConfiguration(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModifiedConfiguration", reflect.TypeOf((*MockPatchAnnotator)(nil).GetModifiedConfiguration), arg0, arg1)
 }
 
-// GetOriginalConfiguration mocks base method
+// GetOriginalConfiguration mocks base method.
 func (m *MockPatchAnnotator) GetOriginalConfiguration(arg0 runtime.Object) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOriginalConfiguration", arg0)
@@ -58,13 +59,13 @@ func (m *MockPatchAnnotator) GetOriginalConfiguration(arg0 runtime.Object) ([]by
 	return ret0, ret1
 }
 
-// GetOriginalConfiguration indicates an expected call of GetOriginalConfiguration
+// GetOriginalConfiguration indicates an expected call of GetOriginalConfiguration.
 func (mr *MockPatchAnnotatorMockRecorder) GetOriginalConfiguration(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOriginalConfiguration", reflect.TypeOf((*MockPatchAnnotator)(nil).GetOriginalConfiguration), arg0)
 }
 
-// SetLastAppliedAnnotation mocks base method
+// SetLastAppliedAnnotation mocks base method.
 func (m *MockPatchAnnotator) SetLastAppliedAnnotation(arg0 runtime.Object) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetLastAppliedAnnotation", arg0)
@@ -72,13 +73,13 @@ func (m *MockPatchAnnotator) SetLastAppliedAnnotation(arg0 runtime.Object) error
 	return ret0
 }
 
-// SetLastAppliedAnnotation indicates an expected call of SetLastAppliedAnnotation
+// SetLastAppliedAnnotation indicates an expected call of SetLastAppliedAnnotation.
 func (mr *MockPatchAnnotatorMockRecorder) SetLastAppliedAnnotation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLastAppliedAnnotation", reflect.TypeOf((*MockPatchAnnotator)(nil).SetLastAppliedAnnotation), arg0)
 }
 
-// SetOriginalConfiguration mocks base method
+// SetOriginalConfiguration mocks base method.
 func (m *MockPatchAnnotator) SetOriginalConfiguration(arg0 runtime.Object, arg1 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetOriginalConfiguration", arg0, arg1)
@@ -86,36 +87,36 @@ func (m *MockPatchAnnotator) SetOriginalConfiguration(arg0 runtime.Object, arg1 
 	return ret0
 }
 
-// SetOriginalConfiguration indicates an expected call of SetOriginalConfiguration
+// SetOriginalConfiguration indicates an expected call of SetOriginalConfiguration.
 func (mr *MockPatchAnnotatorMockRecorder) SetOriginalConfiguration(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetOriginalConfiguration", reflect.TypeOf((*MockPatchAnnotator)(nil).SetOriginalConfiguration), arg0, arg1)
 }
 
-// MockPatchMaker is a mock of PatchMaker interface
+// MockPatchMaker is a mock of PatchMaker interface.
 type MockPatchMaker struct {
 	ctrl     *gomock.Controller
 	recorder *MockPatchMakerMockRecorder
 }
 
-// MockPatchMakerMockRecorder is the mock recorder for MockPatchMaker
+// MockPatchMakerMockRecorder is the mock recorder for MockPatchMaker.
 type MockPatchMakerMockRecorder struct {
 	mock *MockPatchMaker
 }
 
-// NewMockPatchMaker creates a new mock instance
+// NewMockPatchMaker creates a new mock instance.
 func NewMockPatchMaker(ctrl *gomock.Controller) *MockPatchMaker {
 	mock := &MockPatchMaker{ctrl: ctrl}
 	mock.recorder = &MockPatchMakerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPatchMaker) EXPECT() *MockPatchMakerMockRecorder {
 	return m.recorder
 }
 
-// Calculate mocks base method
+// Calculate mocks base method.
 func (m *MockPatchMaker) Calculate(arg0, arg1 runtime.Object, arg2 ...patch.CalculateOption) (*patch.PatchResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
@@ -128,7 +129,7 @@ func (m *MockPatchMaker) Calculate(arg0, arg1 runtime.Object, arg2 ...patch.Calc
 	return ret0, ret1
 }
 
-// Calculate indicates an expected call of Calculate
+// Calculate indicates an expected call of Calculate.
 func (mr *MockPatchMakerMockRecorder) Calculate(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)

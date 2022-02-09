@@ -69,6 +69,7 @@ var serviceType = reflect.TypeOf(&corev1.Service{})
 // definition associated with the object. To prevent gaps, it bulk retrieves the
 // resources and checks it against the status.
 func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Delta) error {
+
 	if inObj.Type != cache.Added {
 		return nil
 	}

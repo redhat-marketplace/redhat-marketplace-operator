@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -65,6 +66,25 @@ func ProvideMeterDefinitionChannelProducer(
 			mailbox: mb,
 			log:     log.WithName("mdefChannel").V(4),
 			name:    MeterDefinitionChannel,
+		},
+	}
+}
+
+type RazeeChannelProducer struct {
+	MailboxChannelProducer
+}
+
+func ProvideRazeeChannelProducer(
+	razeeStore *razee.RazeeStore,
+	mb *Mailbox,
+	log logr.Logger,
+) *RazeeChannelProducer {
+	return &RazeeChannelProducer{
+		MailboxChannelProducer: MailboxChannelProducer{
+			queue:   razeeStore,
+			mailbox: mb,
+			log:     log.WithName("razeeChannel").V(4),
+			name:    RazeeChannel,
 		},
 	}
 }

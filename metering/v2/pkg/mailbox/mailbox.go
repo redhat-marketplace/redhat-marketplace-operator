@@ -38,10 +38,11 @@ type ChannelName string
 const (
 	ObjectChannel          ChannelName = "ObjectChannel"
 	MeterDefinitionChannel ChannelName = "MeterDefinitionChannel"
+	RazeeChannel           ChannelName = "RazeeChannel"
 )
 
 var (
-	channels = []ChannelName{ObjectChannel, MeterDefinitionChannel}
+	channels = []ChannelName{ObjectChannel, MeterDefinitionChannel, RazeeChannel}
 )
 
 func ProvideMailbox(log logr.Logger) *Mailbox {
