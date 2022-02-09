@@ -15,7 +15,6 @@
 package marketplace
 
 import (
-	"fmt"
 	ioutil "io/ioutil"
 	"time"
 
@@ -37,14 +36,15 @@ type Maker interface {
 }
 
 type Payload struct {
+	Env      string `json:"env"`
 	Password string `json:"password"`
 	Id       string `json:"jti,omitempty"`
 	IssuedAt int64  `json:"iat,omitempty"`
 	Issuer   string `json:"iss,omitempty"`
 }
 
-func CreateToken(password string, duration time.Duration) (string, error) {
-	payload, err := NewPayload(password, duration)
+func CreateToken(password string, env string, duration time.Duration) (string, error) {
+	payload, err := NewPayload(password, env, duration)
 	if err != nil {
 		return "", err
 	}
@@ -57,8 +57,9 @@ func (payload *Payload) Valid() error {
 	return nil
 }
 
-func NewPayload(password string, duration time.Duration) (*Payload, error) {
+func NewPayload(password string, env string, duration time.Duration) (*Payload, error) {
 	payload := &Payload{
+		Env:      env,
 		Id:       "tokenID",
 		IssuedAt: int64(1234),
 		Issuer:   "test-issuer",
@@ -77,7 +78,8 @@ var _ = Describe("Marketplace Config Status", func() {
 		body                     []byte
 		path                     string
 		err                      error
-		ekToken                  string
+		ekProdToken              string
+		ekStageToken             string
 	)
 
 	BeforeEach(func() {
@@ -110,7 +112,10 @@ var _ = Describe("Marketplace Config Status", func() {
 			ClusterUuid: "test",
 		}
 
-		ekToken, err = CreateToken("mypassword", time.Minute)
+		ekProdToken, err = CreateToken("mypassword", "", time.Minute)
+		Expect(err).NotTo(HaveOccurred())
+
+		ekStageToken, err = CreateToken("mypassword", "stage", time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -118,11 +123,10 @@ var _ = Describe("Marketplace Config Status", func() {
 		server.Close()
 	})
 
-	Context("IBM Entitlement Key", func() {
-		It("Should parse the JWT from password field", func() {
-			tokenClaims, err := GetJWTTokenClaim(ekToken)
+	FContext("IBM Entitlement Key", func() {
+		It("Should should correctly parse a prod token", func() {
+			tokenClaims, err := GetJWTTokenClaim(ekProdToken)
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Printf("%#v\n", tokenClaims)
 			Expect(*tokenClaims).To(MatchFields(IgnoreExtras, Fields{
 				"AccountID": Equal(""),
 				"Password":  Equal("mypassword"),
@@ -132,7 +136,21 @@ var _ = Describe("Marketplace Config Status", func() {
 					"Issuer":   Equal("test-issuer"),
 				}),
 			}))
+		})
 
+		It("Should should correctly parse a stage token", func() {
+			tokenClaims, err := GetJWTTokenClaim(ekStageToken)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*tokenClaims).To(MatchFields(IgnoreExtras, Fields{
+				"AccountID": Equal(""),
+				"Password":  Equal("mypassword"),
+				"Env":       Equal("stage"),
+				"StandardClaims": MatchFields(IgnoreExtras, Fields{
+					"Id":       Equal("tokenID"),
+					"IssuedAt": Equal(int64(1234)),
+					"Issuer":   Equal("test-issuer"),
+				}),
+			}))
 		})
 	})
 
