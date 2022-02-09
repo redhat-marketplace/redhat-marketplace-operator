@@ -118,7 +118,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		server.Close()
 	})
 
-	FContext("IBM Entitlement Key", func() {
+	Context("IBM Entitlement Key", func() {
 		It("Should parse the JWT from password field", func() {
 			tokenClaims, err := GetJWTTokenClaim(ekToken)
 			Expect(err).NotTo(HaveOccurred())
