@@ -123,7 +123,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		server.Close()
 	})
 
-	FContext("IBM Entitlement Key", func() {
+	Context("IBM Entitlement Key", func() {
 		It("Should should correctly parse a prod token", func() {
 			tokenClaims, err := GetJWTTokenClaim(ekProdToken)
 			Expect(err).NotTo(HaveOccurred())
