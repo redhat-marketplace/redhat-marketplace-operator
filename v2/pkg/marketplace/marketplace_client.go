@@ -78,14 +78,10 @@ type MarketplaceClientBuilder struct {
 }
 
 type EntitlementKey struct {
-	Auths Auths `json:"auths"`
+	Auths map[string]Auth `json:"auths"`
 }
 
-type Auths struct {
-	Prod Prod `json:"cp.icr.io"`
-}
-
-type Prod struct {
+type Auth struct {
 	UserName string `json:"username"`
 	Password string `json:"password"`
 	Auth     string `json:"auth"`

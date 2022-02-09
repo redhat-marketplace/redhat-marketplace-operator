@@ -112,7 +112,16 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, err
 		}
 
-		jwtToken = ek.Auths.Prod.Password
+		prodAuth, ok := ek.Auths[utils.IBMEntitlementProdKey]
+		if ok {
+			jwtToken = prodAuth.Password
+		}
+
+		stageAuth, ok := ek.Auths[utils.IBMEntitlementStageKey]
+		if ok {
+			jwtToken = stageAuth.Password
+		}
+
 	} else if si.TypeOf == utils.RHMPullSecretName {
 		jwtToken = string(si.Secret.Data[si.SecretKey])
 	}
@@ -247,7 +256,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	//Update secret with status
 	if annotations[si.SecretKey] != "success" {
 		reqLogger.Info("Updating secret with success status")
-		annotations[si.SecretKey] = "success"
+		annotations[si.StatusKey] = "success"
 		annotations[si.MessageKey] = "rhm-operator-secret generated successfully"
 		si.Secret.SetAnnotations(annotations)
 		if err := r.Client.Update(context.TODO(), si.Secret); err != nil {

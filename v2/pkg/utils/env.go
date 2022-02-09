@@ -96,6 +96,8 @@ const (
 	RHMOperatorSecretName       = "rhm-operator-secret"
 	IBMEntitlementKeySecretName = "ibm-entitlement-key"
 	IBMEntitlementDataKey       = ".dockerconfigjson"
+	IBMEntitlementProdKey       = "cp.icr.io"
+	IBMEntitlementStageKey      = "stg.icr.io"
 	IBMEntitlementKeyStatus     = "marketplace.redhat.com/ibm-entitlement-key"
 	IBMEntitlementKeyMessage    = "marketplace.redhat.com/ibm-entitlement-key-message"
 	IBMEntitlementKeyMissing    = "key with name '.dockerconfigjson' is missing in secret"
