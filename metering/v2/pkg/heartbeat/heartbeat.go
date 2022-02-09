@@ -84,7 +84,8 @@ func (h *Heartbeat) heartbeat() error {
 		return err
 	}
 
-	baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeys(h.kubeClient, razeeclient.GetNamespace())
+	//baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeys(h.kubeClient, razeeclient.GetNamespace())
+	baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeysFromFile()
 	if err != nil {
 		return err
 	}

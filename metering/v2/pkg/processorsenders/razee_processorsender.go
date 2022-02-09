@@ -189,7 +189,8 @@ func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 			return err
 		}
 
-		baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeys(r.kubeClient, razeeclient.GetNamespace())
+		//baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeys(r.kubeClient, razeeclient.GetNamespace())
+		baseurl, razeeOrgKey, err := razeeclient.GetRazeeDashKeysFromFile()
 		if err != nil {
 			return err
 		}

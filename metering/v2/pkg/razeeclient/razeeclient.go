@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -32,6 +33,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// Get the base URL & Org Key from the rhm-operator-secret
+func GetRazeeDashKeysFromFile() ([]byte, []byte, error) {
+	var url []byte
+	var key []byte
+
+	url, err := os.ReadFile(path.Join("/etc/redhat-marketplace/rhm-operator-secret", utils.RAZEE_DASH_URL_FIELD))
+	if err != nil {
+		return url, key, err
+	}
+
+	key, err = os.ReadFile(path.Join("/etc/redhat-marketplace/rhm-operator-secret", utils.RAZEE_DASH_ORG_KEY_FIELD))
+	if err != nil {
+		return url, key, err
+	}
+
+	return url, key, nil
+}
 
 // Get the base URL & Org Key from the rhm-operator-secret
 func GetRazeeDashKeys(client client.Client, namespace string) ([]byte, []byte, error) {
