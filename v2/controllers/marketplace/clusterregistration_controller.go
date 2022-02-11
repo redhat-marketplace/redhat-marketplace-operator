@@ -322,26 +322,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	ownerFound := false
-	for _, owner := range si.Secret.ObjectMeta.OwnerReferences {
-		if owner.Name == si.Secret.Name &&
-			owner.Kind == si.Secret.Kind &&
-			owner.APIVersion == si.Secret.APIVersion {
-			ownerFound = true
-		}
-	}
-
-	if err := controllerutil.SetOwnerReference(
-		newMarketplaceConfig,
-		si.Secret,
-		r.Scheme); !ownerFound && err == nil {
-		r.Client.Update(context.TODO(), si.Secret)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update Marketplace Config Object")
-			return reconcile.Result{}, err
-		}
-	}
-
 	reqLogger.Info("reconcile finished. Marketplace Config Created")
 	return reconcile.Result{}, nil
 }
