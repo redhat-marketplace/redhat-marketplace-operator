@@ -30,11 +30,6 @@ import (
 const timeout = time.Second * 100
 const interval = time.Second * 3
 
-type Maker interface {
-	CreateToken(username string, duration time.Duration) (string, error)
-	VerifyToken(token string) (*Payload, error)
-}
-
 type Payload struct {
 	Env      string `json:"env"`
 	Password string `json:"password"`

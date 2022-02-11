@@ -403,17 +403,10 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := &v1.Secret{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
+	//Fetch the redhat-marketplace-pull-secret or ibm-entitlement-key
+	si, err := ReturnSecret(r.Client, request, reqLogger)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			secret = nil
-			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-		} else {
-			reqLogger.Error(err, "error fetching secret")
-			return reconcile.Result{}, err
-		}
+		return reconcile.Result{}, err
 	}
 
 	if marketplaceConfig.Labels == nil {
@@ -422,8 +415,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	var updateInstanceSpec bool
 
-	if secret != nil {
-		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+	if si.Secret != nil {
+		if clusterDisplayName, ok := si.Secret.Data[utils.ClusterDisplayNameKey]; ok {
 			count := utf8.RuneCountInString(string(clusterDisplayName))
 			clusterName := strings.Trim(string(clusterDisplayName), "\n")
 
@@ -735,17 +728,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	reqLogger.Info("Finding Cluster registration status")
 
 	requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
-		if secret == nil {
+		if si.Secret == nil {
 			return reconcile.Result{}, false, nil
 		}
 
-		pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-		if !ok {
-			return reconcile.Result{}, false, nil
+		token, err := ParseAndValidate(si)
+		if err != nil {
+			reqLogger.Error(err, "error validating secret")
+			return reconcile.Result{}, false, err
 		}
-
-		token := string(pullSecret)
 		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 		if err != nil {
 			reqLogger.Error(err, "error parsing token")

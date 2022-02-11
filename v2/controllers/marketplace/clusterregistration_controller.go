@@ -48,6 +48,10 @@ import (
 // blank assignment to verify that ReconcileClusterRegistration implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ClusterRegistrationReconciler{}
 
+var (
+	TokenFieldMissingOrEmpty error = errors.New("token field not found on secret")
+)
+
 // ClusterRegistrationReconciler reconciles a Registration object
 type ClusterRegistrationReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -81,7 +85,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ClusterRegistration")
 
-	si, err := r.ReturnSecret(request, reqLogger)
+	si, err := ReturnSecret(r.Client, request, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -90,41 +94,21 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
-	// reqLogger.Info("redhat-marketplace-pull-secret Secret found")
 
-	// Check condition if 'PULL_SECRET' or '.dockerconfig' key is missing in secret
-	if _, ok := si.Secret.Data[si.SecretKey]; !ok {
-		reqLogger.Info("Missing token filed in secret")
-		annotations[si.StatusKey] = "error"
-		annotations[si.MessageKey] = si.MissingMsg
-		si.Secret.SetAnnotations(annotations)
-		if err := r.Client.Update(context.TODO(), si.Secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+	jwtToken, err := ParseAndValidate(si)
+	if err != nil {
+		reqLogger.Error(err, "error validating secret")
+		if errors.Is(err, TokenFieldMissingOrEmpty) {
+			return r.updateSecretWithMessage(si, annotations, reqLogger)
 		}
-		reqLogger.Info("Secret updated with status on failiure")
+
 		return reconcile.Result{}, err
 	}
 
-	jwtToken := ""
-	if si.TypeOf == utils.IBMEntitlementKeySecretName {
-		ek := &marketplace.EntitlementKey{}
-		err := json.Unmarshal([]byte(si.Secret.Data[si.SecretKey]), ek)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		prodAuth, ok := ek.Auths[utils.IBMEntitlementProdKey]
-		if ok {
-			jwtToken = prodAuth.Password
-		}
-
-		stageAuth, ok := ek.Auths[utils.IBMEntitlementStageKey]
-		if ok {
-			jwtToken = stageAuth.Password
-		}
-
-	} else if si.TypeOf == utils.RHMPullSecretName {
-		jwtToken = string(si.Secret.Data[si.SecretKey])
+	if jwtToken == "" {
+		err := errors.New("jwt token is empty")
+		reqLogger.Error(err, "couldn't find secret field")
+		return reconcile.Result{}, err
 	}
 
 	tokenClaims, err := marketplace.GetJWTTokenClaim(jwtToken)
@@ -141,13 +125,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	reqLogger.Info("Marketplace Token Claims set")
-	pullSecret, ok := si.Secret.Data[si.SecretKey]
-
-	if !ok {
-		err := errors.New("secret field not present on secret resource")
-		reqLogger.Error(err, "couldn't find secret field")
-		return reconcile.Result{}, err
-	}
 
 	newMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{
@@ -159,12 +136,17 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		newMarketplaceConfig = nil
 	}
 
+	if newMarketplaceConfig != nil {
+		err = r.addOwnerRefToAll(r.Client, newMarketplaceConfig, request, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	//only check registration status, compare pull secret from COS if we are not in a disconnected environment
 	if newMarketplaceConfig != nil && !r.cfg.IsDisconnected {
-		token := string(pullSecret)
-
 		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
-			NewMarketplaceClient(token, tokenClaims)
+			NewMarketplaceClient(jwtToken, tokenClaims)
 
 		if err != nil {
 			reqLogger.Error(err, "failed to build marketplaceclient")
@@ -204,8 +186,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		//Calling POST endpoint to pull the secret definition
 		newOptSecretObj, err := mclient.GetMarketplaceSecret()
 		if err != nil {
-			reqLogger.Info("RHMarketPlaceSecret failure")
-			reqLogger.Error(err, "RHMarketPlaceSecret failure")
+			reqLogger.Error(err, "failed to get marketplace secret")
 			annotations[si.StatusKey] = "error"
 			annotations[si.MessageKey] = err.Error()
 			si.Secret.SetAnnotations(annotations)
@@ -375,10 +356,10 @@ func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.Operato
 	return nil
 }
 
-func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, reqLogger logr.Logger) (*SecretInfo, error) {
-	pullSecret, pullSecretErr := m.GetPullSecret(request)
-	if pullSecretErr != nil {
-		reqLogger.Error(pullSecretErr, "error finding secret", "secret", utils.RHMPullSecretName)
+func ReturnSecret(client client.Client, request reconcile.Request, reqLogger logr.Logger) (*SecretInfo, error) {
+	pullSecret, pullSecretErr := GetPullSecret(client, request)
+	if pullSecretErr != nil && k8serrors.IsNotFound(pullSecretErr) {
+		reqLogger.Info("could not find secret", "secret", utils.RHMPullSecretName)
 	}
 	if pullSecret != nil {
 		reqLogger.Info("found secret", "secret type", utils.RHMPullSecretName)
@@ -392,9 +373,9 @@ func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, 
 		}, nil
 	}
 
-	entitlementKeySecret, entitlementKeySecretErr := m.GetEntitlementKey(request)
-	if entitlementKeySecretErr != nil {
-		reqLogger.Error(entitlementKeySecretErr, "error finding secret", "secret", utils.IBMEntitlementKeySecretName)
+	entitlementKeySecret, entitlementKeySecretErr := GetEntitlementKey(client, request)
+	if entitlementKeySecretErr != nil && k8serrors.IsNotFound(entitlementKeySecretErr) {
+		reqLogger.Info("could not find secret", "secret", utils.IBMEntitlementKeySecretName)
 	}
 	if pullSecret == nil && entitlementKeySecret != nil {
 		reqLogger.Info("found secret", "secret type", utils.IBMEntitlementKeySecretName)
@@ -404,7 +385,7 @@ func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, 
 			StatusKey:  utils.IBMEntitlementKeyStatus,
 			MessageKey: utils.IBMEntitlementKeyMessage,
 			SecretKey:  utils.IBMEntitlementDataKey,
-			MissingMsg: utils.IBMEntitlementKeyMissing,
+			MissingMsg: utils.IBMEntitlementKeyPasswordMissing,
 		}, nil
 	}
 
@@ -415,9 +396,9 @@ func (m *ClusterRegistrationReconciler) ReturnSecret(request reconcile.Request, 
 	return nil, nil
 }
 
-func (r *ClusterRegistrationReconciler) GetEntitlementKey(request reconcile.Request) (*v1.Secret, error) {
+func GetEntitlementKey(client client.Client, request reconcile.Request) (*v1.Secret, error) {
 	ibmEntitlementKeySecret := &v1.Secret{}
-	err := r.Client.Get(context.TODO(),
+	err := client.Get(context.TODO(),
 		types.NamespacedName{Name: utils.IBMEntitlementKeySecretName, Namespace: request.Namespace},
 		ibmEntitlementKeySecret)
 	if err != nil {
@@ -427,10 +408,9 @@ func (r *ClusterRegistrationReconciler) GetEntitlementKey(request reconcile.Requ
 	return ibmEntitlementKeySecret, nil
 }
 
-func (r *ClusterRegistrationReconciler) GetPullSecret(request reconcile.Request) (*v1.Secret, error) {
-	//Fetch the Secret with name redhat-marketplace-pull-secret
+func GetPullSecret(client client.Client, request reconcile.Request) (*v1.Secret, error) {
 	rhmPullSecret := &v1.Secret{}
-	err := r.Client.Get(context.TODO(),
+	err := client.Get(context.TODO(),
 		types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace},
 		rhmPullSecret)
 	if err != nil {
@@ -438,6 +418,99 @@ func (r *ClusterRegistrationReconciler) GetPullSecret(request reconcile.Request)
 	}
 
 	return rhmPullSecret, nil
+}
+
+func ParseAndValidate(si *SecretInfo) (string, error) {
+	jwtToken := ""
+	if si.TypeOf == utils.IBMEntitlementKeySecretName {
+		ek := &marketplace.EntitlementKey{}
+		err := json.Unmarshal([]byte(si.Secret.Data[si.SecretKey]), ek)
+		if err != nil {
+			return "", err
+		}
+
+		prodAuth, ok := ek.Auths[utils.IBMEntitlementProdKey]
+		if ok {
+			if prodAuth.Password == "" {
+				return "", fmt.Errorf("could not find jwt token on prod entitlement key %w", TokenFieldMissingOrEmpty)
+			}
+			jwtToken = prodAuth.Password
+		}
+
+		stageAuth, ok := ek.Auths[utils.IBMEntitlementStageKey]
+		if ok {
+			if stageAuth.Password == "" {
+				return "", fmt.Errorf("could not find jwt token on stage entitlement key %w", TokenFieldMissingOrEmpty)
+			}
+			jwtToken = stageAuth.Password
+		}
+
+	} else if si.TypeOf == utils.RHMPullSecretName {
+		if _, ok := si.Secret.Data[si.SecretKey]; !ok {
+			return "", fmt.Errorf("could not find jwt token on redhat-marketplace-pull-secret %w", TokenFieldMissingOrEmpty)
+		}
+		jwtToken = string(si.Secret.Data[si.SecretKey])
+	}
+
+	return jwtToken, nil
+}
+
+func (r *ClusterRegistrationReconciler) updateSecretWithMessage(si *SecretInfo, annotations map[string]string, reqLogger logr.Logger) (reconcile.Result, error) {
+	reqLogger.Info("Missing token field in secret")
+	annotations[si.StatusKey] = "error"
+	annotations[si.MessageKey] = si.MissingMsg
+	si.Secret.SetAnnotations(annotations)
+	err := r.Client.Update(context.TODO(), si.Secret)
+	if err != nil {
+		reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+	}
+	reqLogger.Info("Secret updated with status on failiure")
+	return reconcile.Result{}, err
+}
+
+// will set the owner ref on both the redhat-marketplace-pull-secret and the ibm-entitlement-key so that both get cleaned up if we delete marketplace config
+// TODO: @dan using the client and scheme on the ClusterRegistrationReconciler struct and passing in the client, let me know you want to only using params
+func (m *ClusterRegistrationReconciler) addOwnerRefToAll(client client.Client, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, request reconcile.Request, reqLogger logr.Logger) error {
+	pullSecret, _ := GetPullSecret(client, request)
+	if pullSecret != nil {
+		err := m.addOwnerRef(marketplaceConfig, pullSecret, reqLogger)
+		if err != nil {
+			return err
+		}
+	}
+
+	entitlementKeySecret, _ := GetEntitlementKey(client, request)
+	if entitlementKeySecret != nil {
+		err := m.addOwnerRef(marketplaceConfig, entitlementKeySecret, reqLogger)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *ClusterRegistrationReconciler) addOwnerRef(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, secret *v1.Secret, reqLogger logr.Logger) error {
+	ownerFound := false
+	for _, owner := range secret.ObjectMeta.OwnerReferences {
+		if owner.Name == secret.Name &&
+			owner.Kind == secret.Kind &&
+			owner.APIVersion == secret.APIVersion {
+			ownerFound = true
+		}
+	}
+
+	if err := controllerutil.SetOwnerReference(
+		marketplaceConfig,
+		secret,
+		m.Scheme); !ownerFound && err == nil {
+		m.Client.Update(context.TODO(), secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
