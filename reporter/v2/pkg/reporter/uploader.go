@@ -141,17 +141,18 @@ func provideMarketplaceConfig(
 	client client.Client,
 	deployedNamespace string,
 ) (*uploaders.MarketplaceUploaderConfig, error) {
-	rhmPullSecret := corev1.Secret{}
-	err := client.Get(ctx,
-		types.NamespacedName{Name: "redhat-marketplace-pull-secret", Namespace: deployedNamespace},
-		&rhmPullSecret)
-
-	if _, ok := rhmPullSecret.Data[utils.RHMPullSecretKey]; !ok {
-		return nil, errors.New("PULL_SECRET var missing from pull secret")
+	b := utils.ProvideSecretFetcherBuilderForReporter(client, ctx, deployedNamespace)
+	si, err := b.ReturnSecret()
+	if err != nil {
+		return nil, err
 	}
 
-	//Get Account Id from Pull Secret Token
-	tokenClaims, err := marketplace.GetJWTTokenClaim(string(rhmPullSecret.Data[utils.RHMPullSecretKey]))
+	jwtToken, err := b.ParseAndValidate(si)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenClaims, err := marketplace.GetJWTTokenClaim(jwtToken)
 	if err != nil {
 		return nil, err
 	}
@@ -161,11 +162,8 @@ func provideMarketplaceConfig(
 		url = MktplStageURL
 	}
 
-	pullSecret := rhmPullSecret.Data[utils.RHMPullSecretKey]
-	token := string(pullSecret)
-
 	return &uploaders.MarketplaceUploaderConfig{
 		URL:   url,
-		Token: token,
+		Token: jwtToken,
 	}, nil
 }

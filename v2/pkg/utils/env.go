@@ -105,7 +105,7 @@ const (
 	RHMPullSecretKey                 = "PULL_SECRET"
 	RHMPullSecretStatus              = "marketplace.redhat.com/rhm-operator-secret-status"
 	RHMPullSecretMessage             = "marketplace.redhat.com/rhm-operator-secret-message"
-	RHMPUllSecretMissing             = "key with name 'PULL_SECRET' is missing in secret"
+	RHMPullSecretMissing             = "key with name 'PULL_SECRET' is missing in secret"
 	ClusterDisplayNameKey            = "CLUSTER_DISPLAY_NAME"
 
 	RazeeWatchResource    = "razee/watch-resource"

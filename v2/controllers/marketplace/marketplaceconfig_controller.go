@@ -404,10 +404,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	}
 
 	//Fetch the redhat-marketplace-pull-secret or ibm-entitlement-key
-	si, err := ReturnSecret(r.Client, request, reqLogger)
+	si, err := utils.ReturnSecret(r.Client, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	reqLogger.Info("found secret", "secret", si.Name)
 
 	if marketplaceConfig.Labels == nil {
 		marketplaceConfig.Labels = make(map[string]string)
@@ -732,7 +734,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 			return reconcile.Result{}, false, nil
 		}
 
-		token, err := ParseAndValidate(si)
+		token, err := utils.ParseAndValidate(si)
 		if err != nil {
 			reqLogger.Error(err, "error validating secret")
 			return reconcile.Result{}, false, err
