@@ -44,10 +44,6 @@ import (
 // blank assignment to verify that ReconcileClusterRegistration implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ClusterRegistrationReconciler{}
 
-var (
-	TokenFieldMissingOrEmpty error = errors.New("token field not found on secret")
-)
-
 // ClusterRegistrationReconciler reconciles a Registration object
 type ClusterRegistrationReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -96,7 +92,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	jwtToken, err := secretFetcher.ParseAndValidate(si)
 	if err != nil {
 		reqLogger.Error(err, "error validating secret")
-		if errors.Is(err, TokenFieldMissingOrEmpty) {
+		if errors.Is(err, utils.TokenFieldMissingOrEmpty) {
 			return r.updateSecretWithMessage(si, annotations, reqLogger)
 		}
 
