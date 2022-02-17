@@ -21,10 +21,12 @@ import (
 	"fmt"
 
 	"github.com/goph/emperror"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var (
@@ -32,15 +34,7 @@ var (
 	NoSecretsFound           error = errors.New("Could not find redhat-marketplace-pull-secret or ibm-entitlement-key")
 )
 
-type ReporterSecretFetcherBuilder struct {
-	Ctx               context.Context
-	K8sClient         client.Client
-	DeployedNamespace string
-}
-
-type ControllerSecretFetcherBuilder struct {
-	RHMPullSecretSI   *SecretInfo
-	EntitlementKeySI  *SecretInfo
+type SecretFetcherBuilder struct {
 	Ctx               context.Context
 	K8sClient         client.Client
 	DeployedNamespace string
@@ -65,16 +59,16 @@ type Auth struct {
 	Auth     string `json:"auth"`
 }
 
-func ProvideSecretFetcherBuilderForReporter(client client.Client, ctx context.Context, deployedNamespace string) *ReporterSecretFetcherBuilder {
-	return &ReporterSecretFetcherBuilder{
+func ProvideSecretFetcherBuilder(client client.Client, ctx context.Context, deployedNamespace string) *SecretFetcherBuilder {
+	return &SecretFetcherBuilder{
 		Ctx:               ctx,
 		K8sClient:         client,
 		DeployedNamespace: deployedNamespace,
 	}
 }
 
-func (rsf *ReporterSecretFetcherBuilder) ReturnSecret() (*SecretInfo, error) {
-	pullSecret, pullSecretErr := rsf.GetPullSecret()
+func (sf *SecretFetcherBuilder) ReturnSecret() (*SecretInfo, error) {
+	pullSecret, pullSecretErr := sf.GetPullSecret()
 	if pullSecret != nil {
 		return &SecretInfo{
 			Name:       RHMPullSecretName,
@@ -86,7 +80,7 @@ func (rsf *ReporterSecretFetcherBuilder) ReturnSecret() (*SecretInfo, error) {
 		}, nil
 	}
 
-	entitlementKeySecret, entitlementKeySecretErr := rsf.GetEntitlementKey()
+	entitlementKeySecret, entitlementKeySecretErr := sf.GetEntitlementKey()
 	if pullSecret == nil && entitlementKeySecret != nil {
 		return &SecretInfo{
 			Name:       IBMEntitlementKeySecretName,
@@ -105,10 +99,10 @@ func (rsf *ReporterSecretFetcherBuilder) ReturnSecret() (*SecretInfo, error) {
 	return nil, nil
 }
 
-func (rsf *ReporterSecretFetcherBuilder) GetEntitlementKey() (*v1.Secret, error) {
+func (sf *SecretFetcherBuilder) GetEntitlementKey() (*v1.Secret, error) {
 	ibmEntitlementKeySecret := &v1.Secret{}
-	err := rsf.K8sClient.Get(context.TODO(),
-		types.NamespacedName{Name: IBMEntitlementKeySecretName, Namespace: rsf.DeployedNamespace},
+	err := sf.K8sClient.Get(sf.Ctx,
+		types.NamespacedName{Name: IBMEntitlementKeySecretName, Namespace: sf.DeployedNamespace},
 		ibmEntitlementKeySecret)
 	if err != nil {
 		return nil, err
@@ -117,10 +111,10 @@ func (rsf *ReporterSecretFetcherBuilder) GetEntitlementKey() (*v1.Secret, error)
 	return ibmEntitlementKeySecret, nil
 }
 
-func (rsf *ReporterSecretFetcherBuilder) GetPullSecret() (*v1.Secret, error) {
+func (sf *SecretFetcherBuilder) GetPullSecret() (*v1.Secret, error) {
 	rhmPullSecret := &v1.Secret{}
-	err := rsf.K8sClient.Get(context.TODO(),
-		types.NamespacedName{Name: RHMPullSecretName, Namespace: rsf.DeployedNamespace},
+	err := sf.K8sClient.Get(sf.Ctx,
+		types.NamespacedName{Name: RHMPullSecretName, Namespace: sf.DeployedNamespace},
 		rhmPullSecret)
 	if err != nil {
 		return nil, err
@@ -129,7 +123,7 @@ func (rsf *ReporterSecretFetcherBuilder) GetPullSecret() (*v1.Secret, error) {
 	return rhmPullSecret, nil
 }
 
-func (rsf *ReporterSecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (string, error) {
+func (sf *SecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (string, error) {
 	jwtToken := ""
 	if si.Name == IBMEntitlementKeySecretName {
 		ek := &EntitlementKey{}
@@ -164,93 +158,46 @@ func (rsf *ReporterSecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (strin
 	return jwtToken, nil
 }
 
-func ReturnSecret(client client.Client, request reconcile.Request) (*SecretInfo, error) {
-	pullSecret, pullSecretErr := GetPullSecret(client, request)
+// will set the owner ref on both the redhat-marketplace-pull-secret and the ibm-entitlement-key so that both get cleaned up if we delete marketplace config
+func (sf *SecretFetcherBuilder) AddOwnerRefToAll(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, scheme *runtime.Scheme) error {
+	pullSecret, _ := sf.GetPullSecret()
 	if pullSecret != nil {
-		return &SecretInfo{
-			Name:       RHMPullSecretName,
-			Secret:     pullSecret,
-			StatusKey:  RHMPullSecretStatus,
-			MessageKey: RHMPullSecretMessage,
-			SecretKey:  RHMPullSecretKey,
-			MissingMsg: RHMPullSecretMissing,
-		}, nil
-	}
-
-	entitlementKeySecret, entitlementKeySecretErr := GetEntitlementKey(client, request)
-	if pullSecret == nil && entitlementKeySecret != nil {
-		return &SecretInfo{
-			Name:       IBMEntitlementKeySecretName,
-			Secret:     entitlementKeySecret,
-			StatusKey:  IBMEntitlementKeyStatus,
-			MessageKey: IBMEntitlementKeyMessage,
-			SecretKey:  IBMEntitlementDataKey,
-			MissingMsg: IBMEntitlementKeyPasswordMissing,
-		}, nil
-	}
-
-	if entitlementKeySecretErr != nil && pullSecretErr != nil {
-		return nil, NoSecretsFound
-	}
-
-	return nil, nil
-}
-
-func GetEntitlementKey(client client.Client, request reconcile.Request) (*v1.Secret, error) {
-	ibmEntitlementKeySecret := &v1.Secret{}
-	err := client.Get(context.TODO(),
-		types.NamespacedName{Name: IBMEntitlementKeySecretName, Namespace: request.Namespace},
-		ibmEntitlementKeySecret)
-	if err != nil {
-		return nil, err
-	}
-
-	return ibmEntitlementKeySecret, nil
-}
-
-func GetPullSecret(client client.Client, request reconcile.Request) (*v1.Secret, error) {
-	rhmPullSecret := &v1.Secret{}
-	err := client.Get(context.TODO(),
-		types.NamespacedName{Name: RHMPullSecretName, Namespace: request.Namespace},
-		rhmPullSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	return rhmPullSecret, nil
-}
-
-func ParseAndValidate(si *SecretInfo) (string, error) {
-	jwtToken := ""
-	if si.Name == IBMEntitlementKeySecretName {
-		ek := &EntitlementKey{}
-		err := json.Unmarshal([]byte(si.Secret.Data[si.SecretKey]), ek)
+		err := sf.addOwnerRef(marketplaceConfig, pullSecret, scheme)
 		if err != nil {
-			return "", err
+			return err
 		}
-
-		prodAuth, ok := ek.Auths[IBMEntitlementProdKey]
-		if ok {
-			if prodAuth.Password == "" {
-				return "", fmt.Errorf("could not find jwt token on prod entitlement key %w", TokenFieldMissingOrEmpty)
-			}
-			jwtToken = prodAuth.Password
-		}
-
-		stageAuth, ok := ek.Auths[IBMEntitlementStageKey]
-		if ok {
-			if stageAuth.Password == "" {
-				return "", fmt.Errorf("could not find jwt token on stage entitlement key %w", TokenFieldMissingOrEmpty)
-			}
-			jwtToken = stageAuth.Password
-		}
-
-	} else if si.Name == RHMPullSecretName {
-		if _, ok := si.Secret.Data[si.SecretKey]; !ok {
-			return "", fmt.Errorf("could not find jwt token on redhat-marketplace-pull-secret %w", TokenFieldMissingOrEmpty)
-		}
-		jwtToken = string(si.Secret.Data[si.SecretKey])
 	}
 
-	return jwtToken, nil
+	entitlementKeySecret, _ := sf.GetEntitlementKey()
+	if entitlementKeySecret != nil {
+		err := sf.addOwnerRef(marketplaceConfig, entitlementKeySecret, scheme)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (sf *SecretFetcherBuilder) addOwnerRef(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, secret *v1.Secret, scheme *runtime.Scheme) error {
+	ownerFound := false
+	for _, owner := range secret.ObjectMeta.OwnerReferences {
+		if owner.Name == secret.Name &&
+			owner.Kind == secret.Kind &&
+			owner.APIVersion == secret.APIVersion {
+			ownerFound = true
+		}
+	}
+
+	if err := controllerutil.SetOwnerReference(
+		marketplaceConfig,
+		secret,
+		scheme); !ownerFound && err == nil {
+		sf.K8sClient.Update(sf.Ctx, secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

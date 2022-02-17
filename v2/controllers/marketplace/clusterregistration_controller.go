@@ -36,7 +36,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -81,8 +80,8 @@ type SecretInfo struct {
 func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ClusterRegistration")
-
-	si, err := utils.ReturnSecret(r.Client, request)
+	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
+	si, err := secretFetcher.ReturnSecret()
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -94,7 +93,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		annotations = make(map[string]string)
 	}
 
-	jwtToken, err := utils.ParseAndValidate(si)
+	jwtToken, err := secretFetcher.ParseAndValidate(si)
 	if err != nil {
 		reqLogger.Error(err, "error validating secret")
 		if errors.Is(err, TokenFieldMissingOrEmpty) {
@@ -136,7 +135,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	if newMarketplaceConfig != nil {
-		err = r.addOwnerRefToAll(r.Client, newMarketplaceConfig, request, reqLogger)
+		err = secretFetcher.AddOwnerRefToAll(newMarketplaceConfig, r.Scheme)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -152,12 +151,73 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, nil
 		}
 
-		reqLogger.Info("MarketPlace config object found, check status if its installed or not")
-		//Setting MarketplaceClientAccount
+		reqLogger.Info("token found", "from secret", si.Name)
 
-		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   newMarketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: newMarketplaceConfig.Spec.ClusterUUID,
+		//Calling POST endpoint to pull the secret definition
+		newOptSecretObj, err := mclient.GetMarketplaceSecret()
+		if err != nil {
+			reqLogger.Error(err, "failed to get operator secret from marketplace")
+			annotations[si.StatusKey] = "error"
+			annotations[si.MessageKey] = err.Error()
+			si.Secret.SetAnnotations(annotations)
+			if err := r.Client.Update(context.TODO(), si.Secret); err != nil {
+				reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			}
+			return reconcile.Result{}, err
+		}
+		newOptSecretObj.SetNamespace(request.Namespace)
+
+		//Fetch the Secret with name redhat-Operator-secret
+		secretKeyname := types.NamespacedName{
+			Name:      newOptSecretObj.Name,
+			Namespace: newOptSecretObj.Namespace,
+		}
+
+		reqLogger.Info("retrieving operator secret", "name", secretKeyname.Name, "namespace", secretKeyname.Namespace)
+
+		optSecret := &v1.Secret{}
+		err = r.Client.Get(context.TODO(), secretKeyname, optSecret)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				reqLogger.Error(err, "error getting operator secret")
+				return reconcile.Result{}, err
+			}
+
+			reqLogger.Info("secret not found, creating")
+			err = r.Client.Create(context.TODO(), newOptSecretObj)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create operator object")
+				return reconcile.Result{}, err
+			}
+		} else {
+			reqLogger.Info("Comparing old and new rhm-operator-secret")
+
+			if !reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data) {
+				reqLogger.Info("rhm-operator-secret are different copy")
+				optSecret.Data = newOptSecretObj.Data
+
+				err := r.Client.Update(context.TODO(), optSecret)
+				if err != nil {
+					reqLogger.Error(err, "could not update rhm-operator-secret with new object", "Resource", utils.RHMOperatorSecretName)
+					return reconcile.Result{}, err
+				}
+			}
+		}
+
+		reqLogger.Info("MarketPlace config object found, check status if its installed or not")
+
+		//Setting MarketplaceClientAccount
+		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{}
+
+		if si.Name == utils.IBMEntitlementKeySecretName {
+			// set account id using rhm-operator-secret
+			marketplaceClientAccount.AccountId = string(newOptSecretObj.Data[utils.BUCKET_NAME_FIELD])
+			marketplaceClientAccount.ClusterUuid = newMarketplaceConfig.Spec.ClusterUUID
+		}
+
+		if si.Name == utils.RHMPullSecretName {
+			marketplaceClientAccount.AccountId = newMarketplaceConfig.Spec.RhmAccountID
+			marketplaceClientAccount.ClusterUuid = newMarketplaceConfig.Spec.ClusterUUID
 		}
 
 		// Marketplace config object found
@@ -178,58 +238,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 					return reconcile.Result{}, err
 				}
 				reqLogger.Info("Secret updated with status on success")
-			}
-		}
-
-		reqLogger.Info("token found", "from secret", si.Name)
-		//Calling POST endpoint to pull the secret definition
-		newOptSecretObj, err := mclient.GetMarketplaceSecret()
-		if err != nil {
-			reqLogger.Error(err, "failed to get marketplace secret")
-			annotations[si.StatusKey] = "error"
-			annotations[si.MessageKey] = err.Error()
-			si.Secret.SetAnnotations(annotations)
-			if err := r.Client.Update(context.TODO(), si.Secret); err != nil {
-				reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-			}
-			return reconcile.Result{}, err
-		}
-		newOptSecretObj.SetNamespace(request.Namespace)
-
-		//Fetch the Secret with name redhat-Operator-secret
-		secretKeyname := types.NamespacedName{
-			Name:      newOptSecretObj.Name,
-			Namespace: newOptSecretObj.Namespace,
-		}
-
-		reqLogger.Info("retrieving secret", "name", secretKeyname.Name, "namespace", secretKeyname.Namespace)
-
-		optSecret := &v1.Secret{}
-		err = r.Client.Get(context.TODO(), secretKeyname, optSecret)
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				reqLogger.Error(err, "bad error getting secret")
-				return reconcile.Result{}, err
-			}
-
-			reqLogger.Info("secret not found, creating")
-			err = r.Client.Create(context.TODO(), newOptSecretObj)
-			if err != nil {
-				reqLogger.Error(err, "Failed to Create Secret Object")
-				return reconcile.Result{}, err
-			}
-		} else {
-			reqLogger.Info("Comparing old and new rhm-operator-secret")
-
-			if !reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data) {
-				reqLogger.Info("rhm-operator-secret are different copy")
-				optSecret.Data = newOptSecretObj.Data
-
-				err := r.Client.Update(context.TODO(), optSecret)
-				if err != nil {
-					reqLogger.Error(err, "could not update rhm-operator-secret with new object", "Resource", utils.RHMOperatorSecretName)
-					return reconcile.Result{}, err
-				}
 			}
 		}
 	}
@@ -346,51 +354,6 @@ func (r *ClusterRegistrationReconciler) updateSecretWithMessage(si *utils.Secret
 	}
 	reqLogger.Info("Secret updated with status on failiure")
 	return reconcile.Result{}, err
-}
-
-// will set the owner ref on both the redhat-marketplace-pull-secret and the ibm-entitlement-key so that both get cleaned up if we delete marketplace config
-// TODO: @dan using the client and scheme on the ClusterRegistrationReconciler struct and passing in the client, let me know you want to only using params
-func (m *ClusterRegistrationReconciler) addOwnerRefToAll(client client.Client, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, request reconcile.Request, reqLogger logr.Logger) error {
-	pullSecret, _ := utils.GetPullSecret(client, request)
-	if pullSecret != nil {
-		err := m.addOwnerRef(marketplaceConfig, pullSecret)
-		if err != nil {
-			return err
-		}
-	}
-
-	entitlementKeySecret, _ := utils.GetEntitlementKey(client, request)
-	if entitlementKeySecret != nil {
-		err := m.addOwnerRef(marketplaceConfig, entitlementKeySecret)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *ClusterRegistrationReconciler) addOwnerRef(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, secret *v1.Secret) error {
-	ownerFound := false
-	for _, owner := range secret.ObjectMeta.OwnerReferences {
-		if owner.Name == secret.Name &&
-			owner.Kind == secret.Kind &&
-			owner.APIVersion == secret.APIVersion {
-			ownerFound = true
-		}
-	}
-
-	if err := controllerutil.SetOwnerReference(
-		marketplaceConfig,
-		secret,
-		m.Scheme); !ownerFound && err == nil {
-		m.Client.Update(context.TODO(), secret)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
