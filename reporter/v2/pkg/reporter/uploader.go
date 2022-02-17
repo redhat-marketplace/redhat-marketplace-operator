@@ -83,7 +83,7 @@ func ProvideUploaders(
 			}
 			uploaders = append(uploaders, uploader)
 		case *u.MarketplaceUploader:
-			config, err := provideMarketplaceConfig(ctx, client, reporterConfig.DeployedNamespace)
+			config, err := provideMarketplaceConfig(ctx, client, reporterConfig.DeployedNamespace, log)
 
 			if err != nil {
 				return nil, err
@@ -140,12 +140,16 @@ func provideMarketplaceConfig(
 	ctx context.Context,
 	client client.Client,
 	deployedNamespace string,
+	log logr.Logger,
 ) (*uploaders.MarketplaceUploaderConfig, error) {
+	log.Info("finding secret to authenticate to Redhat Marketplace")
 	b := utils.ProvideSecretFetcherBuilderForReporter(client, ctx, deployedNamespace)
 	si, err := b.ReturnSecret()
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("found secret", "secret name", si.Name)
 
 	jwtToken, err := b.ParseAndValidate(si)
 	if err != nil {
