@@ -497,6 +497,7 @@ rules:
 - apiGroups:
   - ""
   resourceNames:
+  - ibm-entitlement-key
   - redhat-marketplace-pull-secret
   resources:
   - secret
