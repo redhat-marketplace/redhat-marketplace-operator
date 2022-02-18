@@ -142,7 +142,7 @@ func provideMarketplaceConfig(
 	deployedNamespace string,
 	log logr.Logger,
 ) (*uploaders.MarketplaceUploaderConfig, error) {
-	log.Info("finding secret to authenticate to Redhat Marketplace")
+	log.Info("finding secret redhat-marketplace-pull-secret or ibm-entitlement-key")
 	b := utils.ProvideSecretFetcherBuilder(client, ctx, deployedNamespace)
 	si, err := b.ReturnSecret()
 	if err != nil {

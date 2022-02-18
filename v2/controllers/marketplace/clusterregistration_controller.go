@@ -67,6 +67,7 @@ type SecretInfo struct {
 // +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace=system,resources=secret,verbs=create
 // +kubebuilder:rbac:groups="",namespace=system,resources=secret,resourceNames=redhat-marketplace-pull-secret,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secret,resourceNames=ibm-entitlement-key,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
