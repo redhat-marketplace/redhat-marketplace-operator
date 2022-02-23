@@ -30,7 +30,7 @@ spec:
               cpu: 10m
               memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
-        - image: 'quay.io/razee/remoteresources3:0.5.2'
+        - image: 'us.icr.io/armada-master/remoteresources3:0.11.2_082c995'
           resources:
             limits:
               memory: 200Mi
