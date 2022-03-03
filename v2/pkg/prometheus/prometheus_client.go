@@ -136,6 +136,20 @@ func providePrometheusAPIForReporter(
 
 		localClient := v1.NewAPI(client)
 		return localClient, nil
+	} else {
+		if setup.PromService == nil {
+			return nil, errors.New("prom service is not provided")
+		}
+		if setup.PromPort == nil {
+			return nil, errors.New("prom port is not provided")
+		}
+	}
+
+	if setup.PromService == nil {
+		return nil, errors.New("prom service is not provided")
+	}
+	if setup.PromPort == nil {
+		return nil, errors.New("prom port is not provided")
 	}
 
 	if setup.PromService == nil {
