@@ -144,6 +144,28 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	return nil
 }
 
+func (def *MeterDefinitionDictionary) DeleteObjectMatches(
+	obj interface{},
+) error {
+
+	filters, err := def.ListFilters()
+
+	if err != nil {
+		def.log.Error(err, "error listing filters")
+		return err
+	}
+
+	for i := range filters {
+		localLookup := &filters[i]
+		err := lookupCache.Delete(localLookup, obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (def *MeterDefinitionDictionary) ListFilters() ([]filter.MeterDefinitionLookupFilter, error) {
 	filters := []filter.MeterDefinitionLookupFilter{}
 

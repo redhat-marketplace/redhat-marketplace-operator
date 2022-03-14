@@ -189,7 +189,7 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 		s.log.Error(err, "error updating seen object")
 	}
 
-	logger := s.log.WithValues("func", "add", "namespace/name", key).V(4)
+	logger := s.log.WithValues("func", "update", "namespace/name", key).V(4)
 	logger.Info("updating obj")
 
 	// look over all meterDefinitions, matching workloads are saved
@@ -295,6 +295,54 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 
 		if err := s.indexStore.Delete(fullObj); err != nil {
 			logger.Error(err, "can't delete obj")
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Delete deletes an existing entry in the OwnerCache.
+func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
+	mdefObj, err := newMeterDefinitionExtended(obj)
+
+	if err != nil {
+		s.log.Error(err, "cannot create a key")
+		return err
+	}
+
+	key, err := s.keyFunc(mdefObj)
+
+	if err != nil {
+		s.log.Error(err, "cannot create a key")
+		return err
+	}
+
+	logger := s.log.WithValues("func", "deletefromindex",
+		"name", mdefObj.GetName(),
+		"namespace", mdefObj.GetNamespace(),
+		"key", key)
+
+	fullObj, found, err := s.indexStore.Get(mdefObj)
+	if err != nil {
+		s.log.Error(err, "cannot get")
+		return err
+	}
+
+	if found {
+		logger.Info("deleting obj")
+
+		s.Lock()
+		defer s.Unlock()
+
+		if err := s.indexStore.Delete(fullObj); err != nil {
+			logger.Error(err, "can't delete obj")
+			return err
+		}
+
+		err = s.dictionary.DeleteObjectMatches(obj)
+		if err != nil {
+			logger.Error(err, "can't delete obj matches")
 			return err
 		}
 	}
@@ -474,7 +522,7 @@ func NewMeterDefinitionStore(
 	delta := cache.NewDeltaFIFO(keyFunc, store)
 	return &MeterDefinitionStore{
 		ctx:                      ctx,
-		log:                      log.WithName("obj_store").V(4),
+		log:                      log.WithName("obj_store").V(0),
 		scheme:                   scheme,
 		kubeClient:               kubeClient,
 		monitoringClient:         monitoringClient,

@@ -67,6 +67,10 @@ func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Del
 		return w.onAdd(ctx, d)
 	}
 
+	if d.Type == cache.Updated {
+		return w.onUpdate(ctx, d)
+	}
+
 	return nil
 }
 
@@ -116,4 +120,45 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 	}
 
 	return nil
+}
+
+func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+
+	if !ok {
+		return errors.New("encountered unexpected type")
+	}
+
+	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
+
+	key, err := cache.MetaNamespaceKeyFunc(&meterdef.MeterDefinition)
+
+	if err != nil {
+		w.log.Error(err, "error creating key")
+		return errors.WithStack(err)
+	}
+
+	objects, err := w.meterDefinitionStore.ByIndex(meterdefinition.IndexMeterDefinition, key)
+
+	if err != nil {
+		w.log.Error(err, "error finding data")
+		return errors.WithStack(err)
+	}
+
+	// Flush potential old objects from the index associated with the meterdefinition
+
+	for i := range objects {
+		obj := objects[i]
+		w.log.Info("deleting obj from index", "object", obj)
+		err := w.meterDefinitionStore.DeleteFromIndex(obj)
+
+		if err != nil {
+			w.log.Error(err, "error deleting data")
+			return errors.WithStack(err)
+		}
+	}
+
+	// Resync to index objects associated with the meterdefinition
+
+	return w.meterDefinitionStore.Resync()
 }
