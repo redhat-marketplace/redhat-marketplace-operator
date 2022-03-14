@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.6-v4.9
+OPENSHIFT_VERSIONS ?= v4.6-v4.10
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
