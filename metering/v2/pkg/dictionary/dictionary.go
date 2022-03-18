@@ -144,28 +144,6 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	return nil
 }
 
-func (def *MeterDefinitionDictionary) DeleteObjectMatches(
-	obj interface{},
-) error {
-
-	filters, err := def.ListFilters()
-
-	if err != nil {
-		def.log.Error(err, "error listing filters")
-		return err
-	}
-
-	for i := range filters {
-		localLookup := &filters[i]
-		err := lookupCache.Delete(localLookup, obj)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (def *MeterDefinitionDictionary) ListFilters() ([]filter.MeterDefinitionLookupFilter, error) {
 	filters := []filter.MeterDefinitionLookupFilter{}
 
@@ -223,6 +201,17 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 	if err != nil {
 		def.log.Error(err, "error extending obj")
 		return err
+	}
+
+	// Skip Updates where Generation does not change
+	item, exists, err := def.Get(addObj)
+	if exists && err == nil {
+		prevObj, ok := item.(*MeterDefinitionExtended)
+		if ok {
+			if addObj.ObjectMeta.Generation == prevObj.ObjectMeta.Generation {
+				return nil
+			}
+		}
 	}
 
 	if !def.allow(addObj) {

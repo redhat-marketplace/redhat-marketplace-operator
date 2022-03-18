@@ -120,7 +120,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	// look over all meterDefinitions, matching workloads are saved
 	results := []filter.Result{}
 
-	err = s.dictionary.FindObjectMatches(obj, &results, false)
+	err = s.dictionary.FindObjectMatches(obj, &results, true)
 	if err != nil {
 		logger.Error(err,
 			"failed to find object matches",
@@ -195,7 +195,7 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 	// look over all meterDefinitions, matching workloads are saved
 	results := []filter.Result{}
 
-	err = s.dictionary.FindObjectMatches(obj, &results, false)
+	err = s.dictionary.FindObjectMatches(obj, &results, true)
 	if err != nil {
 		logger.Error(err,
 			"failed to find object matches",
@@ -261,6 +261,8 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 		return err
 	}
 
+	// This just seems to produce error: deleting seen object      {"error": "couldn't create key for object
+	// When MeterDefinitions are deleted
 	if err := s.objectsSeen.Delete(obj); err != nil {
 		s.log.Error(err, "error deleting seen object")
 	}
@@ -335,14 +337,13 @@ func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
 		s.Lock()
 		defer s.Unlock()
 
-		if err := s.indexStore.Delete(fullObj); err != nil {
+		if err := s.delta.Delete(fullObj); err != nil {
 			logger.Error(err, "can't delete obj")
 			return err
 		}
 
-		err = s.dictionary.DeleteObjectMatches(obj)
-		if err != nil {
-			logger.Error(err, "can't delete obj matches")
+		if err := s.indexStore.Delete(fullObj); err != nil {
+			logger.Error(err, "can't delete obj")
 			return err
 		}
 	}

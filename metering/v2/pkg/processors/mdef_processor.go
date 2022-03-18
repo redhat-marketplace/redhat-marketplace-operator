@@ -145,11 +145,8 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.De
 		return errors.WithStack(err)
 	}
 
-	// Flush potential old objects from the index associated with the meterdefinition
-
 	for i := range objects {
 		obj := objects[i]
-		w.log.Info("deleting obj from index", "object", obj)
 		err := w.meterDefinitionStore.DeleteFromIndex(obj)
 
 		if err != nil {
@@ -157,8 +154,6 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.De
 			return errors.WithStack(err)
 		}
 	}
-
-	// Resync to index objects associated with the meterdefinition
 
 	return w.meterDefinitionStore.Resync()
 }
