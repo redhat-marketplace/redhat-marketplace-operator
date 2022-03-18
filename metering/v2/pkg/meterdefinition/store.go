@@ -523,7 +523,7 @@ func NewMeterDefinitionStore(
 	delta := cache.NewDeltaFIFO(keyFunc, store)
 	return &MeterDefinitionStore{
 		ctx:                      ctx,
-		log:                      log.WithName("obj_store").V(0),
+		log:                      log.WithName("obj_store").V(4),
 		scheme:                   scheme,
 		kubeClient:               kubeClient,
 		monitoringClient:         monitoringClient,
