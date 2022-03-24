@@ -93,6 +93,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes/metrics
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims
   verbs:
   - get
@@ -442,6 +448,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - nonroot
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
 - apiGroups:
   - storage.k8s.io
   resources:

@@ -15,7 +15,6 @@ spec:
     port: 9092
     targetPort: rbac
   selector:
-    app: prometheus
     prometheus: meterbase
   sessionAffinity: ClientIP
   type: ClusterIP
