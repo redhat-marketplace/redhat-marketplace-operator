@@ -37,5 +37,3 @@ require (
 	k8s.io/gengo v0.0.0-20200728071708-7794989d0000 // indirect
 	k8s.io/klog/v2 v2.3.0 // indirect
 )
-
-replace github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible
