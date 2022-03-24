@@ -38,4 +38,4 @@ require (
 	k8s.io/klog/v2 v2.3.0 // indirect
 )
 
-replace github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible
+replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
