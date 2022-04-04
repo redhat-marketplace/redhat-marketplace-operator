@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/IBM/ibm-cos-sdk-go v1.8.0
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/blang/semver v3.5.1+incompatible

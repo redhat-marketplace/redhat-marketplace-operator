@@ -175,6 +175,9 @@ spec:
                 items:
                   description: Request holds requests that populate the Requests array
                   properties:
+                    hash:
+                      description: Hash is the hash body value of the request
+                      type: string
                     message:
                       description: Message of the request
                       type: string
@@ -254,15 +257,6 @@ spec:
                   - type
                   type: object
                 type: array
-              razee-logs:
-                description: RazeeLogs is the logs from the controller
-                properties:
-                  error:
-                    additionalProperties:
-                      type: string
-                    description: Log is a line of log from the controller
-                    type: object
-                type: object
               touched:
                 description: Touched is if the status has been touched
                 type: boolean

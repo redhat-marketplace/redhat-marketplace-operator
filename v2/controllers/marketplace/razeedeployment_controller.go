@@ -67,6 +67,7 @@ const (
 	razeeWatchTag            string = "razee/watch-resource"
 	razeeWatchTagValueLite   string = "lite"
 	razeeWatchTagValueDetail string = "detail"
+	maxRetry                 int    = 3
 )
 
 // blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
@@ -210,7 +211,20 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			&handler.EnqueueRequestForOwner{
 				OwnerType: &marketplacev1alpha1.RazeeDeployment{},
 			},
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(event.GenericEvent) bool {
+					return false
+				},
+				DeleteFunc: func(event.DeleteEvent) bool {
+					return true
+				},
+			})).
 		Complete(r)
 }
 
@@ -276,6 +290,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 		return reconcile.Result{}, nil
 	}
+
+	r.removeRRS3Deployment(instance)
 
 	if instance.Name != utils.RAZEE_NAME {
 		reqLogger.Info("Names other than the default are not supported",
@@ -1005,18 +1021,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	/******************************************************************************
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
-	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
-
-	if rrs3DeploymentEnabled {
-		result, err := r.createOrUpdateRemoteResourceS3Deployment(instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to createOrUpdateRemoteResourceS3Deployment")
-			return result, err
-		} else if result.Requeue || result.RequeueAfter != 0 {
-			return result, err
-		}
-	}
-
 	if registrationEnabled {
 		result, err := r.createOrUpdateWatchKeeperDeployment(instance)
 		if err != nil {
@@ -1484,9 +1488,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3, RRS3 deployment")
-
-	maxRetry := 3
+	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3")
 
 	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := utils.Retry(func() error {
@@ -1592,8 +1594,15 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		}
 	}
 
-	//Delete the deployment
-	err = utils.Retry(func() error {
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) removeRRS3Deployment(
+	req *marketplacev1alpha1.RazeeDeployment,
+) {
+	// Don't run the delete until the reconciler has populated TargetNamespace
+	if req.Spec.TargetNamespace != nil {
+		reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
@@ -1601,26 +1610,32 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 			},
 		}
 
-		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-		err = r.Client.Delete(context.TODO(), deployment)
-		if err != nil {
+		//Delete the deployment
+		err := utils.Retry(func() error {
+			err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment)
 			if errors.IsNotFound(err) {
-				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
 				return nil
 			}
 
-			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-			return err
+			reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			err = r.Client.Delete(context.TODO(), deployment)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+					return nil
+				}
+
+				reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return err
+			}
+
+			return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+		}, maxRetry)
+
+		if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+			reqLogger.Error(err, "error deleting rrs3 deployment resources")
 		}
-
-		return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Error(err, "error deleting rrs3 deployment resources")
 	}
-
-	return nil
 }
 
 //Undeploy the watchkeeper deployment

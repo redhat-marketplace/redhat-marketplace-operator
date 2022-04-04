@@ -121,6 +121,10 @@ type Request struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	Message string `json:"message,omitempty"`
+	// Hash is the hash body value of the request
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	Hash string `json:"hash,omitempty"`
 }
 
 //Options holds the options object which will be passed as-is to the http request. Allows you to specify things like headers for authentication.
@@ -162,27 +166,13 @@ type RemoteResourceS3Spec struct {
 type RemoteResourceS3Status struct {
 	// Touched is if the status has been touched
 	Touched *bool `json:"touched,omitempty"`
-	// RazeeLogs is the logs from the controller
-	RazeeLogs RazeeLogs `json:"razee-logs,omitempty"`
+
 	// Conditions represent the latest available observations of an object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
 }
-
-// RazeeLogs holds log output from the RRS3 controller
-// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-// +optional
-type RazeeLogs struct {
-	// Log is a line of log from the controller
-	Log Log `json:"error,omitempty"`
-}
-
-// Log holds a log message as <log hash>:<log message>
-// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-// +optional
-type Log map[string]string
 
 // RemoteResourceS3 is the Schema for the remoteresources3s API
 // +kubebuilder:object:root=true
