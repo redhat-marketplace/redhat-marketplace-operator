@@ -68,10 +68,27 @@ func ProvideStatusProcessor(
 	return sp
 }
 
+func areResourcesInValidNamespace(namespaces []string, resources []common.WorkloadResource) bool {
+	for _, resource := range resources {
+		for _, namespace := range namespaces {
+			if namespace == resource.Namespace {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Process will receive a new ObjectResourceMessage and find and update the metere
 // definition associated with the object. To prevent gaps, it bulk retrieves the
 // resources and checks it against the status.
 func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error {
+
+	allowedNamespaces := map[string][]string{
+		"ibm-common-services": {"ibm-common-services"},
+		"test":                {"ibm-common-services"},
+	}
+
 	enhancedObj, ok := inObj.Object.(*pkgtypes.MeterDefinitionEnhancedObject)
 
 	if !ok {
@@ -124,12 +141,24 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 				return nil
 			}
 
-			for i := range set {
-				resources = append(resources, set[i])
-			}
+			if namespacesResources, allowed := allowedNamespaces[mdef.Namespace]; allowed {
+				u.log.Info("Meter definition in allowed namespace, checking resources...", "name/namespace", mdef.Name+"/"+mdef.Namespace)
 
-			sort.Sort(common.ByAlphabetical(resources))
-			mdef.Status.WorkloadResources = resources
+				for i := range set {
+					resources = append(resources, set[i])
+				}
+
+				if len(resources) == 0 || areResourcesInValidNamespace(append(namespacesResources, mdef.Namespace), resources) {
+					sort.Sort(common.ByAlphabetical(resources))
+					mdef.Status.WorkloadResources = resources
+					u.log.Info("Resources in allowed namespaces, processing...")
+				} else {
+					u.log.Info("No resources in allowed namespaces",
+						"Allowed namespaces", namespacesResources,
+						"Resources", resources)
+					return errors.New("No resources in allowed namespaces")
+				}
+			}
 
 			return u.kubeClient.Status().Update(ctx, mdef)
 		})

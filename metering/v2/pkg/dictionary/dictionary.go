@@ -176,6 +176,11 @@ func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
 		return nil
 	}
 
+	if !def.allowNamespace(addObj) {
+		def.log.Info("Meter Definition from given namespace is not allowed, skipping")
+		return nil
+	}
+
 	def.log.Info("recording obj", "obj", fmt.Sprintf("%+v", obj))
 
 	def.Lock()
@@ -205,6 +210,11 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 
 	if !def.allow(addObj) {
 		def.log.Info("rate limited, skipping")
+		return nil
+	}
+
+	if !def.allowNamespace(addObj) {
+		def.log.Info("Meter Definition from given namespace is not allowed, skipping")
 		return nil
 	}
 
@@ -245,6 +255,14 @@ func (def *MeterDefinitionDictionary) allow(addObj metav1.Object) bool {
 	}
 
 	return rateLimiter.Allow()
+}
+
+func (def *MeterDefinitionDictionary) allowNamespace(addObj metav1.Object) bool {
+	allowedNamespaces := map[string][]string{
+		"ibm-common-services": {"ibm-common-services"},
+	}
+	_, allowed := allowedNamespaces[addObj.GetNamespace()]
+	return allowed
 }
 
 // Delete deletes the given object from the accumulator associated with the given object's key
