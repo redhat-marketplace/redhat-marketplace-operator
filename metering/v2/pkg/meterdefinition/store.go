@@ -27,7 +27,7 @@ import (
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/informedmetaclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
@@ -120,7 +120,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	// look over all meterDefinitions, matching workloads are saved
 	results := []filter.Result{}
 
-	err = s.dictionary.FindObjectMatches(obj, &results, true)
+	err = s.dictionary.FindObjectMatches(obj, &results)
 	if err != nil {
 		logger.Error(err,
 			"failed to find object matches",
@@ -178,6 +178,19 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 
 // Update updates the existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) Update(obj interface{}) error {
+
+	// Skip Updates where Generation does not change
+	oldobj, exists, err := s.Get(obj)
+	if exists && err == nil {
+		meta, ok := obj.(metav1.ObjectMeta)
+		oldmeta, oldok := oldobj.(metav1.ObjectMeta)
+		if ok && oldok {
+			if meta.GetGeneration() == oldmeta.GetGeneration() {
+				return nil
+			}
+		}
+	}
+
 	key, err := s.keyFunc(obj)
 
 	if err != nil {
@@ -195,7 +208,7 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 	// look over all meterDefinitions, matching workloads are saved
 	results := []filter.Result{}
 
-	err = s.dictionary.FindObjectMatches(obj, &results, true)
+	err = s.dictionary.FindObjectMatches(obj, &results)
 	if err != nil {
 		logger.Error(err,
 			"failed to find object matches",

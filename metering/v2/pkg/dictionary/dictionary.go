@@ -24,7 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/informedmetaclient"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
 	"golang.org/x/time/rate"
@@ -96,7 +96,6 @@ func (w *MeterDefinitionDictionary) Start(ctx context.Context) error {
 func (def *MeterDefinitionDictionary) FindObjectMatches(
 	obj interface{},
 	results *[]filter.Result,
-	skipCache bool,
 ) error {
 	filters, err := def.ListFilters()
 
@@ -108,34 +107,16 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	for i := range filters {
 		localLookup := &filters[i]
 
-		var (
-			ok *bool
-		)
+		lookupOk, err := localLookup.Matches(obj)
 
-		if !skipCache {
-			ok = lookupCache.Get(localLookup, obj)
+		if err != nil {
+			def.log.Error(err, "error finding matches")
+			return err
 		}
 
-		if ok == nil {
-			lookupOk, err := localLookup.Matches(obj)
-
-			if err != nil {
-				def.log.Error(err, "error finding matches")
-				return err
-			}
-
-			err = lookupCache.Set(localLookup, obj, lookupOk)
-			if err != nil {
-				def.log.Error(err, "error saving cache")
-				return err
-			}
-
-			ok = &lookupOk
-		}
-
-		if ok != nil && *ok {
+		if lookupOk {
 			*results = append(*results, filter.Result{
-				Ok:     *ok,
+				Ok:     lookupOk,
 				Lookup: localLookup,
 			})
 		}
