@@ -42,7 +42,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,12 +60,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-)
-
-const (
-	razeeWatchTag            string = "razee/watch-resource"
-	razeeWatchTagValueLite   string = "lite"
-	razeeWatchTagValueDetail string = "detail"
 )
 
 // blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
@@ -221,7 +214,6 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=create;update;patch;delete
 // +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="config.openshift.io",resources=consoles;infrastructures;clusterversions,verbs=get;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
@@ -1114,132 +1106,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		}
 	}
 
-	/******************************************************************************
-	PATCH RESOURCES FOR DIANEMO
-	Patch the Console and Infrastructure resources with the watch-keeper label
-	Patch 'razee-cluster-metadata' with ClusterUUID
-	/******************************************************************************/
-	reqLogger.V(0).Info("finding Console resource")
-	console := &unstructured.Unstructured{}
-	console.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "config.openshift.io",
-		Kind:    "Console",
-		Version: "v1",
-	})
-	err = r.Client.Get(context.Background(), client.ObjectKey{
-		Name: "cluster",
-	}, console)
-	if err != nil {
-		if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			reqLogger.Error(err, "Failed to retrieve Console resource")
-			return reconcile.Result{}, err
-		}
-
-		console = nil
-	}
-
-	if console != nil {
-		reqLogger.V(0).Info("Found Console resource")
-		consoleOriginalLabels := console.DeepCopy().GetLabels()
-		consoleLabels := console.GetLabels()
-		if consoleLabels == nil {
-			consoleLabels = make(map[string]string)
-		}
-		consoleLabels[razeeWatchTag] = razeeWatchTagValueLite
-		if !reflect.DeepEqual(consoleLabels, consoleOriginalLabels) {
-			console.SetLabels(consoleLabels)
-			err = r.Client.Update(context.TODO(), console)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Console resource")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Patched razee/watch-resource: lite label to Console resource")
-			return reconcile.Result{Requeue: true}, nil
-		}
-		reqLogger.V(0).Info("No patch needed on Console resource")
-	}
-
-	reqLogger.V(0).Info("finding Infrastructure resource")
-	infrastructureResource := &unstructured.Unstructured{}
-	infrastructureResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "config.openshift.io",
-		Kind:    "Infrastructure",
-		Version: "v1",
-	})
-	err = r.Client.Get(context.Background(), client.ObjectKey{
-		Name: "cluster",
-	}, infrastructureResource)
-	if err != nil {
-		if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
-			return reconcile.Result{}, err
-		}
-		infrastructureResource = nil
-	}
-
-	if infrastructureResource != nil {
-		reqLogger.V(0).Info("Found Infrastructure resource")
-		infrastructureOriginalLabels := infrastructureResource.DeepCopy().GetLabels()
-		infrastructureLabels := infrastructureResource.GetLabels()
-		if infrastructureLabels == nil {
-			infrastructureLabels = make(map[string]string)
-		}
-		infrastructureLabels[razeeWatchTag] = razeeWatchTagValueLite
-		if !reflect.DeepEqual(infrastructureLabels, infrastructureOriginalLabels) {
-			infrastructureResource.SetLabels(infrastructureLabels)
-			err = r.Client.Update(context.TODO(), infrastructureResource)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Infrastructure resource")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Patched razee/watch-resource: lite label to Infrastructure resource")
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-		reqLogger.V(0).Info("No patch needed on Infrastructure resource")
-	}
-
-	reqLogger.V(0).Info("finding clusterversion resource")
-	clusterVersion := &unstructured.Unstructured{}
-	clusterVersion.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "config.openshift.io",
-		Kind:    "ClusterVersion",
-		Version: "v1",
-	})
-	err = r.Client.Get(context.Background(), client.ObjectKey{
-		Name: "version",
-	}, clusterVersion)
-	if err != nil {
-		if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			reqLogger.Error(err, "Failed to retrieve clusterversion resource")
-			return reconcile.Result{}, err
-		}
-
-		clusterVersion = nil
-	}
-
-	if clusterVersion != nil {
-		reqLogger.V(0).Info("Found clusterversion resource")
-		clusterVersionOriginalLabels := clusterVersion.DeepCopy().GetLabels()
-		clusterVersionLabels := clusterVersion.GetLabels()
-		if clusterVersionLabels == nil {
-			clusterVersionLabels = make(map[string]string)
-		}
-		clusterVersionLabels[razeeWatchTag] = razeeWatchTagValueDetail
-		if !reflect.DeepEqual(clusterVersionLabels, clusterVersionOriginalLabels) {
-			clusterVersion.SetLabels(clusterVersionLabels)
-			err = r.Client.Update(context.TODO(), clusterVersion)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch razee/watch-resource: detail label to clusterversion resource")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Patched razee/watch-resource: detail label to clusterversion resource")
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-		reqLogger.V(0).Info("No patch needed on clusterversion resource")
-	}
-
 	// check if the legacy uninstaller has run
 	if instance.Spec.LegacyUninstallHasRun == nil || *instance.Spec.LegacyUninstallHasRun == false {
 		r.uninstallLegacyResources(instance)
@@ -1315,7 +1181,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 			Name:      utils.WATCH_KEEPER_NON_NAMESPACED_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
-		Data: map[string]string{"v1_namespace": "true"},
+		Data: map[string]string{"v1_namespace": "lite", "config.openshift.io_v1_clusterversion": "lite", "config.openshift.io_v1_infrastructure": "lite", "config.openshift.io_v1_console": "lite"},
 	}
 	r.factory.SetOwnerReference(instance, cm)
 	return cm
