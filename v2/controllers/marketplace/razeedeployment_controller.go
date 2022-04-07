@@ -117,6 +117,31 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			}
 		})
 
+	// watch keeper configmaps
+	cmp := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetName() == utils.WATCH_KEEPER_NON_NAMESPACED_NAME || e.ObjectNew.GetName() == utils.WATCH_KEEPER_CONFIG_NAME || e.ObjectNew.GetName() == utils.WATCH_KEEPER_LIMITPOLL_NAME {
+				return e.ObjectOld != e.ObjectNew
+			}
+
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			if e.Object.GetName() == utils.WATCH_KEEPER_NON_NAMESPACED_NAME || e.Object.GetName() == utils.WATCH_KEEPER_CONFIG_NAME || e.Object.GetName() == utils.WATCH_KEEPER_LIMITPOLL_NAME {
+				return true
+			}
+
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			if e.Object.GetName() == utils.WATCH_KEEPER_NON_NAMESPACED_NAME || e.Object.GetName() == utils.WATCH_KEEPER_CONFIG_NAME || e.Object.GetName() == utils.WATCH_KEEPER_LIMITPOLL_NAME {
+				return true
+			}
+
+			return false
+		},
+	}
+
 	// Find secret
 	p := predicate.Funcs{
 		// Ensures RazeeDeployment is only reconciled for appropriate Secrets
@@ -198,6 +223,9 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		Watches(&source.Kind{Type: &corev1.Pod{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pp)).
+		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(cmp)).
 		Watches(
 			&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}},
 			&handler.EnqueueRequestForOwner{
@@ -1181,7 +1209,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 			Name:      utils.WATCH_KEEPER_NON_NAMESPACED_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
-		Data: map[string]string{"v1_namespace": "lite", "config.openshift.io_v1_clusterversion": "lite", "config.openshift.io_v1_infrastructure": "lite", "config.openshift.io_v1_console": "lite"},
+		Data: map[string]string{"v1_namespace": "lite", "v1_node": "lite", "config.openshift.io_v1_clusterversion": "lite", "config.openshift.io_v1_infrastructure": "lite", "config.openshift.io_v1_console": "lite"},
 	}
 	r.factory.SetOwnerReference(instance, cm)
 	return cm
