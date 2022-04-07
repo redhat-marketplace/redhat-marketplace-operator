@@ -80,7 +80,7 @@ ginkgo:
 
 LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense,latest)
+	$(call go-install-tool,$(LICENSE),github.com/google/addlicense@v1.0.0,v1.0.0)
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
@@ -213,6 +213,15 @@ echo $(1) ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 mkdir -p $$(dirname $(1)) ;\
+touch $(1)-$(3) ;\
+}
+endef
+
+# go-install-tool will 'go install' any package $2 and install it to $1.
+define go-install-tool
+@[ -f $(1)-$(3) ] || { \
+set -e ;\
+GOBIN=$$(dirname $(1)) go install $(2) ;\
 touch $(1)-$(3) ;\
 }
 endef
