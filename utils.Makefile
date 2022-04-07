@@ -212,6 +212,7 @@ go mod init tmp ;\
 echo $(1) ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
+mkdir -p $(dirname $(1)) ;\
 touch $(1)-$(3) ;\
 }
 endef
@@ -225,6 +226,7 @@ cd $$TMP_DIR ;\
 echo "Downloading $(1)" ;\
 curl -o $(3) -LO $(1)/$(2) ;\
 chmod +x $(3) ;\
+mkdir -p $(dirname $(1)) ;\
 rm -rf $$TMP_DIR ;\
 touch $(3)-$(4) ;\
 }
@@ -237,6 +239,7 @@ set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 echo "Downloading $(1)"; \
+mkdir -p $(dirname $(1)) ;\
 curl -sSL $(1) | tar -xvzf - -C "$(4)" $(5) ;\
 rm -rf $$TMP_DIR ;\
 touch $(2)-$(3); \
