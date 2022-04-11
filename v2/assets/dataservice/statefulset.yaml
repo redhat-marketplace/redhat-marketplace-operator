@@ -64,9 +64,12 @@ spec:
             - containerPort: 9001
               name: db
           resources:
-            requests:
+            limits:
               cpu: 100m
-              memory: 25Mi
+              memory: 250Mi
+            requests:
+              cpu: 25m
+              memory: 50Mi
           volumeMounts:
             - name: rhm-data-service
               mountPath: /data
