@@ -21,4 +21,7 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.22.2
 )
 
-replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+replace (
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+)
