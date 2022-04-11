@@ -385,7 +385,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}, rhmOperatorSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Info("Failed to find operator secret")
+			reqLogger.Info("Failed to find rhm-operator-secret")
 			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		} else {
 			return reconcile.Result{}, err

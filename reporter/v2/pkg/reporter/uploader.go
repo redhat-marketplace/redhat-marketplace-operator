@@ -83,7 +83,7 @@ func ProvideUploaders(
 			}
 			uploaders = append(uploaders, uploader)
 		case *u.MarketplaceUploader:
-			config, err := provideMarketplaceConfig(ctx, client, reporterConfig.DeployedNamespace)
+			config, err := provideMarketplaceConfig(ctx, client, reporterConfig.DeployedNamespace, log)
 
 			if err != nil {
 				return nil, err
@@ -140,18 +140,23 @@ func provideMarketplaceConfig(
 	ctx context.Context,
 	client client.Client,
 	deployedNamespace string,
+	log logr.Logger,
 ) (*uploaders.MarketplaceUploaderConfig, error) {
-	rhmPullSecret := corev1.Secret{}
-	err := client.Get(ctx,
-		types.NamespacedName{Name: "redhat-marketplace-pull-secret", Namespace: deployedNamespace},
-		&rhmPullSecret)
-
-	if _, ok := rhmPullSecret.Data[utils.RHMPullSecretKey]; !ok {
-		return nil, errors.New("PULL_SECRET var missing from pull secret")
+	log.Info("finding secret redhat-marketplace-pull-secret or ibm-entitlement-key")
+	b := utils.ProvideSecretFetcherBuilder(client, ctx, deployedNamespace)
+	si, err := b.ReturnSecret()
+	if err != nil {
+		return nil, err
 	}
 
-	//Get Account Id from Pull Secret Token
-	tokenClaims, err := marketplace.GetJWTTokenClaim(string(rhmPullSecret.Data[utils.RHMPullSecretKey]))
+	log.Info("found secret", "secret name", si.Name)
+
+	jwtToken, err := b.ParseAndValidate(si)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenClaims, err := marketplace.GetJWTTokenClaim(jwtToken)
 	if err != nil {
 		return nil, err
 	}
@@ -161,11 +166,8 @@ func provideMarketplaceConfig(
 		url = MktplStageURL
 	}
 
-	pullSecret := rhmPullSecret.Data[utils.RHMPullSecretKey]
-	token := string(pullSecret)
-
 	return &uploaders.MarketplaceUploaderConfig{
 		URL:   url,
-		Token: token,
+		Token: jwtToken,
 	}, nil
 }
