@@ -21,6 +21,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -41,6 +42,7 @@ func ProvideInjectables(
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
 	i6 *CatalogClientInjector,
+	i7 *PrometheusAPIBuilderInjector,
 ) Injectables {
 	return []types.Injectable{i1, i2, i3, i4, i5, i6}
 }
@@ -118,6 +120,10 @@ type KubeInterface interface {
 
 type MarketplaceClientBuilder interface {
 	InjectMarketplaceClientBuilder(marketplace.MarketplaceClientBuilder) error
+}
+
+type PrometheusAPIBuilder interface {
+	InjectPrometheusAPIBuilder(*prometheus.PrometheusAPIBuilder) error
 }
 
 type ClientCommandInjector struct {
@@ -200,6 +206,17 @@ type CatalogClientInjector struct {
 func (a *CatalogClientInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(CatalogClient); ok {
 		return ii.InjectCatalogClient(a.CatalogClient)
+	}
+	return nil
+}
+
+type PrometheusAPIBuilderInjector struct {
+	PrometheusAPIBuilder *prometheus.PrometheusAPIBuilder
+}
+
+func (a *PrometheusAPIBuilderInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(PrometheusAPIBuilder); ok {
+		return ii.InjectPrometheusAPIBuilder(a.PrometheusAPIBuilder)
 	}
 	return nil
 }

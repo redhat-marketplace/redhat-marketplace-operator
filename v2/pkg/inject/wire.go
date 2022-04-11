@@ -24,6 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
@@ -50,6 +51,8 @@ func initializeInjectDependencies(
 		wire.Struct(new(KubeInterfaceInjector), "*"),
 		wire.Struct(new(CatalogClientInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
+		wire.Struct(new(prometheus.PrometheusAPIBuilder), "CC", "Cfg"),
+		wire.Struct(new(PrometheusAPIBuilderInjector), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,
 	))

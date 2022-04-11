@@ -19,12 +19,10 @@ import (
 	"os"
 
 	"emperror.dev/errors"
-	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 func queryForPrometheusService(
@@ -103,9 +101,7 @@ func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte,
 func ProvidePrometheusAPI(
 	context context.Context,
 	cc ClientCommandRunner,
-	kubeInterface kubernetes.Interface,
 	deployedNamespace string,
-	reqLogger logr.Logger,
 	userWorkloadMonitoringEnabled bool) (*PrometheusAPI, error) {
 	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
 	if err != nil {

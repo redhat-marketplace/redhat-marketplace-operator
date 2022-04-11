@@ -136,6 +136,14 @@ endif
 buf:
 	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 $(WILDCARDS) "*/bin/*")
 
+ENVTEST=$(PROJECT_DIR)/bin/setup-envtest
+envtest:
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+.PHONY: source-envtest
+source-envtest:
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.19.x)'"
+
 # --COMMON--
 
 # Run go mod tidy against code
