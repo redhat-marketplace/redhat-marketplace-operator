@@ -235,7 +235,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups="",resources=configmaps;pods;secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps;pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
 // +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete

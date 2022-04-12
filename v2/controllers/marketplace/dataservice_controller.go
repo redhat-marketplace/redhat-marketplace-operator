@@ -117,6 +117,7 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(namespacePredicate)).Complete(r)
 }
 
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=get;list;watch;create;patch;update;delete
