@@ -277,7 +277,6 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
 
 // RHM Prometheus
-// +kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=*
 // +kubebuilder:rbac:groups="",resources=nodes/metrics,verbs=get
 // +kubebuilder:rbac:urls=/metrics,verbs=get
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create
