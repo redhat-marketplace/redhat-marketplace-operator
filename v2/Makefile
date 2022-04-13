@@ -277,8 +277,8 @@ compile-helm: helm
 	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
-install: kustomize compile-helm
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+install: kustomize compile-helm yq
+	cd config && YQ=$(YQ) $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -289,7 +289,7 @@ install: kustomize compile-helm
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	@cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	@cd config && YQ=$(YQ) $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -299,13 +299,13 @@ uninstall: helm yq
 	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
-skaffold-dev: skaffold kustomize
+skaffold-dev: skaffold kustomize yq
 	$(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
-skaffold-run: skaffold
+skaffold-run: skaffold yq
 	$(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
-skaffold-delete: skaffold
+skaffold-delete: skaffold yq
 	$(SKAFFOLD) delete --default-repo $(IMAGE_REGISTRY)
 
 current-version:

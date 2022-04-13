@@ -298,7 +298,7 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
 
-	prometheusAPI, err := r.prometheusAPIBuilder.Build(userWorkloadMonitoringEnabled)
+	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 
 	if err != nil {
 		return queryPreviewResult, err
@@ -429,7 +429,8 @@ func labelsToRegex(labels []string) string {
 // Is Prometheus reporting on the MeterDefinition
 // Check MeterDefinition presence in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
-	prometheusAPI, err := r.prometheusAPIBuilder.Build(userWorkloadMonitoringEnabled)
+	reqLogger.Info("apibuilder", "api", r.prometheusAPIBuilder)
+	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 
 	if err != nil {
 		return false, err

@@ -29,13 +29,13 @@ func queryForPrometheusService(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	deployedNamespace string,
-	userWorkloadMonitoringEnabled bool,
+	apiType PrometheusAPIType,
 ) (*corev1.Service, *corev1.ServicePort, error) {
 	service := &corev1.Service{}
 
 	var name types.NamespacedName
 	var portName string
-	if userWorkloadMonitoringEnabled {
+	if apiType == UserWorkload {
 		name = types.NamespacedName{
 			Name:      utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
 			Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
@@ -68,8 +68,7 @@ func queryForPrometheusService(
 
 func getCertConfigMap(ctx context.Context,
 	cc ClientCommandRunner,
-	deployedNamespace string,
-	userWorkloadMonitoringEnabled bool) (*corev1.ConfigMap, error) {
+	deployedNamespace string) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 	name := types.NamespacedName{
 		Name:      utils.SERVING_CERTS_CA_BUNDLE_NAME,
@@ -102,13 +101,13 @@ func ProvidePrometheusAPI(
 	context context.Context,
 	cc ClientCommandRunner,
 	deployedNamespace string,
-	userWorkloadMonitoringEnabled bool) (*PrometheusAPI, error) {
-	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
+	apiType PrometheusAPIType) (*PrometheusAPI, error) {
+	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, apiType)
 	if err != nil {
 		return nil, err
 	}
 
-	certConfigMap, err := getCertConfigMap(context, cc, deployedNamespace, userWorkloadMonitoringEnabled)
+	certConfigMap, err := getCertConfigMap(context, cc, deployedNamespace)
 	if err != nil {
 		return nil, err
 	}

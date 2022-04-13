@@ -44,7 +44,7 @@ func ProvideInjectables(
 	i6 *CatalogClientInjector,
 	i7 *PrometheusAPIBuilderInjector,
 ) Injectables {
-	return []types.Injectable{i1, i2, i3, i4, i5, i6}
+	return []types.Injectable{i1, i2, i3, i4, i5, i6, i7}
 }
 
 type Injector struct {
@@ -53,7 +53,6 @@ type Injector struct {
 }
 
 func (a *Injector) SetCustomFields(i interface{}) error {
-	injectLog.Info("setting custom field")
 	for _, inj := range a.injectables {
 		if err := inj.SetCustomFields(i); err != nil {
 			return err

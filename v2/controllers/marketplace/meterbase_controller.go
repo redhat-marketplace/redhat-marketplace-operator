@@ -554,13 +554,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 
 				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-				if prometheusStatefulset.Status.Replicas != prometheusStatefulset.Status.ReadyReplicas {
-					reqLogger.Info("prometheus statefulset has not finished roll out",
-						"replicas", prometheusStatefulset.Status.Replicas,
-						"ready", prometheusStatefulset.Status.ReadyReplicas)
-					action = RequeueAfterResponse(5 * time.Second)
-				}
-
 				if !reflect.DeepEqual(updatedInstance.Status, instance.Status) {
 					reqLogger.Info("prometheus statefulset status is up to date")
 					return HandleResult(UpdateAction(updatedInstance, UpdateStatusOnly(true)), OnContinue(action)), nil
@@ -575,7 +568,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		),
 	); result.Is(Error) || result.Is(Requeue) {
 		if err != nil {
-			return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
+			return result.ReturnWithError(errors.Wrap(err, "error updating status"))
 		}
 
 		return result.Return()
@@ -1994,7 +1987,7 @@ func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, use
 	/* Must use Prometheus and not Thanos Querier for userWorkloadMonitoring case
 	   Thanos Querier does not provide Prometheus Targets()
 	   Thus we only get the user workload targets */
-	prometheusAPI, err := r.prometheusAPIBuilder.Build(userWorkloadMonitoringEnabled)
+	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 	if err != nil {
 		return []common.Target{}, err
 	}
