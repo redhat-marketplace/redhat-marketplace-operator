@@ -98,12 +98,13 @@ var _ = BeforeSuite(func() {
 	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)
 
 	doneChan = make(chan struct{})
-	By("bootstrapping test environment")
+	By("bootstrapping test environment " + os.Getenv("KUBEBUILDER_ASSETS"))
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "tests", "v2", "testdata"),
-		}, KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
+		},
 	}
 
 	k8sScheme = provideScheme()

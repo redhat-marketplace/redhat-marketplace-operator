@@ -68,7 +68,7 @@ func NewPromAPI(
 	if err != nil {
 		return nil, err
 	}
-	prometheusAPI := &PrometheusAPI{promAPI}
+	prometheusAPI := &PrometheusAPI{API: promAPI}
 	return prometheusAPI, nil
 }
 

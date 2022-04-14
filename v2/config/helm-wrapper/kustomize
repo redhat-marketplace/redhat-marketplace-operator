@@ -6,10 +6,14 @@ if [[ "$KUSTOMIZE" == "" ]]; then
   KUSTOMIZE=$(which kustomize)
 fi
 
+if [[ "$YQ" == "" ]]; then
+  YQ=$(which yq)
+fi
+
 pushd $DIR &>/dev/null
 
 cat <&0 >../manager/manager.yaml
 
-${KUSTOMIZE} build . | yq ea 'select(.kind != "Namespace")' -
+${KUSTOMIZE} build . | ${YQ} eval-all 'select(.kind != "Namespace")' -
 
 popd &>/dev/null
