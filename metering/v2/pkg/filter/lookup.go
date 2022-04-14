@@ -26,7 +26,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/informedmetaclient"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

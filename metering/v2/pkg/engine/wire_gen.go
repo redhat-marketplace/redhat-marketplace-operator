@@ -16,7 +16,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/informedmetaclient"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"

@@ -24,7 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/informedmetaclient"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
 	"golang.org/x/time/rate"

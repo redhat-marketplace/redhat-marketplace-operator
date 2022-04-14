@@ -26,7 +26,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/informedmetaclient"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
