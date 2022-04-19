@@ -302,23 +302,60 @@ rules:
       - 'marketplace.redhat.com'
     resources:
       - 'meterreports'
-    verbs:
-      - get
-      - list
-      - update
-  - apiGroups:
-      - 'marketplace.redhat.com'
-    resources:
       - 'meterdefinitions'
       - 'meterdefinitions/status'
     verbs:
       - get
       - list
       - update
+      - watch
   - apiGroups:
-      - '*'
+      - operators.coreos.com
     resources:
-      - '*'
+      - operatorgroups
+      - subscriptions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - servicemonitors
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - statefulsets
+      - deployments
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+      - deployments
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+      - services
+      - persistentvolumeclaims
+      - volumes
+      - services
+      - services/finalizers
+      - endpoints
     verbs:
       - get
       - list

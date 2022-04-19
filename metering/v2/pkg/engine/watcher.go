@@ -15,78 +15,39 @@
 package engine
 
 import (
-	"context"
-
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
 func CreatePVCListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().PersistentVolumeClaims(ns).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return kubeClient.CoreV1().PersistentVolumeClaims(ns).Watch(context.TODO(), opts)
-			},
-		}
+		return cache.NewListWatchFromClient(kubeClient.CoreV1().RESTClient(), "persistentvolumeclaims", ns, fields.Everything())
 	}
 }
 
 func CreatePodListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().Pods(ns).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return kubeClient.CoreV1().Pods(ns).Watch(context.TODO(), opts)
-			},
-		}
+		return cache.NewListWatchFromClient(kubeClient.CoreV1().RESTClient(), "pods", ns, fields.Everything())
 	}
 }
 
 func CreateServiceMonitorListWatch(c *monitoringv1client.MonitoringV1Client) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.ServiceMonitors(ns).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.ServiceMonitors(ns).Watch(context.TODO(), opts)
-			},
-		}
+		return cache.NewListWatchFromClient(c.RESTClient(), "servicemonitors", ns, fields.Everything())
 	}
 }
 
 func CreateServiceListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().Services(ns).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return kubeClient.CoreV1().Services(ns).Watch(context.TODO(), opts)
-			},
-		}
+		return cache.NewListWatchFromClient(kubeClient.CoreV1().RESTClient(), "services", ns, fields.Everything())
 	}
 }
 
 func CreateMeterDefinitionV1Beta1Watch(c *marketplacev1beta1client.MarketplaceV1beta1Client) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.MeterDefinitions(ns).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.MeterDefinitions(ns).Watch(context.TODO(), opts)
-			},
-		}
+		return cache.NewListWatchFromClient(c.RESTClient(), "meterdefinitions", ns, fields.Everything())
 	}
 }

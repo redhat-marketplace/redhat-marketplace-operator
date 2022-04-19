@@ -224,25 +224,6 @@ type MeterDefinitionSeenStoreRunnable struct {
 	StoreRunnable
 }
 
-func ProvideMeterDefinitionSeenStoreRunnable(
-	kubeClient clientset.Interface,
-	nses pkgtypes.Namespaces,
-	c *marketplacev1beta1client.MarketplaceV1beta1Client,
-	store dictionary.MeterDefinitionsSeenStore,
-	log logr.Logger,
-) *MeterDefinitionSeenStoreRunnable {
-	return &MeterDefinitionSeenStoreRunnable{
-		StoreRunnable: StoreRunnable{
-			Store:      store,
-			ResyncTime: 0,
-			Reflectors: []Runnable{
-				provideMeterDefinitionListerRunnable(nses, c, store),
-			},
-			log: log.WithName("meterdefseenstore"),
-		},
-	}
-}
-
 type MeterDefinitionStoreRunnable struct {
 	StoreRunnable
 }
@@ -259,32 +240,6 @@ func ProvideMeterDefinitionStoreRunnable(
 			Store:      store,
 			ResyncTime: 5 * time.Minute,
 			log:        log.WithName("mdefstore"),
-			Reflectors: []Runnable{
-				providePVCLister(kubeClient, nses, store),
-				providePodListerRunnable(kubeClient, nses, store),
-				provideServiceListerRunnable(kubeClient, nses, store),
-				provideServiceMonitorListerRunnable(c, nses, store),
-			},
-		},
-	}
-}
-
-type ObjectsSeenStoreRunnable struct {
-	StoreRunnable
-}
-
-func ProvideObjectsSeenStoreRunnable(
-	kubeClient clientset.Interface,
-	nses pkgtypes.Namespaces,
-	store meterdefinition.ObjectsSeenStore,
-	c *monitoringv1client.MonitoringV1Client,
-	log logr.Logger,
-) *ObjectsSeenStoreRunnable {
-	return &ObjectsSeenStoreRunnable{
-		StoreRunnable: StoreRunnable{
-			Store:      store,
-			ResyncTime: 0, //1*60*time.Second,
-			log:        log.WithName("objectsseen"),
 			Reflectors: []Runnable{
 				providePVCLister(kubeClient, nses, store),
 				providePodListerRunnable(kubeClient, nses, store),
@@ -404,6 +359,4 @@ var EngineSet = wire.NewSet(
 	ProvideEngine,
 	dictionary.NewMeterDefinitionDictionary,
 	meterdefinition.NewMeterDefinitionStore,
-	meterdefinition.NewObjectsSeenStore,
-	dictionary.NewMeterDefinitionsSeenStore,
 )

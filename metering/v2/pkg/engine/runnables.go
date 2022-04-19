@@ -38,7 +38,6 @@ type Recoverable interface {
 func ProvideRunnables(
 	meterDefinitionStore *MeterDefinitionStoreRunnable,
 	meterDefinitionDictionary *MeterDefinitionDictionaryStoreRunnable,
-	mdefSeenStore *MeterDefinitionSeenStoreRunnable,
 	mailbox *mailbox.Mailbox,
 	statusProcessor *processors.StatusProcessor,
 	serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
@@ -60,7 +59,6 @@ func ProvideRunnables(
 		prometheusMdefProcessor,
 		removalWatcher,
 		meterDefinitionDictionary,
-		mdefSeenStore,
 		meterDefinitionStore,
 		dictionary,
 	}
@@ -69,10 +67,8 @@ func ProvideRunnables(
 var RunnablesSet = wire.NewSet(
 	mailbox.ProvideMailbox,
 	ProvideRunnables,
-	ProvideObjectsSeenStoreRunnable,
 	ProvideMeterDefinitionStoreRunnable,
 	ProvideMeterDefinitionDictionaryStoreRunnable,
-	ProvideMeterDefinitionSeenStoreRunnable,
 	processors.ProvideMeterDefinitionRemovalWatcher,
 	processors.ProvideServiceAnnotatorProcessor,
 	processors.ProvideStatusProcessor,

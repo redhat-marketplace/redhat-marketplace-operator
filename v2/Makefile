@@ -242,7 +242,6 @@ opm-builder-base: opm
 
 .PHONY:  bundle-dev-index-multiarch
  bundle-dev-index-multiarch: opm opm-builder-base
-	$()
 	$(OPM) index add -u docker --generate --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
@@ -300,7 +299,7 @@ uninstall: helm yq
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
 skaffold-dev: skaffold kustomize yq
-	$(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	export YQ=$(YQ) && export HELM=$(HELM) && $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run: skaffold yq
 	$(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)

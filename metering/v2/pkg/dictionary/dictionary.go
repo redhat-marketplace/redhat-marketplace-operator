@@ -53,8 +53,6 @@ type MeterDefinitionDictionary struct {
 	client      runtimeClient.Client
 	starterList *v1beta1.MeterDefinitionList
 
-	meterDefinitionsSeen MeterDefinitionsSeenStore
-
 	findOwner *rhmclient.FindOwnerHelper
 
 	log logr.Logger
@@ -71,21 +69,19 @@ func NewMeterDefinitionDictionary(
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
 	list *v1beta1.MeterDefinitionList,
-	meterDefinitionsSeen MeterDefinitionsSeenStore,
 ) *MeterDefinitionDictionary {
 	keyFunc := cache.MetaNamespaceKeyFunc
 	store := cache.NewStore(keyFunc)
 
 	return &MeterDefinitionDictionary{
-		log:                  log.WithName("mdef_dictionary"),
-		client:               client,
-		keyFunc:              keyFunc,
-		cache:                store,
-		delta:                cache.NewDeltaFIFO(keyFunc, store),
-		findOwner:            findOwner,
-		rateLimits:           map[types.UID]*rate.Limiter{},
-		starterList:          list,
-		meterDefinitionsSeen: meterDefinitionsSeen,
+		log:         log.WithName("mdef_dictionary"),
+		client:      client,
+		keyFunc:     keyFunc,
+		cache:       store,
+		delta:       cache.NewDeltaFIFO(keyFunc, store),
+		findOwner:   findOwner,
+		rateLimits:  map[types.UID]*rate.Limiter{},
+		starterList: list,
 	}
 }
 
@@ -344,66 +340,6 @@ func (def *MeterDefinitionDictionary) Replace(in []interface{}, str string) erro
 // meaning in some implementations that have non-trivial
 // additional behavior (e.g., DeltaFIFO).
 func (def *MeterDefinitionDictionary) Resync() error {
-	list := def.meterDefinitionsSeen.List()
-	for i := range list {
-		obj := list[i]
-		key, err := def.keyFunc(obj)
-
-		if err != nil {
-			return err
-		}
-
-		_, exists, err := def.GetByKey(key)
-
-		if err != nil {
-			return err
-		}
-
-		if !exists {
-			def.log.Info("adding object from mdef seen list", "key", key)
-			if err := def.Add(obj); err != nil {
-				return err
-			}
-		} else {
-			def.log.Info("updating object from mdef seen list", "key", key)
-			if err := def.Update(obj); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(def.meterDefinitionsSeen.List()) == 0 {
-		return nil
-	}
-
-	objects := def.List()
-
-	def.log.Info("seen list", "size", len(def.meterDefinitionsSeen.List()))
-
-	for i := range objects {
-		enobj := objects[i].(*MeterDefinitionExtended)
-
-		key, err := def.keyFunc(enobj)
-
-		if err != nil {
-			return err
-		}
-
-		_, exists, err := def.meterDefinitionsSeen.GetByKey(key)
-
-		if err != nil {
-			return err
-		}
-
-		if !exists {
-			def.log.Info("deleting object from mdef seen list", "key", key)
-			err := def.Delete(&enobj.MeterDefinition)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -435,10 +371,4 @@ func ProvideMeterDefinitionList(
 		Namespace: "",
 	})
 	return &obj, err
-}
-
-type MeterDefinitionsSeenStore cache.Store
-
-func NewMeterDefinitionsSeenStore() MeterDefinitionsSeenStore {
-	return cache.NewStore(cache.MetaNamespaceKeyFunc)
 }

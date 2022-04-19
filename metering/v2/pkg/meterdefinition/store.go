@@ -32,22 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MeterDefinitionStores = map[string]*MeterDefinitionStore
-type ObjectsSeenStore cache.Store
 
 // MeterDefinitionStore keeps the MeterDefinitions in place
 // and tracks the dependents using the rules based on the
 // rules. MeterDefinition controller uses this to effectively
 // find the child assets of a meter definition rules.
 type MeterDefinitionStore struct {
-	dictionary  *dictionary.MeterDefinitionDictionary
-	indexStore  cache.Indexer
-	delta       *cache.DeltaFIFO
-	objectsSeen ObjectsSeenStore
-	keyFunc     cache.KeyFunc
+	dictionary *dictionary.MeterDefinitionDictionary
+	indexStore cache.Indexer
+	delta      *cache.DeltaFIFO
+	keyFunc    cache.KeyFunc
 
 	ctx    context.Context
 	log    logr.Logger
@@ -108,10 +105,6 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
 		return err
-	}
-
-	if err := s.objectsSeen.Add(obj); err != nil {
-		s.log.Error(err, "cannot add object seen")
 	}
 
 	logger := s.log.WithValues("func", "add", "namespace/name", key).V(4)
@@ -198,10 +191,6 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 		return err
 	}
 
-	if err := s.objectsSeen.Update(obj); err != nil {
-		s.log.Error(err, "error updating seen object")
-	}
-
 	logger := s.log.WithValues("func", "update", "namespace/name", key).V(4)
 	logger.Info("updating obj")
 
@@ -272,12 +261,6 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
 		return err
-	}
-
-	// This just seems to produce error: deleting seen object      {"error": "couldn't create key for object
-	// When MeterDefinitions are deleted
-	if err := s.objectsSeen.Delete(obj); err != nil {
-		s.log.Error(err, "error deleting seen object")
 	}
 
 	key, err := s.keyFunc(mdefObj)
@@ -439,66 +422,6 @@ func (s *MeterDefinitionStore) Replace(list []interface{}, _ string) error {
 
 // Resync implements the Resync method of the store interface.
 func (s *MeterDefinitionStore) Resync() error {
-	list := s.objectsSeen.List()
-	for i := range list {
-		obj := list[i]
-		_, exists, err := s.Get(obj)
-
-		if err != nil {
-			s.log.Error(err, "failed to get")
-			return err
-		}
-
-		key, _ := s.keyFunc(obj.(client.Object))
-		if !exists {
-			s.log.Info("adding obj from objectsSeen", "obj", key)
-			if err := s.Add(obj); err != nil {
-				s.log.Error(err, "failed to add")
-				return err
-			}
-		} else {
-			s.log.Info("updating obj from objectsSeen", "obj", key)
-			if err := s.Update(obj); err != nil {
-				s.log.Error(err, "failed to add")
-				return err
-			}
-		}
-	}
-
-	seenKeys := s.objectsSeen.ListKeys()
-	if len(seenKeys) == 0 {
-		return nil
-	}
-
-	s.log.Info("objects seen keys", "keys", seenKeys)
-	seenKeysMap := make(map[string]interface{})
-
-	for j := range seenKeys {
-		seenKeysMap[seenKeys[j]] = nil
-	}
-
-	keys := s.ListKeys()
-	for i := range keys {
-		key := keys[i]
-		enobj, _, err := s.GetByKey(key)
-
-		if err != nil {
-			s.log.Error(err, "failed to get")
-			return err
-		}
-
-		_, exists := seenKeysMap[key]
-
-		if !exists {
-			s.log.Info("deleting object from objectsseen", "obj", key)
-			err := s.Delete(enobj)
-			if err != nil {
-				s.log.Error(err, "failed to delete")
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -545,13 +468,6 @@ func NewMeterDefinitionStore(
 		findOwner:                findOwner,
 		delta:                    delta,
 		indexStore:               store,
-		objectsSeen:              NewObjectsSeenStore(scheme),
 		keyFunc:                  keyFunc,
 	}
-}
-
-func NewObjectsSeenStore(
-	scheme *runtime.Scheme,
-) ObjectsSeenStore {
-	return cache.NewStore(pkgtypes.GVKNamespaceKeyFunc(scheme))
 }

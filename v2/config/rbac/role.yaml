@@ -275,8 +275,11 @@ rules:
   - meterbases/finalizers
   - meterbases/status
   verbs:
+  - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - marketplace.redhat.com
