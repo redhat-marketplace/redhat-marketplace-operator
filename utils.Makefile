@@ -80,11 +80,11 @@ ginkgo:
 
 LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense,latest)
+	$(call go-install-tool,$(LICENSE),github.com/google/addlicense@v1.0.0,v1.0.0)
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses,latest)
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.0.0,v1.0.0)
 
 YQ_VERSION=v4.8.0
 
@@ -124,7 +124,7 @@ pc-tool:
 	}
 
 SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
-SKAFFOLD_VERSION=v1.35.0
+SKAFFOLD_VERSION=v1.38.0
 skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 
@@ -135,6 +135,14 @@ WILDCARDS=--wildcards
 endif
 buf:
 	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 $(WILDCARDS) "*/bin/*")
+
+ENVTEST=$(PROJECT_DIR)/bin/setup-envtest
+envtest:
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+.PHONY: source-envtest
+source-envtest:
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.19.x)'"
 
 # --COMMON--
 
@@ -212,6 +220,16 @@ go mod init tmp ;\
 echo $(1) ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
+mkdir -p $$(dirname $(1)) ;\
+touch $(1)-$(3) ;\
+}
+endef
+
+# go-install-tool will 'go install' any package $2 and install it to $1.
+define go-install-tool
+@[ -f $(1)-$(3) ] || { \
+set -e ;\
+GOBIN=$$(dirname $(1)) go install $(2) ;\
 touch $(1)-$(3) ;\
 }
 endef
@@ -225,6 +243,7 @@ cd $$TMP_DIR ;\
 echo "Downloading $(1)" ;\
 curl -o $(3) -LO $(1)/$(2) ;\
 chmod +x $(3) ;\
+mkdir -p $$(dirname $(1)) ;\
 rm -rf $$TMP_DIR ;\
 touch $(3)-$(4) ;\
 }
@@ -237,6 +256,7 @@ set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 echo "Downloading $(1)"; \
+mkdir -p $$(dirname $(1)) ;\
 curl -sSL $(1) | tar -xvzf - -C "$(4)" $(5) ;\
 rm -rf $$TMP_DIR ;\
 touch $(2)-$(3); \

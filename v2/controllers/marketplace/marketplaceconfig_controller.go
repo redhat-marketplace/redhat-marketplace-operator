@@ -36,7 +36,6 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -114,21 +113,21 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	isMarketplaceConfigMarkedToBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if isMarketplaceConfigMarkedToBeDeleted {
 		// Cleanup. Unregister. Garbage Collection should delete remaining owned resources
-		secret := &v1.Secret{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
+		secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
+		si, err := secretFetcher.ReturnSecret()
 		if err != nil {
-			if k8serrors.IsNotFound(err) {
+			if errors.Is(err, utils.NoSecretsFound) {
 				reqLogger.Error(err, "Secret not found. Skipping unregister")
 			} else if err != nil {
-				reqLogger.Error(err, "Failed to get Secret")
+				reqLogger.Error(err, "Failed to get secret")
 				return reconcile.Result{}, err
 			} else {
-				// Attempt Unregister
-				pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-				if !ok {
-					reqLogger.Error(err, "Secret did not contain pull secret key. Skipping unregister")
+				//Attempt to unregister
+				token, err := secretFetcher.ParseAndValidate(si)
+				if err != nil {
+					reqLogger.Error(err, "error validating secret skipping unregister")
 				} else {
-					token := string(pullSecret)
+					//Continue with unregister
 					tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 					if err != nil {
 						reqLogger.Error(err, "error parsing token")
@@ -151,7 +150,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 		// Remove Finalizer
 		controllerutil.RemoveFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)
-		err := r.Client.Update(context.TODO(), marketplaceConfig)
+		err = r.Client.Update(context.TODO(), marketplaceConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update MarketplaceConfig")
 			return reconcile.Result{}, err
@@ -403,18 +402,14 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := &v1.Secret{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
+	//Fetch the redhat-marketplace-pull-secret or ibm-entitlement-key
+	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
+	si, err := secretFetcher.ReturnSecret()
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			secret = nil
-			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-		} else {
-			reqLogger.Error(err, "error fetching secret")
-			return reconcile.Result{}, err
-		}
+		return reconcile.Result{}, err
 	}
+
+	reqLogger.Info("found secret", "secret", si.Name)
 
 	if marketplaceConfig.Labels == nil {
 		marketplaceConfig.Labels = make(map[string]string)
@@ -422,8 +417,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	var updateInstanceSpec bool
 
-	if secret != nil {
-		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+	if si.Secret != nil {
+		if clusterDisplayName, ok := si.Secret.Data[utils.ClusterDisplayNameKey]; ok {
 			count := utf8.RuneCountInString(string(clusterDisplayName))
 			clusterName := strings.Trim(string(clusterDisplayName), "\n")
 
@@ -735,17 +730,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	reqLogger.Info("Finding Cluster registration status")
 
 	requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
-		if secret == nil {
+		if si.Secret == nil {
 			return reconcile.Result{}, false, nil
 		}
 
-		pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-		if !ok {
-			return reconcile.Result{}, false, nil
+		token, err := secretFetcher.ParseAndValidate(si)
+		if err != nil {
+			reqLogger.Error(err, "error validating secret")
+			return reconcile.Result{}, false, err
 		}
-
-		token := string(pullSecret)
 		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 		if err != nil {
 			reqLogger.Error(err, "error parsing token")

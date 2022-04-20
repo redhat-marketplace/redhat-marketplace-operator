@@ -39,7 +39,7 @@ type MarketplaceReportData struct {
 	// Milliseconds from epoch UTC representing the end of the window for the usage data being reported
 	IntervalEnd int64 `json:"end"`
 	// The Id of the Red Hat Marketplace account that usage is being reported for.
-	AccountID string `json:"accountId" mapstructure:"accountId"`
+	AccountID string `json:"accountId,omitempty" mapstructure:"accountId"`
 	/*
 		An object allowing for additional attributes related to the usage data.
 		This object will be merged with measuredUsage.additionalAttributes for processing.

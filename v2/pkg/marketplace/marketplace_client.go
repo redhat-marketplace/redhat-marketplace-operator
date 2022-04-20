@@ -77,6 +77,16 @@ type MarketplaceClientBuilder struct {
 	Insecure bool
 }
 
+type EntitlementKey struct {
+	Auths map[string]Auth `json:"auths"`
+}
+
+type Auth struct {
+	UserName string `json:"username"`
+	Password string `json:"password"`
+	Auth     string `json:"auth"`
+}
+
 func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder {
 	builder := &MarketplaceClientBuilder{}
 
@@ -350,6 +360,7 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 
 type MarketplaceClaims struct {
 	AccountID string `json:"rhmAccountId"`
+	Password  string `json:"password,omitempty"`
 	APIKey    string `json:"iam_apikey,omitempty"`
 	Env       string `json:"env,omitempty"`
 	jwt.StandardClaims

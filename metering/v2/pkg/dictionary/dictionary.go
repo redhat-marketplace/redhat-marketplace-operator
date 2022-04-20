@@ -96,7 +96,6 @@ func (w *MeterDefinitionDictionary) Start(ctx context.Context) error {
 func (def *MeterDefinitionDictionary) FindObjectMatches(
 	obj interface{},
 	results *[]filter.Result,
-	skipCache bool,
 ) error {
 	filters, err := def.ListFilters()
 
@@ -108,34 +107,16 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	for i := range filters {
 		localLookup := &filters[i]
 
-		var (
-			ok *bool
-		)
+		lookupOk, err := localLookup.Matches(obj)
 
-		if !skipCache {
-			ok = lookupCache.Get(localLookup, obj)
+		if err != nil {
+			def.log.Error(err, "error finding matches")
+			return err
 		}
 
-		if ok == nil {
-			lookupOk, err := localLookup.Matches(obj)
-
-			if err != nil {
-				def.log.Error(err, "error finding matches")
-				return err
-			}
-
-			err = lookupCache.Set(localLookup, obj, lookupOk)
-			if err != nil {
-				def.log.Error(err, "error saving cache")
-				return err
-			}
-
-			ok = &lookupOk
-		}
-
-		if ok != nil && *ok {
+		if lookupOk {
 			*results = append(*results, filter.Result{
-				Ok:     *ok,
+				Ok:     lookupOk,
 				Lookup: localLookup,
 			})
 		}
@@ -201,6 +182,17 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 	if err != nil {
 		def.log.Error(err, "error extending obj")
 		return err
+	}
+
+	// Skip Updates where Generation does not change
+	item, exists, err := def.Get(addObj)
+	if exists && err == nil {
+		prevObj, ok := item.(*MeterDefinitionExtended)
+		if ok {
+			if addObj.ObjectMeta.Generation == prevObj.ObjectMeta.Generation {
+				return nil
+			}
+		}
 	}
 
 	if !def.allow(addObj) {

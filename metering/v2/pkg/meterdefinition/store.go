@@ -120,7 +120,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	// look over all meterDefinitions, matching workloads are saved
 	results := []filter.Result{}
 
-	err = s.dictionary.FindObjectMatches(obj, &results, false)
+	err = s.dictionary.FindObjectMatches(obj, &results)
 	if err != nil {
 		logger.Error(err,
 			"failed to find object matches",
@@ -178,6 +178,19 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 
 // Update updates the existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) Update(obj interface{}) error {
+
+	// Skip Updates where Generation does not change
+	oldobj, exists, err := s.Get(obj)
+	if exists && err == nil {
+		meta, ok := obj.(metav1.ObjectMeta)
+		oldmeta, oldok := oldobj.(metav1.ObjectMeta)
+		if ok && oldok {
+			if meta.GetGeneration() == oldmeta.GetGeneration() {
+				return nil
+			}
+		}
+	}
+
 	key, err := s.keyFunc(obj)
 
 	if err != nil {
@@ -189,13 +202,13 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 		s.log.Error(err, "error updating seen object")
 	}
 
-	logger := s.log.WithValues("func", "add", "namespace/name", key).V(4)
+	logger := s.log.WithValues("func", "update", "namespace/name", key).V(4)
 	logger.Info("updating obj")
 
 	// look over all meterDefinitions, matching workloads are saved
 	results := []filter.Result{}
 
-	err = s.dictionary.FindObjectMatches(obj, &results, false)
+	err = s.dictionary.FindObjectMatches(obj, &results)
 	if err != nil {
 		logger.Error(err,
 			"failed to find object matches",
@@ -261,6 +274,8 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 		return err
 	}
 
+	// This just seems to produce error: deleting seen object      {"error": "couldn't create key for object
+	// When MeterDefinitions are deleted
 	if err := s.objectsSeen.Delete(obj); err != nil {
 		s.log.Error(err, "error deleting seen object")
 	}
@@ -288,6 +303,53 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 
 		s.Lock()
 		defer s.Unlock()
+		if err := s.delta.Delete(fullObj); err != nil {
+			logger.Error(err, "can't delete obj")
+			return err
+		}
+
+		if err := s.indexStore.Delete(fullObj); err != nil {
+			logger.Error(err, "can't delete obj")
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Delete deletes an existing entry in the OwnerCache.
+func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
+	mdefObj, err := newMeterDefinitionExtended(obj)
+
+	if err != nil {
+		s.log.Error(err, "cannot create a key")
+		return err
+	}
+
+	key, err := s.keyFunc(mdefObj)
+
+	if err != nil {
+		s.log.Error(err, "cannot create a key")
+		return err
+	}
+
+	logger := s.log.WithValues("func", "deletefromindex",
+		"name", mdefObj.GetName(),
+		"namespace", mdefObj.GetNamespace(),
+		"key", key)
+
+	fullObj, found, err := s.indexStore.Get(mdefObj)
+	if err != nil {
+		s.log.Error(err, "cannot get")
+		return err
+	}
+
+	if found {
+		logger.Info("deleting obj")
+
+		s.Lock()
+		defer s.Unlock()
+
 		if err := s.delta.Delete(fullObj); err != nil {
 			logger.Error(err, "can't delete obj")
 			return err

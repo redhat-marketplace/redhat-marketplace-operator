@@ -27,10 +27,12 @@ import (
 )
 
 type ServiceAccountClient struct {
-	KubernetesInterface kubernetes.Interface
-	Token               *Token
-	TokenRequestObj     *authv1.TokenRequest
-	Client              typedv1.ServiceAccountInterface
+	tokenRequestObj *authv1.TokenRequest
+	client          typedv1.ServiceAccountInterface
+	log             logr.Logger
+
+	tokens map[string]*Token
+
 	sync.Mutex
 }
 
@@ -39,33 +41,36 @@ type Token struct {
 	ExpirationTimestamp metav1.Time
 }
 
-func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName string, audience string, expireSecs int64, reqLogger logr.Logger) (string, error) {
+func NewServiceAccountClient(
+	namespace string,
+	kubernetesInterface kubernetes.Interface,
+	log logr.Logger,
+) *ServiceAccountClient {
+	return &ServiceAccountClient{
+		client: kubernetesInterface.CoreV1().ServiceAccounts(namespace),
+		log:    log.WithName("ServiceAccountClient"),
+	}
+}
+
+func (s *ServiceAccountClient) GetToken(targetServiceAccountName string, audience string, expireSecs int64) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	now := metav1.Now().UTC()
-	opts := metav1.CreateOptions{}
-	tr := s.newTokenRequest(audience, expireSecs)
 
-	if s.Token == nil {
-		reqLogger.Info("auth token from service account found")
+	token, ok := s.tokens[s.cacheKey(targetServiceAccountName, audience)]
 
-		return s.getToken(targetServiceAccountName, s.Client, tr, opts)
+	if !ok || (ok && now.UTC().After(token.ExpirationTimestamp.Time)) {
+		s.log.Info("auth token from service account found")
+
+		return s.getToken(targetServiceAccountName, audience, expireSecs)
 	}
 
-	if now.UTC().After(s.Token.ExpirationTimestamp.Time) {
-		reqLogger.Info("service account token is expired")
-
-		return s.getToken(targetServiceAccountName, s.Client, tr, opts)
-	}
-
-	return s.getToken(targetServiceAccountName, s.Client, tr, opts)
+	return *token.AuthToken, nil
 }
 
-func NewServiceAccountClient(namespace string, kubernetesInterface kubernetes.Interface) *ServiceAccountClient {
-	return &ServiceAccountClient{
-		Client: kubernetesInterface.CoreV1().ServiceAccounts(namespace),
-	}
+func (s *ServiceAccountClient) cacheKey(targetServiceAccount, audience string) string {
+	return targetServiceAccount + ":" + audience
 }
 
 func (s *ServiceAccountClient) newTokenRequest(audience string, expireSeconds int64) *authv1.TokenRequest {
@@ -85,17 +90,20 @@ func (s *ServiceAccountClient) newTokenRequest(audience string, expireSeconds in
 	}
 }
 
-func (s *ServiceAccountClient) getToken(targetServiceAccount string, client typedv1.ServiceAccountInterface, tr *authv1.TokenRequest, opts metav1.CreateOptions) (string, error) {
-	tr, err := client.CreateToken(context.TODO(), targetServiceAccount, tr, opts)
+func (s *ServiceAccountClient) getToken(targetServiceAccount, audience string, expireSecs int64) (string, error) {
+	opts := metav1.CreateOptions{}
+	tr := s.newTokenRequest(audience, expireSecs)
+
+	tr, err := s.client.CreateToken(context.TODO(), targetServiceAccount, tr, opts)
 	if err != nil {
 		return "", err
 	}
 
-	s.Token = &Token{
+	token := &Token{
 		AuthToken:           ptr.String(tr.Status.Token),
 		ExpirationTimestamp: tr.Status.ExpirationTimestamp,
 	}
 
-	token := tr.Status.Token
-	return token, nil
+	s.tokens[s.cacheKey(targetServiceAccount, audience)] = token
+	return *token.AuthToken, nil
 }

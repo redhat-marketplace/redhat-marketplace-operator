@@ -18,15 +18,50 @@ import (
 	ioutil "io/ioutil"
 	"time"
 
+	jwt "github.com/golang-jwt/jwt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	. "github.com/onsi/gomega/gstruct"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 )
 
 const timeout = time.Second * 100
 const interval = time.Second * 3
+
+type Payload struct {
+	Env      string `json:"env"`
+	Password string `json:"password"`
+	Id       string `json:"jti,omitempty"`
+	IssuedAt int64  `json:"iat,omitempty"`
+	Issuer   string `json:"iss,omitempty"`
+}
+
+func CreateToken(password string, env string, duration time.Duration) (string, error) {
+	payload, err := NewPayload(password, env, duration)
+	if err != nil {
+		return "", err
+	}
+
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
+	return jwtToken.SignedString([]byte(password))
+}
+
+func (payload *Payload) Valid() error {
+	return nil
+}
+
+func NewPayload(password string, env string, duration time.Duration) (*Payload, error) {
+	payload := &Payload{
+		Env:      env,
+		Id:       "tokenID",
+		IssuedAt: int64(1234),
+		Issuer:   "test-issuer",
+		Password: password,
+	}
+	return payload, nil
+}
 
 var _ = Describe("Marketplace Config Status", func() {
 	var (
@@ -38,6 +73,8 @@ var _ = Describe("Marketplace Config Status", func() {
 		body                     []byte
 		path                     string
 		err                      error
+		ekProdToken              string
+		ekStageToken             string
 	)
 
 	BeforeEach(func() {
@@ -69,10 +106,47 @@ var _ = Describe("Marketplace Config Status", func() {
 			AccountId:   "accountid",
 			ClusterUuid: "test",
 		}
+
+		ekProdToken, err = CreateToken("mypassword", "", time.Minute)
+		Expect(err).NotTo(HaveOccurred())
+
+		ekStageToken, err = CreateToken("mypassword", "stage", time.Minute)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
 		server.Close()
+	})
+
+	Context("IBM Entitlement Key", func() {
+		It("Should should correctly parse a prod token", func() {
+			tokenClaims, err := GetJWTTokenClaim(ekProdToken)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*tokenClaims).To(MatchFields(IgnoreExtras, Fields{
+				"AccountID": Equal(""),
+				"Password":  Equal("mypassword"),
+				"StandardClaims": MatchFields(IgnoreExtras, Fields{
+					"Id":       Equal("tokenID"),
+					"IssuedAt": Equal(int64(1234)),
+					"Issuer":   Equal("test-issuer"),
+				}),
+			}))
+		})
+
+		It("Should should correctly parse a stage token", func() {
+			tokenClaims, err := GetJWTTokenClaim(ekStageToken)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*tokenClaims).To(MatchFields(IgnoreExtras, Fields{
+				"AccountID": Equal(""),
+				"Password":  Equal("mypassword"),
+				"Env":       Equal("stage"),
+				"StandardClaims": MatchFields(IgnoreExtras, Fields{
+					"Id":       Equal("tokenID"),
+					"IssuedAt": Equal(int64(1234)),
+					"Issuer":   Equal("test-issuer"),
+				}),
+			}))
+		})
 	})
 
 	Context("Marketplace Pull Secret without any error", func() {
