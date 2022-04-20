@@ -5,12 +5,9 @@ go 1.16
 require (
 	emperror.dev/errors v0.8.0
 	github.com/InVisionApp/go-health/v2 v2.1.2
-	github.com/allegro/bigcache/v3 v3.0.1
 	github.com/cespare/xxhash v1.1.0
-	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/go-logr/logr v0.4.0
 	github.com/google/wire v0.4.0
-	github.com/gotidy/ptr v1.3.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
@@ -26,8 +23,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible

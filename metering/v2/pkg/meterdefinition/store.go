@@ -171,91 +171,14 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 
 // Update updates the existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) Update(obj interface{}) error {
-
-	// Skip Updates where Generation does not change
-	oldobj, exists, err := s.Get(obj)
-	if exists && err == nil {
-		meta, ok := obj.(metav1.ObjectMeta)
-		oldmeta, oldok := oldobj.(metav1.ObjectMeta)
-		if ok && oldok {
-			if meta.GetGeneration() == oldmeta.GetGeneration() {
-				return nil
-			}
-		}
-	}
-
-	key, err := s.keyFunc(obj)
-
-	if err != nil {
-		s.log.Error(err, "cannot create a key")
-		return err
-	}
-
-	logger := s.log.WithValues("func", "update", "namespace/name", key).V(4)
-	logger.Info("updating obj")
-
-	// look over all meterDefinitions, matching workloads are saved
-	results := []filter.Result{}
-
-	err = s.dictionary.FindObjectMatches(obj, &results)
-	if err != nil {
-		logger.Error(err,
-			"failed to find object matches",
-			errors.GetDetails(err)...)
-		return err
-	}
-
-	if len(results) == 0 {
-		logger.Info("no results returned")
-		return nil
-	}
-
-	meterDefs := []v1beta1.MeterDefinition{}
-
-	for _, result := range results {
-		if !result.Ok {
-			logger.Info("no match", "obj", obj)
-			continue
-		}
-
-		mdef := result.Lookup.MeterDefinition
-		logger.Info("result", "name", mdef.GetName())
-		meterDefs = append(meterDefs, *mdef)
-	}
-
-	if len(meterDefs) == 0 {
-		logger.Info("no matched meterdefs returned")
-		return nil
-	}
-
-	logger.Info("return meterdefs results", "len", len(meterDefs))
-
-	mdefObj, err := newMeterDefinitionExtended(obj)
-
-	if err != nil {
-		return err
-	}
-
-	mdefObj.MeterDefinitions = meterDefs
-
-	s.Lock()
-	defer s.Unlock()
-
-	if err := s.delta.Update(mdefObj); err != nil {
-		logger.Error(err, "failed to add to delta store")
-		return err
-	}
-
-	if err := s.indexStore.Update(mdefObj); err != nil {
-		logger.Error(err, "failed to add to index store")
-		return err
-	}
-
-	return nil
+	return s.Add(obj)
 }
 
 // Delete deletes an existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) Delete(obj interface{}) error {
+	s.Lock()
+	defer s.Unlock()
+
 	mdefObj, err := newMeterDefinitionExtended(obj)
 
 	if err != nil {
@@ -284,8 +207,6 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 	if found {
 		logger.Info("deleting obj")
 
-		s.Lock()
-		defer s.Unlock()
 		if err := s.delta.Delete(fullObj); err != nil {
 			logger.Error(err, "can't delete obj")
 			return err

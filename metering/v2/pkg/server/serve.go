@@ -21,7 +21,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"os"
 	"strconv"
 	"strings"
 
@@ -123,7 +122,8 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 	mux := http.NewServeMux()
 
 	// if debug enabled
-	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+	//if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+	if true {
 		goruntime.SetMutexProfileFraction(5)
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)

@@ -27,10 +27,7 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
-	"golang.org/x/time/rate"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +54,6 @@ type MeterDefinitionDictionary struct {
 
 	log logr.Logger
 
-	rateLimits map[types.UID]*rate.Limiter
 	deadlock.RWMutex
 }
 
@@ -80,7 +76,6 @@ func NewMeterDefinitionDictionary(
 		cache:       store,
 		delta:       cache.NewDeltaFIFO(keyFunc, store),
 		findOwner:   findOwner,
-		rateLimits:  map[types.UID]*rate.Limiter{},
 		starterList: list,
 	}
 }
@@ -148,11 +143,6 @@ func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
 		return err
 	}
 
-	if !def.allow(addObj) {
-		def.log.Info("rate limited, skipping")
-		return nil
-	}
-
 	def.log.Info("recording obj", "obj", fmt.Sprintf("%+v", obj))
 
 	def.Lock()
@@ -191,11 +181,6 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 		}
 	}
 
-	if !def.allow(addObj) {
-		def.log.Info("rate limited, skipping")
-		return nil
-	}
-
 	def.log.Info("updating obj", "obj", fmt.Sprintf("%+v", obj))
 
 	def.Lock()
@@ -220,23 +205,11 @@ const (
 	limitRate       = 5 * time.Second
 )
 
-func (def *MeterDefinitionDictionary) allow(addObj metav1.Object) bool {
-	var (
-		rateLimiter *rate.Limiter
-		ok          bool
-	)
-
-	if rateLimiter, ok = def.rateLimits[addObj.GetUID()]; !ok {
-		limit := rate.Every(limitRate)
-		rateLimiter = rate.NewLimiter(limit, limitRateBucket)
-		def.rateLimits[addObj.GetUID()] = rateLimiter
-	}
-
-	return rateLimiter.Allow()
-}
-
 // Delete deletes the given object from the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
+	def.Lock()
+	defer def.Unlock()
+
 	addObj, err := def.newMeterDefinitionExtended(obj)
 
 	if err != nil {
@@ -244,21 +217,8 @@ func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
 		return err
 	}
 
-	def.Lock()
-	defer def.Unlock()
-
 	if err := def.delta.Delete(addObj); err != nil {
 		return err
-	}
-
-	o, err := meta.Accessor(obj)
-	if err != nil {
-		def.log.Error(err, "error converting obj")
-		return err
-	}
-
-	if _, ok := def.rateLimits[o.GetUID()]; ok {
-		delete(def.rateLimits, o.GetUID())
 	}
 
 	return def.cache.Delete(addObj)
