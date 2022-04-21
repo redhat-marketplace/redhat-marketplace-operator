@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210223143043-9d906966478f
-	github.com/spf13/cobra v1.1.3
+	github.com/spf13/cobra v1.2.1
 )
 
 replace (

@@ -14,9 +14,9 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-logr/logr v1.2.0
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
-	github.com/golang/mock v1.5.0
+	github.com/golang/mock v1.6.0
 	github.com/google/addlicense v1.0.0 // indirect
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.2.0
 	github.com/google/wire v0.4.0
 	github.com/goph/emperror v0.17.2
 	github.com/gotidy/ptr v1.3.0
@@ -33,10 +33,12 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.46.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.28.0
+	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20220419162829-4f86dc8f9651 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.8.1
+	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63
+	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.5

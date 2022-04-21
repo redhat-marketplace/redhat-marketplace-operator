@@ -145,10 +145,10 @@ var _ = BeforeSuite(func() {
 		K8sclient:         k8sClient,
 		DeployedNamespace: operatorConfig.DeployedNamespace,
 		KubeInterface:     clientset,
-		Logger:            ctrl.Log,
+		Logger:            ctrl.Log.WithName("mock authbuilder").WithName("test"),
 	}
 
-	catalogClient, err = ProvideCatalogClient(mockAuthBuilderConfig, operatorConfig, ctrl.Log)
+	catalogClient, err = ProvideCatalogClient(mockAuthBuilderConfig, operatorConfig, ctrl.Log.WithName("mock authbuilder").WithName("test"))
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {

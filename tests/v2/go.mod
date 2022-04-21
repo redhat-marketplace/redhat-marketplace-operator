@@ -35,6 +35,6 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ./
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.22.2
-	k8s.io/client-go => k8s.io/client-go v0.22.2
+	k8s.io/api => k8s.io/api v0.23.0
+	k8s.io/client-go => k8s.io/client-go v0.23.0
 )

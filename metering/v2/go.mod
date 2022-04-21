@@ -21,7 +21,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.8.1
+	github.com/spf13/viper v1.9.0
 	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	k8s.io/api v0.23.0

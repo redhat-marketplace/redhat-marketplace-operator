@@ -123,7 +123,7 @@ var _ = Describe("MeterbaseController", func() {
 				Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 				Client: k8sClient,
 				Scheme: k8sScheme,
-				CC:     reconcileutils.NewClientCommand(k8sManager.GetClient(), k8sScheme, ctrl.Log),
+				CC:     reconcileutils.NewClientCommand(k8sManager.GetClient(), k8sScheme, ctrl.Log.WithName("controllers").WithName("MeterReportCreator")),
 				cfg:    operatorCfg,
 			}
 			err := reportCreatorReconciler.SetupWithManager(k8sManager, doneChan)
