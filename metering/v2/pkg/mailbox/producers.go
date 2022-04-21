@@ -19,8 +19,7 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -36,7 +35,7 @@ type ObjectChannelProducer struct {
 }
 
 func ProvideObjectChannelProducer(
-	meterDefinitionStore *meterdefinition.MeterDefinitionStore,
+	meterDefinitionStore *stores.MeterDefinitionStore,
 	mb *Mailbox,
 	log logr.Logger,
 ) *ObjectChannelProducer {
@@ -55,7 +54,7 @@ type MeterDefinitionChannelProducer struct {
 }
 
 func ProvideMeterDefinitionChannelProducer(
-	dictionary *dictionary.MeterDefinitionDictionary,
+	dictionary *stores.MeterDefinitionDictionary,
 	mb *Mailbox,
 	log logr.Logger,
 ) *MeterDefinitionChannelProducer {

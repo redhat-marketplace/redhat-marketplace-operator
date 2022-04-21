@@ -15,7 +15,6 @@
 package engine
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,10 +33,7 @@ import (
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,12 +44,11 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var ctx context.Context
-var cancel context.CancelFunc
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var engine *Engine
+var scheme *runtime.Scheme
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -67,8 +62,6 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 
-	ctx, cancel = context.WithCancel(context.Background())
-
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -78,31 +71,20 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
+	By("starting env")
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	scheme := provideScheme()
-
+	scheme = provideScheme()
 	// +kubebuilder:scaffold:scheme
+	By("starting client")
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
-
-	prometheusData := metrics.ProvidePrometheusData()
-	engine, err = NewEngine(ctx, types.Namespaces{""}, scheme, managers.ClientOptions{
-		Namespace:    "",
-		DryRunClient: false,
-	}, cfg, logf.Log.WithName("engine"), prometheusData)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = engine.Start(ctx)
-	Expect(err).ToNot(HaveOccurred())
 }, 60)
 
 var _ = AfterSuite(func() {
-	By("stopping the engine")
-	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())

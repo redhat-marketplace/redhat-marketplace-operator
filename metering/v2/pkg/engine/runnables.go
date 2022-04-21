@@ -19,7 +19,7 @@ import (
 
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/google/wire"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 )
@@ -28,6 +28,15 @@ type Runnables []Runnable
 
 type Runnable interface {
 	Start(context.Context) error
+}
+
+type Stoppable interface {
+	Stop()
+}
+
+type RunAndStop interface {
+	Runnable
+	Stoppable
 }
 
 type Recoverable interface {
@@ -46,7 +55,7 @@ func ProvideRunnables(
 	removalWatcher *processors.MeterDefinitionRemovalWatcher,
 	objectChannelProducer *mailbox.ObjectChannelProducer,
 	mdefChannelProducer *mailbox.MeterDefinitionChannelProducer,
-	dictionary *dictionary.MeterDefinitionDictionary,
+	nsWatcher *filter.NamespaceWatcher,
 ) Runnables {
 	// this is the start up order
 	return Runnables{
@@ -60,7 +69,6 @@ func ProvideRunnables(
 		removalWatcher,
 		meterDefinitionDictionary,
 		meterDefinitionStore,
-		dictionary,
 	}
 }
 
@@ -76,4 +84,5 @@ var RunnablesSet = wire.NewSet(
 	processors.ProvidePrometheusMdefProcessor,
 	mailbox.ProvideObjectChannelProducer,
 	mailbox.ProvideMeterDefinitionChannelProducer,
+	filter.ProvideNamespaceWatcher,
 )

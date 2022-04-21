@@ -21,9 +21,10 @@ import (
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -103,7 +104,7 @@ func (u *PrometheusProcessor) Process(ctx context.Context, inObj cache.Delta) er
 	case cache.Updated:
 		fallthrough
 	case cache.Added:
-		u.log.Info("object added", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
+		u.log.V(2).Info("object added", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
 		if err := u.prometheusData.Add(obj.Object, obj.MeterDefinitions); err != nil {
 			u.log.Error(err, "error adding obj to prometheus")
 			return errors.WithStack(err)
@@ -134,6 +135,7 @@ func ProvidePrometheusMdefProcessor(
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
 	prometheusData *metrics.PrometheusData,
+	_ managers.CacheIsStarted,
 ) *PrometheusMdefProcessor {
 	sp := &PrometheusMdefProcessor{
 		Processor: &Processor{
@@ -161,7 +163,7 @@ func (u *PrometheusMdefProcessor) Process(ctx context.Context, inObj cache.Delta
 		return nil
 	}
 
-	meterdef, ok := inObj.Object.(*dictionary.MeterDefinitionExtended)
+	meterdef, ok := inObj.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")

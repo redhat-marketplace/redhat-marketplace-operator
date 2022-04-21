@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meterdefinition
+package stores
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
@@ -38,10 +37,10 @@ type MeterDefinitionStores = map[string]*MeterDefinitionStore
 
 // MeterDefinitionStore keeps the MeterDefinitions in place
 // and tracks the dependents using the rules based on the
-// rules. MeterDefinition controller uses this to effectively
+// spec. MeterDefinition controller uses this to effectively
 // find the child assets of a meter definition rules.
 type MeterDefinitionStore struct {
-	dictionary *dictionary.MeterDefinitionDictionary
+	dictionary *MeterDefinitionDictionary
 	indexStore cache.Indexer
 	delta      *cache.DeltaFIFO
 	keyFunc    cache.KeyFunc
@@ -66,7 +65,7 @@ const IndexMeterDefinition = "meterDefinition"
 
 func EnhancedObjectKeyFunc(scheme *runtime.Scheme) func(obj interface{}) (string, error) {
 	return func(obj interface{}) (string, error) {
-		mdefObj, err := newMeterDefinitionExtended(obj)
+		mdefObj, err := newStoreObject(obj)
 
 		if err != nil {
 			return "", err
@@ -145,7 +144,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	}
 
 	logger.Info("return meterdefs results", "len", len(meterDefs))
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		return err
@@ -171,6 +170,24 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 
 // Update updates the existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) Update(obj interface{}) error {
+	addObj, err := newStoreObject(obj)
+
+	if err != nil {
+		s.log.Error(err, "error extending obj")
+		return err
+	}
+
+	// Skip Updates where Generation does not change
+	item, exists, err := s.Get(addObj)
+	if exists && err == nil {
+		prevObj, ok := item.(*pkgtypes.MeterDefinitionEnhancedObject)
+		if ok {
+			if addObj.Object.GetGeneration() == prevObj.Object.GetGeneration() {
+				return nil
+			}
+		}
+	}
+
 	return s.Add(obj)
 }
 
@@ -179,7 +196,7 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 	s.Lock()
 	defer s.Unlock()
 
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
@@ -223,7 +240,7 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 
 // Delete deletes an existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
@@ -309,7 +326,7 @@ func (s *MeterDefinitionStore) Get(obj interface{}) (item interface{}, exists bo
 	s.RLock()
 	defer s.RUnlock()
 
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		return nil, false, err
@@ -346,7 +363,7 @@ func (s *MeterDefinitionStore) Resync() error {
 	return nil
 }
 
-func newMeterDefinitionExtended(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, error) {
+func newStoreObject(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, error) {
 	if v, ok := obj.(*pkgtypes.MeterDefinitionEnhancedObject); ok {
 		return v, nil
 	}
@@ -367,7 +384,7 @@ func NewMeterDefinitionStore(
 	findOwner *rhmclient.FindOwnerHelper,
 	monitoringClient *monitoringv1client.MonitoringV1Client,
 	marketplaceclientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client,
-	dictionary *dictionary.MeterDefinitionDictionary,
+	dictionary *MeterDefinitionDictionary,
 	scheme *runtime.Scheme,
 ) *MeterDefinitionStore {
 	keyFunc := EnhancedObjectKeyFunc(scheme)

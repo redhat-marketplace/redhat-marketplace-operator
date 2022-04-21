@@ -24,26 +24,24 @@ import (
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Engine struct {
-	store            *meterdefinition.MeterDefinitionStore
+	store            *stores.MeterDefinitionStore
 	namespaces       pkgtypes.Namespaces
 	kubeClient       clientset.Interface
 	monitoringClient *monitoringv1client.MonitoringV1Client
-	dictionary       *dictionary.MeterDefinitionDictionary
+	dictionary       *stores.MeterDefinitionDictionary
 	mktplaceClient   *marketplacev1beta1client.MarketplaceV1beta1Client
 	promtheusData    *metrics.PrometheusData
 	runnables        Runnables
@@ -56,15 +54,16 @@ type Engine struct {
 }
 
 func ProvideEngine(
-	store *meterdefinition.MeterDefinitionStore,
+	store *stores.MeterDefinitionStore,
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
 	kubeClient clientset.Interface,
 	monitoringClient *monitoringv1client.MonitoringV1Client,
-	dictionary *dictionary.MeterDefinitionDictionary,
+	dictionary *stores.MeterDefinitionDictionary,
 	mktplaceClient *marketplacev1beta1client.MarketplaceV1beta1Client,
 	runnables Runnables,
 	promtheusData *metrics.PrometheusData,
+	cache managers.CacheIsStarted,
 ) *Engine {
 	h := health.New()
 	return &Engine{
@@ -116,13 +115,12 @@ type reflectorConfig struct {
 	lister       func(string) cache.ListerWatcher
 
 	startContext context.Context
-
-	cancelFunc context.CancelFunc
+	cancelFunc   context.CancelFunc
 }
 
 type ListerRunnable struct {
 	reflectorConfig
-	namespaces pkgtypes.Namespaces
+	namespace string
 
 	Store cache.Store
 }
@@ -138,15 +136,14 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 
 	var localCtx context.Context
 	localCtx, p.cancelFunc = context.WithCancel(p.startContext)
-
-	for i := range p.namespaces {
-		localNS := p.namespaces[i]
-		lister := p.lister(localNS)
-		reflector := cache.NewReflector(lister, p.expectedType, p.Store, 0)
-		go reflector.Run(localCtx.Done())
-	}
-
+	lister := p.lister(p.namespace)
+	reflector := cache.NewReflector(lister, p.expectedType, p.Store, 0)
+	go reflector.Run(localCtx.Done())
 	return nil
+}
+
+func (p *ListerRunnable) Stop() {
+	p.cancelFunc()
 }
 
 type StoreRunnable struct {
@@ -205,23 +202,22 @@ func ProvideMeterDefinitionDictionaryStoreRunnable(
 	kubeClient clientset.Interface,
 	nses pkgtypes.Namespaces,
 	c *marketplacev1beta1client.MarketplaceV1beta1Client,
-	store *dictionary.MeterDefinitionDictionary,
+	store *stores.MeterDefinitionDictionary,
 	log logr.Logger,
 ) *MeterDefinitionDictionaryStoreRunnable {
+	runnables := []Runnable{}
+
+	for _, ns := range nses {
+		runnables = append(runnables, provideMeterDefinitionListerRunnable(ns, c, store))
+	}
+
 	return &MeterDefinitionDictionaryStoreRunnable{
 		StoreRunnable: StoreRunnable{
 			Store:      store,
-			ResyncTime: 5 * time.Minute,
-			Reflectors: []Runnable{
-				provideMeterDefinitionListerRunnable(nses, c, store),
-			},
-			log: log.WithName("dictionary"),
+			Reflectors: runnables,
+			log:        log.WithName("dictionary"),
 		},
 	}
-}
-
-type MeterDefinitionSeenStoreRunnable struct {
-	StoreRunnable
 }
 
 type MeterDefinitionStoreRunnable struct {
@@ -229,134 +225,31 @@ type MeterDefinitionStoreRunnable struct {
 }
 
 func ProvideMeterDefinitionStoreRunnable(
-	kubeClient clientset.Interface,
 	nses pkgtypes.Namespaces,
-	store *meterdefinition.MeterDefinitionStore,
-	c *monitoringv1client.MonitoringV1Client,
 	log logr.Logger,
+	ns *filter.NamespaceWatcher,
+	listWatchers MeterDefinitionStoreListWatchers,
+	store *stores.MeterDefinitionStore,
 ) *MeterDefinitionStoreRunnable {
 	return &MeterDefinitionStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store:      store,
-			ResyncTime: 5 * time.Minute,
-			log:        log.WithName("mdefstore"),
+			Store: store,
+			log:   log.WithName("mdefstore"),
 			Reflectors: []Runnable{
-				providePVCLister(kubeClient, nses, store),
-				providePodListerRunnable(kubeClient, nses, store),
-				provideServiceListerRunnable(kubeClient, nses, store),
-				provideServiceMonitorListerRunnable(c, nses, store),
+				&NamespacedCachedListers{
+					watcher:     ns,
+					log:         log.WithName("namespaced-cached-lister"),
+					listers:     map[string][]RunAndStop{},
+					makeListers: ListWatchers(listWatchers),
+				},
 			},
-		},
-	}
-}
-
-type PVCListerRunnable struct {
-	ListerRunnable
-}
-
-func providePVCLister(
-	kubeClient clientset.Interface,
-	nses pkgtypes.Namespaces,
-	store cache.Store,
-) *PVCListerRunnable {
-	return &PVCListerRunnable{
-		ListerRunnable: ListerRunnable{
-			reflectorConfig: reflectorConfig{
-				expectedType: &corev1.PersistentVolumeClaim{},
-				lister:       CreatePVCListWatch(kubeClient),
-			},
-			Store:      store,
-			namespaces: nses,
-		},
-	}
-}
-
-type PodListerRunnable struct {
-	ListerRunnable
-}
-
-func providePodListerRunnable(
-	kubeClient clientset.Interface,
-	nses pkgtypes.Namespaces,
-	store cache.Store,
-) *PodListerRunnable {
-	return &PodListerRunnable{
-		ListerRunnable: ListerRunnable{
-			reflectorConfig: reflectorConfig{
-				expectedType: &corev1.Pod{},
-				lister:       CreatePodListWatch(kubeClient),
-			},
-			namespaces: nses,
-			Store:      store,
-		},
-	}
-}
-
-type ServiceListerRunnable struct {
-	ListerRunnable
-}
-
-func provideServiceListerRunnable(
-	kubeClient clientset.Interface,
-	nses pkgtypes.Namespaces,
-	store cache.Store,
-) *ServiceListerRunnable {
-	return &ServiceListerRunnable{
-		ListerRunnable: ListerRunnable{
-			reflectorConfig: reflectorConfig{
-				expectedType: &corev1.Service{},
-				lister:       CreateServiceListWatch(kubeClient),
-			},
-			namespaces: nses,
-			Store:      store,
-		},
-	}
-}
-
-type ServiceMonitorListerRunnable struct {
-	ListerRunnable
-}
-
-func provideServiceMonitorListerRunnable(
-	c *monitoringv1client.MonitoringV1Client,
-	nses pkgtypes.Namespaces,
-	store cache.Store,
-) *ServiceMonitorListerRunnable {
-	return &ServiceMonitorListerRunnable{
-		ListerRunnable: ListerRunnable{
-			reflectorConfig: reflectorConfig{
-				expectedType: &monitoringv1.ServiceMonitor{},
-				lister:       CreateServiceMonitorListWatch(c),
-			},
-			namespaces: nses,
-			Store:      store,
-		},
-	}
-}
-
-type MeterDefinitionListerRunnable struct {
-	ListerRunnable
-}
-
-func provideMeterDefinitionListerRunnable(
-	nses pkgtypes.Namespaces,
-	c *marketplacev1beta1client.MarketplaceV1beta1Client,
-	store cache.Store,
-) *MeterDefinitionListerRunnable {
-	return &MeterDefinitionListerRunnable{
-		ListerRunnable: ListerRunnable{
-			reflectorConfig: reflectorConfig{
-				expectedType: &v1beta1.MeterDefinition{},
-				lister:       CreateMeterDefinitionV1Beta1Watch(c),
-			},
-			namespaces: nses,
-			Store:      store,
 		},
 	}
 }
 
 var EngineSet = wire.NewSet(
 	ProvideEngine,
-	dictionary.NewMeterDefinitionDictionary,
-	meterdefinition.NewMeterDefinitionStore,
+	stores.NewMeterDefinitionDictionary,
+	stores.NewMeterDefinitionStore,
+	ProvideMeterDefinitionStoreListWatchers,
 )

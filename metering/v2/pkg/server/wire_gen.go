@@ -8,10 +8,12 @@ package server
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"time"
 )
 
 import (
@@ -58,7 +60,8 @@ func NewServer(opts *Options) (*Service, error) {
 	}
 	namespaces := ProvideNamespaces(opts)
 	prometheusData := metrics.ProvidePrometheusData()
-	engineEngine, err := engine.NewEngine(context, namespaces, scheme, clientOptions, restConfig, logger, prometheusData)
+	statusFlushDuration := _wireStatusFlushDurationValue
+	engineEngine, err := engine.NewEngine(context, namespaces, scheme, clientOptions, restConfig, logger, prometheusData, statusFlushDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -78,5 +81,6 @@ func NewServer(opts *Options) (*Service, error) {
 }
 
 var (
-	_wireLoggerValue = log
+	_wireLoggerValue              = log
+	_wireStatusFlushDurationValue = processors.StatusFlushDuration(time.Minute)
 )

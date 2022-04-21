@@ -10,10 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
@@ -26,7 +26,7 @@ import (
 
 // Injectors from wire.go:
 
-func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, clientOptions managers.ClientOptions, k8sRestConfig *rest.Config, log logr.Logger, prometheusData *metrics.PrometheusData) (*Engine, error) {
+func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, clientOptions managers.ClientOptions, k8sRestConfig *rest.Config, log logr.Logger, prometheusData *metrics.PrometheusData, statusFlushDuration processors.StatusFlushDuration) (*Engine, error) {
 	clientset, err := kubernetes.NewForConfig(k8sRestConfig)
 	if err != nil {
 		return nil, err
@@ -65,23 +65,21 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionList, err := dictionary.ProvideMeterDefinitionList(cacheIsStarted, clientClient)
-	if err != nil {
-		return nil, err
-	}
-	meterDefinitionDictionary := dictionary.NewMeterDefinitionDictionary(ctx, clientset, clientClient, findOwnerHelper, namespaces, log, meterDefinitionList)
-	meterDefinitionStore := meterdefinition.NewMeterDefinitionStore(ctx, log, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1beta1Client, meterDefinitionDictionary, scheme)
-	meterDefinitionStoreRunnable := ProvideMeterDefinitionStoreRunnable(clientset, namespaces, meterDefinitionStore, monitoringV1Client, log)
+	meterDefinitionDictionary := stores.NewMeterDefinitionDictionary(ctx, clientset, clientClient, findOwnerHelper, namespaces, log, cacheIsStarted)
+	meterDefinitionStore := stores.NewMeterDefinitionStore(ctx, log, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1beta1Client, meterDefinitionDictionary, scheme)
+	namespaceWatcher := filter.ProvideNamespaceWatcher(log)
+	meterDefinitionStoreListWatchers := ProvideMeterDefinitionStoreListWatchers(clientset, meterDefinitionStore, monitoringV1Client)
+	meterDefinitionStoreRunnable := ProvideMeterDefinitionStoreRunnable(namespaces, log, namespaceWatcher, meterDefinitionStoreListWatchers, meterDefinitionStore)
 	meterDefinitionDictionaryStoreRunnable := ProvideMeterDefinitionDictionaryStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionDictionary, log)
 	mailboxMailbox := mailbox.ProvideMailbox(log)
-	statusProcessor := processors.ProvideStatusProcessor(log, clientClient, mailboxMailbox, scheme)
-	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(log, clientClient, mailboxMailbox)
+	statusProcessor := processors.ProvideStatusProcessor(log, clientClient, mailboxMailbox, scheme, statusFlushDuration, cacheIsStarted)
+	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(log, clientClient, mailboxMailbox, cacheIsStarted)
 	prometheusProcessor := processors.ProvidePrometheusProcessor(log, clientClient, mailboxMailbox, scheme, prometheusData)
-	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(log, clientClient, mailboxMailbox, scheme, prometheusData)
-	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log, clientClient)
+	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(log, clientClient, mailboxMailbox, scheme, prometheusData, cacheIsStarted)
+	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log, clientClient, namespaceWatcher)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, log)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, log)
-	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary)
-	engine := ProvideEngine(meterDefinitionStore, namespaces, log, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables, prometheusData)
+	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, namespaceWatcher)
+	engine := ProvideEngine(meterDefinitionStore, namespaces, log, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables, prometheusData, cacheIsStarted)
 	return engine, nil
 }

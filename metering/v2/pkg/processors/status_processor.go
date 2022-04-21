@@ -25,13 +25,17 @@ import (
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type StatusFlushDuration time.Duration
 
 // StatusProcessor will update the meter definition
 // status with the objects that matched it.
@@ -42,6 +46,7 @@ type StatusProcessor struct {
 	mutex      deadlock.Mutex
 	scheme     *runtime.Scheme
 
+	flushTime           time.Duration
 	resourcesNeedUpdate map[client.ObjectKey]bool
 	resources           map[client.ObjectKey][]common.WorkloadResource
 }
@@ -53,6 +58,8 @@ func ProvideStatusProcessor(
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
+	duration StatusFlushDuration,
+	_ managers.CacheIsStarted,
 ) *StatusProcessor {
 	sp := &StatusProcessor{
 		Processor: &Processor{
@@ -67,6 +74,7 @@ func ProvideStatusProcessor(
 		scheme:              scheme,
 		resourcesNeedUpdate: make(map[client.ObjectKey]bool),
 		resources:           make(map[client.ObjectKey][]common.WorkloadResource),
+		flushTime:           time.Duration(duration),
 	}
 
 	sp.Processor.DeltaProcessor = sp
@@ -74,12 +82,12 @@ func ProvideStatusProcessor(
 }
 
 func (u *StatusProcessor) Start(ctx context.Context) error {
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(u.flushTime)
 	go func() {
 		for {
+			u.flush(ctx)
 			select {
 			case <-tick.C:
-				u.flush(ctx)
 			case <-ctx.Done():
 				return
 			}
@@ -92,6 +100,8 @@ func (u *StatusProcessor) Start(ctx context.Context) error {
 func (u *StatusProcessor) flush(ctx context.Context) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
+
+	deleted := []types.NamespacedName{}
 
 	for key, resources := range u.resources {
 		if v, ok := u.resourcesNeedUpdate[key]; ok && !v {
@@ -106,12 +116,41 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			mdef := &marketplacev1beta1.MeterDefinition{}
 
-			if err := u.kubeClient.Get(ctx, key, mdef); err != nil {
+			err := u.kubeClient.Get(ctx, key, mdef)
+
+			// it's not found, let's delete it
+			if err != nil && k8serrors.IsNotFound(err) {
+				deleted = append(deleted, key)
+				return nil
+			}
+
+			if err != nil {
 				return err
 			}
 
-			mdef.Status.WorkloadResources = resources
+			equal := true
 
+			// if they don't have the same length
+			if len(mdef.Status.WorkloadResources) != len(resources) {
+				equal = false
+			} else {
+				// if the UID changed
+				for i := range mdef.Status.WorkloadResources {
+					res1 := mdef.Status.WorkloadResources[i]
+					res2 := resources[i]
+
+					if res1.UID != res2.UID {
+						equal = false
+					}
+				}
+			}
+
+			// no op if the slices are equal
+			if equal {
+				return nil
+			}
+
+			mdef.Status.WorkloadResources = resources
 			return u.kubeClient.Status().Update(ctx, mdef)
 		})
 
@@ -120,6 +159,12 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 		}
 
 		u.resourcesNeedUpdate[key] = false
+	}
+
+	// remove resources that are not found
+	for _, name := range deleted {
+		delete(u.resources, name)
+		delete(u.resourcesNeedUpdate, name)
 	}
 }
 
@@ -133,7 +178,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		return errors.WithStack(errors.New("obj is unexpected type"))
 	}
 
-	u.log.Info("updating status",
+	u.log.V(2).Info("updating status",
 		"obj", enhancedObj.GetName()+"/"+enhancedObj.GetNamespace(),
 		"mdefs", len(enhancedObj.MeterDefinitions),
 	)

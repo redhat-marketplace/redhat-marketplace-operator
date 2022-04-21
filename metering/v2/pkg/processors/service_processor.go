@@ -24,6 +24,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +47,7 @@ func ProvideServiceAnnotatorProcessor(
 	log logr.Logger,
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
+	_ managers.CacheIsStarted,
 ) *ServiceAnnotatorProcessor {
 	sp := &ServiceAnnotatorProcessor{
 		Processor: &Processor{

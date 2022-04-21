@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dictionary
+package stores
 
 import (
 	"context"
@@ -43,12 +43,14 @@ type MeterDefinitionExtended struct {
 
 var _ metav1.Object = &MeterDefinitionExtended{}
 
+// MeterDefinitionDictionary tracks the meterdefinitions
+// current on the system and provides methods of checking
+// if a resources is apart of the meterdefinition.
 type MeterDefinitionDictionary struct {
-	cache       cache.Store
-	keyFunc     cache.KeyFunc
-	delta       *cache.DeltaFIFO
-	client      runtimeClient.Client
-	starterList *v1beta1.MeterDefinitionList
+	cache   cache.Store
+	keyFunc cache.KeyFunc
+	delta   *cache.DeltaFIFO
+	client  runtimeClient.Client
 
 	findOwner *rhmclient.FindOwnerHelper
 
@@ -64,24 +66,19 @@ func NewMeterDefinitionDictionary(
 	findOwner *rhmclient.FindOwnerHelper,
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
-	list *v1beta1.MeterDefinitionList,
+	_ managers.CacheIsStarted,
 ) *MeterDefinitionDictionary {
 	keyFunc := cache.MetaNamespaceKeyFunc
 	store := cache.NewStore(keyFunc)
 
 	return &MeterDefinitionDictionary{
-		log:         log.WithName("mdef_dictionary"),
-		client:      client,
-		keyFunc:     keyFunc,
-		cache:       store,
-		delta:       cache.NewDeltaFIFO(keyFunc, store),
-		findOwner:   findOwner,
-		starterList: list,
+		log:       log.WithName("mdef_dictionary"),
+		client:    client,
+		keyFunc:   keyFunc,
+		cache:     store,
+		delta:     cache.NewDeltaFIFO(keyFunc, store),
+		findOwner: findOwner,
 	}
-}
-
-func (w *MeterDefinitionDictionary) Start(ctx context.Context) error {
-	return nil
 }
 
 func (def *MeterDefinitionDictionary) FindObjectMatches(

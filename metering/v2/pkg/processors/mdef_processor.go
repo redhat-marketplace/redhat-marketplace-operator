@@ -19,9 +19,9 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,21 +32,23 @@ import (
 
 type MeterDefinitionRemovalWatcher struct {
 	*Processor
-	dictionary           *dictionary.MeterDefinitionDictionary
-	meterDefinitionStore *meterdefinition.MeterDefinitionStore
+	dictionary           *stores.MeterDefinitionDictionary
+	meterDefinitionStore *stores.MeterDefinitionStore
 	keyFunc              cache.KeyFunc
 
+	nsWatcher   *filter.NamespaceWatcher
 	messageChan chan cache.Delta
 	log         logr.Logger
 	kubeClient  client.Client
 }
 
 func ProvideMeterDefinitionRemovalWatcher(
-	dictionary *dictionary.MeterDefinitionDictionary,
-	meterDefinitionStore *meterdefinition.MeterDefinitionStore,
+	dictionary *stores.MeterDefinitionDictionary,
+	meterDefinitionStore *stores.MeterDefinitionStore,
 	mb *mailbox.Mailbox,
 	log logr.Logger,
 	kubeClient client.Client,
+	nsWatcher *filter.NamespaceWatcher,
 ) *MeterDefinitionRemovalWatcher {
 	sp := &MeterDefinitionRemovalWatcher{
 		Processor: &Processor{
@@ -61,21 +63,30 @@ func ProvideMeterDefinitionRemovalWatcher(
 		messageChan:          make(chan cache.Delta),
 		log:                  log.WithName("meterDefinitionRemovalWatcher"),
 		kubeClient:           kubeClient,
+		nsWatcher:            nsWatcher,
 	}
 	sp.Processor.DeltaProcessor = sp
 	return sp
 }
 
 func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
+	if !ok {
+		return errors.New("encountered unexpected type")
+	}
+
 	if d.Type == cache.Deleted {
+		w.nsWatcher.RemoveNamespace(client.ObjectKeyFromObject(&meterdef.MeterDefinition))
 		return w.onDelete(ctx, d)
 	}
 
 	if d.Type == cache.Added {
+		w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(&meterdef.MeterDefinition))
 		return w.onAdd(ctx, d)
 	}
 
 	if d.Type == cache.Updated {
+		w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(&meterdef.MeterDefinition))
 		return w.onUpdate(ctx, d)
 	}
 
@@ -87,7 +98,7 @@ func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Del
 }
 
 func (w *MeterDefinitionRemovalWatcher) onAdd(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")
@@ -98,7 +109,7 @@ func (w *MeterDefinitionRemovalWatcher) onAdd(ctx context.Context, d cache.Delta
 }
 
 func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")
@@ -113,7 +124,7 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 		return errors.WithStack(err)
 	}
 
-	objects, err := w.meterDefinitionStore.ByIndex(meterdefinition.IndexMeterDefinition, key)
+	objects, err := w.meterDefinitionStore.ByIndex(stores.IndexMeterDefinition, key)
 
 	if err != nil {
 		w.log.Error(err, "error finding data")
@@ -135,7 +146,7 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 }
 
 func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")
@@ -150,7 +161,7 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.De
 		return errors.WithStack(err)
 	}
 
-	objects, err := w.meterDefinitionStore.ByIndex(meterdefinition.IndexMeterDefinition, key)
+	objects, err := w.meterDefinitionStore.ByIndex(stores.IndexMeterDefinition, key)
 
 	if err != nil {
 		w.log.Error(err, "error finding data")
@@ -172,7 +183,7 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.De
 
 // Clear Status.WorkloadResources on initial sync such that Status is correct when metric-state starts
 func (w *MeterDefinitionRemovalWatcher) onSync(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")

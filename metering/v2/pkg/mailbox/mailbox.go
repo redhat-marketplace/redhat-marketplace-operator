@@ -17,7 +17,6 @@ package mailbox
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -27,8 +26,9 @@ import (
 
 type Mailbox struct {
 	// listeners are used for downstream
-	mutex     deadlock.RWMutex
-	listeners map[ChannelName][]chan cache.Delta
+	mutex         deadlock.RWMutex
+	listenerMutex deadlock.Mutex
+	listeners     map[ChannelName][]chan cache.Delta
 
 	log logr.Logger
 }
@@ -52,25 +52,12 @@ func ProvideMailbox(log logr.Logger) *Mailbox {
 }
 
 func (s *Mailbox) Start(ctx context.Context) error {
-	go func() {
-		ticker := time.NewTicker(60 * time.Minute)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
-		}
-	}()
-
 	return nil
 }
 
 func (s *Mailbox) RegisterListener(channelName ChannelName, ch chan cache.Delta) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.listenerMutex.Lock()
+	defer s.listenerMutex.Unlock()
 
 	s.log.Info("registering listener", "name", channelName)
 
