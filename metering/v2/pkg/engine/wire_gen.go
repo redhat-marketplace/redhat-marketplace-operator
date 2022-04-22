@@ -21,39 +21,43 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
-	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
 
-func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, clientOptions managers.ClientOptions, k8sRestConfig *rest.Config, log logr.Logger, prometheusData *metrics.PrometheusData, statusFlushDuration processors.StatusFlushDuration) (*Engine, error) {
-	clientset, err := kubernetes.NewForConfig(k8sRestConfig)
+func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, clientOptions managers.ClientOptions, log logr.Logger, prometheusData *metrics.PrometheusData, statusFlushDuration processors.StatusFlushDuration) (*Engine, error) {
+	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
-	metadataInterface, err := metadata.NewForConfig(k8sRestConfig)
+	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
-	restMapper, err := managers.NewDynamicRESTMapper(k8sRestConfig)
+	metadataInterface, err := metadata.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return nil, err
 	}
 	metadataClient := client.NewMetadataClient(metadataInterface, restMapper)
 	findOwnerHelper := client.NewFindOwnerHelper(metadataClient)
-	monitoringV1Client, err := v1.NewForConfig(k8sRestConfig)
+	monitoringV1Client, err := v1.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
-	marketplaceV1beta1Client, err := v1beta1.NewForConfig(k8sRestConfig)
+	marketplaceV1beta1Client, err := v1beta1.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
-	cache, err := managers.ProvideNewCache(k8sRestConfig, restMapper, scheme, clientOptions)
+	cache, err := managers.ProvideNewCache(restConfig, restMapper, scheme, clientOptions)
 	if err != nil {
 		return nil, err
 	}
-	clientClient, err := managers.ProvideCachedClient(k8sRestConfig, restMapper, scheme, cache, clientOptions)
+	clientClient, err := managers.ProvideCachedClient(restConfig, restMapper, scheme, cache, clientOptions)
 	if err != nil {
 		return nil, err
 	}

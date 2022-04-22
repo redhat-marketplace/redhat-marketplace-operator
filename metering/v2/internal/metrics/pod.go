@@ -33,7 +33,7 @@ var podMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Metering info for pod",
 		},
-		GenerateMeterFunc: wrapPodFunc(func(pod *corev1.Pod, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapPodFunc(func(pod *corev1.Pod, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
 
 			podUID := string(pod.UID)
@@ -53,8 +53,8 @@ var podMetricsFamilies = []FamilyGenerator{
 }
 
 // wrapPodFunc is a helper function for generating pod-based metrics
-func wrapPodFunc(f func(*corev1.Pod, []marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
+func wrapPodFunc(f func(*corev1.Pod, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
 		pod := obj.(*corev1.Pod)
 
 		metricFamily := f(pod, meterDefinitions)

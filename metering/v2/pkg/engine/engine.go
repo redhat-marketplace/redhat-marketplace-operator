@@ -166,7 +166,7 @@ func (p *StoreRunnable) Start(ctx context.Context) error {
 	localCtx, p.cancelFunc = context.WithCancel(p.startContext)
 
 	for i := range p.Reflectors {
-		p.log.Info(fmt.Sprintf("starting reflector %T\n", p.Reflectors[i]))
+		p.log.Info(fmt.Sprintf("starting reflector %T", p.Reflectors[i]))
 		err := p.Reflectors[i].Start(localCtx)
 
 		if err != nil {

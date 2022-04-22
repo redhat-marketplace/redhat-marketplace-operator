@@ -70,23 +70,15 @@ func ProvideMeterDefinitionRemovalWatcher(
 }
 
 func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
-	if !ok {
-		return errors.New("encountered unexpected type")
-	}
-
 	if d.Type == cache.Deleted {
-		w.nsWatcher.RemoveNamespace(client.ObjectKeyFromObject(&meterdef.MeterDefinition))
 		return w.onDelete(ctx, d)
 	}
 
 	if d.Type == cache.Added {
-		w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(&meterdef.MeterDefinition))
 		return w.onAdd(ctx, d)
 	}
 
 	if d.Type == cache.Updated {
-		w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(&meterdef.MeterDefinition))
 		return w.onUpdate(ctx, d)
 	}
 
@@ -104,6 +96,8 @@ func (w *MeterDefinitionRemovalWatcher) onAdd(ctx context.Context, d cache.Delta
 		return errors.New("encountered unexpected type")
 	}
 
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
+
 	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
 	return w.meterDefinitionStore.Resync()
 }
@@ -117,7 +111,9 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 
 	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
 
-	key, err := cache.MetaNamespaceKeyFunc(&meterdef.MeterDefinition)
+	w.nsWatcher.RemoveNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
+
+	key, err := cache.MetaNamespaceKeyFunc(meterdef.MeterDefinition)
 
 	if err != nil {
 		w.log.Error(err, "error creating key")
@@ -147,10 +143,11 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 
 func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.Delta) error {
 	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
-
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
+
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
 
 	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
 
@@ -184,10 +181,11 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.De
 // Clear Status.WorkloadResources on initial sync such that Status is correct when metric-state starts
 func (w *MeterDefinitionRemovalWatcher) onSync(ctx context.Context, d cache.Delta) error {
 	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
-
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
+
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
 
 	resources := []common.WorkloadResource{}
 	mdef := &marketplacev1beta1.MeterDefinition{}

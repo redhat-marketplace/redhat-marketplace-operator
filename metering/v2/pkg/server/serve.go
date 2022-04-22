@@ -40,17 +40,13 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	goruntime "runtime"
 
 	"github.com/sasha-s/go-deadlock"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kube-state-metrics/pkg/options"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -63,14 +59,8 @@ var log = logf.Log.WithName("meteric_generator")
 var reg = prometheus.NewRegistry()
 
 type Service struct {
-	k8sclient       client.Client
-	k8sRestClient   clientset.Interface
 	opts            *options.Options
-	cache           cache.Cache
 	metricsRegistry *prometheus.Registry
-	cc              reconcileutils.ClientCommandRunner
-	indexed         managers.CacheIsIndexed
-	started         managers.CacheIsStarted
 	engine          *engine.Engine
 	prometheusData  *metrics.PrometheusData
 

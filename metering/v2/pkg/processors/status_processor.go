@@ -46,9 +46,20 @@ type StatusProcessor struct {
 	mutex      deadlock.Mutex
 	scheme     *runtime.Scheme
 
-	flushTime           time.Duration
-	resourcesNeedUpdate map[client.ObjectKey]bool
-	resources           map[client.ObjectKey][]common.WorkloadResource
+	flushTime time.Duration
+	resources map[client.ObjectKey]*updateableStatus
+}
+
+type updateableStatus struct {
+	needsUpdate bool
+	resources   []*common.WorkloadResource
+}
+
+func newUpdateableStatus() *updateableStatus {
+	return &updateableStatus{
+		needsUpdate: true,
+		resources:   make([]*common.WorkloadResource, 0, 0),
+	}
 }
 
 // NewStatusProcessor is the provider that creates
@@ -69,12 +80,11 @@ func ProvideStatusProcessor(
 			mailbox:       mb,
 			channelName:   mailbox.ObjectChannel,
 		},
-		log:                 log.WithValues("process", "statusProcessor"),
-		kubeClient:          kubeClient,
-		scheme:              scheme,
-		resourcesNeedUpdate: make(map[client.ObjectKey]bool),
-		resources:           make(map[client.ObjectKey][]common.WorkloadResource),
-		flushTime:           time.Duration(duration),
+		log:        log.WithValues("process", "statusProcessor"),
+		kubeClient: kubeClient,
+		scheme:     scheme,
+		resources:  make(map[client.ObjectKey]*updateableStatus),
+		flushTime:  time.Duration(duration),
 	}
 
 	sp.Processor.DeltaProcessor = sp
@@ -102,22 +112,20 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 	defer u.mutex.Unlock()
 
 	deleted := []types.NamespacedName{}
+	mdef := &marketplacev1beta1.MeterDefinition{}
 
-	for key, resources := range u.resources {
-		if v, ok := u.resourcesNeedUpdate[key]; ok && !v {
+	for key, status := range u.resources {
+		if !status.needsUpdate {
 			continue
 		}
 
 		u.log.Info("flushing status",
 			"key", key,
-			"resources", len(resources),
+			"resources", len(status.resources),
 		)
 
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			mdef := &marketplacev1beta1.MeterDefinition{}
-
 			err := u.kubeClient.Get(ctx, key, mdef)
-
 			// it's not found, let's delete it
 			if err != nil && k8serrors.IsNotFound(err) {
 				deleted = append(deleted, key)
@@ -131,13 +139,13 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 			equal := true
 
 			// if they don't have the same length
-			if len(mdef.Status.WorkloadResources) != len(resources) {
+			if len(mdef.Status.WorkloadResources) != len(status.resources) {
 				equal = false
 			} else {
 				// if the UID changed
 				for i := range mdef.Status.WorkloadResources {
 					res1 := mdef.Status.WorkloadResources[i]
-					res2 := resources[i]
+					res2 := status.resources[i]
 
 					if res1.UID != res2.UID {
 						equal = false
@@ -150,7 +158,13 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 				return nil
 			}
 
-			mdef.Status.WorkloadResources = resources
+			mdef.Status.WorkloadResources = make([]common.WorkloadResource, 0, len(status.resources))
+
+			for i := range status.resources {
+				mdef.Status.WorkloadResources = append(mdef.Status.WorkloadResources, *status.resources[i])
+			}
+
+			sort.Sort(common.ByAlphabetical(mdef.Status.WorkloadResources))
 			return u.kubeClient.Status().Update(ctx, mdef)
 		})
 
@@ -158,14 +172,14 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 			u.log.Error(err, "failed to update", "key", key)
 		}
 
-		u.resourcesNeedUpdate[key] = false
+		status.needsUpdate = false
 	}
 
 	// remove resources that are not found
 	for _, name := range deleted {
 		delete(u.resources, name)
-		delete(u.resourcesNeedUpdate, name)
 	}
+
 }
 
 // Process will receive a new ObjectResourceMessage and find and update the metere
@@ -187,16 +201,17 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 	defer u.mutex.Unlock()
 
 	for i := range enhancedObj.MeterDefinitions {
-		key := client.ObjectKeyFromObject(&enhancedObj.MeterDefinitions[i])
+		key := client.ObjectKeyFromObject(enhancedObj.MeterDefinitions[i])
 
-		var resources []common.WorkloadResource
-		if resources, ok = u.resources[key]; !ok {
-			u.resources[key] = make([]common.WorkloadResource, 0, 0)
-			resources = u.resources[key]
+		var status *updateableStatus
+		if status, ok = u.resources[key]; !ok {
+			status = newUpdateableStatus()
+			u.resources[key] = status
 		}
 
-		set := map[types.UID]common.WorkloadResource{}
-		for _, obj := range resources {
+		set := map[types.UID]*common.WorkloadResource{}
+		for k := range status.resources {
+			obj := status.resources[k]
 			set[obj.UID] = obj
 		}
 
@@ -216,18 +231,17 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		case cache.Updated:
 			fallthrough
 		case cache.Replaced:
-			set[workload.UID] = *workload
+			set[workload.UID] = workload
 		default:
 			return nil
 		}
 
-		newResources := make([]common.WorkloadResource, 0, len(set))
+		newResources := make([]*common.WorkloadResource, 0, len(set))
 		for i := range set {
 			newResources = append(newResources, set[i])
 		}
-		sort.Sort(common.ByAlphabetical(newResources))
-		u.resources[key] = newResources
-		u.resourcesNeedUpdate[key] = true
+		status.resources = newResources
+		status.needsUpdate = true
 	}
 
 	return nil

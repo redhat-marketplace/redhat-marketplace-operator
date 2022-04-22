@@ -74,7 +74,7 @@ func NewWorkloadResource(obj interface{}, scheme *runtime.Scheme) (*WorkloadReso
 			Name:             accessor.GetName(),
 			Namespace:        accessor.GetNamespace(),
 			UID:              accessor.GetUID(),
-			GroupVersionKind: &gvk,
+			GroupVersionKind: gvk,
 		},
 	}, nil
 }

@@ -58,7 +58,7 @@ func (p *PrometheusData) WriteAll(w io.Writer) {
 	}
 }
 
-func (p *PrometheusData) Add(obj interface{}, meterdefs []v1beta1.MeterDefinition) error {
+func (p *PrometheusData) Add(obj interface{}, meterdefs []*v1beta1.MeterDefinition) error {
 	foundOne := false
 
 	for k := range p.dataMap {
@@ -100,7 +100,7 @@ type PrometheusDataMap struct {
 
 	expectedType        reflect.Type
 	headers             []string
-	generateMetricsFunc func(interface{}, []marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
+	generateMetricsFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
 }
 
 func (s *PrometheusDataMap) Remove(obj interface{}) error {
@@ -122,7 +122,7 @@ func (s *PrometheusDataMap) IsExpectedType(obj interface{}) bool {
 	return thisType == s.expectedType
 }
 
-func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []v1beta1.MeterDefinition) error {
+func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []*v1beta1.MeterDefinition) error {
 	s.Lock()
 	defer s.Unlock()
 

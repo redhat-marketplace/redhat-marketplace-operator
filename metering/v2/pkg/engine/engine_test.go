@@ -47,10 +47,17 @@ var _ = Describe("EngineTest", func() {
 
 		var err error
 		prometheusData := metrics.ProvidePrometheusData()
-		engine, err = NewEngine(ctx, pkgtypes.Namespaces{""}, scheme, managers.ClientOptions{
-			Namespace:    "",
-			DryRunClient: false,
-		}, cfg, logf.Log.WithName("engine"), prometheusData, processors.StatusFlushDuration(time.Second))
+		engine, err = NewEngine(
+			ctx,
+			pkgtypes.Namespaces{""},
+			scheme,
+			managers.ClientOptions{
+				Namespace:    "",
+				DryRunClient: false,
+			},
+			logf.Log.WithName("engine"),
+			prometheusData,
+			processors.StatusFlushDuration(time.Second))
 		Expect(err).ToNot(HaveOccurred())
 
 		err = engine.Start(ctx)

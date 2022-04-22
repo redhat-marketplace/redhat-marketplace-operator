@@ -65,21 +65,21 @@ func (g GroupVersionKind) String() string {
 	return g.APIVersion + "/" + g.Kind
 }
 
-func NewGroupVersionKind(t interface{}, scheme *runtime.Scheme) (GroupVersionKind, error) {
+func NewGroupVersionKind(t interface{}, scheme *runtime.Scheme) (*GroupVersionKind, error) {
 	v, ok := t.(client.Object)
 	if !ok {
-		return GroupVersionKind{}, errors.New("not a runtime object")
+		return &GroupVersionKind{}, errors.New("not a runtime object")
 	}
 
 	gvk, err := apiutil.GVKForObject(v, scheme)
 
 	if !ok {
-		return GroupVersionKind{}, errors.Wrap(err, "can't get gvk")
+		return &GroupVersionKind{}, errors.Wrap(err, "can't get gvk")
 	}
 
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 
-	return GroupVersionKind{
+	return &GroupVersionKind{
 		APIVersion: apiVersion,
 		Kind:       kind,
 	}, nil

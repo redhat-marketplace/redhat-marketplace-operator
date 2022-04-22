@@ -125,15 +125,17 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 		return nil
 	}
 
-	meterDefs := []v1beta1.MeterDefinition{}
+	meterDefs := []*v1beta1.MeterDefinition{}
 
-	for _, result := range results {
+	for i := range results {
+		result := results[i]
+
 		if !result.Ok {
 			logger.Info("no match", "obj", obj)
 			continue
 		}
 
-		mdef := *result.Lookup.MeterDefinition
+		mdef := result.Lookup.MeterDefinition
 		logger.Info("result", "name", mdef.GetName())
 		meterDefs = append(meterDefs, mdef)
 	}

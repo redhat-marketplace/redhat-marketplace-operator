@@ -37,8 +37,8 @@ var _ cache.Store = &MeterDefinitionDictionary{}
 var _ metav1.Object = &MeterDefinitionExtended{}
 
 type MeterDefinitionExtended struct {
-	v1beta1.MeterDefinition
-	Filter filter.MeterDefinitionLookupFilter
+	*v1beta1.MeterDefinition
+	Filter *filter.MeterDefinitionLookupFilter
 }
 
 var _ metav1.Object = &MeterDefinitionExtended{}
@@ -93,7 +93,7 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	}
 
 	for i := range filters {
-		localLookup := &filters[i]
+		localLookup := filters[i]
 
 		lookupOk, err := localLookup.Matches(obj)
 
@@ -113,8 +113,8 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	return nil
 }
 
-func (def *MeterDefinitionDictionary) ListFilters() ([]filter.MeterDefinitionLookupFilter, error) {
-	filters := []filter.MeterDefinitionLookupFilter{}
+func (def *MeterDefinitionDictionary) ListFilters() ([]*filter.MeterDefinitionLookupFilter, error) {
+	filters := []*filter.MeterDefinitionLookupFilter{}
 
 	objs := def.List()
 
@@ -314,8 +314,8 @@ func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}
 	}
 
 	return &MeterDefinitionExtended{
-		MeterDefinition: *meterdef,
-		Filter:          *lookup,
+		MeterDefinition: meterdef,
+		Filter:          lookup,
 	}, nil
 }
 
