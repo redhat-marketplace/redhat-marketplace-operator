@@ -75,7 +75,6 @@ func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s;remoteresources3s/status,verbs=get;list;watch;update;patch
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read

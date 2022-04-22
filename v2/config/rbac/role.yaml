@@ -54,16 +54,6 @@ rules:
   resources:
   - configmaps
   - namespaces
-  - services
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - pods
   verbs:
   - get
   - list
@@ -87,31 +77,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - persistentvolumeclaims
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resourceNames:
-  - razeedeploy-sa
-  - watch-keeper-sa
-  resources:
-  - serviceaccounts
-  verbs:
-  - delete
-- apiGroups:
-  - ""
-  resources:
   - services
   verbs:
   - get
@@ -120,48 +85,10 @@ rules:
 - apiGroups:
   - apps
   resources:
-  - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - clustersubscription
-  - featureflagsetld-controller
-  - managedset-controller
-  - mustachetemplate-controller
-  - remoteresource-controller
-  - remoteresources3-controller
-  - remoteresources3decrypt-controller
-  - watch-keeper
-  resources:
-  - deployments
-  verbs:
-  - delete
-- apiGroups:
-  - apps
-  resources:
   - statefulsets
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - apps.openshift.io
-  resources:
-  - deploymentconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
   - watch
 - apiGroups:
   - authentication.k8s.io
@@ -177,34 +104,6 @@ rules:
   verbs:
   - create
   - get
-- apiGroups:
-  - batch
-  - extensions
-  resources:
-  - cronjobs
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - batch
-  - extensions
-  resources:
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - batch
-  - extensions
-  resourceNames:
-  - razeedeploy-job
-  resources:
-  - jobs
-  verbs:
-  - delete
 - apiGroups:
   - config.openshift.io
   resources:
@@ -222,53 +121,6 @@ rules:
   - get
   - list
 - apiGroups:
-  - image.openshift.io
-  resources:
-  - imagestreams
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - marketplaceconfigs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - marketplaceconfigs
-  - marketplaceconfigs/finalizers
-  - marketplaceconfigs/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterbases
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterbases
-  - meterbases/finalizers
-  - meterbases/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - marketplace.redhat.com
   resources:
   - meterdefinitions
@@ -292,57 +144,6 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterdefinitions/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterreports
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterreports
-  - meterreports/finalizers
-  - meterreports/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - razeedeployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - prometheuses
-  - servicemonitors
-  verbs:
-  - get
-  - list
   - watch
 - apiGroups:
   - operators.coreos.com
@@ -357,6 +158,7 @@ rules:
   - operators.coreos.com
   resourceNames:
   - ibm-operator-catalog
+  - opencloud-operators
   resources:
   - catalogsources
   verbs:
@@ -366,10 +168,12 @@ rules:
   resources:
   - clusterserviceversions
   verbs:
-  - create
   - delete
+  - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -388,7 +192,6 @@ rules:
   - delete
   - get
   - list
-  - update
   - watch
 - apiGroups:
   - operators.coreos.com
@@ -410,14 +213,6 @@ rules:
   - clusterroles
   verbs:
   - delete
-- apiGroups:
-  - route.openshift.io
-  resources:
-  - routes
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - security.openshift.io
   resourceNames:
@@ -449,8 +244,31 @@ rules:
   - configmaps
   verbs:
   - create
-  - delete
   - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - kubelet-serving-ca-bundle
+  - serving-certs-ca-bundle
+  resources:
+  - configmaps
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resourceNames:
+  - razee-cluster-metadata
+  - watch-keeper-config
+  - watch-keeper-limit-poll
+  - watch-keeper-non-namespaced
+  resources:
+  - configmaps
+  verbs:
+  - delete
   - patch
   - update
 - apiGroups:
@@ -497,14 +315,32 @@ rules:
   resourceNames:
   - ibm-entitlement-key
   - redhat-marketplace-pull-secret
+  - rhm-operator-secret
   resources:
   - secrets
   verbs:
-  - get
-  - list
+  - delete
   - patch
   - update
-  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - rhm-data-service-mtls
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resourceNames:
+  - razeedeploy-sa
+  - watch-keeper-sa
+  resources:
+  - serviceaccounts
+  verbs:
+  - delete
 - apiGroups:
   - ""
   resources:
@@ -520,18 +356,85 @@ rules:
   - services
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - kube-state-metrics
+  - prometheus-operator
+  - rhm-metric-state-service
+  - rhm-prometheus-meterbase
+  resources:
+  - services
+  verbs:
+  - delete
   - patch
   - update
-  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - rhm-data-service
+  resources:
+  - services
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resourceNames:
+  - rhm-meterdefinition-file-server
+  resources:
+  - services
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - apps
   resources:
   - deployments
   verbs:
   - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - clustersubscription
+  - featureflagsetld-controller
+  - managedset-controller
+  - mustachetemplate-controller
+  - remoteresource-controller
+  - remoteresources3-controller
+  - remoteresources3decrypt-controller
+  - watch-keeper
+  resources:
+  - deployments
+  verbs:
+  - delete
+- apiGroups:
+  - apps
+  resourceNames:
+  - prometheus-operator
+  - rhm-metric-state
+  resources:
+  - deployments
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resourceNames:
+  - rhm-remoteresources3-controller
+  - rhm-watch-keeper
+  resources:
+  - deployments
+  verbs:
   - delete
   - patch
   - update
@@ -541,12 +444,38 @@ rules:
   - statefulsets
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - rhm-data-service
+  resources:
+  - statefulsets
+  verbs:
+  - delete
   - patch
   - update
+- apiGroups:
+  - apps.openshift.io
+  resources:
+  - deploymentconfigs
+  verbs:
+  - create
+  - get
+  - list
   - watch
+- apiGroups:
+  - apps.openshift.io
+  resourceNames:
+  - rhm-meterdefinition-file-server
+  resources:
+  - deploymentconfigs
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - batch
   - extensions
@@ -555,12 +484,58 @@ rules:
   - jobs
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resourceNames:
+  - rhm-meter-report-upload
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - delete
   - patch
   - update
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
   - watch
+- apiGroups:
+  - batch
+  - extensions
+  resourceNames:
+  - razeedeploy-job
+  resources:
+  - jobs
+  verbs:
+  - delete
+- apiGroups:
+  - image.openshift.io
+  resources:
+  - imagestreams
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - image.openshift.io
+  resourceNames:
+  - rhm-meterdefinition-file-server
+  resources:
+  - imagestreams
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -597,12 +572,19 @@ rules:
   - meterbases
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - rhm-marketplaceconfig-meterbase
+  resources:
+  - meterbases
+  verbs:
+  - delete
   - patch
   - update
-  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -624,6 +606,7 @@ rules:
   - delete
   - get
   - list
+  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -642,12 +625,19 @@ rules:
   - razeedeployments
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - rhm-marketplaceconfig-razeedeployment
+  resources:
+  - razeedeployments
+  verbs:
+  - delete
   - patch
   - update
-  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -666,12 +656,20 @@ rules:
   - remoteresources3s
   verbs:
   - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - child
+  - parent
+  resources:
+  - remoteresources3s
+  verbs:
+  - delete
   - patch
   - update
-  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -685,26 +683,37 @@ rules:
   - watch
 - apiGroups:
   - monitoring.coreos.com
+  resourceNames:
+  - prometheus-meterbase
+  resources:
+  - prometheuses
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - monitoring.coreos.com
   resources:
   - prometheuses
   - servicemonitors
   verbs:
   - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
-  - operators.coreos.com
+  - monitoring.coreos.com
+  resourceNames:
+  - kube-state-metrics
+  - redhat-marketplace-kubelet
+  - rhm-metric-state
+  - rhm-prometheus-meterbase
   resources:
-  - subscriptions
+  - servicemonitors
   verbs:
-  - create
-  - get
-  - list
-  - watch
+  - delete
+  - patch
+  - update
 - apiGroups:
   - route.openshift.io
   resources:
@@ -722,6 +731,5 @@ rules:
   - routes
   verbs:
   - delete
-  - get
   - patch
   - update

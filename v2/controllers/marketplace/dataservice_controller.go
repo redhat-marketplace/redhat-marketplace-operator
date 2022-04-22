@@ -117,14 +117,14 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(namespacePredicate)).Complete(r)
 }
 
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;patch;update;delete
-// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;patch;update;delete
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=get;list;watch;create;patch;update;delete
-// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-data-service-mtls,resources=secrets,verbs=patch;update;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-data-service,resources=services,verbs=patch;update;delete
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=patch;update;delete,resourceNames=rhm-data-service
 // +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=get;patch;update;delete,resourceNames=rhm-data-service
-// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=patch;update;delete,resourceNames=rhm-data-service
 // +kubebuilder:rbac:urls=*,verbs=create
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read

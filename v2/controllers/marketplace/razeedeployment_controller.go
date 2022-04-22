@@ -235,23 +235,23 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups="",resources=configmaps;pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
-// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=update;patch;delete,resourceNames=watch-keeper-non-namespaced;watch-keeper-limit-poll;razee-cluster-metadata;watch-keeper-config
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=create;update;patch;delete
-// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
 
 // Legacy Uninstall
 
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,resourceNames=razeedeploy-sa;watch-keeper-sa,verbs=delete
-// +kubebuilder:rbac:groups=apps,resources=deployments,resourceNames=watch-keeper;clustersubscription;featureflagsetld-controller;managedset-controller;mustachetemplate-controller;remoteresource-controller;remoteresources3-controller;remoteresources3decrypt-controller,verbs=delete
-// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,resourceNames=razeedeploy-job,verbs=delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=serviceaccounts,resourceNames=razeedeploy-sa;watch-keeper-sa,verbs=delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,namespace=system,resourceNames=watch-keeper;clustersubscription;featureflagsetld-controller;managedset-controller;mustachetemplate-controller;remoteresource-controller;remoteresources3-controller;remoteresources3decrypt-controller,verbs=delete
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=jobs,resourceNames=razeedeploy-job,verbs=delete
 // +kubebuilder:rbac:groups="deploy.razee.io",resources=*,verbs=get;list;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=razeedeploy-admin-cr;redhat-marketplace-razeedeploy,verbs=delete
 
