@@ -14,6 +14,7 @@ require (
 	github.com/go-logr/logr v1.2.0
 	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/golang/mock v1.6.0
+	// github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.2.0
 	github.com/google/wire v0.4.0
@@ -131,6 +132,7 @@ replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	k8s.io/api => k8s.io/api v0.23.0
 	k8s.io/client-go => k8s.io/client-go v0.23.0
