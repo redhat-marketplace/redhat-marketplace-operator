@@ -5,7 +5,8 @@ go 1.17
 require (
 	emperror.dev/errors v0.8.0
 	github.com/Masterminds/sprig/v3 v3.2.2
-	github.com/banzaicloud/k8s-objectmatcher v1.8.0
+	github.com/banzaicloud/k8s-objectmatcher v0.0.0-00010101000000-000000000000
+	// github.com/banzaicloud/k8s-objectmatcher v1.8.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/cespare/xxhash v1.1.0
@@ -127,6 +128,7 @@ require (
 )
 
 replace (
+	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696

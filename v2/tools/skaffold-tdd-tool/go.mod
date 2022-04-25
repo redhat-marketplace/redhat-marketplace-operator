@@ -100,6 +100,7 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+incompatible // Required by OLM
 	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.6.0
+	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/containerd/containerd v1.4.0-0 => github.com/containerd/containerd v1.4.0
 	github.com/coreos/prometheus-operator => github.com/prometheus-operator/prometheus-operator v0.41.0
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
