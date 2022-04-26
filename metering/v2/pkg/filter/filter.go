@@ -33,22 +33,44 @@ type FilterRuntimeObject interface {
 	Filter(interface{}) (bool, error)
 }
 
-func printFilterList(fs []FilterRuntimeObject) string {
-	strs := make([]string, 0, len(fs))
+type FilterRuntimeObjects []FilterRuntimeObject
 
-	for _, f := range fs {
+func (s FilterRuntimeObjects) Test(obj interface{}) (pass bool, filterIndex int, err error) {
+	if len(s) == 0 {
+		return
+	}
+
+	for i, filter := range s {
+		pass, err = filter.Filter(obj)
+
+		if err != nil {
+			filterIndex = i
+			return
+		}
+		if !pass {
+			filterIndex = i
+			return
+		}
+	}
+
+	return
+}
+
+func (s FilterRuntimeObjects) String() string {
+	strs := make([]string, 0, len(s))
+	printFilter := func(f FilterRuntimeObject) string {
+		if v, ok := f.(fmt.Stringer); ok {
+			return v.String()
+		}
+
+		return fmt.Sprintf("Filter{Type:%T}", f)
+	}
+
+	for _, f := range s {
 		strs = append(strs, printFilter(f))
 	}
 
 	return strings.Join(strs, ",")
-}
-
-func printFilter(f FilterRuntimeObject) string {
-	if v, ok := f.(fmt.Stringer); ok {
-		return v.String()
-	}
-
-	return fmt.Sprintf("Filter{Type:%T}", f)
 }
 
 type WorkloadNamespaceFilter struct {

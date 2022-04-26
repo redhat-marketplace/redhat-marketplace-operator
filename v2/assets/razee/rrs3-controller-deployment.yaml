@@ -56,10 +56,10 @@ spec:
           resources:
             limits:
               cpu: 20m
-              memory: 40Mi
+              memory: 20Mi
             requests:
               cpu: 10m
-              memory: 20Mi
+              memory: 12Mi
           terminationMessagePolicy: FallbackToLogsOnError
         - env:
             - name: CRD_WATCH_TIMEOUT_SECONDS

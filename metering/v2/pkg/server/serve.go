@@ -46,7 +46,9 @@ import (
 	goruntime "runtime"
 
 	"github.com/sasha-s/go-deadlock"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/kube-state-metrics/pkg/options"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -92,6 +94,12 @@ func getClientOptions() managers.ClientOptions {
 	return managers.ClientOptions{
 		Namespace:    "",
 		DryRunClient: false,
+		DisableDeepCopyByObject: cache.DisableDeepCopyByObject{
+			&corev1.Pod{}:                   true,
+			&corev1.Service{}:               true,
+			&corev1.PersistentVolume{}:      true,
+			&corev1.PersistentVolumeClaim{}: true,
+		},
 	}
 }
 

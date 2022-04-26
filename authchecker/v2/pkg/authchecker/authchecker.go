@@ -17,38 +17,97 @@ package authchecker
 import (
 	"context"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
+	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type AuthChecker struct {
+type AuthCheckChecker struct {
+	Err error
+
+	Client   client.Client
+	FilePath string
+	FileData []byte
+
 	Logger    logr.Logger
 	RetryTime time.Duration
-	Namespace string
-	Podname   string
-	Client    client.Client
-	Checker   *AuthCheckChecker
-}
 
-type AuthCheckChecker struct {
-	Err   error
+	tokenReview *authv1.TokenReview
+
 	mutex sync.Mutex
 }
 
-var a *AuthCheckChecker = &AuthCheckChecker{}
-var _ healthz.Checker = a.Check
+func (c *AuthCheckChecker) init() error {
+	var err error
+	c.FileData, err = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+
+	if err != nil {
+		return err
+	}
+
+	c.tokenReview = &authv1.TokenReview{
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: authv1.TokenReviewSpec{
+			Audiences: nil,
+			Token:     string(c.FileData),
+		},
+	}
+
+	return nil
+}
+
+func (c *AuthCheckChecker) Start(ctx context.Context) error {
+	err := c.init()
+
+	if err != nil {
+		return err
+	}
+
+	ticker := time.NewTicker(c.RetryTime)
+	go func() {
+		defer ticker.Stop()
+
+		c.CheckToken(ctx)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (c *AuthCheckChecker) CheckToken(ctx context.Context) {
+	// reset obj
+	c.tokenReview.ObjectMeta = metav1.ObjectMeta{}
+
+	err := c.Client.Create(ctx, c.tokenReview)
+	if err != nil {
+		c.Logger.Error(err, "failed to create a token review")
+		c.SetErr(err)
+		return
+	}
+
+	if !c.tokenReview.Status.Authenticated {
+		err = errors.NewWithDetails("token at file expired", "file", c.FilePath)
+		c.Logger.Error(err, "failed to get secret")
+		c.SetErr(err)
+		return
+	}
+
+	c.Clear()
+	return
+}
 
 func (c *AuthCheckChecker) SetErr(err error) {
 	c.mutex.Lock()
@@ -73,71 +132,4 @@ func (c *AuthCheckChecker) Check(_ *http.Request) error {
 	}
 
 	return nil
-}
-
-func (a *AuthChecker) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1.Pod{}, builder.WithPredicates(
-			predicate.Funcs{
-				CreateFunc: func(e event.CreateEvent) bool {
-					return e.Object.GetName() == a.Podname
-				},
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					return e.ObjectNew.GetName() == a.Podname
-				},
-				DeleteFunc: func(event.DeleteEvent) bool {
-					return false
-				},
-				GenericFunc: func(e event.GenericEvent) bool {
-					return false
-				},
-			})).
-		Complete(a)
-}
-
-func (a *AuthChecker) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	pod := &v1.Pod{}
-	secrets := &v1.SecretList{}
-	err := a.Client.Get(context.TODO(), types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, pod)
-
-	if err != nil {
-		a.Logger.Error(err, "failed to get pod")
-		a.Checker.SetErr(err)
-		return reconcile.Result{}, err
-	}
-
-	err = a.Client.List(context.TODO(), secrets)
-
-	if err != nil {
-		a.Logger.Error(err, "failed to list secrets")
-		a.Checker.SetErr(err)
-		return reconcile.Result{}, err
-	}
-
-volume:
-	for _, vol := range pod.Spec.Volumes {
-		if vol.Secret == nil {
-			continue
-		}
-
-		if vol.Secret.Optional != nil && *vol.Secret.Optional {
-			continue
-		}
-
-		for _, secret := range secrets.Items {
-			if vol.Secret.SecretName == secret.Name {
-				a.Logger.V(4).Info("found secret", "secret", secret.Name)
-				continue volume
-			}
-		}
-
-		err := errors.NewWithDetails("secret missing", "pod", pod.Name, "secret", vol.Secret.SecretName)
-		a.Logger.Error(err, "failed to get secret")
-		a.Checker.SetErr(err)
-		return reconcile.Result{RequeueAfter: a.RetryTime}, nil
-	}
-
-	// ensure the checker is clear
-	a.Checker.Clear()
-	return reconcile.Result{RequeueAfter: a.RetryTime}, nil
 }

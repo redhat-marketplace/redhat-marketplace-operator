@@ -21,15 +21,11 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -50,13 +46,6 @@ type MeterDefinitionStore struct {
 	scheme *runtime.Scheme
 
 	sync.RWMutex
-
-	// kubeClient to query kube
-	kubeClient clientset.Interface
-
-	findOwner                *rhmclient.FindOwnerHelper
-	monitoringClient         *monitoringv1client.MonitoringV1Client
-	marketplaceClientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client
 }
 
 var _ cache.Queue = &MeterDefinitionStore{}
@@ -212,7 +201,7 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 		return err
 	}
 
-	logger := s.log.WithValues("func", "delete",
+	logger := s.log.V(2).WithValues("func", "delete",
 		"name", mdefObj.GetName(),
 		"namespace", mdefObj.GetNamespace(),
 		"key", key)
@@ -268,7 +257,7 @@ func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
 	}
 
 	if found {
-		logger.Info("deleting obj")
+		logger.V(2).Info("deleting obj")
 
 		s.Lock()
 		defer s.Unlock()
@@ -382,10 +371,6 @@ func newStoreObject(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, e
 func NewMeterDefinitionStore(
 	ctx context.Context,
 	log logr.Logger,
-	kubeClient clientset.Interface,
-	findOwner *rhmclient.FindOwnerHelper,
-	monitoringClient *monitoringv1client.MonitoringV1Client,
-	marketplaceclientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client,
 	dictionary *MeterDefinitionDictionary,
 	scheme *runtime.Scheme,
 ) *MeterDefinitionStore {
@@ -398,16 +383,12 @@ func NewMeterDefinitionStore(
 	store := cache.NewIndexer(keyFunc, storeIndexers)
 	delta := cache.NewDeltaFIFO(keyFunc, store)
 	return &MeterDefinitionStore{
-		ctx:                      ctx,
-		log:                      log.WithName("obj_store").V(4),
-		scheme:                   scheme,
-		kubeClient:               kubeClient,
-		monitoringClient:         monitoringClient,
-		marketplaceClientV1beta1: marketplaceclientV1beta1,
-		dictionary:               dictionary,
-		findOwner:                findOwner,
-		delta:                    delta,
-		indexStore:               store,
-		keyFunc:                  keyFunc,
+		ctx:        ctx,
+		log:        log.WithName("obj_store").V(4),
+		scheme:     scheme,
+		dictionary: dictionary,
+		delta:      delta,
+		indexStore: store,
+		keyFunc:    keyFunc,
 	}
 }

@@ -124,14 +124,14 @@ func indexAnnotations(obj client.Object) []string {
 }
 
 func indexOwner(obj client.Object) []string {
-	if meta, ok := obj.(metav1.Object); ok {
+	meta, ok := obj.(metav1.Object)
+	if ok && len(meta.GetOwnerReferences()) != 0 {
 		results := make([]string, 0, len(meta.GetOwnerReferences()))
 
 		for _, ref := range meta.GetOwnerReferences() {
 			results = append(results, string(ref.UID))
 		}
 
-		log.V(4).Info("indexing owners", "name", meta.GetName(), "namespace", meta.GetNamespace(), "results", results)
 		return results
 	}
 
@@ -158,7 +158,7 @@ func indexOperatorSourceNamespaces(obj client.Object) []string {
 	og, ok := obj.(*olmv1.OperatorGroup)
 
 	if !ok {
-		return []string{}
+		return nil
 	}
 
 	return og.Status.Namespaces
@@ -174,7 +174,7 @@ func indexOperatorSourceProvidedAPIs(obj client.Object) []string {
 	val, ok := og.GetAnnotations()["olm.providedAPIs"]
 
 	if !ok {
-		return []string{}
+		return nil
 	}
 
 	vals := strings.Split(val, ",")

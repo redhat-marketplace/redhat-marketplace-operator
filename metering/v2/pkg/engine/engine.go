@@ -24,29 +24,19 @@ import (
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Engine struct {
-	store            *stores.MeterDefinitionStore
-	namespaces       pkgtypes.Namespaces
-	kubeClient       clientset.Interface
-	monitoringClient *monitoringv1client.MonitoringV1Client
-	dictionary       *stores.MeterDefinitionDictionary
-	mktplaceClient   *marketplacev1beta1client.MarketplaceV1beta1Client
-	promtheusData    *metrics.PrometheusData
-	runnables        Runnables
-	log              logr.Logger
-	health           *health.Health
+	log       logr.Logger
+	runnables Runnables
+	health    *health.Health
 
 	mainContext  *context.Context
 	localContext *context.Context
@@ -54,29 +44,14 @@ type Engine struct {
 }
 
 func ProvideEngine(
-	store *stores.MeterDefinitionStore,
-	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
-	kubeClient clientset.Interface,
-	monitoringClient *monitoringv1client.MonitoringV1Client,
-	dictionary *stores.MeterDefinitionDictionary,
-	mktplaceClient *marketplacev1beta1client.MarketplaceV1beta1Client,
 	runnables Runnables,
-	promtheusData *metrics.PrometheusData,
-	cache managers.CacheIsStarted,
 ) *Engine {
 	h := health.New()
 	return &Engine{
-		store:            store,
-		log:              log,
-		namespaces:       namespaces,
-		kubeClient:       kubeClient,
-		monitoringClient: monitoringClient,
-		dictionary:       dictionary,
-		mktplaceClient:   mktplaceClient,
-		runnables:        runnables,
-		health:           h,
-		promtheusData:    promtheusData,
+		log:       log,
+		runnables: runnables,
+		health:    h,
 	}
 }
 
@@ -252,4 +227,5 @@ var EngineSet = wire.NewSet(
 	stores.NewMeterDefinitionDictionary,
 	stores.NewMeterDefinitionStore,
 	ProvideMeterDefinitionStoreListWatchers,
+	wire.Struct(new(filter.MeterDefinitionLookupFilterFactory), "*"),
 )

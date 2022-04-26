@@ -40,10 +40,10 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 20Mi
+              memory: 12Mi
             limits:
-              cpu: 10m
-              memory: 25Mi
+              cpu: 15m
+              memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
           securityContext:
             allowPrivilegeEscalation: false

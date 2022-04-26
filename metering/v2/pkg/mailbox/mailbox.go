@@ -17,17 +17,17 @@ package mailbox
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/sasha-s/go-deadlock"
 	"k8s.io/client-go/tools/cache"
 )
 
 type Mailbox struct {
 	// listeners are used for downstream
-	mutex         deadlock.RWMutex
-	listenerMutex deadlock.Mutex
+	mutex         sync.RWMutex
+	listenerMutex sync.Mutex
 	listeners     map[ChannelName][]chan cache.Delta
 
 	log logr.Logger

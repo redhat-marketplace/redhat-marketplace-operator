@@ -15,17 +15,19 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"time"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
 	"github.com/spf13/cobra"
+	authv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -41,78 +43,72 @@ var (
 	podname, namespace string
 	retry              int64
 
+	pprofEnabled bool
+
 	log = logf.Log.WithName("authvalid_cmd")
 
 	scheme   = runtime.NewScheme()
 	setupLog = log.WithName("setup")
 
-	metricsAddr, probeAddr string
+	httpAddr string
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(authv1.AddToScheme(scheme))
 
 	logf.SetLogger(zap.New(zap.UseDevMode(true)))
-	rootCmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8089", "The address the probe endpoint binds to.")
-	rootCmd.Flags().StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace to list")
-	rootCmd.Flags().StringVar(&podname, "podname", os.Getenv("POD_NAME"), "podname")
-	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry count")
+	rootCmd.Flags().StringVar(&httpAddr, "http-addr", ":28088", "The address the probe endpoint binds to.")
+	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry time in seconds")
+	rootCmd.Flags().BoolVar(&pprofEnabled, "pprof", os.Getenv("PPROF_DEBUG") == "true", "enable pprof")
+	rootCmd.Flags().MarkHidden("pprof")
 }
 
 func run(cmd *cobra.Command, args []string) {
-	log.Info("starting up with vars",
-		"podname", podname,
-		"namespace", namespace,
-		"retry", retry,
-	)
+	restConfig := ctrl.GetConfigOrDie()
 
-	if namespace == "" {
-		setupLog.Error(errors.New("namespace not provided"), "namespace not provided", "namespace", namespace)
-		os.Exit(1)
-	}
-
-	opts := ctrl.Options{
-		Scheme:                 scheme,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         false,
-		Namespace:              namespace,
-		MetricsBindAddress:     "0",
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
-	if err != nil {
-		log.Error(err, "error starting auth checker")
-		er(err)
-	}
-
-	ac := &authchecker.AuthChecker{
-		RetryTime: time.Duration(retry) * time.Second,
-		Podname:   podname,
-		Namespace: namespace,
-		Logger:    log,
-		Client:    mgr.GetClient(),
-		Checker:   &authchecker.AuthCheckChecker{},
-	}
-	err = (ac).SetupWithManager(mgr)
+	client, err := client.New(restConfig, client.Options{
+		Scheme: scheme,
+	})
 
 	if err != nil {
 		setupLog.Error(err, "error starting auth checker")
 		er(err)
 	}
 
-	if err := mgr.AddHealthzCheck("health", ac.Checker.Check); err != nil {
-		setupLog.Error(err, "unable to set up health check")
+	ac := &authchecker.AuthCheckChecker{
+		RetryTime: time.Duration(retry) * time.Second,
+		Logger:    log,
+		Client:    client,
+		FilePath:  "/var/run/secrets/kubernetes.io/serviceaccount/token",
+	}
+
+	ctx := ctrl.SetupSignalHandler()
+
+	if err := ac.Start(ctx); err != nil {
+		setupLog.Error(err, "failed to add runnable")
 		os.Exit(1)
 	}
 
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+	r := http.NewServeMux()
+
+	healthzHandler := &healthz.Handler{Checks: map[string]healthz.Checker{}}
+	healthzHandler.Checks["health"] = ac.Check
+	r.Handle("/healthz", http.StripPrefix("/healthz", healthzHandler))
+
+	readyHandler := &healthz.Handler{Checks: map[string]healthz.Checker{}}
+	readyHandler.Checks["ready"] = ac.Check
+	r.Handle("/readyz", http.StripPrefix("/readyz", readyHandler))
+
+	if pprofEnabled {
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	setupLog.Info("starting server on port", "port", httpAddr)
+	if err := http.ListenAndServe(httpAddr, r); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

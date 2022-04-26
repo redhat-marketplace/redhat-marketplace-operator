@@ -22,11 +22,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -129,7 +125,7 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 
 	for i := range objects {
 		obj := objects[i]
-		w.log.Info("deleting obj", "object", obj)
+		w.log.V(2).Info("deleting obj", "object", obj)
 		err := w.meterDefinitionStore.Delete(obj)
 
 		if err != nil {
@@ -186,22 +182,6 @@ func (w *MeterDefinitionRemovalWatcher) onSync(ctx context.Context, d cache.Delt
 	}
 
 	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
-
-	resources := []common.WorkloadResource{}
-	mdef := &marketplacev1beta1.MeterDefinition{}
-
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := w.kubeClient.Get(ctx, types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace}, mdef); err != nil {
-			return err
-		}
-
-		mdef.Status.WorkloadResources = resources
-
-		return w.kubeClient.Status().Update(ctx, mdef)
-	})
-	if err != nil {
-		w.log.Error(err, "meterdefinition status update failed")
-	}
 
 	return nil
 }

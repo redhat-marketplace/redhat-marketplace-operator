@@ -52,13 +52,13 @@ type StatusProcessor struct {
 
 type updateableStatus struct {
 	needsUpdate bool
-	resources   []*common.WorkloadResource
+	resources   map[types.UID]*common.WorkloadResource
 }
 
 func newUpdateableStatus() *updateableStatus {
 	return &updateableStatus{
 		needsUpdate: true,
-		resources:   make([]*common.WorkloadResource, 0, 0),
+		resources:   make(map[types.UID]*common.WorkloadResource, 0),
 	}
 }
 
@@ -132,28 +132,29 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 				return nil
 			}
 
+			// random err, return it for backoff and retry
 			if err != nil {
 				return err
 			}
 
+			// is there really a change?
 			equal := true
 
 			// if they don't have the same length
 			if len(mdef.Status.WorkloadResources) != len(status.resources) {
 				equal = false
 			} else {
-				// if the UID changed
+				// if a UID is not the same between the two resources
 				for i := range mdef.Status.WorkloadResources {
 					res1 := mdef.Status.WorkloadResources[i]
-					res2 := status.resources[i]
-
-					if res1.UID != res2.UID {
+					_, ok := status.resources[res1.UID]
+					if !ok {
 						equal = false
 					}
 				}
 			}
 
-			// no op if the slices are equal
+			// no op if the resources are equal
 			if equal {
 				return nil
 			}
@@ -200,19 +201,19 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
+	var status *updateableStatus
+
 	for i := range enhancedObj.MeterDefinitions {
 		key := client.ObjectKeyFromObject(enhancedObj.MeterDefinitions[i])
 
-		var status *updateableStatus
 		if status, ok = u.resources[key]; !ok {
 			status = newUpdateableStatus()
 			u.resources[key] = status
 		}
 
-		set := map[types.UID]*common.WorkloadResource{}
 		for k := range status.resources {
 			obj := status.resources[k]
-			set[obj.UID] = obj
+			status.resources[obj.UID] = obj
 		}
 
 		workload, err := common.NewWorkloadResource(enhancedObj.Object, u.scheme)
@@ -223,7 +224,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 
 		switch inObj.Type {
 		case cache.Deleted:
-			delete(set, workload.UID)
+			delete(status.resources, workload.UID)
 		case cache.Added:
 			fallthrough
 		case cache.Sync:
@@ -231,16 +232,11 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		case cache.Updated:
 			fallthrough
 		case cache.Replaced:
-			set[workload.UID] = workload
+			status.resources[workload.UID] = workload
 		default:
 			return nil
 		}
 
-		newResources := make([]*common.WorkloadResource, 0, len(set))
-		for i := range set {
-			newResources = append(newResources, set[i])
-		}
-		status.resources = newResources
 		status.needsUpdate = true
 	}
 

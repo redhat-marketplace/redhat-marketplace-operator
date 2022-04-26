@@ -24,11 +24,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -50,34 +48,28 @@ type MeterDefinitionDictionary struct {
 	cache   cache.Store
 	keyFunc cache.KeyFunc
 	delta   *cache.DeltaFIFO
-	client  runtimeClient.Client
 
-	findOwner *rhmclient.FindOwnerHelper
-
-	log logr.Logger
+	log     logr.Logger
+	factory *filter.MeterDefinitionLookupFilterFactory
 
 	deadlock.RWMutex
 }
 
 func NewMeterDefinitionDictionary(
 	ctx context.Context,
-	kubeClient clientset.Interface,
-	client runtimeClient.Client,
-	findOwner *rhmclient.FindOwnerHelper,
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
-	_ managers.CacheIsStarted,
+	factory *filter.MeterDefinitionLookupFilterFactory,
 ) *MeterDefinitionDictionary {
 	keyFunc := cache.MetaNamespaceKeyFunc
 	store := cache.NewStore(keyFunc)
 
 	return &MeterDefinitionDictionary{
-		log:       log.WithName("mdef_dictionary"),
-		client:    client,
-		keyFunc:   keyFunc,
-		cache:     store,
-		delta:     cache.NewDeltaFIFO(keyFunc, store),
-		findOwner: findOwner,
+		log:     log.WithName("mdef_dictionary"),
+		keyFunc: keyFunc,
+		cache:   store,
+		delta:   cache.NewDeltaFIFO(keyFunc, store),
+		factory: factory,
 	}
 }
 
@@ -307,7 +299,7 @@ func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}
 		return nil, errors.New("expected meter definition")
 	}
 
-	lookup, err := filter.NewMeterDefinitionLookupFilter(def.client, meterdef, def.findOwner, def.log)
+	lookup, err := def.factory.New(meterdef)
 
 	if err != nil {
 		return nil, err

@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 )
 
 // ObjectResourceMessageProcessor defines a function to process
@@ -63,10 +62,7 @@ func (u *Processor) Start(ctx context.Context) error {
 		go func() {
 			for data := range u.resourceChan {
 				localData := data
-				err := retry.RetryOnConflict(retry.DefaultBackoff,
-					func() error {
-						return u.Process(ctx, localData)
-					})
+				err := u.Process(ctx, localData)
 				if err != nil {
 					u.log.Error(err, "error processing message")
 				}
