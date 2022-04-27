@@ -684,7 +684,7 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resourceNames:
-  - prometheus-meterbase
+  - rhm-marketplaceconfig-meterbase
   resources:
   - prometheuses
   verbs:
@@ -705,6 +705,8 @@ rules:
   - monitoring.coreos.com
   resourceNames:
   - kube-state-metrics
+  - prometheus-user-workload
+  - redhat-marketplace-kube-state-metrics
   - redhat-marketplace-kubelet
   - rhm-metric-state
   - rhm-prometheus-meterbase
