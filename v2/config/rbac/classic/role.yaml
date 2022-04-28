@@ -385,7 +385,7 @@ rules:
     - create
     - get
   - nonResourceURLs:
-    - '*'
+    - /dataservice.v1.fileserver.FileServer/*
     verbs:
     - create
 ---
