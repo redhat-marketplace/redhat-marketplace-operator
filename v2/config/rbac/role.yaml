@@ -7,10 +7,6 @@ metadata:
   name: manager-role
 rules:
 - nonResourceURLs:
-  - '*'
-  verbs:
-  - create
-- nonResourceURLs:
   - /api/v1/query
   - /api/v1/query_range
   - /api/v1/targets
@@ -42,10 +38,6 @@ rules:
   verbs:
   - get
 - nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
-- nonResourceURLs:
   - /system-meterdef-index/*
   verbs:
   - get
@@ -68,12 +60,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes/metrics
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
@@ -213,14 +199,6 @@ rules:
   - clusterroles
   verbs:
   - delete
-- apiGroups:
-  - security.openshift.io
-  resourceNames:
-  - nonroot
-  resources:
-  - securitycontextconstraints
-  verbs:
-  - use
 - apiGroups:
   - storage.k8s.io
   resources:

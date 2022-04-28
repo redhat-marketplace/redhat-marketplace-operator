@@ -272,14 +272,6 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=servicemonitors,verbs=update;patch;delete,resourceNames=rhm-metric-state;kube-state-metrics;rhm-prometheus-meterbase;redhat-marketplace-kubelet;prometheus-user-workload;redhat-marketplace-kube-state-metrics
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
 
-// RHM Prometheus
-// +kubebuilder:rbac:groups="",resources=nodes/metrics,verbs=get
-// +kubebuilder:rbac:urls=/metrics,verbs=get
-// +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create
-// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
-// included-above groups="",resources=namespaces,verbs=get
-// +kubebuilder:rbac:groups="security.openshift.io",resourceNames=nonroot,resources=securitycontextconstraints,verbs=use
-
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
 func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
