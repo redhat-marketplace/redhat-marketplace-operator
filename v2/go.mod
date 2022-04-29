@@ -22,6 +22,7 @@ require (
 	github.com/imdario/mergo v0.3.12
 	github.com/jpillora/backoff v1.0.0
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0

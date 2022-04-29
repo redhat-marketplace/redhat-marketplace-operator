@@ -65,6 +65,7 @@ func (u *Processor) Start(ctx context.Context) error {
 				err := u.Process(ctx, localData)
 				if err != nil {
 					u.log.Error(err, "error processing message")
+					u.resourceChan <- data
 				}
 			}
 			wg.Done()

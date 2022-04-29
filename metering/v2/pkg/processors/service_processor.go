@@ -16,7 +16,6 @@ package processors
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	"emperror.dev/errors"
@@ -65,8 +64,6 @@ func ProvideServiceAnnotatorProcessor(
 	return sp
 }
 
-var serviceType = reflect.TypeOf(&corev1.Service{})
-
 // Process will receive a new ObjectResourceMessage and find and update the metere
 // definition associated with the object. To prevent gaps, it bulk retrieves the
 // resources and checks it against the status.
@@ -96,7 +93,7 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 	}
 
 	for i := range list.Items {
-		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			sm := list.Items[i]
 			key := client.ObjectKeyFromObject(sm)
 
@@ -120,6 +117,10 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 			w.log.Info("found servicemonitor to label", "sm", serviceMonitor, "labels", sm.Labels)
 			return w.kubeClient.Update(ctx, &serviceMonitor)
 		})
+
+		if err != nil {
+			w.log.Error(err, "failed to update")
+		}
 	}
 
 	return nil

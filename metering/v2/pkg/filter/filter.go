@@ -36,6 +36,8 @@ type FilterRuntimeObject interface {
 type FilterRuntimeObjects []FilterRuntimeObject
 
 func (s FilterRuntimeObjects) Test(obj interface{}) (pass bool, filterIndex int, err error) {
+	filterIndex = -1
+
 	if len(s) == 0 {
 		return
 	}
@@ -172,7 +174,8 @@ func (f *WorkloadFilterForOwner) getOwners(
 		return false, nil
 	}
 
-	for _, ref := range refs {
+	for i := range refs {
+		ref := refs[i]
 		found, err := f.getOwners(ref.Name, namespace, &ref, []metav1.OwnerReference{}, i+1, maxDepth)
 
 		if err != nil {

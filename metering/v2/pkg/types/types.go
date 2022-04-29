@@ -57,15 +57,15 @@ func GVKNamespaceKeyFunc(scheme *runtime.Scheme) func(obj interface{}) (string, 
 		apiVersion, kind := gvk.ToAPIVersionAndKind()
 		gvkString := apiVersion + "/" + kind + ":"
 
-		meta, err := meta.Accessor(obj)
+		metaObj, err := meta.Accessor(obj)
 		if err != nil {
 			return "", fmt.Errorf("object has no meta: %v", err)
 		}
 
-		if len(meta.GetNamespace()) > 0 {
-			return gvkString + meta.GetNamespace() + "/" + meta.GetName(), nil
+		if len(metaObj.GetNamespace()) > 0 {
+			return gvkString + metaObj.GetNamespace() + "/" + metaObj.GetName(), nil
 		}
 
-		return gvkString + meta.GetName(), nil
+		return gvkString + metaObj.GetName(), nil
 	}
 }

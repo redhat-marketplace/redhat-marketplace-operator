@@ -71,10 +71,8 @@ func ProvideMeterDefinitionChannelProducer(
 // Start will start processing pops from the dictionary. Will block
 func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 	go func() {
-		select {
-		case <-ctx.Done():
-			w.queue.Close()
-		}
+		<-ctx.Done()
+		w.queue.Close()
 	}()
 
 	go func() {
@@ -87,7 +85,10 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 				}
 
 				w.log.Error(err, "error processing")
-				w.queue.AddIfNotPresent(obj)
+				err := w.queue.AddIfNotPresent(obj)
+				if err != nil {
+					w.log.Error(err, "error adding if not present")
+				}
 			}
 		}
 	}()

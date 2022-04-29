@@ -70,25 +70,19 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - funlen
     - goconst
     - gocritic
     - gofmt
     - goimports
-    - exhaustive
-    - revive
-    - gomnd
     - goprintffuncname
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - lll
     - misspell
     - nakedret
     - nolintlint
     - rowserrcheck
-    - exportloopref
     - staticcheck
     - structcheck
     - stylecheck
@@ -125,7 +119,10 @@ issues:
         - gocyclo
       source: '^//go:generate '
 
-# run:
+run:
+  test: false
+  skip-files:
+    - ".*_test\\.go$"
 #   skip-dirs:
 #     - test/testdata_etc
 #     - internal/cache

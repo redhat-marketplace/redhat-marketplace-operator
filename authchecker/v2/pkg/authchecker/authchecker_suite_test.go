@@ -1,4 +1,4 @@
-// Copyright 2020 IBM Corp.
+// Copyright 2022 IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package authchecker
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
-	"k8s.io/kube-state-metrics/pkg/options"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"testing"
 )
 
-var (
-	DefaultNamespaces = options.NamespaceList{metav1.NamespaceAll}
-
-	DefaultEnabledResources = []string{"pods", "services"}
-)
-
-type promLogger struct{}
-
-func (pl promLogger) Println(v ...interface{}) {
-	klog.Error(v...)
+func TestAuthchecker(t *testing.T) {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Authchecker Suite")
 }

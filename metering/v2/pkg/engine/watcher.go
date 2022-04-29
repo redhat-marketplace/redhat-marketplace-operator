@@ -86,7 +86,10 @@ type NamespacedCachedListers struct {
 func (w *NamespacedCachedListers) Start(ctx context.Context) error {
 	namespaceChange := make(chan interface{}, 1)
 	timer := time.NewTicker(time.Minute)
-	w.watcher.RegisterWatch(namespaceChange)
+	err := w.watcher.RegisterWatch(namespaceChange)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		for range namespaceChange {

@@ -45,10 +45,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 130Mi
+              memory: 80Mi
             limits:
               cpu: 100m
-              memory: 125Mi
+              memory: 130Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -65,6 +65,11 @@ spec:
               name: metrics
         - image: redhat-marketplace-authcheck:latest
           name: authcheck
+          env:
+          - name: GOGC
+            value: 50
+          - name: PPROF_DEBUG
+            value: "true"
           resources:
             requests:
               cpu: 10m

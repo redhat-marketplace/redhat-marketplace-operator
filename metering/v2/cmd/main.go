@@ -45,7 +45,7 @@ var (
 func run(cmd *cobra.Command, args []string) {
 	log.Info("serving metrics")
 
-	server, err := server.NewServer(opts)
+	localServer, err := server.NewServer(opts)
 
 	if err != nil {
 		log.Error(err, "failed to get server")
@@ -53,7 +53,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err = server.Serve(ctx.Done())
+	err = localServer.Serve(ctx.Done())
 
 	if err != nil {
 		log.Error(err, "error running server")

@@ -17,7 +17,7 @@ package stores
 import (
 	"context"
 	"fmt"
-	"time"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -25,7 +25,6 @@ import (
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/sasha-s/go-deadlock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +51,7 @@ type MeterDefinitionDictionary struct {
 	log     logr.Logger
 	factory *filter.MeterDefinitionLookupFilterFactory
 
-	deadlock.RWMutex
+	sync.RWMutex
 }
 
 func NewMeterDefinitionDictionary(
@@ -68,7 +67,7 @@ func NewMeterDefinitionDictionary(
 		log:     log.WithName("mdef_dictionary"),
 		keyFunc: keyFunc,
 		cache:   store,
-		delta:   cache.NewDeltaFIFO(keyFunc, store),
+		delta:   cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{KeyFunction: keyFunc, KnownObjects: store}),
 		factory: factory,
 	}
 }
@@ -188,12 +187,6 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 	return nil
 }
 
-const (
-	// 10 every 5 seconds
-	limitRateBucket = 10
-	limitRate       = 5 * time.Second
-)
-
 // Delete deletes the given object from the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
 	def.Lock()
@@ -312,7 +305,7 @@ func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}
 }
 
 func ProvideMeterDefinitionList(
-	cache managers.CacheIsStarted,
+	cacheIsStarted managers.CacheIsStarted,
 	client runtimeClient.Client,
 ) (*v1beta1.MeterDefinitionList, error) {
 	obj := v1beta1.MeterDefinitionList{}

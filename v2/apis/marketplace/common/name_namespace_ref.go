@@ -15,7 +15,12 @@
 package common
 
 import (
+	"fmt"
+
 	"emperror.dev/errors"
+	"github.com/modern-go/reflect2"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,6 +68,38 @@ type GroupVersionKind struct {
 
 func (g GroupVersionKind) String() string {
 	return g.APIVersion + "/" + g.Kind
+}
+
+var gvkMap = map[reflect2.Type]GroupVersionKind{
+	reflect2.TypeOf(&corev1.Pod{}): GroupVersionKind{
+		APIVersion: "v1",
+		Kind:       "Pod",
+	},
+	reflect2.TypeOf(&corev1.Service{}): GroupVersionKind{
+		APIVersion: "v1",
+		Kind:       "Service",
+	},
+	reflect2.TypeOf(&corev1.PersistentVolume{}): GroupVersionKind{
+		APIVersion: "v1",
+		Kind:       "PersistentVolume",
+	},
+	reflect2.TypeOf(&corev1.PersistentVolumeClaim{}): GroupVersionKind{
+		APIVersion: "v1",
+		Kind:       "PersistentVolumeClaim",
+	},
+	reflect2.TypeOf(&monitoringv1.ServiceMonitor{}): GroupVersionKind{
+		APIVersion: "monitoring.coreos.com/v1",
+		Kind:       "ServiceMonitor",
+	},
+}
+
+func NewPredefinedGroupVersionKind(obj interface{}) (*GroupVersionKind, error) {
+	typeObj := reflect2.TypeOf(obj)
+	gvk, ok := gvkMap[typeObj]
+	if !ok {
+		return nil, fmt.Errorf("failed to get workload resource")
+	}
+	return &gvk, nil
 }
 
 func NewGroupVersionKind(t interface{}, scheme *runtime.Scheme) (*GroupVersionKind, error) {

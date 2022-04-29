@@ -19,18 +19,18 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
 	"github.com/spf13/cobra"
-	authv1 "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -40,22 +40,17 @@ var (
 		Run:   run,
 	}
 
-	podname, namespace string
-	retry              int64
-
+	retry        int64
 	pprofEnabled bool
 
 	log = logf.Log.WithName("authvalid_cmd")
 
-	scheme   = runtime.NewScheme()
 	setupLog = log.WithName("setup")
 
 	httpAddr string
 )
 
 func init() {
-	utilruntime.Must(authv1.AddToScheme(scheme))
-
 	logf.SetLogger(zap.New(zap.UseDevMode(true)))
 	rootCmd.Flags().StringVar(&httpAddr, "http-addr", ":28088", "The address the probe endpoint binds to.")
 	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry time in seconds")
@@ -64,25 +59,26 @@ func init() {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	restConfig := ctrl.GetConfigOrDie()
+	debug.SetGCPercent(50)
 
-	client, err := client.New(restConfig, client.Options{
-		Scheme: scheme,
+	restConfig := config.GetConfigOrDie()
+
+	dynamicConfig := dynamic.NewForConfigOrDie(restConfig)
+
+	dynamicResource := dynamicConfig.Resource(schema.GroupVersionResource{
+		Group:    "authentication.k8s.io",
+		Version:  "v1",
+		Resource: "tokenreviews",
 	})
 
-	if err != nil {
-		setupLog.Error(err, "error starting auth checker")
-		er(err)
-	}
-
-	ac := &authchecker.AuthCheckChecker{
+	ac := &authchecker.AuthChecker{
 		RetryTime: time.Duration(retry) * time.Second,
 		Logger:    log,
-		Client:    client,
+		Client:    dynamicResource,
 		FilePath:  "/var/run/secrets/kubernetes.io/serviceaccount/token",
 	}
 
-	ctx := ctrl.SetupSignalHandler()
+	ctx := signals.SetupSignalHandler()
 
 	if err := ac.Start(ctx); err != nil {
 		setupLog.Error(err, "failed to add runnable")
@@ -96,7 +92,7 @@ func run(cmd *cobra.Command, args []string) {
 	r.Handle("/healthz", http.StripPrefix("/healthz", healthzHandler))
 
 	readyHandler := &healthz.Handler{Checks: map[string]healthz.Checker{}}
-	readyHandler.Checks["ready"] = ac.Check
+	readyHandler.Checks["ready"] = healthz.Ping
 	r.Handle("/readyz", http.StripPrefix("/readyz", readyHandler))
 
 	if pprofEnabled {
@@ -112,11 +108,6 @@ func run(cmd *cobra.Command, args []string) {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func er(msg interface{}) {
-	fmt.Println("Error:", msg)
-	os.Exit(1)
 }
 
 func main() {

@@ -33,7 +33,6 @@ func NewServer(
 		ProvideNamespaces,
 		provideScheme,
 		getClientOptions,
-		ConvertOptions,
 		wire.Struct(new(Service), "*"),
 		metrics.ProvidePrometheusData,
 		wire.InterfaceValue(new(logr.Logger), log),

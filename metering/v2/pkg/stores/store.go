@@ -381,7 +381,8 @@ func NewMeterDefinitionStore(
 	}
 
 	store := cache.NewIndexer(keyFunc, storeIndexers)
-	delta := cache.NewDeltaFIFO(keyFunc, store)
+	delta := cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{KeyFunction: keyFunc, KnownObjects: store})
+
 	return &MeterDefinitionStore{
 		ctx:        ctx,
 		log:        log.WithName("obj_store").V(4),

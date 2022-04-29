@@ -30,12 +30,10 @@ type MeterDefinitionRemovalWatcher struct {
 	*Processor
 	dictionary           *stores.MeterDefinitionDictionary
 	meterDefinitionStore *stores.MeterDefinitionStore
-	keyFunc              cache.KeyFunc
-
-	nsWatcher   *filter.NamespaceWatcher
-	messageChan chan cache.Delta
-	log         logr.Logger
-	kubeClient  client.Client
+	nsWatcher            *filter.NamespaceWatcher
+	messageChan          chan cache.Delta
+	log                  logr.Logger
+	kubeClient           client.Client
 }
 
 func ProvideMeterDefinitionRemovalWatcher(
@@ -85,7 +83,7 @@ func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Del
 	return nil
 }
 
-func (w *MeterDefinitionRemovalWatcher) onAdd(ctx context.Context, d cache.Delta) error {
+func (w *MeterDefinitionRemovalWatcher) onAdd(_ context.Context, d cache.Delta) error {
 	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
@@ -98,7 +96,7 @@ func (w *MeterDefinitionRemovalWatcher) onAdd(ctx context.Context, d cache.Delta
 	return w.meterDefinitionStore.Resync()
 }
 
-func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.Delta) error {
+func (w *MeterDefinitionRemovalWatcher) onDelete(_ context.Context, d cache.Delta) error {
 	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
@@ -137,7 +135,7 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 	return nil
 }
 
-func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.Delta) error {
+func (w *MeterDefinitionRemovalWatcher) onUpdate(_ context.Context, d cache.Delta) error {
 	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 	if !ok {
 		return errors.New("encountered unexpected type")
@@ -175,7 +173,7 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.De
 }
 
 // Clear Status.WorkloadResources on initial sync such that Status is correct when metric-state starts
-func (w *MeterDefinitionRemovalWatcher) onSync(ctx context.Context, d cache.Delta) error {
+func (w *MeterDefinitionRemovalWatcher) onSync(_ context.Context, d cache.Delta) error {
 	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 	if !ok {
 		return errors.New("encountered unexpected type")

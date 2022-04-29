@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/InVisionApp/go-health/v2"
@@ -34,13 +33,10 @@ import (
 )
 
 type Engine struct {
-	log       logr.Logger
-	runnables Runnables
-	health    *health.Health
-
-	mainContext  *context.Context
-	localContext *context.Context
-	cancelFunc   context.CancelFunc
+	log        logr.Logger
+	runnables  Runnables
+	health     *health.Health
+	cancelFunc context.CancelFunc
 }
 
 func ProvideEngine(
@@ -56,46 +52,41 @@ func ProvideEngine(
 }
 
 func (e *Engine) Start(ctx context.Context) error {
-	if e.cancelFunc != nil {
-		e.mainContext = nil
-		e.localContext = nil
-		e.cancelFunc()
-	}
+	e.Stop() // just incase this is the second time
 
 	localCtx, cancel := context.WithCancel(ctx)
-	e.mainContext = &ctx
-	e.localContext = &localCtx
 	e.cancelFunc = cancel
 
 	for i := range e.runnables {
 		runnable := e.runnables[i]
 		e.log.Info("starting runnable", "runnable", fmt.Sprintf("%T", runnable))
-		wg := sync.WaitGroup{}
+		err := runnable.Start(localCtx)
 
-		wg.Add(1)
-
-		go func() {
-			wg.Done()
-			runnable.Start(localCtx)
-		}()
-
-		wg.Wait()
+		if err != nil {
+			return err
+		}
 	}
 
 	return e.health.Start()
 }
 
+func (e *Engine) Stop() {
+	if e.cancelFunc == nil {
+		return
+	}
+
+	e.cancelFunc()
+}
+
 type reflectorConfig struct {
 	expectedType client.Object
 	lister       func(string) cache.ListerWatcher
-
-	startContext context.Context
-	cancelFunc   context.CancelFunc
 }
 
 type ListerRunnable struct {
 	reflectorConfig
-	namespace string
+	namespace  string
+	cancelFunc context.CancelFunc
 
 	Store cache.Store
 }
@@ -105,12 +96,8 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 		return errors.New("cache is nil")
 	}
 
-	if p.startContext == nil {
-		p.startContext = ctx
-	}
-
 	var localCtx context.Context
-	localCtx, p.cancelFunc = context.WithCancel(p.startContext)
+	localCtx, p.cancelFunc = context.WithCancel(ctx)
 	lister := p.lister(p.namespace)
 	reflector := cache.NewReflector(lister, p.expectedType, p.Store, 0)
 	go reflector.Run(localCtx.Done())
@@ -154,11 +141,13 @@ func (p *StoreRunnable) Start(ctx context.Context) error {
 
 		go func() {
 			defer ticker.Stop()
-
 			for {
 				select {
 				case <-ticker.C:
-					p.Store.Resync()
+					err := p.Store.Resync()
+					if err != nil {
+						p.log.Error(err, "error resyncing store")
+					}
 				case <-localCtx.Done():
 					return
 				}

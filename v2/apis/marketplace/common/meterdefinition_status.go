@@ -20,7 +20,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // WorkloadResource represents the resources associated to a workload
@@ -58,13 +57,15 @@ func (a ByAlphabetical) Less(i, j int) bool {
 	return false
 }
 
-func NewWorkloadResource(obj interface{}, scheme *runtime.Scheme) (*WorkloadResource, error) {
+func NewWorkloadResource(obj interface{}) (*WorkloadResource, error) {
 	accessor, err := meta.Accessor(obj)
 
 	if err != nil {
 		return nil, err
 	}
-	gvk, err := NewGroupVersionKind(obj, scheme)
+
+	gvk, err := NewPredefinedGroupVersionKind(obj)
+
 	if err != nil {
 		return nil, err
 	}

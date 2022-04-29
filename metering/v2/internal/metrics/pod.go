@@ -20,6 +20,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -33,7 +34,8 @@ var podMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Metering info for pod",
 		},
-		GenerateMeterFunc: wrapPodFunc(func(pod *corev1.Pod, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapObject(descPodLabelsDefaultLabels, func(obj client.Object, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+			pod := obj.(*corev1.Pod)
 			metrics := []*kbsm.Metric{}
 
 			podUID := string(pod.UID)
@@ -52,16 +54,15 @@ var podMetricsFamilies = []FamilyGenerator{
 	},
 }
 
-// wrapPodFunc is a helper function for generating pod-based metrics
-func wrapPodFunc(f func(*corev1.Pod, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
-		pod := obj.(*corev1.Pod)
-
-		metricFamily := f(pod, meterDefinitions)
+// wrapObject is a helper function for generating the base metrics for all client objects (pod, service, pvc)
+func wrapObject(labels []string, f func(client.Object, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+	return func(in interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		obj := in.(client.Object)
+		metricFamily := f(obj, meterDefinitions)
 
 		for _, m := range metricFamily.Metrics {
-			m.LabelKeys = append(descPodLabelsDefaultLabels, m.LabelKeys...)
-			m.LabelValues = append([]string{pod.Namespace, pod.Name}, m.LabelValues...)
+			m.LabelKeys = append(labels, m.LabelKeys...)
+			m.LabelValues = append([]string{obj.GetNamespace(), obj.GetName()}, m.LabelValues...)
 		}
 
 		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)

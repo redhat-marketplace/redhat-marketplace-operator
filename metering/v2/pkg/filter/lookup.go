@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/cespare/xxhash"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
@@ -100,18 +99,6 @@ func (f *MeterDefinitionLookupFilterFactory) New(
 	return s, nil
 }
 
-func (s *MeterDefinitionLookupFilter) Hash() string {
-	h := xxhash.New()
-
-	h.Write([]byte(s.MeterDefUID))
-	for k, v := range s.workloads {
-		h.Write([]byte(fmt.Sprintf("%v", k)))
-		h.Write([]byte(fmt.Sprintf("%v", v)))
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
 func (s *MeterDefinitionLookupFilter) String() string {
 	return fmt.Sprintf("MeterDef{workloads=%v, filters=%v}", len(s.workloads), len(s.filters))
 }
@@ -151,7 +138,7 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 		if resourceFilter.Namespace == nil {
 			reqLogger.Info("operatorGroup is for all namespaces")
 			namespaces = []string{corev1.NamespaceAll}
-			return
+			return namespaces, err
 		}
 
 		if resourceFilter.Namespace.UseOperatorGroup {
@@ -178,7 +165,7 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 				err = errors.Wrap(functionError, "csv not found due to error")
 				reqLogger.Error(err, "installed by is not found")
 
-				return
+				return namespaces, err
 			}
 
 			olmNamespacesStr, ok := csv.GetAnnotations()["olm.operatorGroup"]
@@ -186,11 +173,12 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 			if ok && olmNamespacesStr == "" {
 				reqLogger.Info("operatorGroup is for all namespaces")
 				namespaces = []string{corev1.NamespaceAll}
-				return
+				return namespaces, nil
 			}
 
 			if ok && olmNamespacesStr != "" {
 				namespaces = strings.Split(olmNamespacesStr, ",")
+				return namespaces, nil
 			}
 
 			olmGroup, ok := csv.GetAnnotations()["olm.operatorGroup"]
@@ -204,7 +192,7 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 					reqLogger.Info("operatorGroup is for all namespaces, but csv is a copy")
 					namespaces = []string{}
 				}
-				return
+				return namespaces, err
 			}
 
 			reqLogger.Info("installedBy not found, falling back to namespace")
@@ -225,7 +213,7 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 			selector, err = metav1.LabelSelectorAsSelector(resourceFilter.Namespace.LabelSelector)
 
 			if err != nil {
-				return
+				return namespaces, err
 			}
 
 			err = s.client.List(context.TODO(), namespaceList, client.MatchingLabelsSelector{Selector: selector})
@@ -234,16 +222,16 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 				err = errors.Wrap(functionError, "csv not found")
 				reqLogger.Info("csv not found", "csv", instance.Spec.InstalledBy)
 
-				return
+				return namespaces, err
 			}
 
-			for _, ns := range namespaceList.Items {
-				localNs := ns.GetName()
+			for i := range namespaceList.Items {
+				localNs := namespaceList.Items[i].GetName()
 				namespaces = append(namespaces, localNs)
 			}
 		}
 	}
-	return
+	return namespaces, err
 }
 
 func (s *MeterDefinitionLookupFilter) createFilters(

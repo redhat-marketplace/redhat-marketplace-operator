@@ -19,7 +19,6 @@ import (
 // Injectors from wire.go:
 
 func NewServer(opts *Options) (*Service, error) {
-	options := ConvertOptions(opts)
 	registry := provideRegistry()
 	context := provideContext()
 	namespaces := ProvideNamespaces(opts)
@@ -33,7 +32,7 @@ func NewServer(opts *Options) (*Service, error) {
 		return nil, err
 	}
 	service := &Service{
-		opts:            options,
+		opts:            opts,
 		metricsRegistry: registry,
 		engine:          engineEngine,
 		prometheusData:  prometheusData,

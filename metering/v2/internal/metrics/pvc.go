@@ -20,6 +20,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -33,7 +34,9 @@ var pvcMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Metering info for persistentvolumeclaim",
 		},
-		GenerateMeterFunc: wrapPersistentVolumeClaimFunc(func(pvc *corev1.PersistentVolumeClaim, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapObject(descPersistentVolumeClaimLabelsDefaultLabels, func(obj client.Object, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+			pvc := obj.(*corev1.PersistentVolumeClaim)
+
 			metrics := []*kbsm.Metric{}
 
 			phase := pvc.Status.Phase
@@ -49,24 +52,6 @@ var pvcMetricsFamilies = []FamilyGenerator{
 			}
 		}),
 	},
-}
-
-// wrapPersistentVolumeClaimFunc is a helper function for generating pvc-based metrics
-func wrapPersistentVolumeClaimFunc(f func(*corev1.PersistentVolumeClaim, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
-		pvc := obj.(*corev1.PersistentVolumeClaim)
-
-		metricFamily := f(pvc, meterDefinitions)
-
-		for _, m := range metricFamily.Metrics {
-			m.LabelKeys = append(descPersistentVolumeClaimLabelsDefaultLabels, m.LabelKeys...)
-			m.LabelValues = append([]string{pvc.Namespace, pvc.Name}, m.LabelValues...)
-		}
-
-		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
-
-		return metricFamily
-	}
 }
 
 func ProvidePersistentVolumeClaimPrometheusData() *PrometheusDataMap {

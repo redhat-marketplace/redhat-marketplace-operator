@@ -16,53 +16,53 @@ package authchecker
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
-	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	authv1 "k8s.io/api/authentication/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 )
 
-type AuthCheckChecker struct {
+type AuthChecker struct {
 	Err error
 
-	Client   client.Client
+	Client   dynamic.ResourceInterface
 	FilePath string
 	FileData []byte
 
 	Logger    logr.Logger
 	RetryTime time.Duration
 
-	tokenReview *authv1.TokenReview
-
-	mutex sync.Mutex
+	mutex       sync.Mutex
+	tokenReview *unstructured.Unstructured
 }
 
-func (c *AuthCheckChecker) init() error {
+func (c *AuthChecker) init() error {
 	var err error
 	c.FileData, err = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
-
 	if err != nil {
 		return err
 	}
 
-	c.tokenReview = &authv1.TokenReview{
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec: authv1.TokenReviewSpec{
-			Audiences: nil,
-			Token:     string(c.FileData),
+	c.tokenReview = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"spec": map[string]interface{}{
+				"audiences": nil,
+				"token":     string(c.FileData),
+			},
 		},
 	}
 
 	return nil
 }
 
-func (c *AuthCheckChecker) Start(ctx context.Context) error {
+func (c *AuthChecker) Start(ctx context.Context) error {
 	err := c.init()
 
 	if err != nil {
@@ -70,12 +70,19 @@ func (c *AuthCheckChecker) Start(ctx context.Context) error {
 	}
 
 	ticker := time.NewTicker(c.RetryTime)
+
 	go func() {
 		defer ticker.Stop()
 
-		c.CheckToken(ctx)
-
 		for {
+			time.Sleep(wait.Jitter(1*time.Second, 0.5))
+
+			err := c.CheckToken(ctx)
+
+			if err != nil {
+				c.Logger.Error(err, "failed to check token err")
+			}
+
 			select {
 			case <-ctx.Done():
 				return
@@ -87,19 +94,25 @@ func (c *AuthCheckChecker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *AuthCheckChecker) CheckToken(ctx context.Context) {
-	// reset obj
-	c.tokenReview.ObjectMeta = metav1.ObjectMeta{}
+func (c *AuthChecker) CheckToken(ctx context.Context) (err error) {
+	c.tokenReview.Object["metadata"] = map[string]interface{}{}
 
-	err := c.Client.Create(ctx, c.tokenReview)
+	c.tokenReview, err = c.Client.Create(ctx, c.tokenReview, v1.CreateOptions{})
 	if err != nil {
 		c.Logger.Error(err, "failed to create a token review")
 		c.SetErr(err)
 		return
 	}
 
-	if !c.tokenReview.Status.Authenticated {
-		err = errors.NewWithDetails("token at file expired", "file", c.FilePath)
+	isAuthed := false
+	if status, ok := c.tokenReview.Object["status"]; ok {
+		if authenticated, ok := status.(map[string]interface{})["authenticated"]; ok {
+			isAuthed = authenticated.(bool)
+		}
+	}
+
+	if !isAuthed {
+		err = fmt.Errorf("token at file expired %s=%s", "file", c.FilePath)
 		c.Logger.Error(err, "failed to get secret")
 		c.SetErr(err)
 		return
@@ -109,21 +122,21 @@ func (c *AuthCheckChecker) CheckToken(ctx context.Context) {
 	return
 }
 
-func (c *AuthCheckChecker) SetErr(err error) {
+func (c *AuthChecker) SetErr(err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.Err = err
 }
 
-func (c *AuthCheckChecker) Clear() {
+func (c *AuthChecker) Clear() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.Err = nil
 }
 
-func (c *AuthCheckChecker) Check(_ *http.Request) error {
+func (c *AuthChecker) Check(_ *http.Request) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

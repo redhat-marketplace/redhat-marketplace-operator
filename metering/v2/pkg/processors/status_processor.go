@@ -17,6 +17,7 @@ package processors
 import (
 	"context"
 	"sort"
+	"sync"
 	"time"
 
 	"emperror.dev/errors"
@@ -26,9 +27,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/sasha-s/go-deadlock"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
@@ -43,8 +42,7 @@ type StatusProcessor struct {
 	*Processor
 	log        logr.Logger
 	kubeClient client.Client
-	mutex      deadlock.Mutex
-	scheme     *runtime.Scheme
+	mutex      sync.Mutex
 
 	flushTime time.Duration
 	resources map[client.ObjectKey]*updateableStatus
@@ -58,7 +56,7 @@ type updateableStatus struct {
 func newUpdateableStatus() *updateableStatus {
 	return &updateableStatus{
 		needsUpdate: true,
-		resources:   make(map[types.UID]*common.WorkloadResource, 0),
+		resources:   make(map[types.UID]*common.WorkloadResource),
 	}
 }
 
@@ -68,7 +66,6 @@ func ProvideStatusProcessor(
 	log logr.Logger,
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
-	scheme *runtime.Scheme,
 	duration StatusFlushDuration,
 	_ managers.CacheIsStarted,
 ) *StatusProcessor {
@@ -82,7 +79,6 @@ func ProvideStatusProcessor(
 		},
 		log:        log.WithValues("process", "statusProcessor"),
 		kubeClient: kubeClient,
-		scheme:     scheme,
 		resources:  make(map[client.ObjectKey]*updateableStatus),
 		flushTime:  time.Duration(duration),
 	}
@@ -180,7 +176,6 @@ func (u *StatusProcessor) flush(ctx context.Context) {
 	for _, name := range deleted {
 		delete(u.resources, name)
 	}
-
 }
 
 // Process will receive a new ObjectResourceMessage and find and update the metere
@@ -216,7 +211,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 			status.resources[obj.UID] = obj
 		}
 
-		workload, err := common.NewWorkloadResource(enhancedObj.Object, u.scheme)
+		workload, err := common.NewWorkloadResource(enhancedObj.Object)
 
 		if err != nil {
 			return errors.WithStack(err)
@@ -225,13 +220,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		switch inObj.Type {
 		case cache.Deleted:
 			delete(status.resources, workload.UID)
-		case cache.Added:
-			fallthrough
-		case cache.Sync:
-			fallthrough
-		case cache.Updated:
-			fallthrough
-		case cache.Replaced:
+		case cache.Replaced, cache.Added, cache.Sync, cache.Updated:
 			status.resources[workload.UID] = workload
 		default:
 			return nil

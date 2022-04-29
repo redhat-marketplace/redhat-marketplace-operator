@@ -21,10 +21,6 @@ import (
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
 
-var (
-	descMeterDefinitionLabelsDefaultLabels = []string{}
-)
-
 var meterDefinitionMetricsFamilies = []FamilyGenerator{
 	{
 		FamilyGenerator: kbsm.FamilyGenerator{

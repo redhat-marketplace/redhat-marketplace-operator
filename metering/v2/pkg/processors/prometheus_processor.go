@@ -17,6 +17,7 @@ package processors
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -25,7 +26,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -36,7 +36,7 @@ import (
 type PrometheusProcessor struct {
 	*Processor
 	log            logr.Logger
-	mutex          deadlock.Mutex
+	mutex          sync.Mutex
 	scheme         *runtime.Scheme
 	prometheusData *metrics.PrometheusData
 }
@@ -93,13 +93,7 @@ func (u *PrometheusProcessor) Process(ctx context.Context, inObj cache.Delta) er
 			u.log.Error(err, "error deleting obj to prometheus")
 			return errors.WithStack(err)
 		}
-	case cache.Replaced:
-		fallthrough
-	case cache.Sync:
-		fallthrough
-	case cache.Updated:
-		fallthrough
-	case cache.Added:
+	case cache.Replaced, cache.Sync, cache.Updated, cache.Added:
 		u.log.V(2).Info("object added", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
 		if err := u.prometheusData.Add(obj.Object, obj.MeterDefinitions); err != nil {
 			u.log.Error(err, "error adding obj to prometheus")
@@ -117,7 +111,7 @@ func (u *PrometheusProcessor) Process(ctx context.Context, inObj cache.Delta) er
 type PrometheusMdefProcessor struct {
 	*Processor
 	log            logr.Logger
-	mutex          deadlock.Mutex
+	mutex          sync.Mutex
 	scheme         *runtime.Scheme
 	prometheusData *metrics.PrometheusData
 }
@@ -171,11 +165,7 @@ func (u *PrometheusMdefProcessor) Process(ctx context.Context, inObj cache.Delta
 			u.log.Error(err, "error deleting mdef from prometheus")
 			return errors.WithStack(err)
 		}
-	case cache.Replaced:
-		fallthrough
-	case cache.Sync:
-		fallthrough
-	case cache.Updated:
+	case cache.Updated, cache.Replaced, cache.Sync:
 		// Flush the prometheus data when a MeterDefinition is updated
 		if err := u.prometheusData.Remove(meterdef.MeterDefinition); err != nil {
 			u.log.Error(err, "error deleting mdef from prometheus")

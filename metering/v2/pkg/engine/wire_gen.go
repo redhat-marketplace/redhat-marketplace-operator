@@ -82,7 +82,7 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	}
 	meterDefinitionDictionaryStoreRunnable := ProvideMeterDefinitionDictionaryStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionDictionary, log)
 	mailboxMailbox := mailbox.ProvideMailbox(log)
-	statusProcessor := processors.ProvideStatusProcessor(log, clientClient, mailboxMailbox, scheme, statusFlushDuration, cacheIsStarted)
+	statusProcessor := processors.ProvideStatusProcessor(log, clientClient, mailboxMailbox, statusFlushDuration, cacheIsStarted)
 	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(log, clientClient, mailboxMailbox, cacheIsStarted)
 	prometheusProcessor := processors.ProvidePrometheusProcessor(log, mailboxMailbox, scheme, prometheusData)
 	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(log, mailboxMailbox, scheme, prometheusData, cacheIsStarted)

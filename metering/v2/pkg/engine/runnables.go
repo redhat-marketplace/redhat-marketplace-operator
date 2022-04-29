@@ -47,7 +47,7 @@ type Recoverable interface {
 func ProvideRunnables(
 	meterDefinitionStore *MeterDefinitionStoreRunnable,
 	meterDefinitionDictionary *MeterDefinitionDictionaryStoreRunnable,
-	mailbox *mailbox.Mailbox,
+	mb *mailbox.Mailbox,
 	statusProcessor *processors.StatusProcessor,
 	serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
 	prometheusProcessor *processors.PrometheusProcessor,
@@ -59,7 +59,7 @@ func ProvideRunnables(
 ) Runnables {
 	// this is the start up order
 	return Runnables{
-		mailbox,
+		mb,
 		objectChannelProducer,
 		mdefChannelProducer,
 		statusProcessor,

@@ -40,10 +40,6 @@ const (
 	MeterDefinitionChannel ChannelName = "MeterDefinitionChannel"
 )
 
-var (
-	channels = []ChannelName{ObjectChannel, MeterDefinitionChannel}
-)
-
 func ProvideMailbox(log logr.Logger) *Mailbox {
 	return &Mailbox{
 		log:       log.WithName("mailbox").V(4),
