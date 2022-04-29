@@ -5,7 +5,6 @@ go 1.16
 require (
 	emperror.dev/errors v0.8.0
 	github.com/InVisionApp/go-health/v2 v2.1.2
-	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/wire v0.4.0
 	github.com/mitchellh/go-homedir v1.1.0
