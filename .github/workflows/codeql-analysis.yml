@@ -30,6 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         language: [ 'go' ]
+        folder: ['v2', 'metering/v2', 'authchecker/v2', 'reporter/v2', 'airgap/v2']
         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python' ]
         # Learn more:
         # https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#changing-the-languages-that-are-analyzed
@@ -38,11 +39,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: CD to project dir
+      run: cd ${{ matrix.folder }}
+
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1
       with:
-        config-file: ./.github/codeql/codeql-config.yml
         languages: ${{ matrix.language }}
         # If you wish to specify custom queries, you can do so here or in a config file.
         # By default, queries listed here will override any specified in a config file.
@@ -51,8 +54,8 @@ jobs:
 
     # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
     # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
+    # - name: Autobuild
+    #   uses: github/codeql-action/autobuild@v1
 
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 https://git.io/JvXDl
@@ -64,6 +67,5 @@ jobs:
     #- run: |
     #   make bootstrap
     #   make release
-
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2
