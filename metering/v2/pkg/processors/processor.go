@@ -57,7 +57,6 @@ func (u *Processor) Start(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	wg.Add(u.digestersSize)
-
 	for i := 0; i < u.digestersSize; i++ {
 		go func() {
 			for data := range u.resourceChan {
@@ -65,16 +64,18 @@ func (u *Processor) Start(ctx context.Context) error {
 				err := u.Process(ctx, localData)
 				if err != nil {
 					u.log.Error(err, "error processing message")
-					u.resourceChan <- data
 				}
 			}
 			wg.Done()
 		}()
 	}
 
-	<-ctx.Done()
-	u.log.Info("processor is shutting down", "processor", fmt.Sprintf("%T", u.DeltaProcessor))
-	close(u.resourceChan)
-	wg.Wait()
+	go func() {
+		<-ctx.Done()
+		u.log.Info("processor is shutting down", "processor", fmt.Sprintf("%T", u.DeltaProcessor))
+		close(u.resourceChan)
+		wg.Wait()
+	}()
+
 	return nil
 }

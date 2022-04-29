@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/InVisionApp/go-health/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
@@ -35,7 +34,6 @@ import (
 type Engine struct {
 	log        logr.Logger
 	runnables  Runnables
-	health     *health.Health
 	cancelFunc context.CancelFunc
 }
 
@@ -43,11 +41,9 @@ func ProvideEngine(
 	log logr.Logger,
 	runnables Runnables,
 ) *Engine {
-	h := health.New()
 	return &Engine{
 		log:       log,
 		runnables: runnables,
-		health:    h,
 	}
 }
 
@@ -67,7 +63,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 	}
 
-	return e.health.Start()
+	return nil
 }
 
 func (e *Engine) Stop() {

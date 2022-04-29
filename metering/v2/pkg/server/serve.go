@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -52,6 +53,7 @@ import (
 const (
 	metricsPath = "/metrics"
 	healthzPath = "/healthz"
+	readyzPath  = "/readyz"
 )
 
 var log = logf.Log.WithName("meteric_generator")
@@ -61,18 +63,45 @@ type Service struct {
 	metricsRegistry *prometheus.Registry
 	engine          *engine.Engine
 	prometheusData  *metrics.PrometheusData
+
+	*isReady
+}
+
+type isReady struct {
+	ready bool
+	m     sync.Mutex
+}
+
+func (i *isReady) MarkReady() {
+	i.m.Lock()
+	defer i.m.Unlock()
+
+	i.ready = true
+}
+
+func (i *isReady) IsReady() bool {
+	i.m.Lock()
+	defer i.m.Unlock()
+
+	return i.ready
 }
 
 func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := s.engine.Start(ctx)
+	s.isReady = &isReady{}
 
-	if err != nil {
-		log.Error(err, "failed to start engine")
-		panic(err)
-	}
+	go func() {
+		err := s.engine.Start(ctx)
+
+		if err != nil {
+			log.Error(err, "failed to start engine")
+			return
+		}
+
+		s.isReady.MarkReady()
+	}()
 
 	s.serveMetrics(s.opts.Host, s.opts.Port, s.opts.EnableGZIPEncoding)
 	return nil
@@ -125,6 +154,17 @@ func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(http.StatusText(http.StatusOK)))
 	})
+
+	mux.HandleFunc(readyzPath, func(w http.ResponseWriter, r *http.Request) {
+		if s.isReady.IsReady() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(http.StatusText(http.StatusOK)))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
+		}
+	})
+
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
@@ -134,6 +174,7 @@ func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
 			 <ul>
              <li><a href='` + metricsPath + `'>metrics</a></li>
              <li><a href='` + healthzPath + `'>healthz</a></li>
+             <li><a href='` + readyzPath + `'>healthz</a></li>
 			 </ul>
              </body>
              </html>`))

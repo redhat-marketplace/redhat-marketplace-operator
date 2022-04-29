@@ -27,6 +27,7 @@ import (
 type Runnables []Runnable
 
 type Runnable interface {
+	// Start starts the runnable and does not block.
 	Start(context.Context) error
 }
 

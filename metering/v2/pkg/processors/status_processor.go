@@ -29,6 +29,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,8 +89,16 @@ func ProvideStatusProcessor(
 }
 
 func (u *StatusProcessor) Start(ctx context.Context) error {
+	if err := u.Processor.Start(ctx); err != nil {
+		return err
+	}
+
 	tick := time.NewTicker(u.flushTime)
 	go func() {
+		defer tick.Stop()
+
+		time.Sleep(wait.Jitter(30*time.Second, 0.01))
+
 		for {
 			u.flush(ctx)
 			select {
@@ -100,7 +109,7 @@ func (u *StatusProcessor) Start(ctx context.Context) error {
 		}
 	}()
 
-	return u.Processor.Start(ctx)
+	return nil
 }
 
 func (u *StatusProcessor) flush(ctx context.Context) {
