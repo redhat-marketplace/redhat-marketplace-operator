@@ -64,7 +64,7 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 ARCH ?= amd64
 
 build:
-	docker buildx build --load -t airgap:test .
+	$(MAKE) docker-build
 
 demo: build
 	docker-compose up
