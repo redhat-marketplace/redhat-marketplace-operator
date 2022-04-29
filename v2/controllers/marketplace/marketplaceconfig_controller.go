@@ -75,7 +75,8 @@ type MarketplaceConfigReconciler struct {
 	cfg    *config.OperatorConfig
 }
 
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=namespaces,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",namespace=system,resources=secret,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create

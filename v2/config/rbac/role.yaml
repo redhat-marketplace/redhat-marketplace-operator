@@ -57,8 +57,6 @@ rules:
   verbs:
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - ""
@@ -252,6 +250,16 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims
   verbs:
   - get
@@ -288,6 +296,18 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - clustersubscription
+  - rhm-operator-secret
+  - watch-keeper-secret
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - ""
   resourceNames:
@@ -459,7 +479,6 @@ rules:
   - extensions
   resources:
   - cronjobs
-  - jobs
   verbs:
   - create
   - get
@@ -472,7 +491,6 @@ rules:
   - rhm-meter-report-upload
   resources:
   - cronjobs
-  - jobs
   verbs:
   - delete
   - patch
@@ -483,6 +501,7 @@ rules:
   resources:
   - jobs
   verbs:
+  - delete
   - get
   - list
   - watch

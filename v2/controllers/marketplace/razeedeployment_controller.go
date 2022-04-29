@@ -239,7 +239,8 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=update;patch;delete,resourceNames=watch-keeper-non-namespaced;watch-keeper-limit-poll;razee-cluster-metadata;watch-keeper-config
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch

@@ -106,7 +106,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	// only cache Secrets in Namespace to reduce RBAC permission requirements
+	// only cache these Object types a Namespace scope to reduce RBAC permission requirements
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
 			&corev1.Pod{}: {
