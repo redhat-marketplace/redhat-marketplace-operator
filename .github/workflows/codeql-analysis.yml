@@ -38,8 +38,9 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+
     - name: Install deps
-      run: sudo add-apt-repository -y ppa:dqlite/stable && sudo apt install dqlite
+      run: sudo add-apt-repository ppa:dqlite/dev && sudo apt-get install libdqlite-dev
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
