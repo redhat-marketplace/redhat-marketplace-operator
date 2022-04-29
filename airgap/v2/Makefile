@@ -64,7 +64,7 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 ARCH ?= amd64
 
 build:
-	$(MAKE) docker-build
+	go build -o $(BINDIR)/redhat-marketplace-data-service ./cmd/server/main.go
 
 demo: build
 	docker-compose up
