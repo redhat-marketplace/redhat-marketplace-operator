@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.6-v4.9
+OPENSHIFT_VERSIONS ?= v4.6-v4.10
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -276,8 +276,8 @@ compile-helm: helm
 	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
-install: yq kustomize compile-helm
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+install: kustomize compile-helm yq
+	cd config && YQ=$(YQ) $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -288,7 +288,7 @@ install: yq kustomize compile-helm
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	@cd config && PATH="$(PWD)/../bin:${PATH}"  $(HELM) template rhm-operator ./helm-wrapper \
+	@cd config && YQ=$(YQ) $(HELM) template rhm-operator ./helm-wrapper
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \

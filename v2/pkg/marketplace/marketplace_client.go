@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -75,6 +75,16 @@ type RegisteredAccount struct {
 type MarketplaceClientBuilder struct {
 	Url      string
 	Insecure bool
+}
+
+type EntitlementKey struct {
+	Auths map[string]Auth `json:"auths"`
+}
+
+type Auth struct {
+	UserName string `json:"username"`
+	Password string `json:"password"`
+	Auth     string `json:"auth"`
 }
 
 func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder {
@@ -350,6 +360,7 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 
 type MarketplaceClaims struct {
 	AccountID string `json:"rhmAccountId"`
+	Password  string `json:"password,omitempty"`
 	APIKey    string `json:"iam_apikey,omitempty"`
 	Env       string `json:"env,omitempty"`
 	jwt.StandardClaims

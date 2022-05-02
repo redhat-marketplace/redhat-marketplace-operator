@@ -83,13 +83,9 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - nodes
+  - nodes/metrics
   verbs:
   - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -227,16 +223,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - config.openshift.io
-  resources:
-  - clusterversions
-  - consoles
-  - infrastructures
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - deploy.razee.io
   resources:
@@ -443,6 +429,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - nonroot
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+- apiGroups:
   - storage.k8s.io
   resources:
   - storageclasses
@@ -497,6 +491,7 @@ rules:
 - apiGroups:
   - ""
   resourceNames:
+  - ibm-entitlement-key
   - redhat-marketplace-pull-secret
   resources:
   - secret

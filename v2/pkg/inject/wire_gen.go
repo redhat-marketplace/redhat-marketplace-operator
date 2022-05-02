@@ -10,6 +10,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
@@ -75,7 +76,14 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	catalogClientInjector := &CatalogClientInjector{
 		CatalogClient: catalogClient,
 	}
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, catalogClientInjector)
+	prometheusAPIBuilder := &prometheus.PrometheusAPIBuilder{
+		CC:  clientCommandRunner,
+		Cfg: operatorConfig,
+	}
+	prometheusAPIBuilderInjector := &PrometheusAPIBuilderInjector{
+		PrometheusAPIBuilder: prometheusAPIBuilder,
+	}
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, catalogClientInjector, prometheusAPIBuilderInjector)
 	injectInjectorDependencies := injectorDependencies{
 		Runnables:   runnablesRunnables,
 		Injectables: injectables,

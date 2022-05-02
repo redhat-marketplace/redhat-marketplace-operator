@@ -32,6 +32,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -55,7 +56,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
@@ -99,15 +99,15 @@ var _ reconcile.Reconciler = &MeterBaseReconciler{}
 type MeterBaseReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client        client.Client
-	Scheme        *runtime.Scheme
-	Log           logr.Logger
-	CC            ClientCommandRunner
-	cfg           *config.OperatorConfig
-	factory       *manifests.Factory
-	patcher       patch.Patcher
-	kubeInterface kubernetes.Interface
-	recorder      record.EventRecorder
+	Client               client.Client
+	Scheme               *runtime.Scheme
+	Log                  logr.Logger
+	CC                   ClientCommandRunner
+	cfg                  *config.OperatorConfig
+	factory              *manifests.Factory
+	patcher              patch.Patcher
+	recorder             record.EventRecorder
+	prometheusAPIBuilder *prom.PrometheusAPIBuilder
 }
 
 func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -136,8 +136,8 @@ func (r *MeterBaseReconciler) InjectFactory(f *manifests.Factory) error {
 	return nil
 }
 
-func (r *MeterBaseReconciler) InjectKubeInterface(k kubernetes.Interface) error {
-	r.kubeInterface = k
+func (r *MeterBaseReconciler) InjectPrometheusAPIBuilder(b *prometheus.PrometheusAPIBuilder) error {
+	r.prometheusAPIBuilder = b
 	return nil
 }
 
@@ -275,9 +275,14 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
+
+// RHM Prometheus
+// +kubebuilder:rbac:groups="",resources=nodes/metrics,verbs=get
 // +kubebuilder:rbac:urls=/metrics,verbs=get
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
+// included-above groups="",resources=namespaces,verbs=get
+// +kubebuilder:rbac:groups="security.openshift.io",resourceNames=nonroot,resources=securitycontextconstraints,verbs=use
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -549,13 +554,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 
 				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-				if prometheusStatefulset.Status.Replicas != prometheusStatefulset.Status.ReadyReplicas {
-					reqLogger.Info("prometheus statefulset has not finished roll out",
-						"replicas", prometheusStatefulset.Status.Replicas,
-						"ready", prometheusStatefulset.Status.ReadyReplicas)
-					action = RequeueAfterResponse(5 * time.Second)
-				}
-
 				if !reflect.DeepEqual(updatedInstance.Status, instance.Status) {
 					reqLogger.Info("prometheus statefulset status is up to date")
 					return HandleResult(UpdateAction(updatedInstance, UpdateStatusOnly(true)), OnContinue(action)), nil
@@ -570,7 +568,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		),
 	); result.Is(Error) || result.Is(Requeue) {
 		if err != nil {
-			return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
+			return result.ReturnWithError(errors.Wrap(err, "error updating status"))
 		}
 
 		return result.Return()
@@ -1989,7 +1987,7 @@ func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, use
 	/* Must use Prometheus and not Thanos Querier for userWorkloadMonitoring case
 	   Thanos Querier does not provide Prometheus Targets()
 	   Thus we only get the user workload targets */
-	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 	if err != nil {
 		return []common.Target{}, err
 	}

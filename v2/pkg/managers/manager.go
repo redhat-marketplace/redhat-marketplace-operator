@@ -24,6 +24,7 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -89,6 +90,16 @@ var (
 		ProvideSimpleClient,
 		NewDynamicRESTMapper,
 		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+
+	ProvideMetadataClientSet = wire.NewSet(
+		kubernetes.NewForConfig,
+		ProvideCachedClient,
+		ProvideNewCache,
+		StartCache,
+		NewDynamicRESTMapper,
+		metadata.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 )

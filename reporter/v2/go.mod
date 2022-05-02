@@ -37,6 +37,8 @@ require (
 )
 
 replace (
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2

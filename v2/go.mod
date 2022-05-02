@@ -9,11 +9,11 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/cespare/xxhash v1.1.0
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/foxcpp/go-mockdns v0.0.0-20210729171921-fb145fc6f897
 	github.com/go-logr/logr v0.4.0
-	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
+	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/golang/mock v1.4.4
+	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/google/wire v0.4.0
 	github.com/goph/emperror v0.17.2
@@ -49,7 +49,8 @@ require (
 )
 
 replace (
-	github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	k8s.io/api => k8s.io/api v0.22.2
 	k8s.io/client-go => k8s.io/client-go v0.22.2

@@ -10,3 +10,5 @@ require (
 	github.com/thediveo/enumflag v0.10.1
 	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
 )
+
+replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
