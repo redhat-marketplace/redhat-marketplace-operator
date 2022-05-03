@@ -41,7 +41,6 @@ var (
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	encoderConfig := func(ec *zapcore.EncoderConfig) {
 		ec.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
