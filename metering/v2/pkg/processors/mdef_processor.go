@@ -22,7 +22,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MeterDefinitionRemovalWatcher struct {
@@ -33,6 +38,7 @@ type MeterDefinitionRemovalWatcher struct {
 
 	messageChan chan cache.Delta
 	log         logr.Logger
+	kubeClient  client.Client
 }
 
 func ProvideMeterDefinitionRemovalWatcher(
@@ -40,6 +46,7 @@ func ProvideMeterDefinitionRemovalWatcher(
 	meterDefinitionStore *meterdefinition.MeterDefinitionStore,
 	mb *mailbox.Mailbox,
 	log logr.Logger,
+	kubeClient client.Client,
 ) *MeterDefinitionRemovalWatcher {
 	sp := &MeterDefinitionRemovalWatcher{
 		Processor: &Processor{
@@ -53,6 +60,7 @@ func ProvideMeterDefinitionRemovalWatcher(
 		meterDefinitionStore: meterDefinitionStore,
 		messageChan:          make(chan cache.Delta),
 		log:                  log.WithName("meterDefinitionRemovalWatcher"),
+		kubeClient:           kubeClient,
 	}
 	sp.Processor.DeltaProcessor = sp
 	return sp
@@ -65,6 +73,14 @@ func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Del
 
 	if d.Type == cache.Added {
 		return w.onAdd(ctx, d)
+	}
+
+	if d.Type == cache.Updated {
+		return w.onUpdate(ctx, d)
+	}
+
+	if d.Type == cache.Sync {
+		return w.onSync(ctx, d)
 	}
 
 	return nil
@@ -113,6 +129,69 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.De
 			w.log.Error(err, "error deleting data")
 			return errors.WithStack(err)
 		}
+	}
+
+	return nil
+}
+
+func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+
+	if !ok {
+		return errors.New("encountered unexpected type")
+	}
+
+	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
+
+	key, err := cache.MetaNamespaceKeyFunc(&meterdef.MeterDefinition)
+
+	if err != nil {
+		w.log.Error(err, "error creating key")
+		return errors.WithStack(err)
+	}
+
+	objects, err := w.meterDefinitionStore.ByIndex(meterdefinition.IndexMeterDefinition, key)
+
+	if err != nil {
+		w.log.Error(err, "error finding data")
+		return errors.WithStack(err)
+	}
+
+	for i := range objects {
+		obj := objects[i]
+		err := w.meterDefinitionStore.DeleteFromIndex(obj)
+
+		if err != nil {
+			w.log.Error(err, "error deleting data")
+			return errors.WithStack(err)
+		}
+	}
+
+	return w.meterDefinitionStore.Resync()
+}
+
+// Clear Status.WorkloadResources on initial sync such that Status is correct when metric-state starts
+func (w *MeterDefinitionRemovalWatcher) onSync(ctx context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+
+	if !ok {
+		return errors.New("encountered unexpected type")
+	}
+
+	resources := []common.WorkloadResource{}
+	mdef := &marketplacev1beta1.MeterDefinition{}
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := w.kubeClient.Get(ctx, types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace}, mdef); err != nil {
+			return err
+		}
+
+		mdef.Status.WorkloadResources = resources
+
+		return w.kubeClient.Status().Update(ctx, mdef)
+	})
+	if err != nil {
+		w.log.Error(err, "meterdefinition status update failed")
 	}
 
 	return nil

@@ -11,7 +11,7 @@ export VERSION
 export TAG
 
 BINDIR ?= ./bin
-GO_VERSION ?= 1.16.8
+GO_VERSION ?= 1.17
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -124,7 +124,7 @@ pc-tool:
 	}
 
 SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
-SKAFFOLD_VERSION=v1.35.0
+SKAFFOLD_VERSION=v1.38.0
 skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 
@@ -135,6 +135,14 @@ WILDCARDS=--wildcards
 endif
 buf:
 	$(call install-targz,https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/buf-$(shell uname -s)-$(shell uname -m).tar.gz,$(BUF),$(BUF_VERSION),$(PROJECT_DIR)/bin,--strip-components 2 $(WILDCARDS) "*/bin/*")
+
+ENVTEST=$(PROJECT_DIR)/bin/setup-envtest
+envtest:
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+.PHONY: source-envtest
+source-envtest:
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.19.x)'"
 
 # --COMMON--
 

@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,14 +42,14 @@ func NewEngine(
 	prometheusData *metrics.PrometheusData,
 ) (*Engine, error) {
 	panic(wire.Build(
-		managers.ProvideCachedClientSet,
+		managers.ProvideMetadataClientSet,
 		dictionary.ProvideMeterDefinitionList,
 		RunnablesSet,
 		EngineSet,
 		marketplacev1beta1client.NewForConfig,
 		monitoringv1client.NewForConfig,
 		rhmclient.NewFindOwnerHelper,
-		client.NewDynamicClient,
+		rhmclient.NewMetadataClient,
 		managers.AddIndices,
 	))
 }

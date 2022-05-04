@@ -148,8 +148,12 @@ kubeconfig
 .wicked-report/
 wicked_cli.log
 vendor/
-_licenses/
+_licenses/*
+!_licenses/.gitkeep
+!**/_licenses/.gitkeep
 
 **/*/bin/
 bin/
 *.gorm.db
+default.etcd
+database/

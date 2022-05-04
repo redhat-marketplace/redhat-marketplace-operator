@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -52,7 +53,7 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
-	By("bootstrapping test environment")
+	By("bootstrapping test environment " + os.Getenv("KUBEBUILDER_ASSETS"))
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 	}

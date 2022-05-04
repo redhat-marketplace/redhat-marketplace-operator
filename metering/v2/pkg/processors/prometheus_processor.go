@@ -173,7 +173,7 @@ func (u *PrometheusMdefProcessor) Process(ctx context.Context, inObj cache.Delta
 	switch inObj.Type {
 	case cache.Deleted:
 		if err := u.prometheusData.Remove(&meterdef.MeterDefinition); err != nil {
-			u.log.Error(err, "error deleteing obj to prometheus")
+			u.log.Error(err, "error deleting obj from prometheus")
 			return errors.WithStack(err)
 		}
 	case cache.Replaced:
@@ -181,6 +181,11 @@ func (u *PrometheusMdefProcessor) Process(ctx context.Context, inObj cache.Delta
 	case cache.Sync:
 		fallthrough
 	case cache.Updated:
+		// Flush the prometheus data when a MeterDefinition is updated
+		if err := u.prometheusData.Remove(&meterdef.MeterDefinition); err != nil {
+			u.log.Error(err, "error deleting obj from prometheus")
+			return errors.WithStack(err)
+		}
 		fallthrough
 	case cache.Added:
 		if err := u.prometheusData.Add(&meterdef.MeterDefinition, nil); err != nil {

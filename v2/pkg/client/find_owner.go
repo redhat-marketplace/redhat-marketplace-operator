@@ -15,24 +15,47 @@
 package client
 
 import (
-	"context"
 	"strings"
+	"time"
 
 	"emperror.dev/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/tools/cache"
 )
 
+// FindOwnerHelper is used by metric-state
+// dynamically start an informer using the metadataclient to watch resource types determined by the MeterDefinition ownerCRD lookup
+// without using an informer & cache, metric-states use of FindOwnerHelper puts undue load on the api-server and gets rate-limited
+// resulting in poor lookup time from repeated get requests
+
 type FindOwnerHelper struct {
-	client *DynamicClient
+	client                   *MetadataClient
+	informerFactory          metadatainformer.SharedInformerFactory
+	resourceInformerMappings map[meta.RESTMapping]informers.GenericInformer
+}
+
+type InformerMappings struct {
 }
 
 func NewFindOwnerHelper(
-	dynamicClient *DynamicClient,
+	metadataClient *MetadataClient,
 ) *FindOwnerHelper {
+
+	resourceInformerMappings := make(map[meta.RESTMapping]informers.GenericInformer)
+
+	informerFactory := metadatainformer.NewFilteredSharedInformerFactory(metadataClient.inClient, time.Minute, corev1.NamespaceAll, nil)
+	informerFactory.Start(wait.NeverStop)
+
 	return &FindOwnerHelper{
-		client: dynamicClient,
+		client:                   metadataClient,
+		informerFactory:          informerFactory,
+		resourceInformerMappings: resourceInformerMappings,
 	}
 }
 
@@ -47,20 +70,31 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		version = apiVersionSplit[1]
 	}
 
-	resourceClient, err := f.client.ClientForKind(schema.GroupKind{
-		Group: group,
-		Kind:  lookupOwner.Kind,
-	}, version)
+	mapping, err := f.client.restMapper.RESTMapping(schema.GroupKind{Group: group, Kind: lookupOwner.Kind}, version)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get mapping")
 	}
 
-	result, err := resourceClient.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	// check if we have an informer for the rest mapping, if not, start one and map it
+	informer, ok := f.resourceInformerMappings[*mapping]
+
+	if !ok {
+		informer = f.informerFactory.ForResource(mapping.Resource)
+
+		go informer.Informer().Run(wait.NeverStop)
+
+		f.informerFactory.WaitForCacheSync(wait.NeverStop)
+		cache.WaitForCacheSync(wait.NeverStop, informer.Informer().HasSynced)
+
+		f.resourceInformerMappings[*mapping] = informer
+	}
+
+	result, err := informer.Lister().ByNamespace(namespace).Get(name)
 
 	if err != nil {
 		// Check if resource is cluster scoped
-		result, err = resourceClient.Get(context.TODO(), name, metav1.GetOptions{})
+		result, err = informer.Lister().Get(name)
 
 		if err != nil {
 			return nil, errors.WrapWithDetails(err,

@@ -289,8 +289,11 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
 			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-			newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 			newMarketplaceConfig.Annotations = annotations
+
+			if si.Name == utils.RHMPullSecretName {
+				newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
+			}
 
 			// Create Marketplace Config object with ClusterID
 			reqLogger.Info("Marketplace Config creating")
@@ -309,12 +312,29 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 	owners := newMarketplaceConfig.GetOwnerReferences()
 
+	accountID := ""
+	if si.Name == utils.IBMEntitlementKeySecretName {
+		// set account id using rhm-operator-secret
+		rhmOperatorSecret := v1.Secret{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHM_OPERATOR_SECRET_NAME,
+			Namespace: request.Namespace,
+		}, &rhmOperatorSecret)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		accountID = string(rhmOperatorSecret.Data[utils.BUCKET_NAME_FIELD])
+	}
+	if si.Name == utils.RHMPullSecretName {
+		accountID = tokenClaims.AccountID
+	}
+
 	if newMarketplaceConfig.Spec.ClusterUUID != string(clusterID) ||
-		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
+		newMarketplaceConfig.Spec.RhmAccountID != accountID ||
 		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) ||
 		!reflect.DeepEqual(newMarketplaceConfig.Annotations, annotations) {
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
+		newMarketplaceConfig.Spec.RhmAccountID = accountID
 		newMarketplaceConfig.Annotations = annotations
 
 		err = r.Client.Update(context.TODO(), newMarketplaceConfig)

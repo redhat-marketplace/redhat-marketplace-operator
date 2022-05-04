@@ -22,6 +22,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -51,8 +52,14 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	encoderConfig := func(ec *zapcore.EncoderConfig) {
+		ec.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	zapOpts := func(o *zap.Options) {
+		o.EncoderConfigOptions = append(o.EncoderConfigOptions, encoderConfig)
+	}
 
-	logf.SetLogger(zap.New(zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 	rootCmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8089", "The address the probe endpoint binds to.")
 	rootCmd.Flags().StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace to list")
 	rootCmd.Flags().StringVar(&podname, "podname", os.Getenv("POD_NAME"), "podname")
