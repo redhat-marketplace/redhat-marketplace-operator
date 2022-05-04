@@ -242,7 +242,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 }
 
 // TODO: handle updates
-func (r *MeterDefinitionInstallReconciler) createOrUpdateMeterDefs(catalogMeterDefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+func (r *MeterDefinitionInstallReconciler) createOrUpdateMeterDefs(catalogMeterDefs []marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
 	csvName := csv.Name
 	csvVersion := csv.Spec.Version.Version.String()
 

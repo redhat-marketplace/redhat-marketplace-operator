@@ -31,6 +31,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -72,6 +73,8 @@ type MeterDefinitionReconciler struct {
 	cc            ClientCommandRunner
 	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
+
+	prometheusAPIBuilder *prom.PrometheusAPIBuilder
 }
 
 func (r *MeterDefinitionReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -91,6 +94,11 @@ func (r *MeterDefinitionReconciler) InjectPatch(p patch.Patcher) error {
 
 func (m *MeterDefinitionReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (m *MeterDefinitionReconciler) InjectPrometheusAPIBuilder(b *prometheus.PrometheusAPIBuilder) error {
+	m.prometheusAPIBuilder = b
 	return nil
 }
 
@@ -114,10 +122,10 @@ func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) 
 	return nil
 }
 
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;update;patch
-
 // Prometheus Client
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;list;update;patch
 // +kubebuilder:rbac:groups="",namespace=system,resources=serviceaccounts/token,verbs=get;list;create;update
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
@@ -294,14 +302,9 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 
 func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
-	var prometheusAPI *prom.PrometheusAPI
-	var err error
 
-	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
-		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
-	} else { // Use Prometheus Service queries for RHM Prometheus queries
-		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
-	}
+	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
+
 	if err != nil {
 		return queryPreviewResult, err
 	}
@@ -431,14 +434,9 @@ func labelsToRegex(labels []string) string {
 // Is Prometheus reporting on the MeterDefinition
 // Check MeterDefinition presence in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
-	var prometheusAPI *prom.PrometheusAPI
-	var err error
+	reqLogger.Info("apibuilder", "api", r.prometheusAPIBuilder)
+	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 
-	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
-		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
-	} else { // Use Prometheus Service queries for RHM Prometheus queries
-		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
-	}
 	if err != nil {
 		return false, err
 	}

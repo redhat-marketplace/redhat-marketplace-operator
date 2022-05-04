@@ -19,8 +19,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 )
 
@@ -31,7 +31,7 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	dynamicInterface, err := dynamic.NewForConfig(k8sRestConfig)
+	metadataInterface, err := metadata.NewForConfig(k8sRestConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -39,8 +39,8 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	dynamicClient := client.NewDynamicClient(dynamicInterface, restMapper)
-	findOwnerHelper := client.NewFindOwnerHelper(dynamicClient)
+	metadataClient := client.NewMetadataClient(metadataInterface, restMapper)
+	findOwnerHelper := client.NewFindOwnerHelper(metadataClient)
 	monitoringV1Client, err := v1.NewForConfig(k8sRestConfig)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(log, clientClient, mailboxMailbox)
 	prometheusProcessor := processors.ProvidePrometheusProcessor(log, clientClient, mailboxMailbox, scheme, prometheusData)
 	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(log, clientClient, mailboxMailbox, scheme, prometheusData)
-	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log)
+	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log, clientClient)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, log)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, log)
 	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary)

@@ -28,6 +28,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"go.uber.org/zap/zapcore"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -104,7 +105,14 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	encoderConfig := func(ec *zapcore.EncoderConfig) {
+		ec.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	zapOpts := func(o *zap.Options) {
+		o.EncoderConfigOptions = append(o.EncoderConfigOptions, encoderConfig)
+	}
+
+	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 
 	// only cache these Object types a Namespace scope to reduce RBAC permission requirements
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
