@@ -931,7 +931,7 @@ func (r *DeploymentConfigReconciler) updateMeterdef(onClusterMeterDef *marketpla
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
 
 	gvk, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {

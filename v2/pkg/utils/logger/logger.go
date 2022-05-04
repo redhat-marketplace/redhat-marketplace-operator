@@ -16,6 +16,7 @@ package logger
 
 import (
 	"github.com/go-logr/logr"
+	"go.uber.org/zap/zapcore"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -56,5 +57,12 @@ func (l *Logger) Trace(msg string, keysAndValues ...interface{}) {
 }
 
 func SetLoggerToDevelopmentZap() {
-	logf.SetLogger(zap.New(zap.UseDevMode(true)))
+	encoderConfig := func(ec *zapcore.EncoderConfig) {
+		ec.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	zapOpts := func(o *zap.Options) {
+		o.EncoderConfigOptions = append(o.EncoderConfigOptions, encoderConfig)
+	}
+
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 }

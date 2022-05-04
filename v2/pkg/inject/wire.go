@@ -14,6 +14,7 @@
 
 // The build tag makes sure the stub is not built in the final build.
 
+//go:build wireinject
 // +build wireinject
 
 package inject

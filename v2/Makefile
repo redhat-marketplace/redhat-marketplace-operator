@@ -118,7 +118,7 @@ fmt:
 
 # Run go vet against code
 vet:
-	go vet ./...
+	go vet -stdmethods=false ./...
 
 # Generate code
 generate: controller-gen manifests
