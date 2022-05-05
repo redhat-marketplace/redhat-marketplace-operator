@@ -253,7 +253,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(mapFn)).Complete(r)
 }
 
-// +kubebuilder:rbac:groups="",resources=configmaps;namespaces;secrets;services,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps;namespaces;services,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=create;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace=system,resources=persistentvolumeclaims,verbs=get;list;watch;update;patch

@@ -54,7 +54,6 @@ rules:
   resources:
   - configmaps
   - namespaces
-  - secrets
   - services
   verbs:
   - get
@@ -65,7 +64,6 @@ rules:
   resources:
   - configmaps
   - pods
-  - secrets
   verbs:
   - get
   - list
@@ -98,14 +96,6 @@ rules:
   - ""
   resources:
   - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secret
   verbs:
   - get
   - list
@@ -487,19 +477,8 @@ rules:
   resources:
   - secret
   verbs:
-  - create
-- apiGroups:
-  - ""
-  resourceNames:
-  - ibm-entitlement-key
-  - redhat-marketplace-pull-secret
-  resources:
-  - secret
-  verbs:
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - ""
@@ -508,6 +487,19 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - ibm-entitlement-key
+  - redhat-marketplace-pull-secret
+  resources:
+  - secrets
+  verbs:
   - get
   - list
   - patch

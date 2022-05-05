@@ -316,9 +316,9 @@ rules:
       - list
       - update
   - apiGroups:
-      - '*'
+      - monitoring.coreos.com
     resources:
-      - '*'
+      - servicemonitors
     verbs:
       - get
       - list
