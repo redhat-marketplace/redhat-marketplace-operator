@@ -24,6 +24,9 @@ import (
 	"syscall"
 
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"go.uber.org/zap/zapcore"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,10 +43,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -58,6 +63,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -108,10 +114,62 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 
-	// only cache Secrets in Namespace to reduce RBAC permission requirements
+	// only cache these Object types a Namespace scope to reduce RBAC permission requirements
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
+			&corev1.Pod{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
 			&corev1.Secret{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&corev1.ServiceAccount{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&corev1.PersistentVolumeClaim{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&appsv1.Deployment{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			// batchv1beta1 forOpenshift 4.6; kubernetes 1.19
+			&batchv1beta1.CronJob{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&batchv1.Job{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.MarketplaceConfig{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.MeterBase{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.MeterReport{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.RazeeDeployment{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.RemoteResourceS3{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&routev1.Route{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&osappsv1.DeploymentConfig{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&osimagev1.ImageStream{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&operatorsv1alpha1.CatalogSource{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": utils.OPERATOR_MKTPLACE_NS}),
+			},
+			&monitoringv1.Prometheus{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&monitoringv1.ServiceMonitor{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
