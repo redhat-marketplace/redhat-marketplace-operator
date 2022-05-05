@@ -118,32 +118,32 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		if err != nil {
 			if errors.Is(err, utils.NoSecretsFound) {
 				reqLogger.Error(err, "Secret not found. Skipping unregister")
-			} else if err != nil {
+			} else {
 				reqLogger.Error(err, "Failed to get secret")
 				return reconcile.Result{}, err
+			}
+		} else {
+			//Attempt to unregister
+			token, err := secretFetcher.ParseAndValidate(si)
+			if err != nil {
+				reqLogger.Error(err, "error validating secret skipping unregister")
 			} else {
-				//Attempt to unregister
-				token, err := secretFetcher.ParseAndValidate(si)
+				//Continue with unregister
+				tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 				if err != nil {
-					reqLogger.Error(err, "error validating secret skipping unregister")
-				} else {
-					//Continue with unregister
-					tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-					if err != nil {
-						reqLogger.Error(err, "error parsing token")
-						return reconcile.Result{}, err
-					}
+					reqLogger.Error(err, "error parsing token")
+					return reconcile.Result{}, err
+				}
 
-					marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(token, tokenClaims)
-					if err != nil {
-						reqLogger.Error(err, "error constructing marketplace client")
-						return reconcile.Result{}, err
-					}
+				marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(token, tokenClaims)
+				if err != nil {
+					reqLogger.Error(err, "error constructing marketplace client")
+					return reconcile.Result{}, err
+				}
 
-					err = r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
+				err = r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
+				if err != nil {
+					return reconcile.Result{}, err
 				}
 			}
 		}
