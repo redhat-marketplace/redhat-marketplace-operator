@@ -24,6 +24,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -51,7 +52,15 @@ var (
 )
 
 func init() {
-	logf.SetLogger(zap.New(zap.UseDevMode(true)))
+	encoderConfig := func(ec *zapcore.EncoderConfig) {
+		ec.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	zapOpts := func(o *zap.Options) {
+		o.EncoderConfigOptions = append(o.EncoderConfigOptions, encoderConfig)
+	}
+
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
+
 	rootCmd.Flags().StringVar(&httpAddr, "http-addr", ":28088", "The address the probe endpoint binds to.")
 	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry time in seconds")
 	rootCmd.Flags().BoolVar(&pprofEnabled, "pprof", os.Getenv("PPROF_DEBUG") == "true", "enable pprof")

@@ -62,8 +62,6 @@ const (
 // blank assignment to verify that ReconcileMeterDefinition implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterDefinitionReconciler{}
 
-var saClient *prom.ServiceAccountClient
-
 // MeterDefinitionReconciler reconciles a MeterDefinition object
 type MeterDefinitionReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
@@ -119,6 +117,13 @@ func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.kubeInterface = k
+	return nil
+}
+
+// Prometheus Client
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;list;update;patch
 // +kubebuilder:rbac:groups="",namespace=system,resources=serviceaccounts/token,verbs=get;list;create;update

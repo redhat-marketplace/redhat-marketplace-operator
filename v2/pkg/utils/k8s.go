@@ -126,7 +126,7 @@ func GetDefaultStorageClass(client client.Client) (string, error) {
 // MakeProbe creates a probe with the specified path and prot
 func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: path,
 				Port: intstr.FromInt(int(port)),

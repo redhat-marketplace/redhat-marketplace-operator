@@ -148,7 +148,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.AuthChecker
 		container.Args = []string{}
 		container.LivenessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
 					Port: intstr.FromInt(28088),
@@ -158,7 +158,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 			PeriodSeconds:       30,
 		}
 		container.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/readyz",
 					Port: intstr.FromInt(28088),

@@ -22,6 +22,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/net/context"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -65,7 +66,14 @@ func run(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	logf.SetLogger(zap.New(zap.UseDevMode(true)))
+	encoderConfig := func(ec *zapcore.EncoderConfig) {
+		ec.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	zapOpts := func(o *zap.Options) {
+		o.EncoderConfigOptions = append(o.EncoderConfigOptions, encoderConfig)
+	}
+
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")

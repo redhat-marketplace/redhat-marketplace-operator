@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -253,36 +252,27 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(mapFn)).Complete(r)
 }
 
-// +kubebuilder:rbac:groups="",resources=configmaps;namespaces;secrets;services,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=create;delete
-// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps;namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=create
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=update;patch;delete,resourceNames=serving-certs-ca-bundle;kubelet-serving-ca-bundle
 // +kubebuilder:rbac:groups="",namespace=system,resources=persistentvolumeclaims,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-prometheus-meterbase;prometheus-operator;rhm-metric-state-service;kube-state-metrics,resources=services,verbs=update;patch;delete
 // +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-metric-state;prometheus-operator
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;create;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports,verbs=get;list
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports,verbs=get;list;create;delete
-// +kubebuilder:rbac:groups="monitoring.coreos.com",resources=prometheuses;servicemonitors,verbs=get;list;watch
-// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
+// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=servicemonitors,verbs=update;patch;delete,resourceNames=rhm-metric-state;kube-state-metrics;rhm-prometheus-meterbase;redhat-marketplace-kubelet;prometheus-user-workload;redhat-marketplace-kube-state-metrics
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
-// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
-
-// RHM Prometheus
-// +kubebuilder:rbac:groups="",resources=nodes/metrics,verbs=get
-// +kubebuilder:rbac:urls=/metrics,verbs=get
-// +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create
-// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
-// included-above groups="",resources=namespaces,verbs=get
-// +kubebuilder:rbac:groups="security.openshift.io",resourceNames=nonroot,resources=securitycontextconstraints,verbs=use
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs,verbs=update;patch;delete,resourceNames=rhm-meter-report-upload
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -670,39 +660,6 @@ func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.Met
 }
 
 const promServiceName = "rhm-prometheus-meterbase"
-
-func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
-	instance *marketplacev1alpha1.MeterBase,
-	subscription *olmv1alpha1.Subscription,
-) []ClientAction {
-	newSub := &olmv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
-		},
-		Spec: &olmv1alpha1.SubscriptionSpec{
-			Channel:                "beta",
-			InstallPlanApproval:    olmv1alpha1.ApprovalAutomatic,
-			Package:                "prometheus",
-			CatalogSource:          "community-operators",
-			CatalogSourceNamespace: "openshift-marketplace",
-		},
-	}
-
-	return []ClientAction{
-		HandleResult(
-			GetAction(types.NamespacedName{
-				Name:      instance.Name,
-				Namespace: instance.Namespace},
-				subscription,
-			), OnNotFound(
-				CreateAction(
-					newSub,
-					CreateWithAddController(instance),
-				),
-			)),
-	}
-}
 
 func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,

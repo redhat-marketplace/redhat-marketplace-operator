@@ -172,8 +172,10 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch;delete
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch;delete
+// +kubebuilder:rbac:groups=apps.openshift.io,namespace=system,resources=deploymentconfigs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=apps.openshift.io,namespace=system,resourceNames=rhm-meterdefinition-file-server,resources=deploymentconfigs,verbs=update;patch;delete
+// +kubebuilder:rbac:groups=image.openshift.io,namespace=system,resources=imagestreams,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=image.openshift.io,namespace=system,resourceNames=rhm-meterdefinition-file-server,resources=imagestreams,verbs=update;patch;delete
 // +kubebuilder:rbac:urls=/get-community-meterdefs,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/community-meterdef-index/*,verbs=get;
@@ -182,6 +184,8 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:urls=/global-system-meterdef-index,verbs=get;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
+// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-meterdefinition-file-server,resources=services,verbs=update;patch;delete
 
 // Reconcile reads that state of the cluster for a DeploymentConfig object and makes changes based on the state read
 func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
@@ -931,7 +935,7 @@ func (r *DeploymentConfigReconciler) updateMeterdef(onClusterMeterDef *marketpla
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) error {
+func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) error {
 
 	gvk, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {

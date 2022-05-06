@@ -118,7 +118,7 @@ fmt:
 
 # Run go vet against code
 vet:
-	go vet ./...
+	go vet -stdmethods=false ./...
 
 # Generate code
 generate: controller-gen manifests
@@ -266,7 +266,7 @@ skaffold-build: skaffold
 INSTALL_DEBUG ?= false
 
 compile-helm: helm
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -288,7 +288,7 @@ install: kustomize compile-helm yq
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	@cd config && YQ=$(YQ) $(HELM) template rhm-operator ./helm-wrapper \
+	@cd config && YQ=$(YQ) $(HELM) template rhm-operator ./helm-wrapper
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -299,13 +299,13 @@ uninstall: helm yq
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
 skaffold-dev: skaffold kustomize yq
-	export YQ=$(YQ) && export HELM=$(HELM) && $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run: skaffold yq
-	$(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 skaffold-delete: skaffold yq
-	$(SKAFFOLD) delete --default-repo $(IMAGE_REGISTRY)
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) delete --default-repo $(IMAGE_REGISTRY)
 
 current-version:
 	@echo $(VERSION)
