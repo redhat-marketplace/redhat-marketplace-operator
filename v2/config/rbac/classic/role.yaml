@@ -425,7 +425,6 @@ rules:
       - list
       - watch
       - update
-      - watch
   - apiGroups:
       - monitoring.coreos.com
     resources:
