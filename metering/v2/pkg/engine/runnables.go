@@ -19,7 +19,7 @@ import (
 
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/google/wire"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 )
@@ -27,7 +27,17 @@ import (
 type Runnables []Runnable
 
 type Runnable interface {
+	// Start starts the runnable and does not block.
 	Start(context.Context) error
+}
+
+type Stoppable interface {
+	Stop()
+}
+
+type RunAndStop interface {
+	Runnable
+	Stoppable
 }
 
 type Recoverable interface {
@@ -38,8 +48,7 @@ type Recoverable interface {
 func ProvideRunnables(
 	meterDefinitionStore *MeterDefinitionStoreRunnable,
 	meterDefinitionDictionary *MeterDefinitionDictionaryStoreRunnable,
-	mdefSeenStore *MeterDefinitionSeenStoreRunnable,
-	mailbox *mailbox.Mailbox,
+	mb *mailbox.Mailbox,
 	statusProcessor *processors.StatusProcessor,
 	serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
 	prometheusProcessor *processors.PrometheusProcessor,
@@ -47,11 +56,11 @@ func ProvideRunnables(
 	removalWatcher *processors.MeterDefinitionRemovalWatcher,
 	objectChannelProducer *mailbox.ObjectChannelProducer,
 	mdefChannelProducer *mailbox.MeterDefinitionChannelProducer,
-	dictionary *dictionary.MeterDefinitionDictionary,
+	nsWatcher *filter.NamespaceWatcher,
 ) Runnables {
 	// this is the start up order
 	return Runnables{
-		mailbox,
+		mb,
 		objectChannelProducer,
 		mdefChannelProducer,
 		statusProcessor,
@@ -60,19 +69,15 @@ func ProvideRunnables(
 		prometheusMdefProcessor,
 		removalWatcher,
 		meterDefinitionDictionary,
-		mdefSeenStore,
 		meterDefinitionStore,
-		dictionary,
 	}
 }
 
 var RunnablesSet = wire.NewSet(
 	mailbox.ProvideMailbox,
 	ProvideRunnables,
-	ProvideObjectsSeenStoreRunnable,
 	ProvideMeterDefinitionStoreRunnable,
 	ProvideMeterDefinitionDictionaryStoreRunnable,
-	ProvideMeterDefinitionSeenStoreRunnable,
 	processors.ProvideMeterDefinitionRemovalWatcher,
 	processors.ProvideServiceAnnotatorProcessor,
 	processors.ProvideStatusProcessor,
@@ -80,4 +85,5 @@ var RunnablesSet = wire.NewSet(
 	processors.ProvidePrometheusMdefProcessor,
 	mailbox.ProvideObjectChannelProducer,
 	mailbox.ProvideMeterDefinitionChannelProducer,
+	filter.ProvideNamespaceWatcher,
 )

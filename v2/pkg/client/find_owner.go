@@ -15,7 +15,9 @@
 package client
 
 import (
+	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"emperror.dev/errors"
@@ -35,27 +37,19 @@ import (
 // resulting in poor lookup time from repeated get requests
 
 type FindOwnerHelper struct {
-	client                   *MetadataClient
-	informerFactory          metadatainformer.SharedInformerFactory
-	resourceInformerMappings map[meta.RESTMapping]informers.GenericInformer
-}
+	client    *MetadataClient
+	informers *InformerMappings
 
-type InformerMappings struct {
+	sync.Mutex
 }
 
 func NewFindOwnerHelper(
+	ctx context.Context,
 	metadataClient *MetadataClient,
 ) *FindOwnerHelper {
-
-	resourceInformerMappings := make(map[meta.RESTMapping]informers.GenericInformer)
-
-	informerFactory := metadatainformer.NewFilteredSharedInformerFactory(metadataClient.inClient, time.Minute, corev1.NamespaceAll, nil)
-	informerFactory.Start(wait.NeverStop)
-
 	return &FindOwnerHelper{
-		client:                   metadataClient,
-		informerFactory:          informerFactory,
-		resourceInformerMappings: resourceInformerMappings,
+		client:    metadataClient,
+		informers: NewInformerMappings(ctx, metadataClient),
 	}
 }
 
@@ -76,20 +70,7 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		return nil, errors.Wrap(err, "failed to get mapping")
 	}
 
-	// check if we have an informer for the rest mapping, if not, start one and map it
-	informer, ok := f.resourceInformerMappings[*mapping]
-
-	if !ok {
-		informer = f.informerFactory.ForResource(mapping.Resource)
-
-		go informer.Informer().Run(wait.NeverStop)
-
-		f.informerFactory.WaitForCacheSync(wait.NeverStop)
-		cache.WaitForCacheSync(wait.NeverStop, informer.Informer().HasSynced)
-
-		f.resourceInformerMappings[*mapping] = informer
-	}
-
+	informer := f.informers.GetInformer(*mapping)
 	result, err := informer.Lister().ByNamespace(namespace).Get(name)
 
 	if err != nil {
@@ -113,4 +94,66 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 	}
 
 	return o.GetOwnerReferences(), nil
+}
+
+type InformerMappings struct {
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	resourceInformerMappings map[meta.RESTMapping]informers.GenericInformer
+	informerFactory          metadatainformer.SharedInformerFactory
+
+	sync.Mutex
+}
+
+func NewInformerMappings(
+	ctx context.Context,
+	metadataClient *MetadataClient,
+) *InformerMappings {
+	childCtx, cancel := context.WithCancel(ctx)
+
+	informerFactory := metadatainformer.NewFilteredSharedInformerFactory(
+		metadataClient.inClient,
+		time.Hour,
+		corev1.NamespaceAll,
+		nil)
+	informerFactory.Start(childCtx.Done())
+
+	return &InformerMappings{
+		ctx:                      childCtx,
+		cancel:                   cancel,
+		informerFactory:          informerFactory,
+		resourceInformerMappings: make(map[meta.RESTMapping]informers.GenericInformer),
+	}
+}
+
+func (i *InformerMappings) GetInformer(mapping meta.RESTMapping) informers.GenericInformer {
+	i.Lock()
+	defer i.Unlock()
+
+	informer, ok := i.resourceInformerMappings[mapping]
+	if !ok {
+		informer = i.informerFactory.ForResource(mapping.Resource)
+		go informer.Informer().Run(i.ctx.Done())
+
+		i.informerFactory.WaitForCacheSync(wait.NeverStop)
+		cache.WaitForCacheSync(wait.NeverStop, informer.Informer().HasSynced)
+
+		informer = &cachedListerInformer{informer: informer.Informer(), lister: informer.Lister()}
+		i.resourceInformerMappings[mapping] = informer
+	}
+
+	return informer
+}
+
+type cachedListerInformer struct {
+	informer cache.SharedIndexInformer
+	lister   cache.GenericLister
+}
+
+func (c *cachedListerInformer) Lister() cache.GenericLister {
+	return c.lister
+}
+
+func (c *cachedListerInformer) Informer() cache.SharedIndexInformer {
+	return c.informer
 }

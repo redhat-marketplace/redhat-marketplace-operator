@@ -31,9 +31,13 @@ spec:
       - name: authcheck
         image: redhat-marketplace-authcheck
         resources:
-          requests:
-            cpu: 10m
-            memory: 20Mi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 12Mi
+            limits:
+              cpu: 15m
+              memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
       - name: rhm-meterdefinition-file-server
         image: rhm-meterdefinition-file-server-image

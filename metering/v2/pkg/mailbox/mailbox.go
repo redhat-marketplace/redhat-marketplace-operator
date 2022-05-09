@@ -17,18 +17,18 @@ package mailbox
 import (
 	"context"
 	"fmt"
-	"time"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/sasha-s/go-deadlock"
 	"k8s.io/client-go/tools/cache"
 )
 
 type Mailbox struct {
 	// listeners are used for downstream
-	mutex     deadlock.RWMutex
-	listeners map[ChannelName][]chan cache.Delta
+	mutex         sync.RWMutex
+	listenerMutex sync.Mutex
+	listeners     map[ChannelName][]chan cache.Delta
 
 	log logr.Logger
 }
@@ -40,10 +40,6 @@ const (
 	MeterDefinitionChannel ChannelName = "MeterDefinitionChannel"
 )
 
-var (
-	channels = []ChannelName{ObjectChannel, MeterDefinitionChannel}
-)
-
 func ProvideMailbox(log logr.Logger) *Mailbox {
 	return &Mailbox{
 		log:       log.WithName("mailbox").V(4),
@@ -52,25 +48,12 @@ func ProvideMailbox(log logr.Logger) *Mailbox {
 }
 
 func (s *Mailbox) Start(ctx context.Context) error {
-	go func() {
-		ticker := time.NewTicker(60 * time.Minute)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
-		}
-	}()
-
 	return nil
 }
 
 func (s *Mailbox) RegisterListener(channelName ChannelName, ch chan cache.Delta) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.listenerMutex.Lock()
+	defer s.listenerMutex.Unlock()
 
 	s.log.Info("registering listener", "name", channelName)
 

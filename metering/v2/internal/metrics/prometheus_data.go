@@ -19,11 +19,10 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"sync"
 
 	"emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/sasha-s/go-deadlock"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -37,7 +36,7 @@ func (p *PrometheusData) Get(name string) *PrometheusDataMap {
 	return p.dataMap[name]
 }
 
-func (p *PrometheusData) WriteAll(w io.Writer) {
+func (p *PrometheusData) WriteAll(w io.Writer) error {
 	if len(p.orderedLabels) != len(p.dataMap) {
 		keys := make([]string, len(p.dataMap))
 
@@ -54,11 +53,15 @@ func (p *PrometheusData) WriteAll(w io.Writer) {
 	}
 
 	for k := range p.orderedLabels {
-		p.dataMap[p.orderedLabels[k]].WriteAll(w)
+		if err := p.dataMap[p.orderedLabels[k]].WriteAll(w); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
-func (p *PrometheusData) Add(obj interface{}, meterdefs []v1beta1.MeterDefinition) error {
+func (p *PrometheusData) Add(obj interface{}, meterdefs []*marketplacev1beta1.MeterDefinition) error {
 	foundOne := false
 
 	for k := range p.dataMap {
@@ -95,12 +98,12 @@ func (p *PrometheusData) Remove(obj interface{}) error {
 }
 
 type PrometheusDataMap struct {
-	deadlock.RWMutex
+	sync.RWMutex
 	metrics map[string][][]byte
 
 	expectedType        reflect.Type
 	headers             []string
-	generateMetricsFunc func(interface{}, []marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
+	generateMetricsFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
 }
 
 func (s *PrometheusDataMap) Remove(obj interface{}) error {
@@ -122,7 +125,7 @@ func (s *PrometheusDataMap) IsExpectedType(obj interface{}) bool {
 	return thisType == s.expectedType
 }
 
-func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []v1beta1.MeterDefinition) error {
+func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []*marketplacev1beta1.MeterDefinition) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -166,17 +169,27 @@ func (s *PrometheusDataMap) Get(obj interface{}) ([][]byte, bool, error) {
 
 // WriteAll writes all metrics of the store into the given writer, zipped with the
 // help text of each metric family.
-func (s *PrometheusDataMap) WriteAll(w io.Writer) {
+func (s *PrometheusDataMap) WriteAll(w io.Writer) error {
 	s.RLock()
 	defer s.RUnlock()
 
 	for i, help := range s.headers {
-		w.Write([]byte(help))
-		w.Write([]byte{'\n'})
+		if _, err := w.Write([]byte(help)); err != nil {
+			return err
+		}
+
+		if _, err := w.Write([]byte{'\n'}); err != nil {
+			return err
+		}
+
 		for _, metricFamilies := range s.metrics {
-			w.Write(metricFamilies[i])
+			if _, err := w.Write(metricFamilies[i]); err != nil {
+				return err
+			}
 		}
 	}
+
+	return nil
 }
 
 func ProvidePrometheusData() *PrometheusData {

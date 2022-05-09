@@ -349,7 +349,7 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *prom
 		}, *ptr.Int(2))
 
 		if warnings != nil {
-			reqLogger.Info("warnings %v", warnings)
+			reqLogger.Info("warnings", "warnings", warnings)
 		}
 
 		if err != nil {
@@ -456,7 +456,7 @@ func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, inst
 	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues(matches)
 
 	if warnings != nil {
-		reqLogger.Info("warnings %v", warnings)
+		reqLogger.Info("warnings", "warnings", warnings)
 	}
 
 	if err != nil {

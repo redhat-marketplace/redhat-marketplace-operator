@@ -46,8 +46,8 @@ type TestHarness struct {
 
 	Config TestHarnessOptions
 
-	cfg      *rest.Config
-	stop     chan struct{}
+	cfg  *rest.Config
+	stop chan struct{}
 }
 
 type TestHarnessOptions struct {
@@ -69,11 +69,11 @@ func NewTestHarness(
 	}
 
 	return &TestHarness{
-		testEnv:  &testEnv,
-		logger:   logger,
-		Config:   options,
-		context:  context.Background(),
-		stop:     make(chan struct{}),
+		testEnv: &testEnv,
+		logger:  logger,
+		Config:  options,
+		context: context.Background(),
+		stop:    make(chan struct{}),
 	}, nil
 }
 
@@ -115,7 +115,7 @@ func (t *TestHarness) Upsert(ctx context.Context, obj client.Object) error {
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			oldObj := obj.DeepCopyObject()
-			key := client.ObjectKeyFromObject(oldObj)
+			key := client.ObjectKeyFromObject(&oldObj)
 			err := t.Get(ctx, key, oldObj)
 
 			if err != nil {

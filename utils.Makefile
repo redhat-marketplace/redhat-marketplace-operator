@@ -62,16 +62,12 @@ OPENAPI_GEN=$(PROJECT_DIR)/bin/openapi-gen
 openapi-gen:
 	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09,690f563)
 
+HELM_VERSION=v3.8.2
+HELM=$(PROJECT_DIR)/bin/helm
 helm:
-ifeq (, $(shell which helm))
-ifeq ($(UNAME_S),Linux)
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-endif
-ifeq ($(UNAME_S),Darwin)
-	brew install helm
-endif
-endif
-HELM=$(shell which helm)
+	@[ -f $(HELM)-$(HELM_VERSION) ] || { \
+		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
+	}
 
 GINKGO_VERSION=v1.16.5
 GINKGO=$(PROJECT_DIR)/bin/ginkgo

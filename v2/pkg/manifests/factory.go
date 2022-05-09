@@ -151,7 +151,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
-					Port: intstr.FromInt(8089),
+					Port: intstr.FromInt(28088),
 				},
 			},
 			InitialDelaySeconds: 20,
@@ -161,7 +161,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/readyz",
-					Port: intstr.FromInt(8089),
+					Port: intstr.FromInt(28088),
 				},
 			},
 			InitialDelaySeconds: 20,

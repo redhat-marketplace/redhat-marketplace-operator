@@ -12,26 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dictionary
+package stores
 
 import (
 	"context"
 	"fmt"
-	"time"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/sasha-s/go-deadlock"
-	"golang.org/x/time/rate"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,57 +34,42 @@ var _ cache.Store = &MeterDefinitionDictionary{}
 var _ metav1.Object = &MeterDefinitionExtended{}
 
 type MeterDefinitionExtended struct {
-	v1beta1.MeterDefinition
-	Filter filter.MeterDefinitionLookupFilter
+	*v1beta1.MeterDefinition
+	Filter *filter.MeterDefinitionLookupFilter
 }
 
 var _ metav1.Object = &MeterDefinitionExtended{}
 
+// MeterDefinitionDictionary tracks the meterdefinitions
+// current on the system and provides methods of checking
+// if a resources is apart of the meterdefinition.
 type MeterDefinitionDictionary struct {
-	cache       cache.Store
-	keyFunc     cache.KeyFunc
-	delta       *cache.DeltaFIFO
-	client      runtimeClient.Client
-	starterList *v1beta1.MeterDefinitionList
+	cache   cache.Store
+	keyFunc cache.KeyFunc
+	delta   *cache.DeltaFIFO
 
-	meterDefinitionsSeen MeterDefinitionsSeenStore
+	log     logr.Logger
+	factory *filter.MeterDefinitionLookupFilterFactory
 
-	findOwner *rhmclient.FindOwnerHelper
-
-	log logr.Logger
-
-	rateLimits map[types.UID]*rate.Limiter
-	deadlock.RWMutex
+	sync.RWMutex
 }
 
 func NewMeterDefinitionDictionary(
 	ctx context.Context,
-	kubeClient clientset.Interface,
-	client runtimeClient.Client,
-	findOwner *rhmclient.FindOwnerHelper,
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
-	list *v1beta1.MeterDefinitionList,
-	meterDefinitionsSeen MeterDefinitionsSeenStore,
+	factory *filter.MeterDefinitionLookupFilterFactory,
 ) *MeterDefinitionDictionary {
 	keyFunc := cache.MetaNamespaceKeyFunc
 	store := cache.NewStore(keyFunc)
 
 	return &MeterDefinitionDictionary{
-		log:                  log.WithName("mdef_dictionary"),
-		client:               client,
-		keyFunc:              keyFunc,
-		cache:                store,
-		delta:                cache.NewDeltaFIFO(keyFunc, store),
-		findOwner:            findOwner,
-		rateLimits:           map[types.UID]*rate.Limiter{},
-		starterList:          list,
-		meterDefinitionsSeen: meterDefinitionsSeen,
+		log:     log.WithName("mdef_dictionary"),
+		keyFunc: keyFunc,
+		cache:   store,
+		delta:   cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{KeyFunction: keyFunc, KnownObjects: store}),
+		factory: factory,
 	}
-}
-
-func (w *MeterDefinitionDictionary) Start(ctx context.Context) error {
-	return nil
 }
 
 func (def *MeterDefinitionDictionary) FindObjectMatches(
@@ -105,7 +84,7 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	}
 
 	for i := range filters {
-		localLookup := &filters[i]
+		localLookup := filters[i]
 
 		lookupOk, err := localLookup.Matches(obj)
 
@@ -125,8 +104,8 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 	return nil
 }
 
-func (def *MeterDefinitionDictionary) ListFilters() ([]filter.MeterDefinitionLookupFilter, error) {
-	filters := []filter.MeterDefinitionLookupFilter{}
+func (def *MeterDefinitionDictionary) ListFilters() ([]*filter.MeterDefinitionLookupFilter, error) {
+	filters := []*filter.MeterDefinitionLookupFilter{}
 
 	objs := def.List()
 
@@ -150,11 +129,6 @@ func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
 	if err != nil {
 		def.log.Error(err, "error extending obj")
 		return err
-	}
-
-	if !def.allow(addObj) {
-		def.log.Info("rate limited, skipping")
-		return nil
 	}
 
 	def.log.Info("recording obj", "obj", fmt.Sprintf("%+v", obj))
@@ -195,11 +169,6 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 		}
 	}
 
-	if !def.allow(addObj) {
-		def.log.Info("rate limited, skipping")
-		return nil
-	}
-
 	def.log.Info("updating obj", "obj", fmt.Sprintf("%+v", obj))
 
 	def.Lock()
@@ -218,29 +187,11 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 	return nil
 }
 
-const (
-	// 10 every 5 seconds
-	limitRateBucket = 10
-	limitRate       = 5 * time.Second
-)
-
-func (def *MeterDefinitionDictionary) allow(addObj metav1.Object) bool {
-	var (
-		rateLimiter *rate.Limiter
-		ok          bool
-	)
-
-	if rateLimiter, ok = def.rateLimits[addObj.GetUID()]; !ok {
-		limit := rate.Every(limitRate)
-		rateLimiter = rate.NewLimiter(limit, limitRateBucket)
-		def.rateLimits[addObj.GetUID()] = rateLimiter
-	}
-
-	return rateLimiter.Allow()
-}
-
 // Delete deletes the given object from the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
+	def.Lock()
+	defer def.Unlock()
+
 	addObj, err := def.newMeterDefinitionExtended(obj)
 
 	if err != nil {
@@ -248,21 +199,8 @@ func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
 		return err
 	}
 
-	def.Lock()
-	defer def.Unlock()
-
 	if err := def.delta.Delete(addObj); err != nil {
 		return err
-	}
-
-	o, err := meta.Accessor(obj)
-	if err != nil {
-		def.log.Error(err, "error converting obj")
-		return err
-	}
-
-	if _, ok := def.rateLimits[o.GetUID()]; ok {
-		delete(def.rateLimits, o.GetUID())
 	}
 
 	return def.cache.Delete(addObj)
@@ -344,66 +282,6 @@ func (def *MeterDefinitionDictionary) Replace(in []interface{}, str string) erro
 // meaning in some implementations that have non-trivial
 // additional behavior (e.g., DeltaFIFO).
 func (def *MeterDefinitionDictionary) Resync() error {
-	list := def.meterDefinitionsSeen.List()
-	for i := range list {
-		obj := list[i]
-		key, err := def.keyFunc(obj)
-
-		if err != nil {
-			return err
-		}
-
-		_, exists, err := def.GetByKey(key)
-
-		if err != nil {
-			return err
-		}
-
-		if !exists {
-			def.log.Info("adding object from mdef seen list", "key", key)
-			if err := def.Add(obj); err != nil {
-				return err
-			}
-		} else {
-			def.log.Info("updating object from mdef seen list", "key", key)
-			if err := def.Update(obj); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(def.meterDefinitionsSeen.List()) == 0 {
-		return nil
-	}
-
-	objects := def.List()
-
-	def.log.Info("seen list", "size", len(def.meterDefinitionsSeen.List()))
-
-	for i := range objects {
-		enobj := objects[i].(*MeterDefinitionExtended)
-
-		key, err := def.keyFunc(enobj)
-
-		if err != nil {
-			return err
-		}
-
-		_, exists, err := def.meterDefinitionsSeen.GetByKey(key)
-
-		if err != nil {
-			return err
-		}
-
-		if !exists {
-			def.log.Info("deleting object from mdef seen list", "key", key)
-			err := def.Delete(&enobj.MeterDefinition)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -414,20 +292,20 @@ func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}
 		return nil, errors.New("expected meter definition")
 	}
 
-	lookup, err := filter.NewMeterDefinitionLookupFilter(def.client, meterdef, def.findOwner, def.log)
+	lookup, err := def.factory.New(meterdef)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &MeterDefinitionExtended{
-		MeterDefinition: *meterdef,
-		Filter:          *lookup,
+		MeterDefinition: meterdef,
+		Filter:          lookup,
 	}, nil
 }
 
 func ProvideMeterDefinitionList(
-	cache managers.CacheIsStarted,
+	cacheIsStarted managers.CacheIsStarted,
 	client runtimeClient.Client,
 ) (*v1beta1.MeterDefinitionList, error) {
 	obj := v1beta1.MeterDefinitionList{}
@@ -435,10 +313,4 @@ func ProvideMeterDefinitionList(
 		Namespace: "",
 	})
 	return &obj, err
-}
-
-type MeterDefinitionsSeenStore cache.Store
-
-func NewMeterDefinitionsSeenStore() MeterDefinitionsSeenStore {
-	return cache.NewStore(cache.MetaNamespaceKeyFunc)
 }

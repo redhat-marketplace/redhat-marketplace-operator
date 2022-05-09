@@ -21,19 +21,54 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	testcase1 "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/test/engine_testcase1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const timeout = time.Second * 5
 const heartBeat = time.Second
 
 var _ = Describe("EngineTest", func() {
+	var ctx context.Context
+	var cancel context.CancelFunc
+	var prometheusData *metrics.PrometheusData
+
+	BeforeEach(func() {
+		ctx, cancel = context.WithCancel(context.Background())
+
+		var err error
+		prometheusData = metrics.ProvidePrometheusData()
+		engine, err = NewEngine(
+			ctx,
+			pkgtypes.Namespaces{""},
+			scheme,
+			managers.ClientOptions{
+				Namespace:    "",
+				DryRunClient: false,
+			},
+			logf.Log.WithName("engine"),
+			prometheusData,
+			processors.StatusFlushDuration(time.Second))
+		Expect(err).ToNot(HaveOccurred())
+
+		err = engine.Start(ctx)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		By("stopping the engine")
+		cancel()
+	})
 
 	It("should start up and monitor meter definitions and related objects", func() {
 		Expect(k8sClient.Create(context.TODO(), &corev1.Namespace{
@@ -58,17 +93,17 @@ var _ = Describe("EngineTest", func() {
 
 		By("checking the start state")
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServiceInstance)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServiceInstance)
 			return ok
 		}, timeout, heartBeat).Should(BeTrue(), "find service instance")
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServicePrometheus)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServicePrometheus)
 			return ok
 		}, timeout, heartBeat).Should(BeTrue(), "find prometheus instance")
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("pod").Get(testcase1.Pod)
+			_, ok, _ := prometheusData.Get("pod").Get(testcase1.Pod)
 			return ok
 		}, timeout, heartBeat).Should(BeTrue(), "find pod instance")
 
@@ -76,7 +111,7 @@ var _ = Describe("EngineTest", func() {
 		Expect(k8sClient.Delete(context.TODO(), testcase1.ServiceInstance)).Should(Succeed())
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServiceInstance)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServiceInstance)
 			return ok
 		}, timeout, heartBeat).ShouldNot(BeTrue(), "not find service instance")
 
@@ -108,7 +143,7 @@ var _ = Describe("EngineTest", func() {
 		Expect(k8sClient.Create(context.TODO(), testcase1.ServiceInstance)).Should(Succeed())
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServiceInstance)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServiceInstance)
 			return ok
 		}, timeout, heartBeat).Should(BeTrue(), "find service instance")
 
@@ -116,12 +151,12 @@ var _ = Describe("EngineTest", func() {
 		Expect(k8sClient.Delete(context.TODO(), testcase1.MdefChargeBack)).Should(Succeed())
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServiceInstance)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServiceInstance)
 			return ok
 		}, 2*timeout, heartBeat).ShouldNot(BeTrue(), "find service instance")
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServicePrometheus)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServicePrometheus)
 			return ok
 		}, timeout, heartBeat).ShouldNot(BeTrue(), "find prometheus instance")
 
@@ -129,12 +164,12 @@ var _ = Describe("EngineTest", func() {
 		Expect(k8sClient.Create(context.TODO(), testcase1.MdefChargeBack.DeepCopy())).Should(Succeed())
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServiceInstance)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServiceInstance)
 			return ok
 		}, timeout, heartBeat).Should(BeTrue(), "find service instance")
 
 		Eventually(func() bool {
-			_, ok, _ := engine.promtheusData.Get("service").Get(testcase1.ServicePrometheus)
+			_, ok, _ := prometheusData.Get("service").Get(testcase1.ServicePrometheus)
 			return ok
 		}, timeout, heartBeat).Should(BeTrue(), "find prometheus instance")
 

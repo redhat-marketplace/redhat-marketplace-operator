@@ -20,6 +20,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -33,7 +34,9 @@ var serviceMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Info about the service for servicemonitor",
 		},
-		GenerateMeterFunc: wrapServiceFunc(func(s *v1.Service, mdefs []marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapObject(descServiceLabelsDefaultLabels, func(obj client.Object, mdefs []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+			s := obj.(*v1.Service)
+
 			// kube-state-metric labels
 			clusterIP := s.Spec.ClusterIP
 			externalName := s.Spec.ExternalName
@@ -49,24 +52,6 @@ var serviceMetricsFamilies = []FamilyGenerator{
 			}
 		}),
 	},
-}
-
-// wrapServiceFunc is a helper function for generating service-based metrics
-func wrapServiceFunc(f func(*v1.Service, []marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
-		svc := obj.(*v1.Service)
-
-		metricFamily := f(svc, meterDefinitions)
-
-		for _, m := range metricFamily.Metrics {
-			m.LabelKeys = append(descServiceLabelsDefaultLabels, m.LabelKeys...)
-			m.LabelValues = append([]string{svc.Namespace, svc.Name}, m.LabelValues...)
-		}
-
-		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
-
-		return metricFamily
-	}
 }
 
 func ProvideServicePrometheusData() *PrometheusDataMap {

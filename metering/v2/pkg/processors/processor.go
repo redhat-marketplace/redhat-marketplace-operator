@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 )
 
 // ObjectResourceMessageProcessor defines a function to process
@@ -58,15 +57,11 @@ func (u *Processor) Start(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	wg.Add(u.digestersSize)
-
 	for i := 0; i < u.digestersSize; i++ {
 		go func() {
 			for data := range u.resourceChan {
 				localData := data
-				err := retry.RetryOnConflict(retry.DefaultBackoff,
-					func() error {
-						return u.Process(ctx, localData)
-					})
+				err := u.Process(ctx, localData)
 				if err != nil {
 					u.log.Error(err, "error processing message")
 				}
@@ -75,9 +70,12 @@ func (u *Processor) Start(ctx context.Context) error {
 		}()
 	}
 
-	<-ctx.Done()
-	u.log.Info("processor is shutting down", "processor", fmt.Sprintf("%T", u.DeltaProcessor))
-	close(u.resourceChan)
-	wg.Wait()
+	go func() {
+		<-ctx.Done()
+		u.log.Info("processor is shutting down", "processor", fmt.Sprintf("%T", u.DeltaProcessor))
+		close(u.resourceChan)
+		wg.Wait()
+	}()
+
 	return nil
 }

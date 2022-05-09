@@ -22,19 +22,6 @@ spec:
             key: service-ca.crt
             name: serving-certs-ca-bundle
         serverName: server-name-replaced-at-runtime
-    - bearerTokenSecret:
-        key: token
-        name: redhat-marketplace-service-account-token
-      interval: 2m
-      port: https-metrics
-      scheme: https
-      scrapeTimeout: 2m
-      tlsConfig:
-        ca:
-          configMap:
-            key: service-ca.crt
-            name: serving-certs-ca-bundle
-        serverName: server-name-replaced-at-runtime
   jobLabel: k8s-app
   selector:
     matchLabels:

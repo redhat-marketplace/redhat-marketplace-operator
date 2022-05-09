@@ -21,9 +21,8 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	"time"
 )
 
 func NewServer(
@@ -32,17 +31,13 @@ func NewServer(
 	panic(wire.Build(
 		engine.NewEngine,
 		ProvideNamespaces,
-		managers.ProvideCachedClientSet,
 		provideScheme,
 		getClientOptions,
-		reconcileutils.CommandRunnerProviderSet,
-		ConvertOptions,
 		wire.Struct(new(Service), "*"),
 		metrics.ProvidePrometheusData,
 		wire.InterfaceValue(new(logr.Logger), log),
 		provideRegistry,
-		managers.AddIndices,
 		provideContext,
-		config.GetConfig,
+		wire.Value(processors.StatusFlushDuration(time.Minute)),
 	))
 }

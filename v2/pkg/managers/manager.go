@@ -148,6 +148,8 @@ type ClientOptions struct {
 	SyncPeriod   *time.Duration
 	DryRunClient bool
 	Namespace    string
+
+	cache.DisableDeepCopyByObject
 }
 
 type CacheIsStarted struct{}
@@ -237,13 +239,15 @@ func ProvideNewCache(
 	mapper meta.RESTMapper,
 	scheme *k8sruntime.Scheme,
 	options ClientOptions,
+
 ) (cache.Cache, error) {
 	return cache.New(c,
 		cache.Options{
-			Scheme:    scheme,
-			Mapper:    mapper,
-			Resync:    options.SyncPeriod,
-			Namespace: options.Namespace,
+			Scheme:                        scheme,
+			Mapper:                        mapper,
+			Resync:                        options.SyncPeriod,
+			Namespace:                     options.Namespace,
+			UnsafeDisableDeepCopyByObject: options.DisableDeepCopyByObject,
 		})
 }
 

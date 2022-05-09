@@ -24,9 +24,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -37,65 +37,73 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	goruntime "runtime"
 
-	"github.com/sasha-s/go-deadlock"
-	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/kube-state-metrics/pkg/options"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
 	metricsPath = "/metrics"
 	healthzPath = "/healthz"
+	readyzPath  = "/readyz"
 )
 
 var log = logf.Log.WithName("meteric_generator")
-var reg = prometheus.NewRegistry()
 
 type Service struct {
-	k8sclient       client.Client
-	k8sRestClient   clientset.Interface
-	opts            *options.Options
-	cache           cache.Cache
+	opts            *Options
 	metricsRegistry *prometheus.Registry
-	cc              reconcileutils.ClientCommandRunner
-	indexed         managers.CacheIsIndexed
-	started         managers.CacheIsStarted
 	engine          *engine.Engine
 	prometheusData  *metrics.PrometheusData
 
-	mutex deadlock.Mutex `wire:"-"`
+	*isReady
+}
+
+type isReady struct {
+	ready bool
+	m     sync.Mutex
+}
+
+func (i *isReady) MarkReady() {
+	i.m.Lock()
+	defer i.m.Unlock()
+
+	i.ready = true
+}
+
+func (i *isReady) IsReady() bool {
+	i.m.Lock()
+	defer i.m.Unlock()
+
+	return i.ready
 }
 
 func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := s.engine.Start(ctx)
+	s.isReady = &isReady{}
 
-	if err != nil {
-		log.Error(err, "failed to start engine")
-		panic(err)
-	}
+	go func() {
+		err := s.engine.Start(ctx)
 
-	s.metricsRegistry.MustRegister(
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
-		prometheus.NewGoCollector(),
-	)
-	go telemetryServer(s.metricsRegistry, s.opts.TelemetryHost, s.opts.TelemetryPort)
+		if err != nil {
+			log.Error(err, "failed to start engine")
+			return
+		}
 
-	s.serveMetrics(ctx, s.opts, s.opts.Host, s.opts.Port, s.opts.EnableGZIPEncoding)
+		s.isReady.MarkReady()
+	}()
+
+	s.serveMetrics(s.opts.Host, s.opts.Port, s.opts.EnableGZIPEncoding)
 	return nil
 }
 
@@ -103,6 +111,12 @@ func getClientOptions() managers.ClientOptions {
 	return managers.ClientOptions{
 		Namespace:    "",
 		DryRunClient: false,
+		DisableDeepCopyByObject: cache.DisableDeepCopyByObject{
+			&corev1.Pod{}:                   true,
+			&corev1.Service{}:               true,
+			&corev1.PersistentVolume{}:      true,
+			&corev1.PersistentVolumeClaim{}: true,
+		},
 	}
 }
 
@@ -114,16 +128,16 @@ func provideContext() context.Context {
 	return context.Background()
 }
 
-func telemetryServer(registry prometheus.Gatherer, host string, port int) {
+//nolint:errcheck
+func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
 	// Address to listen on for web interface and telemetry
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
 
-	log.Info("Starting kube-state-metrics self metrics server", "listenAddress", listenAddress)
+	log.Info("Starting metrics server", "listenAddress", listenAddress)
 
 	mux := http.NewServeMux()
 
-	// if debug enabled
-	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+	if debug := os.Getenv("PPROF_DEBUG"); debug == trueStr {
 		goruntime.SetMutexProfileFraction(5)
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -131,36 +145,6 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
-
-	// Add metricsPath
-	mux.Handle(metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{ErrorLog: promLogger{}}))
-	// Add index
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-             <head><title>RHM-Metering-Metrics Metrics Server</title></head>
-             <body>
-             <h1>RHM-Metering-Metrics Metrics</h1>
-			 <ul>
-             <li><a href='` + metricsPath + `'>metrics</a></li>
-			 </ul>
-             </body>
-             </html>`))
-	})
-
-	err := http.ListenAndServe(listenAddress, mux)
-	if err != nil {
-		log.Error(err, "failing to listen and serve")
-		panic(err)
-	}
-}
-
-func (s *Service) serveMetrics(ctx context.Context, opts *options.Options, host string, port int, enableGZIPEncoding bool) {
-	// Address to listen on for web interface and telemetry
-	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
-
-	log.Info("Starting metrics server", "listenAddress", listenAddress)
-
-	mux := http.NewServeMux()
 
 	m := &metricHandler{s.prometheusData, enableGZIPEncoding}
 	mux.Handle(metricsPath, m)
@@ -170,6 +154,17 @@ func (s *Service) serveMetrics(ctx context.Context, opts *options.Options, host 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(http.StatusText(http.StatusOK)))
 	})
+
+	mux.HandleFunc(readyzPath, func(w http.ResponseWriter, r *http.Request) {
+		if s.isReady.IsReady() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(http.StatusText(http.StatusOK)))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
+		}
+	})
+
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
@@ -179,6 +174,7 @@ func (s *Service) serveMetrics(ctx context.Context, opts *options.Options, host 
 			 <ul>
              <li><a href='` + metricsPath + `'>metrics</a></li>
              <li><a href='` + healthzPath + `'>healthz</a></li>
+             <li><a href='` + readyzPath + `'>healthz</a></li>
 			 </ul>
              </body>
              </html>`))
@@ -217,7 +213,10 @@ func (m *metricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	m.stores.WriteAll(w)
+	err := m.stores.WriteAll(w)
+	if err != nil {
+		log.Error(err, "failed to write stores")
+	}
 
 	// In case we gzipped the response, we have to close the writer.
 	if closer, ok := writer.(io.Closer); ok {
@@ -230,7 +229,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
-	utilruntime.Must(olmv1.AddToScheme(scheme))
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))

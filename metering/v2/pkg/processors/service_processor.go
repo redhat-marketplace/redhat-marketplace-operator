@@ -16,7 +16,6 @@ package processors
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	"emperror.dev/errors"
@@ -24,6 +23,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +46,7 @@ func ProvideServiceAnnotatorProcessor(
 	log logr.Logger,
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
+	_ managers.CacheIsStarted,
 ) *ServiceAnnotatorProcessor {
 	sp := &ServiceAnnotatorProcessor{
 		Processor: &Processor{
@@ -62,8 +63,6 @@ func ProvideServiceAnnotatorProcessor(
 	sp.Processor.DeltaProcessor = sp
 	return sp
 }
-
-var serviceType = reflect.TypeOf(&corev1.Service{})
 
 // Process will receive a new ObjectResourceMessage and find and update the metere
 // definition associated with the object. To prevent gaps, it bulk retrieves the
@@ -94,7 +93,7 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 	}
 
 	for i := range list.Items {
-		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			sm := list.Items[i]
 			key := client.ObjectKeyFromObject(sm)
 
@@ -118,6 +117,10 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 			w.log.Info("found servicemonitor to label", "sm", serviceMonitor, "labels", sm.Labels)
 			return w.kubeClient.Update(ctx, &serviceMonitor)
 		})
+
+		if err != nil {
+			w.log.Error(err, "failed to update")
+		}
 	}
 
 	return nil
