@@ -30,7 +30,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.17
+        go-version: 1.17.10
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -67,7 +67,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.17
+        go-version: 1.17.10
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -103,7 +103,7 @@ jobs:
     name: Build Images
     runs-on: ubuntu-20.04
     env:
-      GO_VERSION: 1.17
+      GO_VERSION: 1.17.10
     defaults:
       run:
         shell: bash
@@ -115,7 +115,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.17
+        go-version: 1.17.10
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
       with:
@@ -244,7 +244,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.17
+        go-version: 1.17.10
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
       with:
