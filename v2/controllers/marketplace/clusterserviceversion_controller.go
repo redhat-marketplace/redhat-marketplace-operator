@@ -431,9 +431,15 @@ func csvFilter(metaNew metav1.Object) int {
 	return 0
 }
 
+func checkForUpdateToMdef(evt event.UpdateEvent) bool {
+	oldMeterDefVal, oldOk := evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	newMeterDefVal, newOk := evt.ObjectNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	return oldOk && newOk && oldMeterDefVal != newMeterDefVal
+}
+
 var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(evt event.UpdateEvent) bool {
-		return csvFilter(evt.ObjectNew) > 0
+		return csvFilter(evt.ObjectNew) > 0 && checkForUpdateToMdef(evt)
 	},
 	DeleteFunc: func(evt event.DeleteEvent) bool {
 		return false
