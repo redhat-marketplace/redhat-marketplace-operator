@@ -46,20 +46,7 @@ type AuthChecker struct {
 func (c *AuthChecker) init() error {
 	var err error
 	c.FileData, err = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
-	if err != nil {
-		return err
-	}
-
-	c.tokenReview = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"spec": map[string]interface{}{
-				"audiences": nil,
-				"token":     string(c.FileData),
-			},
-		},
-	}
-
-	return nil
+	return err
 }
 
 func (c *AuthChecker) Start(ctx context.Context) error {
@@ -95,7 +82,19 @@ func (c *AuthChecker) Start(ctx context.Context) error {
 }
 
 func (c *AuthChecker) CheckToken(ctx context.Context) (err error) {
-	c.tokenReview.Object["metadata"] = map[string]interface{}{}
+	if c.tokenReview == nil {
+		c.tokenReview = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{},
+				"spec": map[string]interface{}{
+					"audiences": nil,
+					"token":     string(c.FileData),
+				},
+			},
+		}
+	} else {
+		c.tokenReview.Object["metadata"] = map[string]interface{}{}
+	}
 
 	c.tokenReview, err = c.Client.Create(ctx, c.tokenReview, v1.CreateOptions{})
 	if err != nil {
