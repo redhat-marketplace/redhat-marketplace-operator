@@ -38,6 +38,10 @@ rules:
   verbs:
   - get
 - nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+- nonResourceURLs:
   - /system-meterdef-index/*
   verbs:
   - get
@@ -129,6 +133,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -317,7 +330,6 @@ rules:
   resources:
   - secrets
   verbs:
-  - delete
   - patch
   - update
 - apiGroups:
