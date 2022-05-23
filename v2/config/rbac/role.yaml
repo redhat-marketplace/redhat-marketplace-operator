@@ -130,6 +130,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - operators.coreos.com
   resources:
   - catalogsources
@@ -317,7 +326,6 @@ rules:
   resources:
   - secrets
   verbs:
-  - delete
   - patch
   - update
 - apiGroups:
