@@ -97,14 +97,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - deploy.razee.io
-  resources:
-  - '*'
-  verbs:
-  - delete
-  - get
-  - list
-- apiGroups:
   - marketplace.redhat.com
   resources:
   - meterdefinitions
@@ -129,6 +121,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -188,15 +189,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resourceNames:
-  - razeedeploy-admin-cr
-  - redhat-marketplace-razeedeploy
-  resources:
-  - clusterroles
-  verbs:
-  - delete
 - apiGroups:
   - storage.k8s.io
   resources:
@@ -317,7 +309,6 @@ rules:
   resources:
   - secrets
   verbs:
-  - delete
   - patch
   - update
 - apiGroups:
@@ -330,15 +321,6 @@ rules:
   - delete
   - patch
   - update
-- apiGroups:
-  - ""
-  resourceNames:
-  - razeedeploy-sa
-  - watch-keeper-sa
-  resources:
-  - serviceaccounts
-  verbs:
-  - delete
 - apiGroups:
   - ""
   resources:
@@ -399,21 +381,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - clustersubscription
-  - featureflagsetld-controller
-  - managedset-controller
-  - mustachetemplate-controller
-  - remoteresource-controller
-  - remoteresources3-controller
-  - remoteresources3decrypt-controller
-  - watch-keeper
-  resources:
-  - deployments
-  verbs:
-  - delete
 - apiGroups:
   - apps
   resourceNames:
@@ -505,15 +472,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - batch
-  - extensions
-  resourceNames:
-  - razeedeploy-job
-  resources:
-  - jobs
-  verbs:
-  - delete
 - apiGroups:
   - image.openshift.io
   resources:
@@ -641,37 +599,6 @@ rules:
   - razeedeployments
   - razeedeployments/finalizers
   - razeedeployments/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resourceNames:
-  - child
-  - parent
-  resources:
-  - remoteresources3s
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  - remoteresources3s/status
   verbs:
   - get
   - list

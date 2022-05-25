@@ -1,0 +1,950 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package marketplace
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"reflect"
+	"time"
+
+	golangerrors "errors"
+
+	"github.com/go-logr/logr"
+	"github.com/imdario/mergo"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	"golang.org/x/time/rate"
+	appsv1 "k8s.io/api/apps/v1"
+	batch "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"k8s.io/client-go/util/workqueue"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+// Reconciles the remoteresources3-controller portion of RazeeDeployment (feature: deployment)
+
+// blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
+var _ reconcile.Reconciler = &RazeeRRS3DeploymentReconciler{}
+
+// RazeeRRS3DeploymentReconciler reconciles a RazeeDeployment object
+type RazeeRRS3DeploymentReconciler struct {
+	// This Client, initialized using mgr.Client() above, is a split Client
+	// that reads objects from the cache and writes to the apiserver
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
+	CC     ClientCommandRunner
+
+	patcher patch.Patcher
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
+}
+
+func (r *RazeeRRS3DeploymentReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *RazeeRRS3DeploymentReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
+	r.CC = ccp
+	return nil
+}
+
+func (r *RazeeRRS3DeploymentReconciler) InjectPatch(p patch.Patcher) error {
+	r.patcher = p
+	return nil
+}
+
+func (r *RazeeRRS3DeploymentReconciler) InjectFactory(f *manifests.Factory) error {
+	r.factory = f
+	return nil
+}
+
+func (r *RazeeRRS3DeploymentReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	r.cfg = cfg
+	return nil
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func (r *RazeeRRS3DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
+	// This mapFn will queue the default named razeedeployment
+	mapFn := handler.MapFunc(
+		func(obj client.Object) []reconcile.Request {
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      utils.RAZEE_NAME,
+					Namespace: obj.GetNamespace(),
+				}},
+			}
+		})
+
+	// Find secret
+	p := predicate.Funcs{
+		// Ensures RazeeDeployment is only reconciled for appropriate Secrets
+		// And not any secrets, regardless of namespace
+
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
+			// The object doesn't contain label "foo", so the event will be
+			// ignored.
+			if _, ok := e.ObjectOld.GetLabels()[label]; !ok {
+				return false
+			}
+
+			return e.ObjectOld != e.ObjectNew
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
+
+			if e.Object.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
+				return true
+			}
+
+			if _, ok := e.Object.GetLabels()[label]; !ok {
+				return false
+			}
+
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
+
+			if _, ok := e.Object.GetLabels()[label]; !ok {
+				return false
+			}
+
+			return true
+		},
+	}
+
+	pp := predicate.Funcs{
+		// Ensures RazeeDeployment reconciles podlist correctly on deletes
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetLabels()["owned-by"] == "marketplace.redhat.com-razee"
+		},
+	}
+
+	// Create a new controller
+	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(predicates.NamespacePredicate(r.cfg.DeployedNamespace)).
+		For(&marketplacev1alpha1.RazeeDeployment{}).
+		WithOptions(controller.Options{
+			Reconciler: r,
+			RateLimiter: workqueue.NewMaxOfRateLimiter(
+				workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 300)},
+			),
+		}).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+		}).
+		Watches(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+		}).
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(p)).
+		Watches(&source.Kind{Type: &corev1.Pod{}},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(pp)).
+		Watches(
+			&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}},
+			&handler.EnqueueRequestForOwner{
+				OwnerType: &marketplacev1alpha1.RazeeDeployment{},
+			},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Complete(r)
+}
+
+// Operator config
+// +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
+
+// Controller
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=update;patch;delete,resourceNames=watch-keeper-non-namespaced;watch-keeper-limit-poll;razee-cluster-metadata;watch-keeper-config
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
+// +kubebuilder:rbac:groups=batch,namespace=system,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
+
+// Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
+// and what is in the RazeeDeployment.Spec
+func (r *RazeeRRS3DeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling RazeeDeployment")
+
+	// Fetch the RazeeDeployment instance
+	instance := &marketplacev1alpha1.RazeeDeployment{}
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			reqLogger.Error(err, "Failed to find RazeeDeployment instance")
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	// if not enabled then exit
+	if !instance.Spec.Enabled {
+		reqLogger.Info("Razee not enabled")
+
+		message := "Razee not enabled"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionComplete,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+			Message: message,
+		})
+
+		err = r.Client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status for razee disabled")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	if instance.Name != utils.RAZEE_NAME {
+		reqLogger.Info("Names other than the default are not supported",
+			"supportedName", utils.RAZEE_DEPLOY_JOB_NAME,
+			"name", instance.Name,
+		)
+
+		message := "RazeeDeploy Resource name does not match expected"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionComplete,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+			Message: message,
+		})
+
+		err = r.Client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status for invalid razee name")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
+		message := "Razee Install starting"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeStartInstall,
+			Message: message,
+		})
+
+		_ = r.Client.Status().Update(context.TODO(), instance)
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Adding a finalizer to this CR
+	if !utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
+		if err := r.addFinalizer(instance, request.Namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Check if the RazeeDeployment instance is being marked for deletion
+	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		if utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
+			//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
+			//If it fails, don't remove the finalizer so we can retry during the next reconcile
+			return r.fullUninstall(instance)
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if instance.Spec.TargetNamespace == nil {
+		if instance.Status.RazeeJobInstall != nil {
+			instance.Spec.TargetNamespace = &instance.Status.RazeeJobInstall.RazeeNamespace
+		} else {
+			instance.Spec.TargetNamespace = &instance.Namespace
+		}
+		err := r.Client.Update(context.TODO(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("set target namespace to", "namespace", instance.Spec.TargetNamespace)
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if instance.Status.LocalSecretVarsPopulated != nil {
+		instance.Status.LocalSecretVarsPopulated = nil
+	}
+
+	if instance.Status.RedHatMarketplaceSecretFound != nil {
+		instance.Status.RedHatMarketplaceSecretFound = nil
+	}
+
+	if instance.Status.JobConditions != nil {
+		instance.Status.JobConditions = nil
+	}
+
+	if instance.Status.JobState != nil {
+		instance.Status.JobState = nil
+	}
+
+	if instance.Spec.DeployConfig == nil {
+		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
+	}
+
+	if instance.Spec.DeployConfig.FileSourceURL != nil {
+		instance.Spec.DeployConfig.FileSourceURL = nil
+	}
+
+	secretName := utils.RHM_OPERATOR_SECRET_NAME
+
+	if instance.Spec.DeploySecretName != nil {
+		secretName = *instance.Spec.DeploySecretName
+	}
+
+	rhmOperatorSecret := &corev1.Secret{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      secretName,
+		Namespace: request.Namespace,
+	}, rhmOperatorSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("Failed to find rhm-operator-secret")
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+		} else {
+			return reconcile.Result{}, err
+		}
+	}
+
+	if !utils.HasMapKey(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH) {
+		if rhmOperatorSecret.ObjectMeta.Labels == nil {
+			rhmOperatorSecret.ObjectMeta.Labels = make(map[string]string)
+		}
+
+		utils.SetMapKeyValue(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH)
+
+		err := r.Client.Update(context.TODO(), rhmOperatorSecret)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
+			return reconcile.Result{}, err
+		}
+	}
+
+	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
+	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, *instance)
+	if !utils.StringSliceEqual(instance.Status.MissingDeploySecretValues, missingItems) ||
+		!reflect.DeepEqual(instance.Spec.DeployConfig, &razeeConfigurationValues) {
+		instance.Status.MissingDeploySecretValues = missingItems
+		instance.Spec.DeployConfig = &razeeConfigurationValues
+
+		err = r.Client.Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Updated instance deployconfig")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if len(instance.Status.MissingDeploySecretValues) > 0 {
+		reqLogger.Info("Missing required razee configuration values, will wait until the secret is updated")
+		return reconcile.Result{}, nil
+	}
+
+	reqLogger.V(0).Info("all secret values found")
+
+	//construct the childURL
+	url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeployConfig.IbmCosURL, instance.Spec.DeployConfig.BucketName, instance.Spec.ClusterUUID, instance.Spec.DeployConfig.ChildRSS3FIleName)
+
+	if instance.Spec.ChildUrl == nil ||
+		(instance.Spec.ChildUrl != nil && *instance.Spec.ChildUrl != url) {
+		instance.Spec.ChildUrl = &url
+		err = r.Client.Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update ChildUrl")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Updated instance for childUrl")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Update the Spec TargetNamespace
+	reqLogger.V(0).Info("All required razee configuration values have been found")
+
+	// Check if the RazeeDeployment is disabled, in this case remove the razee deployment and parents3
+	rrs3DeploymentEnabled := instance.Spec.Features == nil || instance.Spec.Features.Deployment == nil || *instance.Spec.Features.Deployment
+	if !rrs3DeploymentEnabled {
+		//razee deployment disabled - if the deployment was found, delete it
+
+		err := r.removeRazeeDeployments(instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		//Deployment is disabled - update status
+		reqLogger.V(0).Info("RemoteResourceS3 deployment is disabled")
+		//update status to reflect disabled
+		message := "RemoteResourceS3 deployment disabled"
+		changed := instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
+			Status:  corev1.ConditionFalse,
+			Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+			Message: message,
+		})
+
+		if changed {
+			reqLogger.Info("RemoteResourceS3 disabled status updated")
+
+			_ = r.Client.Status().Update(context.TODO(), instance)
+			r.Client.Get(context.TODO(), request.NamespacedName, instance)
+		}
+	}
+
+	/******************************************************************************
+	APPLY OR UPDATE RAZEE RESOURCES
+	/******************************************************************************/
+
+	razeeNamespace := &corev1.Namespace{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: *instance.Spec.TargetNamespace}, razeeNamespace)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Error(err,
+				"targetNamespace does not exist, if you woult like to install into it you will need to create it",
+				"targetNamespace", *instance.Spec.TargetNamespace)
+			razeeNamespace.ObjectMeta.Name = *instance.Spec.TargetNamespace
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+		} else {
+			reqLogger.Error(err, "Failed to get razee ns.")
+			return reconcile.Result{}, err
+		}
+	}
+	if err == nil {
+		reqLogger.V(0).Info("razee namespace already exists")
+	}
+
+	razeePrereqs := []string{}
+	razeePrereqs = append(razeePrereqs, fmt.Sprintf("%v namespace", razeeNamespace.Name))
+
+	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		err = r.Client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status for razee namespace")
+		}
+		r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	}
+
+	/******************************************************************************
+	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
+	/******************************************************************************/
+	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
+
+	if rrs3DeploymentEnabled {
+		result, err := r.createOrUpdateRemoteResourceS3Deployment(instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to createOrUpdateRemoteResourceS3Deployment")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
+		}
+	}
+
+	depList := &appsv1.DeploymentList{}
+	depListOpts := []client.ListOption{
+		client.InNamespace(*instance.Spec.TargetNamespace),
+	}
+	err = r.Client.List(context.TODO(), depList, depListOpts...)
+
+	var depNames []string
+	for _, dep := range depList.Items {
+		depNames = append(depNames, dep.Name)
+	}
+
+	podList := &corev1.PodList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(*instance.Spec.TargetNamespace),
+		client.MatchingLabels(map[string]string{
+			"owned-by": "marketplace.redhat.com-razee",
+		}),
+	}
+
+	err = r.Client.List(context.TODO(), podList, listOpts...)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list deployment pods")
+		return reconcile.Result{}, err
+	}
+
+	podNames := utils.GetPodNames(podList.Items)
+	r.Client.Get(context.TODO(), request.NamespacedName, instance)
+
+	if !reflect.DeepEqual(podNames, instance.Status.NodesFromRazeeDeployments) {
+		instance.Status.NodesFromRazeeDeployments = podNames
+		//Add NodesFromRazeeDeployments Count
+		instance.Status.NodesFromRazeeDeploymentsCount = len(instance.Status.NodesFromRazeeDeployments)
+
+		reqLogger.Info("updating status - podlist for razee deployments")
+		err := r.Client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Status with podlist.")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	//Only create the parent s3 resource when the razee deployment is enabled
+	if rrs3DeploymentEnabled {
+		var op controllerutil.OperationResult
+		parentRRS3 := r.makeParentRemoteResourceS3(instance)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			op, err = controllerutil.CreateOrUpdate(context.TODO(), r.Client, parentRRS3, func() error {
+				r.updateParentRemoteResourceS3(parentRRS3, instance)
+				return r.factory.SetOwnerReference(instance, parentRRS3)
+			})
+			return err
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info(fmt.Sprintf("Resource %v successfully", op), "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+
+		if op == controllerutil.OperationResultCreated {
+			message := "ParentRRS3 install finished"
+			instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
+				Message: message,
+			})
+
+			_ = r.Client.Status().Update(context.TODO(), instance)
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		razeePrereqs = append(razeePrereqs, utils.PARENT_RRS3_RESOURCE_NAME)
+
+		if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+			instance.Status.RazeePrerequisitesCreated = razeePrereqs
+			reqLogger.Info("updating status - razeeprereqs for parent rrs3")
+			err = r.Client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update status for parent rrs3")
+			}
+			r.Client.Get(context.TODO(), request.NamespacedName, instance)
+		}
+	}
+
+	message := "Razee install complete"
+	change1 := instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionFalse,
+		Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+		Message: message,
+	})
+
+	message = "Razee install complete"
+	change2 := instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+		Message: message,
+	})
+
+	if change1 || change2 {
+		reqLogger.Info("Updating final status")
+		err = r.Client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update final status")
+			return reconcile.Result{}, err
+		}
+		r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	}
+
+	reqLogger.Info("End of reconcile")
+	return reconcile.Result{}, nil
+}
+
+// addFinalizer adds finalizers to the RazeeDeployment CR
+func (r *RazeeRRS3DeploymentReconciler) addFinalizer(razee *marketplacev1alpha1.RazeeDeployment, namespace string) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", namespace, "Request.Name", utils.RAZEE_UNINSTALL_NAME)
+	reqLogger.Info("Adding Finalizer for the razeeDeploymentFinalizer")
+	razee.SetFinalizers(append(razee.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
+
+	err := r.Client.Update(context.TODO(), razee)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update RazeeDeployment with the Finalizer")
+		return err
+	}
+	return nil
+}
+
+// Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr
+func (r *RazeeRRS3DeploymentReconciler) makeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RAZEE_CLUSTER_METADATA_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+			Labels: map[string]string{
+				"razee/cluster-metadata": "true",
+				"razee/watch-resource":   "lite",
+			},
+		},
+		Data: map[string]string{"name": instance.Spec.ClusterUUID},
+	}
+	r.factory.SetOwnerReference(instance, cm)
+	return cm
+}
+
+// GetDataFromRhmSecret Uses the SecretKeySelector struct to to retrieve byte data from a specified key
+func (r *RazeeRRS3DeploymentReconciler) GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector) ([]byte, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
+	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
+
+	rhmOperatorSecret := corev1.Secret{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHM_OPERATOR_SECRET_NAME,
+		Namespace: request.Namespace,
+	}, &rhmOperatorSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Error(err, "Failed to find operator secret")
+			return nil, err
+		}
+		return nil, err
+	}
+	key, err := utils.ExtractCredKey(&rhmOperatorSecret, sel)
+	return key, err
+}
+
+// Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
+func (r *RazeeRRS3DeploymentReconciler) makeParentRemoteResourceS3(
+	instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
+	return r.updateParentRemoteResourceS3(&marketplacev1alpha1.RemoteResourceS3{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+		},
+	}, instance)
+}
+
+func (r *RazeeRRS3DeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *marketplacev1alpha1.RemoteResourceS3, instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
+	parentRRS3.Spec = marketplacev1alpha1.RemoteResourceS3Spec{
+		Auth: marketplacev1alpha1.Auth{
+			Iam: &marketplacev1alpha1.Iam{
+				ResponseType: "cloud_iam",
+				GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
+				URL:          "https://iam.cloud.ibm.com/identity/token",
+				APIKeyRef: marketplacev1alpha1.APIKeyRef{
+					ValueFrom: marketplacev1alpha1.ValueFrom{
+						SecretKeyRef: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: utils.COS_READER_KEY_NAME,
+							},
+							Key: "accesskey",
+						},
+					},
+				},
+			},
+		},
+		Requests: []marketplacev1alpha1.Request{
+			{
+				Options: marketplacev1alpha1.S3Options{
+					URL: *instance.Spec.ChildUrl,
+				},
+			},
+		},
+	}
+
+	return parentRRS3
+}
+
+//Undeploy the razee deployment and parent
+func (r *RazeeRRS3DeploymentReconciler) removeRazeeDeployments(
+	req *marketplacev1alpha1.RazeeDeployment,
+) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("removing razee deployment resources: childRRS3, parentRRS3, RRS3 deployment")
+
+	maxRetry := 3
+
+	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	err := utils.Retry(func() error {
+		reqLogger.Info("Listing childRRS3")
+
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+			return err
+		}
+
+		if err != nil && errors.IsNotFound((err)) {
+			reqLogger.Info("ChildRRS3 deleted")
+			return nil
+		}
+
+		err = r.Client.Delete(context.TODO(), &childRRS3)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete childRRS3")
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of childRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+	}, maxRetry)
+
+	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+		reqLogger.Info("retry limit exceeded, removing finalizers on childRRS3", "err", err.Error())
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			key := client.ObjectKeyFromObject(&childRRS3)
+
+			err := r.Client.Get(context.TODO(), key, &childRRS3)
+			if err != nil {
+				return err
+			}
+
+			if utils.Contains(childRRS3.GetFinalizers(), utils.RRS3_FINALIZER) {
+				childRRS3.SetFinalizers(utils.RemoveKey(childRRS3.GetFinalizers(), utils.CONTROLLER_FINALIZER))
+			}
+
+			return r.Client.Update(context.TODO(), &childRRS3)
+		})
+
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "error updating childRRS3 finalizers")
+			return err
+		}
+
+		if errors.IsNotFound(err) {
+			reqLogger.Info("removed finalizers on child rrs3")
+		}
+	}
+
+	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	err = utils.Retry(func() error {
+		reqLogger.Info("Listing parentRRS3")
+
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+			return err
+		}
+
+		if err != nil && errors.IsNotFound((err)) {
+			reqLogger.Info("ParentRRS3 deleted")
+			return nil
+		}
+
+		err = r.Client.Delete(context.TODO(), &parentRRS3)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete parentRRS3")
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of parentRRS3 %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+	}, maxRetry)
+
+	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+		reqLogger.Info("retry limit exceeded, removing finalizers on parentRRS3", "err", err.Error())
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			key := client.ObjectKeyFromObject(&parentRRS3)
+
+			err := r.Client.Get(context.TODO(), key, &parentRRS3)
+			if err != nil {
+				return err
+			}
+
+			if utils.Contains(parentRRS3.GetFinalizers(), utils.RRS3_FINALIZER) {
+				parentRRS3.SetFinalizers(utils.RemoveKey(parentRRS3.GetFinalizers(), utils.RRS3_FINALIZER))
+			}
+
+			return r.Client.Update(context.TODO(), &parentRRS3)
+		})
+
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "error updating updatingRRS3 finalizers")
+			return err
+		}
+
+		if errors.IsNotFound(err) {
+			reqLogger.Info("removed finlizers on parent rrs3")
+		}
+	}
+
+	//Delete the deployment
+	err = utils.Retry(func() error {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				Namespace: *req.Spec.TargetNamespace,
+			},
+		}
+
+		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+		err = r.Client.Delete(context.TODO(), deployment)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return nil
+			}
+
+			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			return err
+		}
+
+		return fmt.Errorf("error on deletion of rrs3 deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
+	}, maxRetry)
+
+	if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
+		reqLogger.Error(err, "error deleting rrs3 deployment resources")
+	}
+
+	return nil
+}
+
+// fullUninstall deletes resources created by razee deployment
+func (r *RazeeRRS3DeploymentReconciler) fullUninstall(
+	req *marketplacev1alpha1.RazeeDeployment,
+) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("Starting full uninstall of razee resources")
+
+	if req.Spec.TargetNamespace == nil {
+		if req.Status.RazeeJobInstall != nil {
+			req.Spec.TargetNamespace = &req.Status.RazeeJobInstall.RazeeNamespace
+		} else {
+			req.Spec.TargetNamespace = &req.Namespace
+		}
+	}
+
+	//Remove razee deployments and reconcile if requested
+	err := r.removeRazeeDeployments(req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Full uninstall of razee is complete")
+	return reconcile.Result{}, nil
+}
+
+func (r *RazeeRRS3DeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
+	instance *marketplacev1alpha1.RazeeDeployment,
+) (reconcile.Result, error) {
+	rrs3Deployment, err := r.factory.NewRemoteResourceS3Deployment()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
+			rrs3Dep, _ := r.factory.NewRemoteResourceS3Deployment()
+			r.factory.SetControllerReference(instance, rrs3Dep)
+			return mergo.Merge(rrs3Deployment, rrs3Dep, mergo.WithOverride)
+		})
+		return err
+	})
+
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+		Message: "RemoteResourceS3 deployment enabled",
+	}) {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Status().Update(context.TODO(), instance)
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func isMapStringByteEqual(d1, d2 map[string][]byte) bool {
+	for key, value := range d1 {
+		value2, ok := d2[key]
+		if !ok {
+			return false
+		}
+
+		if bytes.Compare(value, value2) != 0 {
+			return false
+		}
+	}
+
+	for key := range d2 {
+		_, ok := d1[key]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
+}

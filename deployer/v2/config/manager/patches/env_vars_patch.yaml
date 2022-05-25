@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: deployer
+          env:
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: us.icr.io/armada-master/remoteresources3:0.11.2_082c995
+            - name: IBMCATALOGSOURCE
+              value: 'true'

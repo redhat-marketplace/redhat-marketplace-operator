@@ -1,0 +1,157 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Full Lifecycle
+    categories: Developer Tools
+    certified: "true"
+    description: The Red Hat Marketplace Deployer provides deployment management for
+      Red Hat Marketplace customers.
+    olm.skipRange: '>=1.0.0 <2.2.0'
+    operatorframework.io/suggested-namespace: openshift-redhat-marketplace
+    operators.operatorframework.io/builder: operator-sdk-v1.2.0
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
+    repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
+    support: IBM Corporation
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/arch.s390x: supported
+    operatorframework.io/os.linux: supported
+  name: redhat-marketplace-deployer.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
+        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
+      displayName: Marketplace Config
+      kind: MarketplaceConfig
+      name: marketplaceconfigs.marketplace.redhat.com
+      version: v1alpha1
+    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+        This is an internal resource not meant to be modified directly.
+      displayName: Meter Base
+      kind: MeterBase
+      name: meterbases.marketplace.redhat.com
+      version: v1alpha1
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
+      displayName: Meter Definition
+      kind: MeterDefinition
+      name: meterdefinitions.marketplace.redhat.com
+      version: v1beta1
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
+      displayName: Meter Definition
+      kind: MeterDefinition
+      name: meterdefinitions.marketplace.redhat.com
+      version: v1alpha1
+    - description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
+      displayName: Razee Deployment
+      kind: RazeeDeployment
+      name: razeedeployments.marketplace.redhat.com
+      version: v1alpha1
+    - description: RemoteResourceS3 is the Schema for the remoteresources3s API
+      displayName: Remote Resource S3
+      kind: RemoteResourceS3
+      name: remoteresources3s.marketplace.redhat.com
+      version: v1alpha1
+    required:
+    - description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
+      displayName: Razee Deployment
+      kind: RazeeDeployment
+      name: razeedeployments.marketplace.redhat.com
+      version: v1alpha1
+    - description: RemoteResourceS3 is the Schema for the remoteresources3s API
+      displayName: Remote Resource S3
+      kind: RemoteResourceS3
+      name: remoteresources3s.marketplace.redhat.com
+      version: v1alpha1
+  description: |
+    The Red Hat Marketplace Deployer provides deployment management for Red Hat Marketplace customers.
+    ### **Important Note**
+    A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).
+    To access images from Red Hat Marketplace and the Marketplace container catalog you will need to make the pull secret attained in installation available to the workloads running on the cluster.
+    ### Installation
+    1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
+    2. Install the Red Hat Marketplace Operator in the openshift-redhat-marketplace namespace.
+    3. Create a Kubernetes secret in the openshift-redhat-marketplace namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
+
+       ```sh
+       # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
+       oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+       ```
+
+    4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
+       **Warning:** This step will make your cluster perform a rolling restart.
+       These steps require `oc`, `jq`, and `base64` to be available on your machine.
+
+       ```sh
+       # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
+       # Store it in a file called entitledregistryconfigjson.
+       oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=true --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
+       # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
+       oc get secret pull-secret -n openshift-config --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > dockerconfigjson
+       # Merge the two dockerconfigs together into a file called dockerconfigjson-merged.
+       jq -s '.[0] * .[1]' dockerconfigjson entitledregistryconfigjson > dockerconfigjson-merged
+       # Set the cluster's dockerconfig file to the new merged version.
+       oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
+       # Cluster will now restart.
+       ```
+
+    ### Why is a global pull secret required?
+    In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
+    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html).
+    ### Documentation
+    You can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)
+    ### Getting help
+    If you encounter any issues while using Red Hat Marketplace operator, you
+    can create an issue on our [Github
+    repo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for
+    bugs, enhancements, or other requests. You can also visit our main page and
+    review our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).
+    ### Readme
+    You can find our readme [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/README.md)
+    ### License information
+    You can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)
+  displayName: Red Hat Marketplace Deployer
+  icon:
+  - base64data: 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
+    mediatype: image/png
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: true
+    type: MultiNamespace
+  - supported: false
+    type: AllNamespaces
+  keywords:
+  - red hat marketplace
+  - operators
+  - buy
+  links:
+  - name: Visit the marketplace!
+    url: https://marketplace.redhat.com
+  - name: About
+    url: https://marketplace.redhat.com/en-us/about
+  - name: Support
+    url: https://marketplace.redhat.com/en-us/support
+  maintainers:
+  - email: rhmoper@us.ibm.com
+    name: RHM Operator Team
+  maturity: stable
+  provider:
+    name: Red Hat Marketplace
+  version: 0.0.0

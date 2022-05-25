@@ -1,0 +1,29 @@
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: remoteresources3deployment-binding
+subjects:
+- kind: ServiceAccount
+  name: remoteresources3deployment
+  namespace: system
+roleRef:
+  kind: ClusterRole
+  name: remoteresources3deployment
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: remoteresources3deployment-binding
+  namespace: system
+subjects:
+- kind: ServiceAccount
+  name: remoteresources3deployment
+  namespace: system
+roleRef:
+  kind: Role
+  name: remoteresources3deployment
+  apiGroup: rbac.authorization.k8s.io

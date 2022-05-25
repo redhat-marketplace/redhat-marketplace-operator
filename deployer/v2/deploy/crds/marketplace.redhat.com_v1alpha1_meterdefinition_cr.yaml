@@ -1,0 +1,20 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: example-meterdefinition-4
+spec:
+  group: partner.metering.com
+  kind: App
+  resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      ownerCRD:
+        apiVersion: marketplace.redhat.com/v1alpha1
+        kind: RazeeDeployment
+      workloadType: Pod
+  meters:
+    - aggregation: sum
+      period: 1h
+      metricId: container_cpu_usage_core_avg
+      query: rate(container_cpu_usage_seconds_total{cpu="total",container="db"}[5m])*100
+      workloadType: Pod

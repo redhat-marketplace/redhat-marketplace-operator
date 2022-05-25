@@ -1,0 +1,56 @@
+# Adds namespace to all resources.
+namespace: openshift-redhat-marketplace
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: redhat-marketplace-
+# Labels to add to all resources and selectors.
+commonLabels:
+  redhat.marketplace.com/name: redhat-marketplace-operator
+
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+  - ../webhook-openshift
+  - ../prometheus
+  - ../samples
+  - ../scorecard
+  - bases/redhat-marketplace-operator.clusterserviceversion.yaml
+
+patchesStrategicMerge:
+  #- manager_auth_proxy_patch.yaml
+  #- manager_webhook_patch.yaml
+  - patch_csv/patch-related-images.yaml
+
+configurations:
+  - kustomizeconfig.yaml
+vars:
+  # - name: SERVICE_NAME
+  #   objref:
+  #     kind: Service
+  #     version: v1
+  #     name: deployment-manager-service
+  - name: REPORTER_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: deployment-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.reporterImage
+  - name: METRIC_STATE_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: deployment-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.metricStateImage
+  - name: AUTHCHECK_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: deployment-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.authcheckImage

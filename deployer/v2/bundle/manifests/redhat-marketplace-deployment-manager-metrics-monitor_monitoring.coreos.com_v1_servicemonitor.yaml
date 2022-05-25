@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    control-plane: deployment-manager
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-deployment-manager-metrics-monitor
+spec:
+  endpoints:
+  - path: /metrics
+    port: https
+  selector:
+    matchLabels:
+      control-plane: deployment-manager

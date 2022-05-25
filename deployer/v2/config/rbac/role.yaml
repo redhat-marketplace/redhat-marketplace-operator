@@ -1,0 +1,155 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: deployer-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: deployer-role
+  namespace: system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - razee-cluster-metadata
+  - watch-keeper-config
+  - watch-keeper-limit-poll
+  - watch-keeper-non-namespaced
+  resources:
+  - configmaps
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - clustersubscription
+  - rhm-operator-secret
+  - watch-keeper-secret
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - rhm-remoteresources3-controller
+  - rhm-watch-keeper
+  resources:
+  - deployments
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  - razeedeployments/finalizers
+  - razeedeployments/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - child
+  - parent
+  resources:
+  - remoteresources3s
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  - remoteresources3s/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch

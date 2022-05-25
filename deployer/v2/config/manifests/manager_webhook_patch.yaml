@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: deployer
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: $(SERVICE_NAME)
+            optional: true
+---
+# The following patch enables conversion webhook for CRD
+# CRD conversion requires k8s 1.13 or later.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: meterdefinitions.marketplace.redhat.com
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      # this is "\n" used as a placeholder, otherwise it will be rejected by the apiserver for being blank,
+      # but we're going to set it later using the cert-manager (or potentially a patch if not using cert-manager)
+      conversionReviewVersions: ['v1beta1', 'v1alpha1']
+      clientConfig:
+        caBundle: Cg==
+        service:
+          name: $(SERVICE_NAME)
+          namespace: system
+          path: /convert
+          port: 9443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deployment-manager-service
+  namespace: system
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: $(SERVICE_NAME)

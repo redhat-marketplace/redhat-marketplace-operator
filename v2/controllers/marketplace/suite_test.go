@@ -138,13 +138,6 @@ var _ = BeforeSuite(func() {
 
 	Expect(k8sClient.Create(context.TODO(), ns)).Should(Succeed(), "create operator namespace")
 
-	err = (&RemoteResourceS3Reconciler{
-		Client: k8sClient,
-		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
-		Scheme: k8sScheme,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
 	// err = (&MeterBaseReconciler{
 	// 	Client:  k8sClient,
 	// 	Scheme:  scheme,

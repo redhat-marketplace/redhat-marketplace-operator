@@ -24,11 +24,11 @@ import (
 	"syscall"
 
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"go.uber.org/zap/zapcore"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -296,24 +296,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.RazeeDeploymentReconciler{
+	if err = (&controllers.RazeeWatchKeeperReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
+		Log:    ctrl.Log.WithName("controllers").WithName("RazeeWatchKeeper"),
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RazeeDeployment")
+		setupLog.Error(err, "unable to create controller", "controller", "RazeeWatchKeeper")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.RemoteResourceS3Reconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RemoteResourceS3")
-		os.Exit(1)
-	}
-
+	/*
+		if err = (&controllers.RemoteResourceS3Reconciler{
+			Client: mgr.GetClient(),
+			Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "RemoteResourceS3")
+			os.Exit(1)
+		}
+	*/
 	if err = (&controllers.SubscriptionReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("SubscriptionReconciler"),
