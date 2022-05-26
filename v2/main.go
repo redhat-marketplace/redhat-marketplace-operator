@@ -18,10 +18,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
 	"os/signal"
 	"syscall"
+
+	// configv2 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"go.uber.org/zap/zapcore"
@@ -90,6 +93,7 @@ func init() {
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	// utilruntime.Must(configv2.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -98,13 +102,13 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var marketplaceConfig string
+	var projectConfigVar string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&marketplaceConfig, "marketplaceConfig", "",
+	flag.StringVar(&projectConfigVar, "config", "",
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
@@ -198,12 +202,19 @@ func main() {
 	// 	opts.NewCache = cache.MultiNamespacedCacheBuilder(watchNamespacesSlice)
 	// }
 	var err error
-	if marketplaceConfig != "" {
-		opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(marketplaceConfig))
+	projectConfig := marketplacev1beta1.ProjectConfig{}
+	if projectConfigVar != "" {
+		setupLog.Info("PARSING PROJECT CONFIG")
+		opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(projectConfigVar).OfKind(&projectConfig))
 		if err != nil {
-			setupLog.Error(err, "unable to load the config file")
-			os.Exit(1)
+			setupLog.Error(err, "unable to load the project config file")
+			// os.Exit(1)
 		}
+
+		// utils.PrettyPrint(opts)
+		out, _ := json.MarshalIndent(opts, "", "    ")
+
+		setupLog.Info(string(out))
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
