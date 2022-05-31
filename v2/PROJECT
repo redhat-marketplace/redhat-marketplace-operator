@@ -86,13 +86,12 @@ resources:
     # validation: true
     webhookVersion: v1beta1
 - api:
-    crdVersion: v1
-    namespaced: true
+    crdVersion: v1beta1
   domain: redhat.com
-  group: config
+  group: marketplace
   kind: ProjectConfig
   path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1
-  version: v2
+  version: v1alpha1
 version: "3"
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
