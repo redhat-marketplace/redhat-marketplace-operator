@@ -10,7 +10,7 @@ import (
 type ProjectConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// ControllerManagerConfigurationSpec returns the contfigurations for controllers
+	// ControllerManagerConfigurationSpec returns the configurations for controllers
 	controllerruntimecfg.ControllerManagerConfigurationSpec `json:",inline"`
 
 	ClusterName string `json:"clusterName,omitempty"`

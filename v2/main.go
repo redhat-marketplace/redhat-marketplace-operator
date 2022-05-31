@@ -18,13 +18,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
-
-	// configv2 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"go.uber.org/zap/zapcore"
@@ -42,6 +41,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	runtimeconfigv1alpha1 "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -93,7 +93,7 @@ func init() {
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
-	// utilruntime.Must(configv2.AddToScheme(scheme))
+	utilruntime.Must(runtimeconfigv1alpha1.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -205,6 +205,25 @@ func main() {
 	projectConfig := marketplacev1beta1.ProjectConfig{}
 	if projectConfigVar != "" {
 		setupLog.Info("PARSING PROJECT CONFIG")
+		// for _, t := range scheme.AllKnownTypes() {
+		// 	setupLog.Info(t.String())
+		// }
+		content, err := ioutil.ReadFile(projectConfigVar)
+		if err != nil {
+			setupLog.Error(fmt.Errorf("could not read file at %s", projectConfigVar), "ioutil err")
+			return
+		}
+
+		setupLog.Info(string(content))
+
+		// codecs := serializer.NewCodecFactory(scheme)
+
+		// // Regardless of if the bytes are of any external version,
+		// // it will be read successfully and converted into the internal version
+		// if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, &projectConfig); err != nil {
+		// 	setupLog.Error(fmt.Errorf("could not decode file into runtime.Object"), "ioutil err")
+		// }
+
 		opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(projectConfigVar).OfKind(&projectConfig))
 		if err != nil {
 			setupLog.Error(err, "unable to load the project config file")
@@ -212,9 +231,9 @@ func main() {
 		}
 
 		// utils.PrettyPrint(opts)
-		out, _ := json.MarshalIndent(opts, "", "    ")
+		// out, _ := json.MarshalIndent(opts, "", "    ")
 
-		setupLog.Info(string(out))
+		// setupLog.Info(string(out))
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
