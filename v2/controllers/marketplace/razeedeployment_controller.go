@@ -358,6 +358,11 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		}
 	*/
 
+	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		return reconcile.Result{}, nil
+	}
+
 	if instance.Spec.TargetNamespace == nil {
 		if instance.Status.RazeeJobInstall != nil {
 			instance.Spec.TargetNamespace = &instance.Status.RazeeJobInstall.RazeeNamespace
@@ -1106,7 +1111,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 			Namespace: request.Namespace,
 		}, rrs3Deployment)
-		if err != nil {
+		if errors.IsNotFound(err) {
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+		} else if err != nil {
 			return reconcile.Result{}, err
 		}
 
