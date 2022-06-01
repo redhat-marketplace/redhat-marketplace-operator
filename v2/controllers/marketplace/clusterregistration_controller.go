@@ -28,14 +28,17 @@ import (
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -64,8 +67,8 @@ type SecretInfo struct {
 	MissingMsg string
 }
 
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets;secrets/finalizers,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets;secrets/finalizers,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 
@@ -117,6 +120,23 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	reqLogger.Info("Marketplace Token Claims set")
+
+	// set secret owner as controller deployment and set finalizer
+	// marketplaceconfig & secret are needed to complete unregistration on uninstall, as part of the marketplaceconfig finalizer process
+	/*
+		if !controllerutil.ContainsFinalizer(si.Secret, utils.CONTROLLER_FINALIZER) {
+			controllerutil.AddFinalizer(si.Secret, utils.CONTROLLER_FINALIZER)
+		}
+	*/
+	if err := r.setControllerReference(si.Secret); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.Client.Update(context.TODO(), si.Secret)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update Secret")
+		return reconcile.Result{}, err
+	}
 
 	newMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{
@@ -294,6 +314,10 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 				newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 			}
 
+			if err = controllerutil.SetControllerReference(si.Secret, newMarketplaceConfig, r.Scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+
 			// Create Marketplace Config object with ClusterID
 			reqLogger.Info("Marketplace Config creating")
 			err = r.Client.Create(context.TODO(), newMarketplaceConfig)
@@ -310,6 +334,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	owners := newMarketplaceConfig.GetOwnerReferences()
+	if err = controllerutil.SetControllerReference(si.Secret, newMarketplaceConfig, r.Scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	accountID := ""
 	if si.Name == utils.IBMEntitlementKeySecretName {
@@ -368,6 +395,22 @@ func (r *ClusterRegistrationReconciler) updateSecretWithMessage(si *utils.Secret
 	}
 	reqLogger.Info("Secret updated with status on failiure")
 	return reconcile.Result{}, err
+}
+
+func (r *ClusterRegistrationReconciler) setControllerReference(controlled metav1.Object) error {
+	// Set the controller deployment as the controller-ref, since it owns the finalizer
+	dep := &appsv1.Deployment{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+		Namespace: r.cfg.DeployedNamespace,
+	}, dep)
+	if err != nil {
+		return err
+	}
+	if err = controllerutil.SetControllerReference(dep, controlled, r.Scheme); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {

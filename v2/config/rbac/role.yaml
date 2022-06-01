@@ -130,6 +130,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - operators.coreos.com
   resources:
   - catalogsources
@@ -311,9 +320,7 @@ rules:
 - apiGroups:
   - ""
   resourceNames:
-  - ibm-entitlement-key
-  - redhat-marketplace-pull-secret
-  - rhm-operator-secret
+  - rhm-data-service-mtls
   resources:
   - secrets
   verbs:
@@ -322,12 +329,24 @@ rules:
   - update
 - apiGroups:
   - ""
-  resourceNames:
-  - rhm-data-service-mtls
   resources:
   - secrets
+  - secrets/finalizers
   verbs:
-  - delete
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - ibm-entitlement-key
+  - redhat-marketplace-pull-secret
+  - rhm-operator-secret
+  resources:
+  - secrets
+  - secrets/finalizers
+  verbs:
   - patch
   - update
 - apiGroups:
@@ -427,15 +446,38 @@ rules:
   - update
 - apiGroups:
   - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
   resourceNames:
   - rhm-remoteresources3-controller
   - rhm-watch-keeper
   resources:
   - deployments
+  - deployments/finalizers
   verbs:
   - delete
   - patch
   - update
+- apiGroups:
+  - apps
+  resourceNames:
+  - redhat-marketplace-controller-manager
+  resources:
+  - deployments/finalizers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - apps
   resources:
@@ -558,6 +600,7 @@ rules:
   - marketplaceconfigs/finalizers
   - marketplaceconfigs/status
   verbs:
+  - delete
   - get
   - list
   - patch
