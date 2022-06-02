@@ -67,8 +67,8 @@ type SecretInfo struct {
 	MissingMsg string
 }
 
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets;secrets/finalizers,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets;secrets/finalizers,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 
@@ -120,18 +120,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	reqLogger.Info("Marketplace Token Claims set")
-
-	// set secret owner as controller deployment and set finalizer
-	// marketplaceconfig & secret are needed to complete unregistration on uninstall, as part of the marketplaceconfig finalizer process
-	/*
-			if !controllerutil.ContainsFinalizer(si.Secret, utils.CONTROLLER_FINALIZER) {
-				controllerutil.AddFinalizer(si.Secret, utils.CONTROLLER_FINALIZER)
-			}
-
-		if err := r.setControllerReference(si.Secret); err != nil {
-			return reconcile.Result{}, err
-		}
-	*/
 
 	err = r.Client.Update(context.TODO(), si.Secret)
 	if err != nil {

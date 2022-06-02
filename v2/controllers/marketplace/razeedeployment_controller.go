@@ -334,30 +334,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	/*
-		// Adding a finalizer to this CR
-		if !utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
-			if err := r.addFinalizer(instance, request.Namespace); err != nil {
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-	*/
-
-	// Check if the RazeeDeployment instance is being marked for deletion
-	/*
-		isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
-		if isMarkedForDeletion {
-			if utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
-				//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
-				//If it fails, don't remove the finalizer so we can retry during the next reconcile
-				return r.fullUninstall(instance)
-			}
-			return reconcile.Result{}, nil
-		}
-	*/
-
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		return reconcile.Result{}, nil

@@ -333,51 +333,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 			),
 			ReconcileStep(opts,
 				ReconcileWithUntilDone(true)),
-
-			/*
-				ListStep(opts,
-					ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
-					ListWithFilter(
-						client.InNamespace(namespace),
-					),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
-						assert.Truef(t, ok, "expected RemoteResourceS3List got type %T", i)
-						assert.Equal(t, 0, len(list.Items))
-					})),
-				ListStep(opts,
-					ListWithObj(&corev1.ConfigMapList{}),
-					ListWithFilter(
-						client.InNamespace(namespace),
-					),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*corev1.ConfigMapList)
-						assert.Truef(t, ok, "expected configMap list got type %T", i)
-						assert.Equal(t, 0, len(list.Items))
-					})),
-				ListStep(opts,
-					ListWithObj(&corev1.SecretList{}),
-					ListWithFilter(
-						client.InNamespace(namespace),
-					),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*corev1.SecretList)
-
-						assert.Truef(t, ok, "expected secret list got type %T", i)
-						assert.Equal(t, 0, len(list.Items))
-					})),
-				ListStep(opts,
-					ListWithObj(&appsv1.DeploymentList{}),
-					ListWithFilter(
-						client.InNamespace(namespace),
-					),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*appsv1.DeploymentList)
-
-						assert.Truef(t, ok, "expected deployment list got type %T", i)
-						assert.Equal(t, 0, len(list.Items))
-					})),
-			*/
 		)
 
 		Eventually(func() []marketplacev1alpha1.RemoteResourceS3 {

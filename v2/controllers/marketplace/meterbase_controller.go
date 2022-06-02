@@ -307,32 +307,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return result.Return()
 	}
 
-	// Execute the finalizer, will only run if we are in delete state
-	/*
-		if result, _ = cc.Do(
-			context.TODO(),
-			Call(SetFinalizer(instance, utils.CONTROLLER_FINALIZER)),
-			Call(
-				RunFinalizer(instance, utils.CONTROLLER_FINALIZER,
-					Do(r.uninstallPrometheusOperator(instance)...),
-					Do(r.uninstallPrometheus(instance)...),
-					Do(r.uninstallMetricState(instance)...),
-					Do(r.uninstallPrometheusServingCertsCABundle()...),
-					Do(r.uninstallUserWorkloadMonitoring()...),
-				)),
-		); !result.Is(Continue) {
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-			}
-
-			if result.Is(Return) {
-				reqLogger.Info("Delete is complete.")
-			}
-
-			return result.Return()
-		}
-	*/
-
 	// if instance.Enabled == false
 	// return do nothing
 	if !instance.Spec.Enabled {
