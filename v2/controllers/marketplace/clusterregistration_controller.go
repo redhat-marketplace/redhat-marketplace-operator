@@ -124,13 +124,14 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	// set secret owner as controller deployment and set finalizer
 	// marketplaceconfig & secret are needed to complete unregistration on uninstall, as part of the marketplaceconfig finalizer process
 	/*
-		if !controllerutil.ContainsFinalizer(si.Secret, utils.CONTROLLER_FINALIZER) {
-			controllerutil.AddFinalizer(si.Secret, utils.CONTROLLER_FINALIZER)
+			if !controllerutil.ContainsFinalizer(si.Secret, utils.CONTROLLER_FINALIZER) {
+				controllerutil.AddFinalizer(si.Secret, utils.CONTROLLER_FINALIZER)
+			}
+
+		if err := r.setControllerReference(si.Secret); err != nil {
+			return reconcile.Result{}, err
 		}
 	*/
-	if err := r.setControllerReference(si.Secret); err != nil {
-		return reconcile.Result{}, err
-	}
 
 	err = r.Client.Update(context.TODO(), si.Secret)
 	if err != nil {
@@ -314,7 +315,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 				newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 			}
 
-			if err = controllerutil.SetControllerReference(si.Secret, newMarketplaceConfig, r.Scheme); err != nil {
+			if err := r.setControllerReference(newMarketplaceConfig); err != nil {
 				return reconcile.Result{}, err
 			}
 
@@ -334,7 +335,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	owners := newMarketplaceConfig.GetOwnerReferences()
-	if err = controllerutil.SetControllerReference(si.Secret, newMarketplaceConfig, r.Scheme); err != nil {
+
+	if err := r.setControllerReference(newMarketplaceConfig); err != nil {
 		return reconcile.Result{}, err
 	}
 
