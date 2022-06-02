@@ -567,20 +567,10 @@ rules:
   - marketplace.redhat.com
   resources:
   - marketplaceconfigs
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - marketplaceconfigs
   - marketplaceconfigs/finalizers
   - marketplaceconfigs/status
   verbs:
+  - create
   - delete
   - get
   - list
