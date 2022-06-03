@@ -32,6 +32,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// PodMonitor is responsible for deleting failing auth checker pods.
+// Why authchecker? If you have an partial uninstall, for example,
+// just delete and recreate a SA. The tokens originally associated to
+// that SA are invalidated but the pods don't realize that and start throwing
+// errors. Restarting the pod doesn't work because it doesn't get a new
+// token on just a restart. The pod has to be deleted. Authchecker
+// detects this scenario and deletes the pod for you.
 type PodMonitor struct {
 	Logger logr.Logger
 	Client client.Client
