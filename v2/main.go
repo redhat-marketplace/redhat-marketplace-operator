@@ -19,8 +19,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
@@ -99,15 +97,15 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
+	// var metricsAddr string
+	// var enableLeaderElection bool
+	// var probeAddr string
 	var projectConfigVar string
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	// flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	// flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	// flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	// 	"Enable leader election for controller manager. "+
+	// 		"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&projectConfigVar, "config", "",
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
@@ -185,12 +183,12 @@ func main() {
 	})
 
 	opts := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
-		NewCache:               newCacheFunc,
+		Scheme: scheme,
+		// MetricsBindAddress:     metricsAddr,
+		// HealthProbeBindAddress: probeAddr,
+		// LeaderElection:   enableLeaderElection,
+		LeaderElectionID: "8fbe3a23.marketplace.redhat.com",
+		NewCache:         newCacheFunc,
 	}
 
 	// Bug prevents limiting the namespaces
@@ -204,32 +202,13 @@ func main() {
 	var err error
 	projectConfig := marketplacev1beta1.ProjectConfig{}
 	if projectConfigVar != "" {
-		setupLog.Info("PARSING PROJECT CONFIG")
-		// for _, t := range scheme.AllKnownTypes() {
-		// 	setupLog.Info(t.String())
-		// }
-		content, err := ioutil.ReadFile(projectConfigVar)
-		if err != nil {
-			setupLog.Error(fmt.Errorf("could not read file at %s", projectConfigVar), "ioutil err")
-			return
-		}
-
-		setupLog.Info(string(content))
-
-		// codecs := serializer.NewCodecFactory(scheme)
-
-		// // Regardless of if the bytes are of any external version,
-		// // it will be read successfully and converted into the internal version
-		// if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, &projectConfig); err != nil {
-		// 	setupLog.Error(fmt.Errorf("could not decode file into runtime.Object"), "ioutil err")
-		// }
-
 		opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(projectConfigVar).OfKind(&projectConfig))
 		if err != nil {
 			setupLog.Error(err, "unable to load the project config file")
 			// os.Exit(1)
 		}
 
+		utils.PrettyPrint(projectConfig)
 		// utils.PrettyPrint(opts)
 		// out, _ := json.MarshalIndent(opts, "", "    ")
 
@@ -250,9 +229,10 @@ func main() {
 	}
 
 	if err = (&controllers.DeploymentConfigReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme: mgr.GetScheme(),
+		Client:                           mgr.GetClient(),
+		Log:                              ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:                           mgr.GetScheme(),
+		ComponentConfigMarketplaceConfig: projectConfig.ComponentConfigMarketplaceConfigSpec,
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
 		os.Exit(1)
@@ -286,9 +266,10 @@ func main() {
 	}
 
 	if err = (&controllers.MarketplaceConfigReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
-		Scheme: mgr.GetScheme(),
+		Client:                           mgr.GetClient(),
+		Log:                              ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
+		Scheme:                           mgr.GetScheme(),
+		ComponentConfigMarketplaceConfig: projectConfig.ComponentConfigMarketplaceConfigSpec,
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MarketplaceConfig")
 		os.Exit(1)

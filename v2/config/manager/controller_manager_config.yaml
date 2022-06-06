@@ -3,7 +3,9 @@ kind: ProjectConfig
 metrics:
   bindAddress: 127.0.0.1:8080
 leaderElection:
-  leaderElect: true
+  leaderElect: false
 health:
-  healthProbeBindAddress: 8081
+  healthProbeBindAddress: ":8081"
 clusterName: test
+marketplaceConfigSpec:
+  enableMetering: true

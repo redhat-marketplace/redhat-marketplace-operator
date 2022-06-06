@@ -14,6 +14,8 @@ type ProjectConfig struct {
 	controllerruntimecfg.ControllerManagerConfigurationSpec `json:",inline"`
 
 	ClusterName string `json:"clusterName,omitempty"`
+
+	ComponentConfigMarketplaceConfigSpec ComponentConfigMarketplaceConfigSpec `json:"marketplaceConfigSpec,omitempty"`
 }
 
 func init() {

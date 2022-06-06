@@ -28,6 +28,7 @@ import (
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -68,11 +69,12 @@ var _ reconcile.Reconciler = &MarketplaceConfigReconciler{}
 type MarketplaceConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	cc     ClientCommandRunner
-	cfg    *config.OperatorConfig
+	Client                           client.Client
+	Scheme                           *runtime.Scheme
+	Log                              logr.Logger
+	cc                               ClientCommandRunner
+	cfg                              *config.OperatorConfig
+	ComponentConfigMarketplaceConfig marketplacev1beta1.ComponentConfigMarketplaceConfigSpec
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
@@ -92,6 +94,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
+	utils.PrettyPrintWithLog(r.ComponentConfigMarketplaceConfig, "COMPONENT CONFIG MARKETPLACECONFIG")
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)

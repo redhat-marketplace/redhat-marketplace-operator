@@ -71,12 +71,13 @@ type ConditionError struct {
 type DeploymentConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client        client.Client
-	Scheme        *runtime.Scheme
-	Log           logr.Logger
-	cfg           *config.OperatorConfig
-	factory       *manifests.Factory
-	CatalogClient *catalog.CatalogClient
+	Client                           client.Client
+	Scheme                           *runtime.Scheme
+	Log                              logr.Logger
+	cfg                              *config.OperatorConfig
+	factory                          *manifests.Factory
+	CatalogClient                    *catalog.CatalogClient
+	ComponentConfigMarketplaceConfig marketplacev1beta1.ComponentConfigMarketplaceConfigSpec
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
