@@ -135,8 +135,23 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		}
 	}
 
+	// Fetch the MarketplaceConfig instance
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: request.Namespace}, marketplaceConfig)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get MarketplaceConfig instance")
+		return reconcile.Result{}, err
+	}
+
+	var isDisconnected bool
+	if marketplaceConfig.Spec.IsDisconnected == nil || !*marketplaceConfig.Spec.IsDisconnected {
+		isDisconnected = false
+	} else {
+		isDisconnected = true
+	}
+
 	//only check registration status, compare pull secret from COS if we are not in a disconnected environment
-	if newMarketplaceConfig != nil && !r.cfg.IsDisconnected {
+	if newMarketplaceConfig != nil && !isDisconnected {
 		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
 			NewMarketplaceClient(jwtToken, tokenClaims)
 

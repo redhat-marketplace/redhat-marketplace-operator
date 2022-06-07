@@ -51,6 +51,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	EnableMetering *bool `json:"enableMetering,omitempty"`
 
+	// IsDisconnected represents the installation of operator in disconnected mode
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install in Disconnected mode"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	IsDisconnected *bool `json:"IsDisconnected,omitempty"`
+
 	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"

@@ -230,10 +230,18 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		marketplaceConfig.Spec.EnableMetering = nil
 	}
 
+	if r.cfg.IsDisconnected && (marketplaceConfig.Spec.IsDisconnected == nil || !*marketplaceConfig.Spec.IsDisconnected) {
+		marketplaceConfig.Spec.IsDisconnected = ptr.Bool(true)
+		err = r.Client.Update(context.TODO(), marketplaceConfig)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update IsDisconnected flag in Marketplace Config")
+			return reconcile.Result{}, err
+		}
+	}
+
 	// if the operator is running in a disconnected environment just update the marketplaceconfig status and apply meterbase cr
-	if r.cfg.IsDisconnected {
-		if *marketplaceConfig.Spec.Features.Deployment ||
-			*marketplaceConfig.Spec.Features.Registration {
+	if marketplaceConfig.Spec.IsDisconnected != nil && *marketplaceConfig.Spec.IsDisconnected {
+		if *marketplaceConfig.Spec.Features.Deployment || *marketplaceConfig.Spec.Features.Registration || *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
 			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				err = r.Client.Get(context.TODO(), client.ObjectKeyFromObject(marketplaceConfig), marketplaceConfig)
 				if err != nil {
@@ -285,7 +293,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		if k8serrors.IsNotFound(err) {
 			newMeterBaseCr := utils.BuildMeterBaseCr(
 				marketplaceConfig.Namespace,
-				*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
+				false,
 			)
 
 			if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
@@ -328,35 +336,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 		if marketplaceConfig.Status.MeterBaseSubConditions == nil {
 			marketplaceConfig.Status.MeterBaseSubConditions = status.Conditions{}
-		}
-
-		// update meter definition catalog config
-		result, err := func() (reconcile.Result, error) {
-			catalogServerEnabled := true
-
-			if marketplaceConfig.Spec.Features != nil &&
-				marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer != nil {
-				catalogServerEnabled = *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer
-			}
-
-			update := utils.UpdateMeterDefinitionCatalogConfig(foundMeterBase, utils.NewMeterDefinitionCatalogConfig(
-				catalogServerEnabled,
-			))
-
-			if !update {
-				return reconcile.Result{}, nil
-			}
-
-			err = r.Client.Update(context.TODO(), foundMeterBase)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update meterbase")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}()
-
-		if result.Requeue || err != nil {
-			return result, err
 		}
 
 		if foundMeterBase != nil && foundMeterBase.Status.Conditions != nil {
@@ -613,61 +592,10 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	}
 	reqLogger.Info("found meterbase")
 
-	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
-		// meterbase doesn't have MeterdefinitionCatalogServerConfig on MeterBase.Spec.
-		// Set the stuct and set all flags to true
-		if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
-			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
-			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-				//TODO: are we setting this to false in production ?
-				SyncCommunityMeterDefinitions:      false,
-				SyncSystemMeterDefinitions:         false,
-				DeployMeterDefinitionCatalogServer: false,
-			}
-
-			reqLogger.Info("setting MeterdefinitionCatalog features")
-
-			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Update(context.TODO(), foundMeterBase)
-			})
-			if err != nil {
-				reqLogger.Error(err, "failed to update meterbase")
-				return reconcile.Result{}, err
-			}
-		}
-
-		// foundMeterBase.Spec.MeterdefinitionCatalogServerConfig already exists
-		// just allow for toggling the deployment of the file server - leave individual sync flags alone
-		if foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil && !foundMeterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
-			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
-			foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-				DeployMeterDefinitionCatalogServer: false,
-			}
-
-			reqLogger.Info("setting MeterdefinitionCatalog features")
-
-			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Update(context.TODO(), foundMeterBase)
-			})
-			if err != nil {
-				reqLogger.Error(err, "failed to update meterbase")
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	// meterdef catalog server disabled, set all flags to false. This will remove file server resources and all community & system meterdefs
-	if !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && foundMeterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
-		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
-
-		foundMeterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-			//TODO: probably not necessary but setting to false here just to be safe
-			SyncCommunityMeterDefinitions:      false,
-			SyncSystemMeterDefinitions:         false,
-			DeployMeterDefinitionCatalogServer: false,
-		}
-
-		reqLogger.Info("disabling MeterdefinitionCatalog features")
+	// handle settings for meter definition catalog server
+	updateMeterBase := handleMeterDefinitionCatalogServerConfigs(reqLogger, marketplaceConfig, foundMeterBase)
+	if updateMeterBase {
+		reqLogger.Info("setting MeterdefinitionCatalog features")
 
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			return r.Client.Update(context.TODO(), foundMeterBase)
@@ -798,6 +726,55 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
+}
+
+func handleMeterDefinitionCatalogServerConfigs(reqLogger logr.Logger, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, meterBase *marketplacev1alpha1.MeterBase) bool {
+
+	updateMeterBase := false
+
+	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+		// if meterbase doesn't have MeterdefinitionCatalogServerConfig on MeterBase.Spec.
+		// Set the struct and set all flags to true
+		if meterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
+			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
+			meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+				//TODO: below flags should be set to true when we decide to enable this feature in production
+				SyncCommunityMeterDefinitions:      false,
+				SyncSystemMeterDefinitions:         false,
+				DeployMeterDefinitionCatalogServer: false,
+			}
+
+			updateMeterBase = true
+		} else {
+			// foundMeterBase.Spec.MeterdefinitionCatalogServerConfig already exists
+			// just allow for toggling the deployment of the file server - leave individual sync flags alone
+			if !meterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
+				reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
+				meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+					//TODO: below flags should be set to true when we decide to enable this feature in production
+					SyncCommunityMeterDefinitions:      false,
+					SyncSystemMeterDefinitions:         false,
+					DeployMeterDefinitionCatalogServer: false,
+				}
+				updateMeterBase = true
+			}
+		}
+	}
+
+	// meterdef catalog server disabled, set all flags to false. This will remove file server resources and all community & system meterdefs
+	if !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && meterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
+		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
+
+		meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+			//TODO: probably not necessary but setting to false here just to be safe
+			SyncCommunityMeterDefinitions:      false,
+			SyncSystemMeterDefinitions:         false,
+			DeployMeterDefinitionCatalogServer: false,
+		}
+		updateMeterBase = true
+	}
+
+	return updateMeterBase
 }
 
 // Begin installation or deletion of Catalog Source

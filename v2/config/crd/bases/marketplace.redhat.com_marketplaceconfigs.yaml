@@ -50,6 +50,10 @@ spec:
           spec:
             description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
             properties:
+              IsDisconnected:
+                description: IsDisconnected represents the installation of operator
+                  in disconnected mode
+                type: boolean
               clusterName:
                 description: ClusterName is the name that will be assigned to your
                   cluster in the Red Hat Marketplace UI. If you have set the name
