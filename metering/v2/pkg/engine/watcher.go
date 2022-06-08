@@ -16,6 +16,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -122,33 +124,46 @@ func (w *NamespacedCachedListers) Start(ctx context.Context) error {
 	return nil
 }
 
+func cachedListerKey(ns string, typ reflect.Type) string {
+	return fmt.Sprintf("%s-%s", ns, typ.String())
+}
+
 func (w *NamespacedCachedListers) namespaceChange(ctx context.Context) error {
 	namespaces := w.watcher.Get()
 
-	for _, ns := range namespaces {
-		_, ok := w.listers[ns]
+	for ns, nsTypes := range namespaces {
+		for _, nsType := range nsTypes {
+			key := cachedListerKey(ns, nsType)
 
-		if !ok {
-			w.listers[ns] = []RunAndStop{}
-
-			for _, makeLister := range w.makeListers {
-				lister := makeLister(ns)
-				err := lister.Start(ctx)
-				if err != nil {
-					return err
-				}
-				w.listers[ns] = append(w.listers[ns], lister)
+			if _, ok := w.listers[key]; ok {
+				continue
 			}
+
+			w.listers[key] = []RunAndStop{}
+
+			lister := w.makeListers[nsType](ns)
+			w.log.Info("starting listener", "key", key)
+			err := lister.Start(ctx)
+			if err != nil {
+				return err
+			}
+			w.listers[key] = append(w.listers[ns], lister)
 		}
 	}
 
 	toDelete := []string{}
+
 	for currentNs, listers := range w.listers {
 		found := false
-		for _, ns := range namespaces {
-			if ns == currentNs {
-				found = true
-				break
+
+		for ns, nsTypes := range namespaces {
+			for _, nsType := range nsTypes {
+				key := cachedListerKey(ns, nsType)
+
+				if key == currentNs {
+					found = true
+					break
+				}
 			}
 		}
 
@@ -169,7 +184,7 @@ func (w *NamespacedCachedListers) namespaceChange(ctx context.Context) error {
 
 type NamespacedListWatcherFunc func(ns string) RunAndStop
 
-type ListWatchers map[string]NamespacedListWatcherFunc
+type ListWatchers map[reflect.Type]NamespacedListWatcherFunc
 
 type MeterDefinitionStoreListWatchers ListWatchers
 
@@ -179,16 +194,16 @@ func ProvideMeterDefinitionStoreListWatchers(
 	c *monitoringv1client.MonitoringV1Client,
 ) MeterDefinitionStoreListWatchers {
 	return MeterDefinitionStoreListWatchers{
-		"pvcs": func(ns string) RunAndStop {
+		reflect.TypeOf(&corev1.PersistentVolumeClaim{}): func(ns string) RunAndStop {
 			return providePVCLister(kubeClient, ns, store)
 		},
-		"pods": func(ns string) RunAndStop {
+		reflect.TypeOf(&corev1.Pod{}): func(ns string) RunAndStop {
 			return providePodListerRunnable(kubeClient, ns, store)
 		},
-		"services": func(ns string) RunAndStop {
+		reflect.TypeOf(&corev1.Service{}): func(ns string) RunAndStop {
 			return provideServiceListerRunnable(kubeClient, ns, store)
 		},
-		"servicemonitors": func(ns string) RunAndStop {
+		reflect.TypeOf(&monitoringv1.ServiceMonitor{}): func(ns string) RunAndStop {
 			return provideServiceMonitorListerRunnable(c, ns, store)
 		},
 	}

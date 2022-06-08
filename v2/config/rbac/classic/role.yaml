@@ -396,13 +396,6 @@ rules:
       - watch
       - list
   - nonResourceURLs:
-    - /api/v1/query
-    - /api/v1/query_range
-    - /api/v1/targets
-    verbs:
-    - create
-    - get
-  - nonResourceURLs:
     - /dataservice.v1.fileserver.FileServer/*
     verbs:
     - create
@@ -431,6 +424,13 @@ rules:
       - list
       - watch
       - update
+  - apiGroups:
+      - operators.coreos.com
+    resources:
+      - operatorgroups
+    verbs:
+      - get
+      - list
   - apiGroups:
       - monitoring.coreos.com
     resources:

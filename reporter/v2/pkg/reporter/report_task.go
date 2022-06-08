@@ -83,7 +83,7 @@ func (r *Task) report(ctx context.Context) error {
 	}
 
 	logger.Info("starting collection")
-	metrics, errorList, warningList, _ := reporter.CollectMetrics(ctx)
+	metrics, errorList, warningList, err := reporter.CollectMetrics(ctx)
 
 	for _, err := range warningList {
 		details := append(
@@ -99,12 +99,41 @@ func (r *Task) report(ctx context.Context) error {
 		logger.Info(fmt.Sprintf("error: %v", err), details...)
 	}
 
-	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
+	// short cut and return an error if there is an error and no metrics processed
+	// i.e. something broke so bad we have no data being sent
+	if err != nil && len(metrics) == 0 {
+		err = updateMeterReportStatus(ctx, r.K8SClient, r.ReportName.Name, r.ReportName.Namespace,
+			func(status marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
+				status.Conditions.SetCondition(marketplacev1alpha1.ReportConditionJobErrored)
+				status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
+				status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
 
+				for _, err := range errorList {
+					status.Errors = append(status.Errors,
+						(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+					)
+				}
+
+				for _, err := range warningList {
+					status.Warnings = append(status.Warnings,
+						(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+					)
+				}
+
+				return status
+			},
+		)
+		if err != nil {
+			log.Error(err, "failed to update report status")
+		}
+		return errors.Wrap(err, "failure to query metrics")
+	}
+
+	// if we have metrics, try to upload a file
+	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
 	logger.Info("writing report", "reportID", r.ReportName)
 
 	files, err := reporter.WriteReport(reportID, metrics)
-
 	if err != nil {
 		return errors.Wrap(err, "error writing report")
 	}
@@ -165,19 +194,6 @@ func (r *Task) report(ctx context.Context) error {
 		}()
 	}
 
-	status := marketplacev1alpha1.MeterReportStatus{}
-	for _, err := range errorList {
-		status.Errors = append(status.Errors,
-			(marketplacev1alpha1.ErrorDetails{}).FromError(err),
-		)
-	}
-
-	for _, err := range warningList {
-		status.Warnings = append(status.Warnings,
-			(marketplacev1alpha1.ErrorDetails{}).FromError(err),
-		)
-	}
-
 	if !r.Config.Local {
 		err = updateMeterReportStatus(ctx, r.K8SClient, r.ReportName.Name, r.ReportName.Namespace,
 			func(status marketplacev1alpha1.MeterReportStatus) marketplacev1alpha1.MeterReportStatus {
@@ -185,6 +201,19 @@ func (r *Task) report(ctx context.Context) error {
 				status.MetricUploadCount = ptr.Int(len(metrics))
 				status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
 				status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
+
+				for _, err := range errorList {
+					status.Errors = append(status.Errors,
+						(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+					)
+				}
+
+				for _, err := range warningList {
+					status.Warnings = append(status.Warnings,
+						(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+					)
+				}
+
 				status.Conditions.SetCondition(uploadCondition)
 
 				dataServiceStatus := uploadStatuses.Get(uploaders.UploaderTargetDataService.Name())

@@ -16,6 +16,7 @@ package processors
 
 import (
 	"context"
+	"fmt"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -90,9 +91,9 @@ func (w *MeterDefinitionRemovalWatcher) onAdd(_ context.Context, d cache.Delta) 
 		return errors.New("encountered unexpected type")
 	}
 
-	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
-
-	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
+	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace, "namespaces", fmt.Sprintf("%+v", meterdef.Filter.GetNamespaces()))
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition), meterdef.Filter.GetNamespaces())
+	//w.addNamespaces(meterdef)
 	return w.meterDefinitionStore.Resync()
 }
 
@@ -103,8 +104,7 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(_ context.Context, d cache.Delt
 		return errors.New("encountered unexpected type")
 	}
 
-	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
-
+	w.log.Info("deleting meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
 	w.nsWatcher.RemoveNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
 
 	key, err := cache.MetaNamespaceKeyFunc(meterdef.MeterDefinition)
@@ -123,7 +123,7 @@ func (w *MeterDefinitionRemovalWatcher) onDelete(_ context.Context, d cache.Delt
 
 	for i := range objects {
 		obj := objects[i]
-		w.log.V(2).Info("deleting obj", "object", obj)
+		w.log.Info("deleting obj", "object", obj)
 		err := w.meterDefinitionStore.Delete(obj)
 
 		if err != nil {
@@ -141,7 +141,7 @@ func (w *MeterDefinitionRemovalWatcher) onUpdate(_ context.Context, d cache.Delt
 		return errors.New("encountered unexpected type")
 	}
 
-	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
+	w.addNamespaces(meterdef)
 
 	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
 
@@ -179,7 +179,11 @@ func (w *MeterDefinitionRemovalWatcher) onSync(_ context.Context, d cache.Delta)
 		return errors.New("encountered unexpected type")
 	}
 
-	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
+	w.addNamespaces(meterdef)
 
 	return nil
+}
+
+func (w *MeterDefinitionRemovalWatcher) addNamespaces(meterdef *stores.MeterDefinitionExtended) {
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition), meterdef.Filter.GetNamespaces())
 }

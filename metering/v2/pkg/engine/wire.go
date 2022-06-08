@@ -29,20 +29,20 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"k8s.io/client-go/rest"
 )
 
 func NewEngine(
 	ctx context.Context,
 	namespaces types.Namespaces,
 	scheme *runtime.Scheme,
+	restConfig *rest.Config,
 	clientOptions managers.ClientOptions,
 	log logr.Logger,
 	prometheusData *metrics.PrometheusData,
 	statusFlushDuration processors.StatusFlushDuration,
 ) (*Engine, error) {
 	panic(wire.Build(
-		config.GetConfig,
 		managers.ProvideMetadataClientSet,
 		managers.AddIndices,
 		RunnablesSet,

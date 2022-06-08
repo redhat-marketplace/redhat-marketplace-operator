@@ -58,6 +58,28 @@ func (s FilterRuntimeObjects) Test(obj interface{}) (pass bool, filterIndex int,
 	return
 }
 
+var namespaceFilterType = reflect.TypeOf(&WorkloadNamespaceFilter{})
+
+func (s FilterRuntimeObjects) Types() []reflect.Type {
+	for _, f := range s {
+		if filter, ok := f.(*WorkloadTypeFilter); ok {
+			return filter.gvks
+		}
+	}
+
+	return nil
+}
+
+func (s FilterRuntimeObjects) Namespaces() []string {
+	for _, f := range s {
+		if filter, ok := f.(*WorkloadNamespaceFilter); ok {
+			return filter.namespaces
+		}
+	}
+
+	return nil
+}
+
 func (s FilterRuntimeObjects) String() string {
 	strs := make([]string, 0, len(s))
 	printFilter := func(f FilterRuntimeObject) string {

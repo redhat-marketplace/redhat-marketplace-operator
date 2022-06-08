@@ -73,7 +73,7 @@ func MeterDefinitionIndexFunc(obj interface{}) ([]string, error) {
 	keys := make([]string, 0, len(v.MeterDefinitions))
 	for i := range v.MeterDefinitions {
 		meterDef := v.MeterDefinitions[i]
-		key, err := cache.MetaNamespaceKeyFunc(&meterDef)
+		key, err := cache.MetaNamespaceKeyFunc(meterDef)
 		if !ok {
 			return nil, errors.Wrap(err, "failed to get obj key")
 		}
@@ -351,6 +351,7 @@ func (s *MeterDefinitionStore) Replace(list []interface{}, _ string) error {
 
 // Resync implements the Resync method of the store interface.
 func (s *MeterDefinitionStore) Resync() error {
+	s.List()
 	return nil
 }
 

@@ -136,20 +136,6 @@ func providePrometheusAPIForReporter(
 
 		localClient := v1.NewAPI(client)
 		return localClient, nil
-	} else {
-		if setup.PromService == nil {
-			return nil, errors.New("prom service is not provided")
-		}
-		if setup.PromPort == nil {
-			return nil, errors.New("prom port is not provided")
-		}
-	}
-
-	if setup.PromService == nil {
-		return nil, errors.New("prom service is not provided")
-	}
-	if setup.PromPort == nil {
-		return nil, errors.New("prom port is not provided")
 	}
 
 	if setup.PromService == nil {
@@ -170,6 +156,10 @@ func providePrometheusAPIForReporter(
 			return nil, err
 		}
 		auth = fmt.Sprintf(string(content))
+	}
+
+	if auth == "" {
+		return nil, errors.New("failed to read a token, no TokenFilePath provided")
 	}
 
 	conf, err := NewSecureClient(&PrometheusSecureClientConfig{
