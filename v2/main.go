@@ -23,7 +23,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/fsnotify/fsnotify"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -199,22 +201,53 @@ func main() {
 	// 	watchNamespacesSlice = append(watchNamespacesSlice, "openshift-monitoring")
 	// 	opts.NewCache = cache.MultiNamespacedCacheBuilder(watchNamespacesSlice)
 	// }
-	var err error
-	projectConfig := marketplacev1beta1.ProjectConfig{}
-	if projectConfigVar != "" {
-		opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(projectConfigVar).OfKind(&projectConfig))
-		if err != nil {
-			setupLog.Error(err, "unable to load the project config file")
-			// os.Exit(1)
-		}
+	// var err error
+	// projectConfig := marketplacev1beta1.ProjectConfig{}
+	// if projectConfigVar != "" {
+	// 	opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(projectConfigVar).OfKind(&projectConfig))
+	// 	if err != nil {
+	// 		setupLog.Error(err, "unable to load the project config file")
+	// 		os.Exit(1)
+	// 	}
 
-		utils.PrettyPrint(projectConfig)
-		// utils.PrettyPrint(opts)
-		// out, _ := json.MarshalIndent(opts, "", "    ")
-
-		// setupLog.Info(string(out))
+	// 	utils.PrettyPrint(projectConfig)
+	// }
+	viper.SetConfigFile(projectConfigVar)
+	// viper.SetConfigName("controller_manager_config")
+	// viper.AddConfigPath("/config")
+	// viper.AddConfigPath(".")
+	// viper.AutomaticEnv()
+	// viper.SetConfigType("yaml")
+	// viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		setupLog.Error(err, "Error reading config file")
 	}
 
+	projectConfig := marketplacev1beta1.ProjectConfig{}
+	err := viper.Unmarshal(&projectConfig)
+	if err != nil {
+		setupLog.Error(err, "error unmarshaling")
+	}
+
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		// fmt.Println("Config file changed:", e.Name)
+		setupLog.Info("config file changed", "file", e.Name)
+		err := viper.Unmarshal(&projectConfig)
+		if err != nil {
+			setupLog.Error(err, "error unmarshaling")
+		}
+		utils.PrettyPrint(projectConfig)
+	})
+
+	utils.PrettyPrint(projectConfig)
+
+	// MetricsBindAddress:     metricsAddr,
+	// HealthProbeBindAddress: probeAddr,
+	// LeaderElection:   enableLeaderElection,
+	opts.MetricsBindAddress = projectConfig.Metrics.BindAddress
+	opts.HealthProbeBindAddress = projectConfig.Health.HealthProbeBindAddress
+	opts.LeaderElection = *projectConfig.LeaderElection.LeaderElect
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
 
 	if err != nil {
