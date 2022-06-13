@@ -135,16 +135,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	// Fetch the MarketplaceConfig instance
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: request.Namespace}, marketplaceConfig)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get MarketplaceConfig instance")
-		return reconcile.Result{}, err
-	}
-
 	var isDisconnected bool
-	if marketplaceConfig.Spec.IsDisconnected == nil || !*marketplaceConfig.Spec.IsDisconnected {
+	if newMarketplaceConfig.Spec.IsDisconnected == nil || !*newMarketplaceConfig.Spec.IsDisconnected {
 		isDisconnected = false
 	} else {
 		isDisconnected = true
@@ -358,7 +350,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	reqLogger.Info("reconcile finished. Marketplace Config Created")
+	reqLogger.Info("ClusterRegistrationController reconcile finished")
 	return reconcile.Result{}, nil
 }
 

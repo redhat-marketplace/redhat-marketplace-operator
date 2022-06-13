@@ -738,10 +738,9 @@ func handleMeterDefinitionCatalogServerConfigs(reqLogger logr.Logger, marketplac
 		if meterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
 			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
 			meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-				//TODO: below flags should be set to true when we decide to enable this feature in production
-				SyncCommunityMeterDefinitions:      false,
-				SyncSystemMeterDefinitions:         false,
-				DeployMeterDefinitionCatalogServer: false,
+				SyncCommunityMeterDefinitions:      true,
+				SyncSystemMeterDefinitions:         false, //always making this false for now
+				DeployMeterDefinitionCatalogServer: true,
 			}
 
 			updateMeterBase = true
@@ -751,10 +750,9 @@ func handleMeterDefinitionCatalogServerConfigs(reqLogger logr.Logger, marketplac
 			if !meterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
 				reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
 				meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-					//TODO: below flags should be set to true when we decide to enable this feature in production
-					SyncCommunityMeterDefinitions:      false,
-					SyncSystemMeterDefinitions:         false,
-					DeployMeterDefinitionCatalogServer: false,
+					SyncCommunityMeterDefinitions:      meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions,
+					SyncSystemMeterDefinitions:         meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions,
+					DeployMeterDefinitionCatalogServer: true,
 				}
 				updateMeterBase = true
 			}

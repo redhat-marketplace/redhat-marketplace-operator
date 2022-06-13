@@ -178,6 +178,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&MarketplaceConfigReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfigReconciler"),
+		Scheme: k8sScheme,
+		cfg:    operatorCfg,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 
