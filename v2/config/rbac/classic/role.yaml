@@ -466,3 +466,11 @@ rules:
       - update
       - patch
       - watch
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
