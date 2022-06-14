@@ -117,6 +117,10 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 
 	for key, workloadFilters := range s.filters {
 		ans, i, err := workloadFilters.Test(obj)
+		// Don't produce an error if the object gets deleted while testing
+		if err != nil && k8serrors.IsNotFound(err) {
+			return false, nil
+		}
 		if err != nil {
 			filterLogger.Error(err, "filter failed", "key", key, "filters", workloadFilters, "i", i)
 			return false, err
