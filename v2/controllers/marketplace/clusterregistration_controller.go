@@ -135,10 +135,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	var isDisconnected bool
-	if newMarketplaceConfig.Spec.IsDisconnected == nil || !*newMarketplaceConfig.Spec.IsDisconnected {
-		isDisconnected = false
-	} else {
+	isDisconnected := false
+	if newMarketplaceConfig != nil && newMarketplaceConfig.Spec.IsDisconnected != nil && *newMarketplaceConfig.Spec.IsDisconnected {
 		isDisconnected = true
 	}
 

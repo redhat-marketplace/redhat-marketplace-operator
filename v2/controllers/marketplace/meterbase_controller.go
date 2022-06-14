@@ -603,10 +603,8 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	var isDisconnected bool
-	if marketplaceConfig.Spec.IsDisconnected == nil || !*marketplaceConfig.Spec.IsDisconnected {
-		isDisconnected = false
-	} else {
+	isDisconnected := false
+	if marketplaceConfig != nil && marketplaceConfig.Spec.IsDisconnected != nil && *marketplaceConfig.Spec.IsDisconnected {
 		isDisconnected = true
 	}
 
