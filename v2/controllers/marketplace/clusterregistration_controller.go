@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -293,7 +294,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
 			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-			*newMarketplaceConfig.Spec.IsDisconnected = isDisconnected
+			newMarketplaceConfig.Spec.IsDisconnected = ptr.Bool(isDisconnected)
 			newMarketplaceConfig.Annotations = annotations
 
 			if si.Name == utils.RHMPullSecretName {
