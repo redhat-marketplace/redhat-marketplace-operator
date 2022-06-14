@@ -136,7 +136,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	isDisconnected := false
-	if newMarketplaceConfig != nil && newMarketplaceConfig.Spec.IsDisconnected != nil && *newMarketplaceConfig.Spec.IsDisconnected {
+	if (newMarketplaceConfig != nil && newMarketplaceConfig.Spec.IsDisconnected != nil && *newMarketplaceConfig.Spec.IsDisconnected) || r.cfg.IsDisconnected {
 		isDisconnected = true
 	}
 
@@ -293,6 +293,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
 			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
+			*newMarketplaceConfig.Spec.IsDisconnected = isDisconnected
 			newMarketplaceConfig.Annotations = annotations
 
 			if si.Name == utils.RHMPullSecretName {
