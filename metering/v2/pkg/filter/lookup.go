@@ -93,7 +93,7 @@ func (s *MeterDefinitionLookupFilter) GetNamespaces() map[string][]reflect.Type 
 		types := f.Types()
 
 		for _, ns := range f.Namespaces() {
-			namespaces[ns] = types
+			namespaces[ns] = append(namespaces[ns], types...)
 		}
 	}
 
