@@ -71,47 +71,47 @@ spec:
     1. It is recommended to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
     2. Edit the cluster-monitoring-config ConfigMap object:
       
-      ```sh
-      $ oc -n openshift-monitoring edit configmap cluster-monitoring-config
-      ```
+       ```sh
+       $ oc -n openshift-monitoring edit configmap cluster-monitoring-config
+       ```
 
     3. Add enableUserWorkload: true under data/config.yaml:
       
-       ```sh
-       apiVersion: v1
-       kind: ConfigMap
-       metadata:
-         name: cluster-monitoring-config
-         namespace: openshift-monitoring
-       data:
-         config.yaml: |
-           enableUserWorkload: true
-       ```
+        ```sh
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: cluster-monitoring-config
+          namespace: openshift-monitoring
+        data:
+          config.yaml: |
+            enableUserWorkload: true
+        ```
 
     4. Configure the user-workload-monitoring-config ConfigMap object:
       
-       ```sh
-       $ oc -n openshift-user-workload-monitoring edit configmap user-workload-monitoring-config
-       ```
+        ```sh
+        $ oc -n openshift-user-workload-monitoring edit configmap user-workload-monitoring-config
+        ```
 
     5. Configure a minimum retention time of 168h and minimum storage capacity of 40Gi
       
-       ```yaml
-       apiVersion: v1
-       kind: ConfigMap
-       metadata:
-         name: user-workload-monitoring-config
-         namespace: openshift-user-workload-monitoring
-       data:
-         config.yaml: |
-           prometheus:
-             retention: 168h
-             volumeClaimTemplate:
-               spec:
-                 resources:
-                   requests:
-                     storage: 40Gi
-       ```
+        ```sh
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: user-workload-monitoring-config
+          namespace: openshift-user-workload-monitoring
+        data:
+          config.yaml: |
+            prometheus:
+              retention: 168h
+              volumeClaimTemplate:
+                spec:
+                  resources:
+                    requests:
+                      storage: 40Gi
+        ```
 
     ### Installation
     1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
