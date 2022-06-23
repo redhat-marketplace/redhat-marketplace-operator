@@ -21,17 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"k8s.io/client-go/rest"
 )
 
 // Injectors from wire.go:
 
-func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, clientOptions managers.ClientOptions, log logr.Logger, prometheusData *metrics.PrometheusData, statusFlushDuration processors.StatusFlushDuration) (*Engine, error) {
+func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, restConfig *rest.Config, clientOptions managers.ClientOptions, log logr.Logger, prometheusData *metrics.PrometheusData, statusFlushDuration processors.StatusFlushDuration) (*Engine, error) {
 	namespaceWatcher := filter.ProvideNamespaceWatcher(log)
-	restConfig, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err

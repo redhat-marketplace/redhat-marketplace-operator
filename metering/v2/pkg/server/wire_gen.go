@@ -9,6 +9,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"time"
 )
 
@@ -23,11 +24,15 @@ func NewServer(opts *Options) (*Service, error) {
 	context := provideContext()
 	namespaces := ProvideNamespaces(opts)
 	scheme := provideScheme()
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
 	clientOptions := getClientOptions()
 	logger := _wireLoggerValue
 	prometheusData := metrics.ProvidePrometheusData()
 	statusFlushDuration := _wireStatusFlushDurationValue
-	engineEngine, err := engine.NewEngine(context, namespaces, scheme, clientOptions, logger, prometheusData, statusFlushDuration)
+	engineEngine, err := engine.NewEngine(context, namespaces, scheme, restConfig, clientOptions, logger, prometheusData, statusFlushDuration)
 	if err != nil {
 		return nil, err
 	}

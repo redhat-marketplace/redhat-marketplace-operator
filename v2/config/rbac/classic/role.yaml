@@ -432,6 +432,13 @@ rules:
       - watch
       - update
   - apiGroups:
+      - operators.coreos.com
+    resources:
+      - operatorgroups
+    verbs:
+      - get
+      - list
+  - apiGroups:
       - monitoring.coreos.com
     resources:
       - servicemonitors
@@ -458,4 +465,12 @@ rules:
       - list
       - update
       - patch
+      - watch
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
       - watch
