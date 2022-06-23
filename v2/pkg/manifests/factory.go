@@ -154,8 +154,9 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 					Port: intstr.FromInt(28088),
 				},
 			},
-			InitialDelaySeconds: 20,
-			PeriodSeconds:       30,
+			TimeoutSeconds:   5,
+			PeriodSeconds:    30,
+			FailureThreshold: 3,
 		}
 		container.ReadinessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
@@ -164,8 +165,10 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 					Port: intstr.FromInt(28088),
 				},
 			},
-			InitialDelaySeconds: 20,
+			TimeoutSeconds:      5,
+			InitialDelaySeconds: 15,
 			PeriodSeconds:       30,
+			FailureThreshold:    3,
 		}
 
 		envChanges.Append(addPodName)

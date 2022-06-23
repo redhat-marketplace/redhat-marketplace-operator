@@ -23,10 +23,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/retry"
 )
 
 type AuthChecker struct {
@@ -56,24 +58,41 @@ func (c *AuthChecker) Start(ctx context.Context) error {
 		return err
 	}
 
-	ticker := time.NewTicker(c.RetryTime)
+	var timer *time.Timer
+
+	// if we have an error, retry more often;
+	// if no error, use a long retry time (default 5 mins)
+	newTimer := func() *time.Timer {
+		if c.HasErr() {
+			return time.NewTimer(wait.Jitter(30*time.Second, 0.5))
+		}
+
+		return time.NewTimer(wait.Jitter(c.RetryTime, 0.25))
+	}
 
 	go func() {
-		defer ticker.Stop()
+		defer func() {
+			if timer != nil {
+				timer.Stop()
+			}
+		}()
 
 		for {
-			time.Sleep(wait.Jitter(1*time.Second, 0.5))
-
 			err := c.CheckToken(ctx)
 
 			if err != nil {
 				c.Logger.Error(err, "failed to check token err")
 			}
 
+			timer = newTimer()
+
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
+				timer.Stop()
+				timer = nil
+				// jitter to make multiple checks happen randomly
 			}
 		}
 	}()
@@ -96,7 +115,20 @@ func (c *AuthChecker) CheckToken(ctx context.Context) (err error) {
 		c.tokenReview.Object["metadata"] = map[string]interface{}{}
 	}
 
-	c.tokenReview, err = c.Client.Create(ctx, c.tokenReview, v1.CreateOptions{})
+	err = retry.OnError(retry.DefaultBackoff, func(error) bool {
+		if errors.IsServerTimeout(err) {
+			return true
+		}
+		if errors.IsTimeout(err) {
+			return true
+		}
+
+		return false
+	}, func() error {
+		c.tokenReview, err = c.Client.Create(ctx, c.tokenReview, v1.CreateOptions{})
+		return err
+	})
+
 	if err != nil {
 		c.Logger.Error(err, "failed to create a token review")
 		c.SetErr(err)
@@ -119,6 +151,13 @@ func (c *AuthChecker) CheckToken(ctx context.Context) (err error) {
 
 	c.Clear()
 	return
+}
+
+func (c *AuthChecker) HasErr() bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.Err != nil
 }
 
 func (c *AuthChecker) SetErr(err error) {
