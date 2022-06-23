@@ -21,6 +21,7 @@ import (
 
 const (
 	/* Resource Names */
+	RHM_CONTROLLER_DEPLOYMENT_NAME         = "redhat-marketplace-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"

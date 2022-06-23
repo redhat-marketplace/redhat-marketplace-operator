@@ -293,7 +293,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ReconcileWithExpectedResults(
 					RequeueResult,
 					RequeueResult,
-					RequeueResult,
 					RequeueAfterResult(time.Second*60)),
 			))
 	})
@@ -334,49 +333,35 @@ var _ = Describe("Testing with Ginkgo", func() {
 			),
 			ReconcileStep(opts,
 				ReconcileWithUntilDone(true)),
-			ListStep(opts,
-				ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
-					assert.Truef(t, ok, "expected RemoteResourceS3List got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(opts,
-				ListWithObj(&corev1.ConfigMapList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*corev1.ConfigMapList)
-					assert.Truef(t, ok, "expected configMap list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(opts,
-				ListWithObj(&corev1.SecretList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*corev1.SecretList)
-
-					assert.Truef(t, ok, "expected secret list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(opts,
-				ListWithObj(&appsv1.DeploymentList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*appsv1.DeploymentList)
-
-					assert.Truef(t, ok, "expected deployment list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
 		)
+
+		Eventually(func() []marketplacev1alpha1.RemoteResourceS3 {
+			list := &marketplacev1alpha1.RemoteResourceS3List{}
+			k8sClient.List(context.TODO(), list, client.InNamespace(namespace))
+
+			return list.Items
+		}, timeout, interval).Should(HaveLen(0), "system RemoteResourceS3s should be deleted")
+
+		Eventually(func() []corev1.ConfigMap {
+			list := &corev1.ConfigMapList{}
+			k8sClient.List(context.TODO(), list, client.InNamespace(namespace))
+
+			return list.Items
+		}, timeout, interval).Should(HaveLen(0), "system ConfigMaps should be deleted")
+
+		Eventually(func() []corev1.Secret {
+			list := &corev1.SecretList{}
+			k8sClient.List(context.TODO(), list, client.InNamespace(namespace))
+
+			return list.Items
+		}, timeout, interval).Should(HaveLen(0), "system Secrets should be deleted")
+
+		Eventually(func() []appsv1.Deployment {
+			list := &appsv1.DeploymentList{}
+			k8sClient.List(context.TODO(), list, client.InNamespace(namespace))
+
+			return list.Items
+		}, timeout, interval).Should(HaveLen(0), "system Deployments should be deleted")
 	})
 
 	It("legacy uninstall", func() {

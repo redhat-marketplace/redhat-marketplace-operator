@@ -292,14 +292,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secret
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
   - create
@@ -439,15 +431,38 @@ rules:
   - update
 - apiGroups:
   - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
   resourceNames:
   - rhm-remoteresources3-controller
   - rhm-watch-keeper
   resources:
   - deployments
+  - deployments/finalizers
   verbs:
   - delete
   - patch
   - update
+- apiGroups:
+  - apps
+  resourceNames:
+  - redhat-marketplace-controller-manager
+  resources:
+  - deployments/finalizers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - apps
   resources:
@@ -556,20 +571,11 @@ rules:
   - marketplace.redhat.com
   resources:
   - marketplaceconfigs
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - marketplaceconfigs
   - marketplaceconfigs/finalizers
   - marketplaceconfigs/status
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
