@@ -91,8 +91,10 @@ func (r *UploadTask) RunReport(ctx context.Context, report *marketplacev1alpha1.
 		return err
 	}
 
-	if err = r.deleteFile(ctx, file); err != nil {
-		logger.Error(err, "failed to delete metadata")
+	if success {
+		if err = r.deleteFile(ctx, file); err != nil {
+			logger.Error(err, "failed to delete metadata")
+		}
 	}
 
 	return nil
