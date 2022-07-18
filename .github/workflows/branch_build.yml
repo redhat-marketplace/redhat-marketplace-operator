@@ -57,11 +57,11 @@ jobs:
       run: make operator/test
 
     - name: Build
-      run: go build -v ./...
+      run: make build
     - name: WhiteSource Unified Agent Scan
       env:
-        WS_APIKEY: ${{secrets.APIKEY}}
-        WS_USERKEY: ${{secrets.USERKEY}}
+        WS_APIKEY: ${{secrets.WS_APIKEY}}
+        WS_USERKEY: ${{secrets.WS_USERKEY}}
         WS_WSS_URL: https://saas.whitesourcesoftware.com/agent
         WS_PRODUCTNAME: GH_${{github.event.repository.name}}
         WS_PROJECTNAME: ${{github.ref}}_ghaction
