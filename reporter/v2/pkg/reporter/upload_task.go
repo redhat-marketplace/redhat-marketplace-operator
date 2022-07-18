@@ -93,8 +93,10 @@ func (r *UploadTask) RunReport(ctx context.Context, report *marketplacev1alpha1.
 
 	if success {
 		if err = r.deleteFile(ctx, file); err != nil {
-			logger.Error(err, "failed to delete metadata")
+			logger.Error(err, "failed to delete file from dataservice")
 		}
+	} else {
+		logger.Info("Upload to backend failed, skipping file deletion from dataservice")
 	}
 
 	return nil
