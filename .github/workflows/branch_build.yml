@@ -56,8 +56,6 @@ jobs:
     - name: Test
       run: make operator/test
 
-    - name: Build
-      run: make build
     - name: WhiteSource Unified Agent Scan
       env:
         WS_APIKEY: ${{secrets.WS_APIKEY}}
