@@ -659,7 +659,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 					Type:    marketplacev1alpha1.ConditionSecretError,
 					Status:  corev1.ConditionTrue,
 					Reason:  marketplacev1alpha1.ReasonNoSecret,
-					Message: "No redhat-marketplace-pull-secret or ibm-entitlement-key secret found. Secret is required in a connected environment.",
+					Message: "no redhat-marketplace-pull-secret or ibm-entitlement-key secret found, secret is required in a connected environment",
 				})
 
 				if updated {
@@ -669,7 +669,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 					}
 				}
 
-				return errors.New("No redhat-marketplace-pull-secret or ibm-entitlement-key secret found. Secret is required in a connected environment.")
+				return errors.New("no redhat-marketplace-pull-secret or ibm-entitlement-key secret found, secret is required in a connected environment")
 			} else {
 				updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionSecretError)
 			}

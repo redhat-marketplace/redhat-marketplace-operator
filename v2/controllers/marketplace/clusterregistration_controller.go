@@ -72,6 +72,8 @@ type SecretInfo struct {
 
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 
@@ -84,7 +86,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	si, err := secretFetcher.ReturnSecret()
 	if err == utils.NoSecretsFound {
 		// marketplaceconfig controller will provide status in this case
-		reqLogger.Info("No redhat-marketplace-pull-secret or ibm-entitlement-key secret found. Secret is required in a connected environment.")
+		reqLogger.Info("no redhat-marketplace-pull-secret or ibm-entitlement-key secret found, secret is required in a connected environment")
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
