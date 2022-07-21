@@ -5,7 +5,7 @@ namespace: openshift-redhat-marketplace
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: redhat-marketplace-
+
 # Labels to add to all resources and selectors.
 commonLabels:
   redhat.marketplace.com/name: redhat-marketplace-operator

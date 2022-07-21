@@ -446,6 +446,18 @@ rules:
   - update
 - apiGroups:
   - apps
+  resourceNames:
+  - redhat-marketplace-controller-manager
+  resources:
+  - deployments/finalizers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
   resources:
   - statefulsets
   verbs:

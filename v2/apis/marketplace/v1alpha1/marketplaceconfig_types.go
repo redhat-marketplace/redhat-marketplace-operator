@@ -135,6 +135,9 @@ const (
 	// ConditionIsDisconnected means the rhm operator is running in a disconnected environment
 	ConditionIsDisconnected status.ConditionType = "IsDisconnected"
 
+	// ConditionSecretError means the redhat-marketplace-pull-secret or ibm-entitlement-key is missing in a connected env
+	ConditionSecretError status.ConditionType = "SecretError"
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
@@ -146,11 +149,12 @@ const (
 	ReasonRegistrationSuccess   status.ConditionReason = "ClusterRegistered"
 	ReasonRegistrationFailure   status.ConditionReason = "ClusterNotRegistered"
 	ReasonServiceUnavailable    status.ConditionReason = "ServiceUnavailable"
-	ReasonInternetDisconnected  status.ConditionReason = "InterntNotAvailable"
+	ReasonInternetDisconnected  status.ConditionReason = "InternetNotAvailable"
 	ReasonClientError           status.ConditionReason = "ClientError"
 	ReasonRegistrationError     status.ConditionReason = "HttpError"
 	ReasonOperatingNormally     status.ConditionReason = "OperatingNormally"
 	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
+	ReasonNoSecret              status.ConditionReason = "NoSecret"
 
 	// Enablement/Disablement of features conditions
 	// ConditionDeploymentEnabled means the particular option is enabled

@@ -24,7 +24,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"github.com/gotidy/ptr"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -36,12 +38,14 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/util/retry"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -78,6 +82,8 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace=system,resources=namespaces,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",namespace=system,resources=secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-razeedeployment
@@ -94,8 +100,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig); err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -108,12 +113,14 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
+	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
+
 	// run the finalizers
 	// Check for deletion and run cleanup
 	isMarketplaceConfigMarkedToBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if isMarketplaceConfigMarkedToBeDeleted {
 		// Cleanup. Unregister. Garbage Collection should delete remaining owned resources
-		secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
+
 		si, err := secretFetcher.ReturnSecret()
 		if err != nil {
 			if errors.Is(err, utils.NoSecretsFound) {
@@ -163,559 +170,57 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	// Add Finalizer
 	if !controllerutil.ContainsFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER) {
 		controllerutil.AddFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-		if err != nil {
+		if err := r.Client.Update(context.TODO(), marketplaceConfig); err != nil {
 			reqLogger.Error(err, "Failed to update MarketplaceConfig")
 			return reconcile.Result{}, err
 		}
 	}
-	// Set default namespaces for workload monitoring
-	if marketplaceConfig.Spec.NamespaceLabelSelector == nil {
-		marketplaceConfig.Spec.NamespaceLabelSelector = &metav1.LabelSelector{
-			MatchExpressions: []metav1.LabelSelectorRequirement{
-				{
-					Key:      "openshift.io/cluster-monitoring",
-					Operator: "DoesNotExist",
-				},
-			},
-		}
 
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
+	// This could ideally be in a namespace reconciler
+	if result, err := r.updateDeployedNamespaceLabels(marketplaceConfig); err != nil {
+		return result, err
 	}
 
-	//Initialize enabled features if not set
-	if marketplaceConfig.Spec.Features == nil {
-		marketplaceConfig.Spec.Features = &common.Features{
-			Deployment:                         ptr.Bool(true),
-			Registration:                       ptr.Bool(true),
-			EnableMeterDefinitionCatalogServer: ptr.Bool(false),
-		}
-	} else {
-		var updateMarketplaceConfig bool
-		if marketplaceConfig.Spec.Features.Deployment == nil {
-			updateMarketplaceConfig = true
-			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
-		}
-		if marketplaceConfig.Spec.Features.Registration == nil {
-			updateMarketplaceConfig = true
-			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
-		}
-		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil {
-			reqLogger.Info("updating marketplaceConfig.Spec.Features.MeterDefinitionCatalogServer")
-			updateMarketplaceConfig = true
-			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(false)
-		}
-
-		if updateMarketplaceConfig {
-			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				return r.Client.Update(context.TODO(), marketplaceConfig)
-			})
-			if err != nil {
-				reqLogger.Error(err, "failed to update marketplaceconfig")
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		}
+	// Ensure the Spec is complete, set derived values
+	if result, err := r.initializeMarketplaceConfigSpec(request, secretFetcher); err != nil {
+		return result, err
 	}
 
-	// Removing EnabledMetering field so setting them all to nil
-	// this will no longer do anything
-	if marketplaceConfig.Spec.EnableMetering != nil {
-		marketplaceConfig.Spec.EnableMetering = nil
+	// Install is starting, set Status
+	if result, err := r.updateMarketplaceConfigStatusStarting(request); err != nil {
+		return result, err
 	}
 
-	if r.cfg.IsDisconnected && (marketplaceConfig.Spec.IsDisconnected == nil || !*marketplaceConfig.Spec.IsDisconnected) {
-		marketplaceConfig.Spec.IsDisconnected = ptr.Bool(true)
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update IsDisconnected flag in Marketplace Config")
-			return reconcile.Result{}, err
-		}
+	// Create or update MeterBase, set derived values
+	if result, err := r.createOrUpdateMeterBase(request); err != nil {
+		return result, err
 	}
 
-	// if the operator is running in a disconnected environment just update the marketplaceconfig status and apply meterbase cr
-	if marketplaceConfig.Spec.IsDisconnected != nil && *marketplaceConfig.Spec.IsDisconnected {
-		if *marketplaceConfig.Spec.Features.Deployment || *marketplaceConfig.Spec.Features.Registration || *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
-			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				err = r.Client.Get(context.TODO(), client.ObjectKeyFromObject(marketplaceConfig), marketplaceConfig)
-				if err != nil {
-					return err
-				}
-
-				//Initialize enabled features if not set
-				if marketplaceConfig.Spec.Features == nil {
-					marketplaceConfig.Spec.Features = &common.Features{}
-				}
-
-				marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
-				marketplaceConfig.Spec.Features.Registration = ptr.Bool(false)
-				marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(false)
-
-				return r.Client.Update(context.TODO(), marketplaceConfig)
-			})
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to update marketplaceconfig.")
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
-			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionIsDisconnected,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonInternetDisconnected,
-				Message: "Detected disconnected environment",
-			})
-			if ok {
-				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-				if err != nil {
-					reqLogger.Error(err, "Failed to update marketplaceconfig status.")
-					return reconcile.Result{}, err
-				}
-
-				return reconcile.Result{Requeue: true}, nil
-			}
-		}
-
-		foundMeterBase := &marketplacev1alpha1.MeterBase{}
-
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
-		if k8serrors.IsNotFound(err) {
-			newMeterBaseCr := utils.BuildMeterBaseCr(
-				marketplaceConfig.Namespace,
-				false,
-			)
-
-			if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
-				reqLogger.Error(err, "Failed to set controller ref")
-				return reconcile.Result{}, err
-			}
-
-			reqLogger.Info("creating meterbase")
-			err = r.Client.Create(context.TODO(), newMeterBaseCr)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
-				return reconcile.Result{}, err
-			}
-
-			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
-				Message: "Meter base installed.",
-			})
-
-			if ok {
-				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-				if err != nil {
-					reqLogger.Error(err, "failed to update status")
-					return reconcile.Result{}, err
-				}
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get MeterBase CR")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("found meterbase")
-
-		var updated bool
-
-		if marketplaceConfig.Status.MeterBaseSubConditions == nil {
-			marketplaceConfig.Status.MeterBaseSubConditions = status.Conditions{}
-		}
-
-		if foundMeterBase != nil && foundMeterBase.Status.Conditions != nil {
-			if !utils.ConditionsEqual(
-				foundMeterBase.Status.Conditions,
-				marketplaceConfig.Status.MeterBaseSubConditions) {
-				marketplaceConfig.Status.MeterBaseSubConditions = foundMeterBase.Status.Conditions
-				updated = updated || true
-			}
-		}
-
-		if updated {
-			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update status")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		reqLogger.Info("finished install for disconnected environments")
+	// handle meterbase settings for meter definition catalog server
+	if result, err := r.handleMeterDefinitionCatalogServerConfigs(request); err != nil {
+		return result, err
 	}
 
-	deployedNamespace := &corev1.Namespace{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace)
-	if err != nil {
-		reqLogger.Error(err, "err getting deployed ns")
+	// Create or update RazeeDeployment, set derived values
+	if result, err := r.createOrUpdateRazeeRazeeDeployment(request); err != nil {
+		return result, err
 	}
 
-	if deployedNamespace.Labels == nil {
-		deployedNamespace.Labels = make(map[string]string)
-	}
-
-	if v, ok := deployedNamespace.Labels[utils.LicenseServerTag]; !ok || v != "true" {
-		deployedNamespace.Labels[utils.LicenseServerTag] = "true"
-
-		err = r.Client.Update(context.TODO(), deployedNamespace)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update deployed namespace with license server tag")
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	//Fetch the redhat-marketplace-pull-secret or ibm-entitlement-key
-	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
-	si, err := secretFetcher.ReturnSecret()
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("found secret", "secret", si.Name)
-
-	if marketplaceConfig.Labels == nil {
-		marketplaceConfig.Labels = make(map[string]string)
-	}
-
-	var updateInstanceSpec bool
-
-	if si.Secret != nil {
-		if clusterDisplayName, ok := si.Secret.Data[utils.ClusterDisplayNameKey]; ok {
-			count := utf8.RuneCountInString(string(clusterDisplayName))
-			clusterName := strings.Trim(string(clusterDisplayName), "\n")
-
-			if marketplaceConfig.Spec.ClusterName != clusterName {
-				if count <= 256 {
-					marketplaceConfig.Spec.ClusterName = clusterName
-					updateInstanceSpec = true
-					reqLogger.Info("setting ClusterName", "name", clusterName)
-				} else {
-					err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
-					reqLogger.Error(err, "name", clusterDisplayName)
-				}
-			}
-		}
-	}
-
-	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		updateInstanceSpec = true
-		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-	}
-
-	if updateInstanceSpec {
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to update the marketplace config")
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
-		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonStartInstall,
-			Message: "Installing starting",
-		})
-
-		if ok {
-			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-	}
-
-	var foundRazee *marketplacev1alpha1.RazeeDeployment
-
-	//Check if RazeeDeployment exists, if not create one
-	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-	if err != nil && k8serrors.IsNotFound(err) {
-		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
-
-		// Sets the owner for foundRazee
-		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.Scheme); err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-			return reconcile.Result{}, err
-		}
-
-		// include a display name if set
-		if marketplaceConfig.Spec.ClusterName != "" {
-			reqLogger.Info("setting cluster name override on razee cr")
-			newRazeeCrd.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
-		}
-
-		reqLogger.Info("creating razee cr")
-		err = r.Client.Create(context.TODO(), newRazeeCrd)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-			return reconcile.Result{}, err
-		}
-
-		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
-			Message: "RazeeDeployment installed.",
-		})
-
-		if ok {
-			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-			if err != nil {
-				reqLogger.Error(err, "failed to update status")
-				return reconcile.Result{}, err
-			}
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-		return reconcile.Result{}, err
-	}
-
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-		if err != nil {
-			return err
-		}
-
-		updatedRazee := foundRazee.DeepCopy()
-		updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
-		updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
-		updatedRazee.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
-
-		if marketplaceConfig.Spec.ClusterName != "" {
-			if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, foundRazee.Spec.ClusterDisplayName) {
-				updatedRazee.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
-			}
-		}
-
-		if !reflect.DeepEqual(foundRazee, updatedRazee) {
-			reqLogger.Info("updating razee cr")
-			err = r.Client.Update(context.TODO(), updatedRazee)
-
-			if err != nil {
-				return err
-			}
-
-			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
-				Message: "RazeeDeployment updated.",
-			})
-
-			if ok {
-				_ = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-			}
-
-			return err
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		reqLogger.Error(err, "failed to update razee")
-		return reconcile.Result{}, err
-	}
-
-	foundMeterBase := &marketplacev1alpha1.MeterBase{}
-
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
-	if k8serrors.IsNotFound(err) {
-		reqLogger.Info("catalog server enabled", "enabled", marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer)
-		newMeterBaseCr := utils.BuildMeterBaseCr(
-			marketplaceConfig.Namespace,
-			*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
-		)
-
-		if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
-			reqLogger.Error(err, "Failed to set controller ref")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("creating meterbase")
-		err = r.Client.Create(context.TODO(), newMeterBaseCr)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new MeterBase CR.")
-			return reconcile.Result{}, err
-		}
-
-		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
-			Message: "Meter base installed.",
-		})
-
-		if ok {
-			err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-			if err != nil {
-				reqLogger.Error(err, "failed to update status")
-				return reconcile.Result{}, err
-			}
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get MeterBase CR")
-		return reconcile.Result{}, err
-	}
-	reqLogger.Info("found meterbase")
-
-	// handle settings for meter definition catalog server
-	updateMeterBase := handleMeterDefinitionCatalogServerConfigs(reqLogger, marketplaceConfig, foundMeterBase)
-	if updateMeterBase {
-		reqLogger.Info("setting MeterdefinitionCatalog features")
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			return r.Client.Update(context.TODO(), foundMeterBase)
-		})
-		if err != nil {
-			reqLogger.Error(err, "failed to update meterbase")
-			return reconcile.Result{}, err
-		}
-	}
-
+	// This has no watch/update, only create/delete
 	for _, catalogSrcName := range [2]string{utils.IBM_CATALOGSRC_NAME, utils.OPENCLOUD_CATALOGSRC_NAME} {
-		requeueFlag, err := r.createCatalogSource(request, marketplaceConfig, catalogSrcName)
-		if requeueFlag && err == nil {
-			return reconcile.Result{Requeue: true}, nil
+		if result, err := r.createCatalogSource(request, catalogSrcName); err != nil {
+			return result, err
 		}
 	}
 
-	var updated bool
-
-	updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionFalse,
-		Reason:  marketplacev1alpha1.ReasonInstallFinished,
-		Message: "Finished Installing necessary components",
-	})
-
-	updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionComplete,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonInstallFinished,
-		Message: "Finished Installing necessary components",
-	})
-
-	if marketplaceConfig.Status.RazeeSubConditions == nil {
-		marketplaceConfig.Status.RazeeSubConditions = status.Conditions{}
+	// Install is complete, set Status
+	if result, err := r.updateMarketplaceConfigStatusFinished(request); err != nil {
+		return result, err
 	}
 
-	if foundRazee != nil && foundRazee.Status.Conditions != nil {
-		if !utils.ConditionsEqual(
-			foundRazee.Status.Conditions,
-			marketplaceConfig.Status.RazeeSubConditions) {
-			marketplaceConfig.Status.RazeeSubConditions = foundRazee.Status.Conditions
-			updated = updated || true
-		}
-	}
-
-	if marketplaceConfig.Status.MeterBaseSubConditions == nil {
-		marketplaceConfig.Status.MeterBaseSubConditions = status.Conditions{}
-	}
-
-	if foundMeterBase != nil && foundMeterBase.Status.Conditions != nil {
-		if !utils.ConditionsEqual(
-			foundMeterBase.Status.Conditions,
-			marketplaceConfig.Status.MeterBaseSubConditions) {
-			marketplaceConfig.Status.MeterBaseSubConditions = foundMeterBase.Status.Conditions
-			updated = updated || true
-		}
-	}
-
-	reqLogger.Info("Finding Cluster registration status")
-
-	requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
-		if si.Secret == nil {
-			return reconcile.Result{}, false, nil
-		}
-
-		token, err := secretFetcher.ParseAndValidate(si)
-		if err != nil {
-			reqLogger.Error(err, "error validating secret")
-			return reconcile.Result{}, false, err
-		}
-		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-		if err != nil {
-			reqLogger.Error(err, "error parsing token")
-			return reconcile.Result{Requeue: true}, false, nil
-		}
-
-		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
-			NewMarketplaceClient(token, tokenClaims)
-
-		if err != nil {
-			reqLogger.Error(err, "error constructing marketplace client")
-			return reconcile.Result{Requeue: true}, true, err
-		}
-
-		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		}
-
-		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-		if err != nil {
-			reqLogger.Error(err, "registration status failed")
-			return reconcile.Result{Requeue: true}, true, err
-		}
-
-		reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
-
-		statusConditions := registrationStatusOutput.TransformConfigStatus()
-
-		for _, cond := range statusConditions {
-			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-		}
-
-		return reconcile.Result{}, false, nil
-	}()
-
-	if requeue || err != nil {
-		return requeueResult, err
-	}
-
-	if updated {
-		//Updating Marketplace Config with Cluster Registration status
-		err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
+	// Update registration status
+	if result, err := r.findRegistrationStatus(request, secretFetcher); err != nil {
+		return result, err
 	}
 
 	reqLogger.Info("reconciling finished")
@@ -728,165 +233,185 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
 
-func handleMeterDefinitionCatalogServerConfigs(reqLogger logr.Logger, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, meterBase *marketplacev1alpha1.MeterBase) bool {
+func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
+	request reconcile.Request,
+) (reconcile.Result, error) {
 
-	updateMeterBase := false
+	reqLogger := r.Log.WithValues("func", "handleMeterDefinitionCatalogServerConfigs", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
-		// if meterbase doesn't have MeterdefinitionCatalogServerConfig on MeterBase.Spec.
-		// Set the struct and set all flags to true
-		if meterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
-			reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
-			meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-				SyncCommunityMeterDefinitions:      true,
-				SyncSystemMeterDefinitions:         false, //always making this false for now
-				DeployMeterDefinitionCatalogServer: true,
-			}
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		meterBase := &marketplacev1alpha1.MeterBase{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: request.Namespace}, meterBase); err != nil {
+			reqLogger.Error(err, "failed to get meterbase")
+			return err
+		}
 
-			updateMeterBase = true
-		} else {
-			// foundMeterBase.Spec.MeterdefinitionCatalogServerConfig already exists
-			// just allow for toggling the deployment of the file server - leave individual sync flags alone
-			if !meterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		meterBaseCopy := meterBase.DeepCopy()
+
+		if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+			// if meterbase doesn't have MeterdefinitionCatalogServerConfig on MeterBase.Spec.
+			// Set the struct and set all flags to true
+			if meterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
 				reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
 				meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-					SyncCommunityMeterDefinitions:      meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions,
-					SyncSystemMeterDefinitions:         meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions,
-					DeployMeterDefinitionCatalogServer: true,
+					SyncCommunityMeterDefinitions:      true,
+					SyncSystemMeterDefinitions:         false, //always making this false for now
+					DeployMeterDefinitionCatalogServer: !*marketplaceConfig.Spec.IsDisconnected && *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
 				}
-				updateMeterBase = true
+			} else {
+				// foundMeterBase.Spec.MeterdefinitionCatalogServerConfig already exists
+				// just allow for toggling the deployment of the file server - leave individual sync flags alone
+				if !meterBase.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
+					reqLogger.Info("enabling MeterDefinitionCatalogServerConfig values")
+					meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+						SyncCommunityMeterDefinitions:      meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions,
+						SyncSystemMeterDefinitions:         meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions,
+						DeployMeterDefinitionCatalogServer: !*marketplaceConfig.Spec.IsDisconnected && *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
+					}
+				}
 			}
 		}
-	}
 
-	// meterdef catalog server disabled, set all flags to false. This will remove file server resources and all community & system meterdefs
-	if !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && meterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
-		reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
+		// meterdef catalog server disabled, set all flags to false. This will remove file server resources and all community & system meterdefs
+		if !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && meterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
+			reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
 
-		meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
-			//TODO: probably not necessary but setting to false here just to be safe
-			SyncCommunityMeterDefinitions:      false,
-			SyncSystemMeterDefinitions:         false,
-			DeployMeterDefinitionCatalogServer: false,
+			meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
+				//TODO: probably not necessary but setting to false here just to be safe
+				SyncCommunityMeterDefinitions:      false,
+				SyncSystemMeterDefinitions:         false,
+				DeployMeterDefinitionCatalogServer: false,
+			}
 		}
-		updateMeterBase = true
-	}
 
-	return updateMeterBase
+		if !reflect.DeepEqual(meterBaseCopy.Spec, meterBase.Spec) {
+			reqLogger.Info("updating meterbase")
+			return r.Client.Update(context.TODO(), meterBase)
+		}
+
+		return nil
+	})
+
+	return reconcile.Result{}, err
 }
 
 // Begin installation or deletion of Catalog Source
-func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Request, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, catalogName string) (bool, error) {
-	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name, "CatalogSource.Name", catalogName)
+func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Request, catalogName string) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "createCatalogSource", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	// Get installation setting for Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
-	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
-	var installCatalogSrc bool
-
-	if installCatalogSrcP == nil {
-		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
-		installCatalogSrc = r.cfg.Features.IBMCatalog
-
-		marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
-		r.Client.Update(context.TODO(), marketplaceConfig)
-		return true, nil
-	} else {
-		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
-		installCatalogSrc = *installCatalogSrcP
-	}
-
-	// Check if the Catalog Source exists.
-	catalogSrc := &operatorsv1alpha1.CatalogSource{}
-	catalogSrcNamespacedName := types.NamespacedName{
-		Name:      catalogName,
-		Namespace: utils.OPERATOR_MKTPLACE_NS}
-	err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
-
-	// If installCatalogSrc is true: install Catalog Source
-	// if installCatalogSrc is false: do not install Catalog Source, and delete existing one (if it exists)
-	reqLogger.Info("Checking Install Catalog Src", "InstallCatalogSource: ", installCatalogSrc)
-	if installCatalogSrc {
-		// If the Catalog Source does not exist, create one
-		if err != nil && k8serrors.IsNotFound(err) {
-			// Create catalog source
-			var newCatalogSrc *operatorsv1alpha1.CatalogSource
-			if utils.IBM_CATALOGSRC_NAME == catalogName {
-				newCatalogSrc = utils.BuildNewIBMCatalogSrc()
-			} else { // utils.OPENCLOUD_CATALOGSRC_NAME
-				newCatalogSrc = utils.BuildNewOpencloudCatalogSrc()
-			}
-
-			reqLogger.Info("Creating catalog source")
-			err = r.Client.Create(context.TODO(), newCatalogSrc)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
-				return false, err
-			}
-
-			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
-				Message: catalogName + " catalog source installed.",
-			})
-
-			if ok {
-				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-
-				if err != nil {
-					reqLogger.Error(err, "failed to update status")
-					return false, err
-				}
-			}
-
-			// catalog source created successfully - return and requeue
-			return true, nil
-		} else if err != nil {
-			// Could not get catalog source
-			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
-			return false, err
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
 		}
 
-		reqLogger.Info("Found CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
-	} else {
-		// If catalog source exists, delete it.
-		if err == nil {
-			// Delete catalog source.
-			reqLogger.Info("Deleting catalog source")
-			catalogSrc.Name = catalogSrcNamespacedName.Name
-			catalogSrc.Namespace = catalogSrcNamespacedName.Namespace
-			err = r.Client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			if err != nil {
-				reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
-				return false, err
-			}
+		// Get installation setting for Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
+		installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
+		var installCatalogSrc bool
 
-			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
-				Message: catalogName + " catalog source deleted.",
-			})
+		if installCatalogSrcP == nil {
+			reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
+			installCatalogSrc = r.cfg.Features.IBMCatalog
 
-			if ok {
-				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-				if err != nil {
-					reqLogger.Error(err, "failed to update status")
-					return false, err
-				}
-			}
-
-			// catalog source deleted successfully - return and requeue
-			return true, nil
-		} else if err != nil && !k8serrors.IsNotFound(err) {
-			// Could not get catalog source
-			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
-			return false, err
+			marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
+			reqLogger.Info("updating marketplaceconfig")
+			return r.Client.Update(context.TODO(), marketplaceConfig)
+		} else {
+			reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
+			installCatalogSrc = *installCatalogSrcP
 		}
 
-		reqLogger.Info(catalogName + " catalog Source does not exist.")
-	}
-	return false, nil
+		// Check if the Catalog Source exists.
+		catalogSrc := &operatorsv1alpha1.CatalogSource{}
+		catalogSrcNamespacedName := types.NamespacedName{
+			Name:      catalogName,
+			Namespace: utils.OPERATOR_MKTPLACE_NS}
+		err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
+
+		// If installCatalogSrc is true: install Catalog Source
+		// if installCatalogSrc is false: do not install Catalog Source, and delete existing one (if it exists)
+		reqLogger.Info("Checking Install Catalog Src", "InstallCatalogSource: ", installCatalogSrc)
+		if installCatalogSrc {
+			// If the Catalog Source does not exist, create one
+			if err != nil && k8serrors.IsNotFound(err) {
+				// Create catalog source
+				var newCatalogSrc *operatorsv1alpha1.CatalogSource
+				if utils.IBM_CATALOGSRC_NAME == catalogName {
+					newCatalogSrc = utils.BuildNewIBMCatalogSrc()
+				} else { // utils.OPENCLOUD_CATALOGSRC_NAME
+					newCatalogSrc = utils.BuildNewOpencloudCatalogSrc()
+				}
+
+				reqLogger.Info("Creating catalog source")
+				if err := r.Client.Create(context.TODO(), newCatalogSrc); err != nil {
+					reqLogger.Error(err, "Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
+					return err
+				}
+
+				ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
+					Message: catalogName + " catalog source installed.",
+				})
+
+				if ok {
+					reqLogger.Info("updating marketplaceconfig status")
+					return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+				}
+
+				return nil
+			} else if err != nil {
+				// Could not get catalog source
+				reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+				return err
+			}
+
+			reqLogger.Info("Found CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+		} else {
+			// If catalog source exists, delete it.
+			if err == nil {
+				// Delete catalog source.
+				reqLogger.Info("Deleting catalog source")
+				catalogSrc.Name = catalogSrcNamespacedName.Name
+				catalogSrc.Namespace = catalogSrcNamespacedName.Namespace
+				if err = r.Client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+					reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
+					return err
+				}
+
+				ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
+					Message: catalogName + " catalog source deleted.",
+				})
+
+				if ok {
+					reqLogger.Info("updating marketplaceconfig status")
+					return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+				}
+
+				return nil
+			} else if err != nil && !k8serrors.IsNotFound(err) {
+				// Could not get catalog source
+				reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+				return err
+			}
+
+			reqLogger.Info(catalogName + " catalog Source does not exist.")
+		}
+
+		return nil
+	})
+	return reconcile.Result{}, err
 }
 
 func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) error {
@@ -962,4 +487,651 @@ func getOperatorGroup() (string, error) {
 		return "", fmt.Errorf("%s must be set", operatorGroupEnvVar)
 	}
 	return og, nil
+}
+
+func (r *MarketplaceConfigReconciler) updateDeployedNamespaceLabels(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig) (reconcile.Result, error) {
+	// Add License Server tag to deployed namespace
+	reqLogger := r.Log.WithValues("func", "updateDeployedNamespaceLabels", "Request.Namespace", marketplaceConfig.Namespace, "Request.Name", marketplaceConfig.Name)
+	deployedNamespace := &corev1.Namespace{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if deployedNamespace.Labels == nil {
+		deployedNamespace.Labels = make(map[string]string)
+	}
+
+	if v, ok := deployedNamespace.Labels[utils.LicenseServerTag]; !ok || v != "true" {
+		deployedNamespace.Labels[utils.LicenseServerTag] = "true"
+
+		reqLogger.Info("updating namespace ")
+		if err := r.Client.Update(context.TODO(), deployedNamespace); err != nil {
+			reqLogger.Error(err, "Failed to update deployed namespace with license server tag")
+			return reconcile.Result{}, err
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
+	request reconcile.Request,
+	secretFetcher *utils.SecretFetcherBuilder,
+) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "initializeMarketplaceConfigSpec", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	// Initialize MarketplaceConfigSpec
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		marketplaceConfigCopy := marketplaceConfig.DeepCopy()
+
+		// IS_DISCONNECTED flag takes precedence, default IsDisconnected to false
+		if r.cfg.IsDisconnected {
+			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(true)
+		} else if marketplaceConfig.Spec.IsDisconnected == nil {
+			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(false)
+		}
+
+		// Initialize enabled features if not set, based on IsDisconnected state
+		if marketplaceConfig.Spec.Features == nil {
+			if *marketplaceConfig.Spec.IsDisconnected {
+				marketplaceConfig.Spec.Features = &common.Features{
+					Deployment:                         ptr.Bool(false),
+					Registration:                       ptr.Bool(false),
+					EnableMeterDefinitionCatalogServer: ptr.Bool(false),
+				}
+			} else {
+				marketplaceConfig.Spec.Features = &common.Features{
+					Deployment:                         ptr.Bool(true),
+					Registration:                       ptr.Bool(true),
+					EnableMeterDefinitionCatalogServer: ptr.Bool(false),
+				}
+			}
+		}
+
+		// Initilize individual features if nil or toggle based on IsDisconnected
+		if marketplaceConfig.Spec.Features.Deployment == nil || *marketplaceConfig.Spec.IsDisconnected {
+			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(!*marketplaceConfig.Spec.IsDisconnected)
+		}
+		if marketplaceConfig.Spec.Features.Registration == nil || *marketplaceConfig.Spec.IsDisconnected {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(!*marketplaceConfig.Spec.IsDisconnected)
+		}
+		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil || *marketplaceConfig.Spec.IsDisconnected {
+			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(!*marketplaceConfig.Spec.IsDisconnected)
+		}
+
+		// Removing EnabledMetering field so setting them all to nil
+		// this will no longer do anything
+		if marketplaceConfig.Spec.EnableMetering != nil {
+			marketplaceConfig.Spec.EnableMetering = nil
+		}
+
+		// Set Cluster DisplayName
+		if !*marketplaceConfig.Spec.IsDisconnected {
+			si, err := secretFetcher.ReturnSecret()
+			if err == nil { // check for missing secret in during status update
+				reqLogger.Info("found secret", "secret", si.Name)
+
+				if si.Secret != nil {
+					if clusterDisplayName, ok := si.Secret.Data[utils.ClusterDisplayNameKey]; ok {
+						count := utf8.RuneCountInString(string(clusterDisplayName))
+						clusterName := strings.Trim(string(clusterDisplayName), "\n")
+
+						if marketplaceConfig.Spec.ClusterName != clusterName {
+							if count <= 256 {
+								marketplaceConfig.Spec.ClusterName = clusterName
+								reqLogger.Info("setting ClusterName", "name", clusterName)
+							} else {
+								err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
+								reqLogger.Error(err, "name", clusterDisplayName)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Set cluster UUID
+		clusterVersion := &openshiftconfigv1.ClusterVersion{}
+		if err := r.Client.Get(context.Background(), client.ObjectKey{Name: "version"}, clusterVersion); err != nil {
+			if !k8serrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+				reqLogger.Error(err, "Failed to retrieve clusterversion resource")
+				return err
+			}
+			if marketplaceConfig.Spec.ClusterUUID == "" {
+				marketplaceConfig.Spec.ClusterUUID = uuid.New().String()
+			}
+		} else {
+			marketplaceConfig.Spec.ClusterUUID = string(clusterVersion.Spec.ClusterID)
+		}
+
+		// Set the controller deployment as the controller-ref, since it owns the finalizer
+		dep := &appsv1.Deployment{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+			Namespace: r.cfg.DeployedNamespace,
+		}, dep)
+		if err != nil {
+			return err
+		}
+		if err = controllerutil.SetControllerReference(dep, marketplaceConfig, r.Scheme); err != nil {
+			return err
+		}
+
+		// Update MarketplaceConfig
+		if !reflect.DeepEqual(*marketplaceConfigCopy, *marketplaceConfig) {
+			reqLogger.Info("updating marketplaceconfig")
+			return r.Client.Update(context.TODO(), marketplaceConfig)
+		}
+		return nil
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set MarketplaceConfig Status
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		updated := false
+		if *marketplaceConfig.Spec.IsDisconnected {
+			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionSecretError)
+			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionIsDisconnected,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonInternetDisconnected,
+				Message: "Detected disconnected environment",
+			})
+		} else {
+			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionIsDisconnected)
+
+			_, err := secretFetcher.ReturnSecret()
+			if err != nil {
+				updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionSecretError,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonNoSecret,
+					Message: "No redhat-marketplace-pull-secret or ibm-entitlement-key secret found. Secret is required in a connected environment.",
+				})
+
+				if updated {
+					reqLogger.Info("updating marketplaceconfig status")
+					if err := r.Client.Status().Update(context.TODO(), marketplaceConfig); err != nil {
+						return err
+					}
+				}
+
+				return errors.New("No redhat-marketplace-pull-secret or ibm-entitlement-key secret found. Secret is required in a connected environment.")
+			} else {
+				updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionSecretError)
+			}
+		}
+
+		if updated {
+			reqLogger.Info("updating marketplaceconfig status")
+			return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+		}
+		return nil
+	})
+
+	return reconcile.Result{}, err
+}
+
+func (r *MarketplaceConfigReconciler) createOrUpdateMeterBase(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "createOrUpdateMeterBase", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+		reqLogger.Error(err, "failed to get marketplaceconfig")
+		return reconcile.Result{}, err
+	}
+
+	meterBase := &marketplacev1alpha1.MeterBase{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: request.Namespace}, meterBase)
+	if k8serrors.IsNotFound(err) {
+		meterBase = utils.BuildMeterBaseCr(
+			request.Namespace,
+			!*marketplaceConfig.Spec.IsDisconnected && *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
+		)
+
+		if err = controllerutil.SetControllerReference(marketplaceConfig, meterBase, r.Scheme); err != nil {
+			reqLogger.Error(err, "Failed to set controller ref")
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("creating meterbase")
+		err = r.Client.Create(context.TODO(), meterBase)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+			return reconcile.Result{}, err
+		}
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+				reqLogger.Error(err, "failed to get marketplaceconfig")
+				return err
+			}
+
+			updated := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
+				Message: "Meter base installed.",
+			})
+
+			if updated {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			}
+
+			return nil
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get meterbase")
+		return reconcile.Result{}, err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		meterBase := &marketplacev1alpha1.MeterBase{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: request.Namespace}, meterBase)
+		if err != nil {
+			reqLogger.Error(err, "failed to get meterbase")
+			return err
+		}
+
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		// Update MarketplaceConfig Status
+		updated := false
+
+		if marketplaceConfig.Status.MeterBaseSubConditions == nil {
+			updated = true
+			marketplaceConfig.Status.MeterBaseSubConditions = status.Conditions{}
+		}
+
+		if meterBase.Status.Conditions != nil {
+			if !utils.ConditionsEqual(
+				meterBase.Status.Conditions,
+				marketplaceConfig.Status.MeterBaseSubConditions) {
+				marketplaceConfig.Status.MeterBaseSubConditions = meterBase.Status.Conditions
+				updated = updated || true
+			}
+		}
+
+		if updated {
+			reqLogger.Info("updating marketplaceconfig status")
+			return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+		}
+
+		return nil
+	})
+
+	return reconcile.Result{}, err
+}
+
+func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "createOrUpdateRazeeRazeeDeployment", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		//Check if RazeeDeployment exists, if not create one
+		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: request.Namespace}, razeeDeployment)
+		if err != nil && k8serrors.IsNotFound(err) {
+			razeeDeployment := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
+
+			// Sets the owner for razeeDeployment
+			if err = controllerutil.SetControllerReference(marketplaceConfig, razeeDeployment, r.Scheme); err != nil {
+				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				return err
+			}
+
+			// include a display name if set
+			if marketplaceConfig.Spec.ClusterName != "" {
+				reqLogger.Info("setting cluster name override on razee cr")
+				razeeDeployment.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
+			}
+
+			// Disable razee in disconnected environment
+			razeeDeployment.Spec.Enabled = !*marketplaceConfig.Spec.IsDisconnected
+
+			reqLogger.Info("creating razee cr")
+			err = r.Client.Create(context.TODO(), razeeDeployment)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				return err
+			}
+
+			updated := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
+				Message: "RazeeDeployment installed.",
+			})
+
+			if updated {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			}
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Keep razeeDeployment spec updated, use retry to avoid conflict with razeedeployment controller: object has been modified
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: request.Namespace}, razeeDeployment); err != nil {
+			reqLogger.Error(err, "failed to get razeedeployment")
+			return err
+		}
+
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		razeeDeploymentCopy := razeeDeployment.DeepCopy()
+
+		// Disable razee in disconnected environment
+		razeeDeployment.Spec.Enabled = !*marketplaceConfig.Spec.IsDisconnected
+		razeeDeployment.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
+		razeeDeployment.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
+		razeeDeployment.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
+
+		if marketplaceConfig.Spec.ClusterName != "" {
+			razeeDeployment.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
+		}
+
+		if !reflect.DeepEqual(razeeDeploymentCopy.Spec, razeeDeployment.Spec) {
+			reqLogger.Info("updating razeedeployment")
+			return r.Client.Update(context.TODO(), razeeDeployment)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Update MarketplaceConfig with Razee watch label
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		if marketplaceConfig.Labels == nil {
+			marketplaceConfig.Labels = make(map[string]string)
+		}
+
+		if marketplaceConfig.Labels[utils.RazeeWatchResource] != utils.RazeeWatchLevelDetail {
+			marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+			reqLogger.Info("updating marketplaceconfig")
+			return r.Client.Update(context.TODO(), marketplaceConfig)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set MarketplaceConfig Conditions
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: request.Namespace}, razeeDeployment); err != nil {
+			reqLogger.Error(err, "failed to get razeedeployment")
+			return err
+		}
+
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		// Update MarketplaceConfig Status
+		updated := false
+
+		if marketplaceConfig.Status.RazeeSubConditions == nil {
+			updated = true
+			marketplaceConfig.Status.RazeeSubConditions = status.Conditions{}
+		}
+
+		for _, condition := range razeeDeployment.Status.Conditions {
+			updated = updated || marketplaceConfig.Status.RazeeSubConditions.SetCondition(condition)
+		}
+
+		if razeeDeployment.Status.Conditions != nil {
+			if !utils.ConditionsEqual(
+				razeeDeployment.Status.Conditions,
+				marketplaceConfig.Status.RazeeSubConditions) {
+				marketplaceConfig.Status.RazeeSubConditions = razeeDeployment.Status.Conditions
+				updated = updated || true
+			}
+		}
+
+		// Update MarketplaceConfig
+		if updated {
+			reqLogger.Info("updating marketplaceconfig status")
+			return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+		}
+
+		return nil
+	})
+
+	return reconcile.Result{}, err
+}
+
+func (r *MarketplaceConfigReconciler) findRegistrationStatus(
+	request reconcile.Request,
+	secretFetcher *utils.SecretFetcherBuilder,
+) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "findRegistrationStatus", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+		reqLogger.Error(err, "failed to get marketplaceconfig")
+		return reconcile.Result{}, err
+	}
+
+	// clear registration status for disconnected environment
+	// registration status for cluster may not be up to date with marketplace while diconnected
+	// or may be in error state if the disconnected flag was set incorrect of cluster connectivity state
+	if *marketplaceConfig.Spec.IsDisconnected {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+				reqLogger.Error(err, "failed to get marketplaceconfig")
+				return err
+			}
+
+			updated := false
+			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistered)
+			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistrationError)
+
+			if updated {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			}
+
+			return nil
+		})
+
+		return reconcile.Result{}, err
+	} else { // get registration status for connected environment
+		reqLogger.Info("Finding Cluster registration status")
+
+		si, err := secretFetcher.ReturnSecret()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("found secret", "secret", si.Name)
+
+		if si.Secret == nil {
+			return reconcile.Result{}, nil
+		}
+
+		token, err := secretFetcher.ParseAndValidate(si)
+		if err != nil {
+			reqLogger.Error(err, "error validating secret")
+			return reconcile.Result{}, err
+		}
+
+		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+		if err != nil {
+			reqLogger.Error(err, "error parsing token")
+			return reconcile.Result{Requeue: true}, err
+		}
+
+		reqLogger.Info("attempting to update registration")
+		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+			NewMarketplaceClient(token, tokenClaims)
+
+		if err != nil {
+			reqLogger.Error(err, "error constructing marketplace client")
+			return reconcile.Result{Requeue: true}, err
+		}
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+				reqLogger.Error(err, "failed to get marketplaceconfig")
+				return err
+			}
+
+			marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+				AccountId:   marketplaceConfig.Spec.RhmAccountID,
+				ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+			}
+
+			registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
+			if err != nil {
+				reqLogger.Error(err, "registration status failed")
+				return err
+			}
+
+			reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
+
+			statusConditions := registrationStatusOutput.TransformConfigStatus()
+
+			updated := false
+			for _, cond := range statusConditions {
+				updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
+			}
+
+			if updated {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			}
+
+			return nil
+		})
+
+		return reconcile.Result{}, err
+	}
+}
+
+func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusStarting(
+	request reconcile.Request,
+) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "updateMarketplaceConfigStatusStarting", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
+			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonStartInstall,
+				Message: "Installing starting",
+			})
+
+			if ok {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			}
+		}
+
+		return nil
+	})
+
+	return reconcile.Result{}, err
+}
+
+func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusFinished(
+	request reconcile.Request,
+) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "updateMarketplaceConfigStatusFinished", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+			reqLogger.Error(err, "failed to get marketplaceconfig")
+			return err
+		}
+
+		updated := false
+
+		updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionFalse,
+			Reason:  marketplacev1alpha1.ReasonInstallFinished,
+			Message: "Finished Installing necessary components",
+		})
+
+		updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionComplete,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonInstallFinished,
+			Message: "Finished Installing necessary components",
+		})
+
+		if updated {
+			//Updating Marketplace Config with Cluster Registration status
+			reqLogger.Info("updating marketplaceconfig status")
+			return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+		}
+
+		return nil
+	})
+
+	return reconcile.Result{}, err
 }
