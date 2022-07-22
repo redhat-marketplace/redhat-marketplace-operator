@@ -61,9 +61,7 @@ jobs:
         WS_APIKEY: ${{secrets.WS_APIKEY}}
         WS_USERKEY: ${{secrets.WS_USERKEY}}
         WS_WSS_URL: https://ibmets.whitesourcesoftware.com/agent
-        # WS_PRODUCTNAME: GH_${{github.event.repository.name}}
         WS_PRODUCTNAME: ${{secrets.WS_PRODUCTNAME}}
-        # WS_PROJECTNAME: ${{github.ref}}_ghaction
         WS_PROJECTNAME: ${{github.event.repository.name}}
       run: |
         echo Downloading WhiteSource Unified Agent
