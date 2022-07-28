@@ -578,6 +578,7 @@ rules:
   - marketplaceconfigs/finalizers
   - marketplaceconfigs/status
   verbs:
+  - delete
   - get
   - list
   - patch
