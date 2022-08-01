@@ -234,7 +234,7 @@ func (r *ReconcileTask) CanRunGenericUpload(ctx context.Context) (bool, ReportSk
 	return true, SkipEmpty
 }
 
-const maxUploadAttempts = 3
+const maxUploadAttempts = 24
 
 // IsDisconnected defaults to false
 func (r *ReconcileTask) CanRunUploadReportTask(ctx context.Context, report marketplacev1alpha1.MeterReport) (ReportSkipReason, bool) {
