@@ -17,7 +17,7 @@ ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 ENV GO_VERSION=${GO_VERSION} OS=linux ARCH=${TARGETARCH}
 
 RUN apt update -y && \
-    apt install -y software-properties-common apt-utils git build-essential dh-autoreconf pkg-config libuv1-dev libsqlite3-dev liblz4-1 liblz4-dev wget
+    apt install -y software-properties-common apt-utils git build-essential dh-autoreconf pkg-config libuv1-dev libsqlite3-dev liblz4-1 liblz4-dev wget jq
 
 WORKDIR /opt/raft
 
@@ -31,7 +31,9 @@ RUN git clone --depth 1 -b $DQLITE_VERSION https://github.com/canonical/dqlite.g
 
 WORKDIR /opt/golang
 
-RUN wget -qO./go.tar.gz https://dl.google.com/go/go$GO_VERSION.$OS-$TARGETARCH.tar.gz && \
+RUN FOUND_VER=$(wget -cq --header='Accept: application/json' 'https://go.dev/dl/?mode=json' -O - | jq -r '.[].version|select(contains(env.GO_VERSION))') && \
+    echo "go major version: $GO_VERSION, found latest stable minor version: $FOUND_VER" && \
+    wget -qO./go.tar.gz https://dl.google.com/go/$FOUND_VER.$OS-$TARGETARCH.tar.gz && \
     rm -rf /usr/local/go && \
     tar -C /usr/local -xzf go.tar.gz
 

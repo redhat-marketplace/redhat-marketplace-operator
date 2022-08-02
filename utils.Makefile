@@ -11,6 +11,7 @@ export VERSION
 export TAG
 
 BINDIR ?= ./bin
+# GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
 GO_VERSION ?= 1.17
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
