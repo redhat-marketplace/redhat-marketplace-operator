@@ -58,4 +58,4 @@ The Redhat Marketplace Operator and its components support running under the Ope
 [RedHat Marketplace](https://marketplace.redhat.com/en-us/documentation)
 
 [Wiki](https://github.com/redhat-marketplace/redhat-marketplace-operator/wiki/Home)
-
+ 
