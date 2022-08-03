@@ -181,7 +181,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(*mc.Spec.Features.Deployment).Should(BeFalse())
 		Expect(*mc.Spec.Features.Registration).Should(BeFalse())
 		Expect(*mc.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
-		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message).ShouldNot(BeNil())
+		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).ShouldNot(BeNil())
 		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message).Should(Equal("Finished Installing necessary components"))
 
 		Expect(mb.Spec.Enabled).Should(BeTrue())
