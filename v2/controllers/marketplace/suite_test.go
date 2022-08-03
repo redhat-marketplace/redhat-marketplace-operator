@@ -40,7 +40,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -137,6 +139,35 @@ var _ = BeforeSuite(func() {
 	}
 
 	Expect(k8sClient.Create(context.TODO(), ns)).Should(Succeed(), "create operator namespace")
+
+	// Deployment is necessary for marketplaceconfig or clusterregistration controller to set marketplaceconfig controller reference
+	ls := map[string]string{"redhat.marketplace.com/name": "redhat-marketplace-operator"}
+	replicas := int32(0)
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+			Namespace: operatorNamespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: ls,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ls,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "manager",
+						Name:  "manager",
+					}},
+				},
+			},
+		},
+	}
+
+	Expect(k8sClient.Create(context.TODO(), dep)).Should(Succeed(), "create controller deployment")
 
 	err = (&RemoteResourceS3Reconciler{
 		Client: k8sClient,

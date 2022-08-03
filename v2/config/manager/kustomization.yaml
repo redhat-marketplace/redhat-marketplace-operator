@@ -1,3 +1,4 @@
+namePrefix: redhat-marketplace-
 resources:
 - manager.yaml
 - namespace.yaml
