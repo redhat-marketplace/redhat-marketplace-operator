@@ -312,6 +312,15 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return result.Return()
 	}
 
+	// Remove finalizer used by previous versions, ownerref gc deletion is used for cleanup
+	if controllerutil.ContainsFinalizer(instance, utils.CONTROLLER_FINALIZER) {
+		controllerutil.RemoveFinalizer(instance, utils.CONTROLLER_FINALIZER)
+		if err := r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update MeterBase")
+			return reconcile.Result{}, err
+		}
+	}
+
 	// if instance.Enabled == false
 	// return do nothing
 	if !instance.Spec.Enabled {
