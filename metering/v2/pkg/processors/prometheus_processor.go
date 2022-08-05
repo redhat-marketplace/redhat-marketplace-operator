@@ -17,18 +17,18 @@ package processors
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // PrometheusProcessor will update the meter definition
@@ -36,8 +36,7 @@ import (
 type PrometheusProcessor struct {
 	*Processor
 	log            logr.Logger
-	kubeClient     client.Client
-	mutex          deadlock.Mutex
+	mutex          sync.Mutex
 	scheme         *runtime.Scheme
 	prometheusData *metrics.PrometheusData
 }
@@ -46,7 +45,6 @@ type PrometheusProcessor struct {
 // the processor.
 func ProvidePrometheusProcessor(
 	log logr.Logger,
-	kubeClient client.Client,
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
 	prometheusData *metrics.PrometheusData,
@@ -60,7 +58,6 @@ func ProvidePrometheusProcessor(
 			channelName:   mailbox.ObjectChannel,
 		},
 		log:            log.WithValues("process", "prometheusProcessor"),
-		kubeClient:     kubeClient,
 		scheme:         scheme,
 		prometheusData: prometheusData,
 	}
@@ -92,18 +89,13 @@ func (u *PrometheusProcessor) Process(ctx context.Context, inObj cache.Delta) er
 
 	switch inObj.Type {
 	case cache.Deleted:
+		u.log.V(2).Info("object deleted", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
 		if err := u.prometheusData.Remove(obj.Object); err != nil {
 			u.log.Error(err, "error deleting obj to prometheus")
 			return errors.WithStack(err)
 		}
-	case cache.Replaced:
-		fallthrough
-	case cache.Sync:
-		fallthrough
-	case cache.Updated:
-		fallthrough
-	case cache.Added:
-		u.log.Info("object added", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
+	case cache.Replaced, cache.Sync, cache.Updated, cache.Added:
+		u.log.V(2).Info("object added", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
 		if err := u.prometheusData.Add(obj.Object, obj.MeterDefinitions); err != nil {
 			u.log.Error(err, "error adding obj to prometheus")
 			return errors.WithStack(err)
@@ -120,8 +112,7 @@ func (u *PrometheusProcessor) Process(ctx context.Context, inObj cache.Delta) er
 type PrometheusMdefProcessor struct {
 	*Processor
 	log            logr.Logger
-	kubeClient     client.Client
-	mutex          deadlock.Mutex
+	mutex          sync.Mutex
 	scheme         *runtime.Scheme
 	prometheusData *metrics.PrometheusData
 }
@@ -130,10 +121,10 @@ type PrometheusMdefProcessor struct {
 // the processor.
 func ProvidePrometheusMdefProcessor(
 	log logr.Logger,
-	kubeClient client.Client,
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
 	prometheusData *metrics.PrometheusData,
+	_ managers.CacheIsStarted,
 ) *PrometheusMdefProcessor {
 	sp := &PrometheusMdefProcessor{
 		Processor: &Processor{
@@ -144,7 +135,6 @@ func ProvidePrometheusMdefProcessor(
 			channelName:   mailbox.MeterDefinitionChannel,
 		},
 		log:            log.WithValues("process", "prometheusProcessor"),
-		kubeClient:     kubeClient,
 		scheme:         scheme,
 		prometheusData: prometheusData,
 	}
@@ -161,35 +151,36 @@ func (u *PrometheusMdefProcessor) Process(ctx context.Context, inObj cache.Delta
 		return nil
 	}
 
-	meterdef, ok := inObj.Object.(*dictionary.MeterDefinitionExtended)
+	meterdef, ok := inObj.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
+
+	metaobj, _ := meta.Accessor(inObj.Object)
 
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	switch inObj.Type {
 	case cache.Deleted:
-		if err := u.prometheusData.Remove(&meterdef.MeterDefinition); err != nil {
-			u.log.Error(err, "error deleting obj from prometheus")
+		u.log.V(2).Info("object deleted", "object", metaobj.GetUID())
+		if err := u.prometheusData.Remove(meterdef.MeterDefinition); err != nil {
+			u.log.Error(err, "error deleting mdef from prometheus")
 			return errors.WithStack(err)
 		}
-	case cache.Replaced:
-		fallthrough
-	case cache.Sync:
-		fallthrough
-	case cache.Updated:
+	case cache.Updated, cache.Replaced, cache.Sync:
 		// Flush the prometheus data when a MeterDefinition is updated
-		if err := u.prometheusData.Remove(&meterdef.MeterDefinition); err != nil {
-			u.log.Error(err, "error deleting obj from prometheus")
+		u.log.V(2).Info("object updated", "object", metaobj.GetUID())
+		if err := u.prometheusData.Remove(meterdef.MeterDefinition); err != nil {
+			u.log.Error(err, "error deleting mdef from prometheus")
 			return errors.WithStack(err)
 		}
 		fallthrough
 	case cache.Added:
-		if err := u.prometheusData.Add(&meterdef.MeterDefinition, nil); err != nil {
-			u.log.Error(err, "error adding obj to prometheus")
+		u.log.V(2).Info("object added", "object", metaobj.GetUID())
+		if err := u.prometheusData.Add(meterdef.MeterDefinition, nil); err != nil {
+			u.log.Error(err, "error adding mdef to prometheus")
 			return errors.WithStack(err)
 		}
 	default:

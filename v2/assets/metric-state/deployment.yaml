@@ -39,19 +39,28 @@ spec:
         - name: metric-state
           image: metric-state
           imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
           env:
-          - name: MEMORY_LIMIT
-            valueFrom:
-              resourceFieldRef:
-                resource: limits.memory
-                divisor: 1Mi
+          - name: GOGC
+            value: 50
           resources:
             requests:
               cpu: 50m
-              memory: 150Mi
+              memory: 80Mi
             limits:
               cpu: 100m
-              memory: 400Mi
+              memory: 200Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -64,17 +73,20 @@ spec:
           ports:
             - containerPort: 8080
               name: web
-            - containerPort: 8081
-              name: metrics
         - image: redhat-marketplace-authcheck:latest
           name: authcheck
+          env:
+          - name: GOGC
+            value: 50
+          - name: PPROF_DEBUG
+            value: "true"
           resources:
             requests:
               cpu: 10m
-              memory: 20Mi
+              memory: 12Mi
             limits:
-              cpu: 20m
-              memory: 45Mi
+              cpu: 15m
+              memory: 20Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -119,43 +131,6 @@ spec:
               name: rhm-metric-state-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
-              readOnly: false
-        - args:
-            - --logtostderr
-            - --secure-listen-address=:9093
-            - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-            - --upstream=http://127.0.0.1:8081/
-            - --tls-cert-file=/etc/tls/private/tls.crt
-            - --tls-private-key-file=/etc/tls/private/tls.key
-            - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
-          image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
-          imagePullPolicy: IfNotPresent
-          name: kube-rbac-proxy-2
-          ports:
-            - containerPort: 9093
-              name: https-metrics
-          resources:
-            requests:
-              cpu: 10m
-              memory: 20Mi
-            limits:
-              cpu: 20m
-              memory: 30Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            privileged: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-            - mountPath: /etc/tls/private
-              name: rhm-metric-state-tls
-              readOnly: false
-            - mountPath: /etc/configmaps/serving-certs-ca-bundle
               name: serving-certs-ca-bundle
               readOnly: false
       nodeSelector:

@@ -16,55 +16,165 @@ package authchecker
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
-	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/retry"
 )
 
 type AuthChecker struct {
+	Err error
+
+	Client   dynamic.ResourceInterface
+	FilePath string
+	FileData []byte
+
 	Logger    logr.Logger
 	RetryTime time.Duration
-	Namespace string
-	Podname   string
-	Client    client.Client
-	Checker   *AuthCheckChecker
+
+	mutex       sync.Mutex
+	tokenReview *unstructured.Unstructured
 }
 
-type AuthCheckChecker struct {
-	Err   error
-	mutex sync.Mutex
+func (c *AuthChecker) init() error {
+	var err error
+	c.FileData, err = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	return err
 }
 
-var a *AuthCheckChecker = &AuthCheckChecker{}
-var _ healthz.Checker = a.Check
+func (c *AuthChecker) Start(ctx context.Context) error {
+	err := c.init()
 
-func (c *AuthCheckChecker) SetErr(err error) {
+	if err != nil {
+		return err
+	}
+
+	var timer *time.Timer
+
+	// if we have an error, retry more often;
+	// if no error, use a long retry time (default 5 mins)
+	newTimer := func() *time.Timer {
+		if c.HasErr() {
+			return time.NewTimer(wait.Jitter(30*time.Second, 0.5))
+		}
+
+		return time.NewTimer(wait.Jitter(c.RetryTime, 0.25))
+	}
+
+	go func() {
+		defer func() {
+			if timer != nil {
+				timer.Stop()
+			}
+		}()
+
+		for {
+			err := c.CheckToken(ctx)
+
+			if err != nil {
+				c.Logger.Error(err, "failed to check token err")
+			}
+
+			timer = newTimer()
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				timer.Stop()
+				timer = nil
+				// jitter to make multiple checks happen randomly
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (c *AuthChecker) CheckToken(ctx context.Context) (err error) {
+	if c.tokenReview == nil {
+		c.tokenReview = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{},
+				"spec": map[string]interface{}{
+					"audiences": nil,
+					"token":     string(c.FileData),
+				},
+			},
+		}
+	} else {
+		c.tokenReview.Object["metadata"] = map[string]interface{}{}
+	}
+
+	err = retry.OnError(retry.DefaultBackoff, func(error) bool {
+		if errors.IsServerTimeout(err) {
+			return true
+		}
+		if errors.IsTimeout(err) {
+			return true
+		}
+
+		return false
+	}, func() error {
+		c.tokenReview, err = c.Client.Create(ctx, c.tokenReview, v1.CreateOptions{})
+		return err
+	})
+
+	if err != nil {
+		c.Logger.Error(err, "failed to create a token review")
+		c.SetErr(err)
+		return
+	}
+
+	isAuthed := false
+	if status, ok := c.tokenReview.Object["status"]; ok {
+		if authenticated, ok := status.(map[string]interface{})["authenticated"]; ok {
+			isAuthed = authenticated.(bool)
+		}
+	}
+
+	if !isAuthed {
+		err = fmt.Errorf("token at file expired %s=%s", "file", c.FilePath)
+		c.Logger.Error(err, "failed to get secret")
+		c.SetErr(err)
+		return
+	}
+
+	c.Clear()
+	return
+}
+
+func (c *AuthChecker) HasErr() bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.Err != nil
+}
+
+func (c *AuthChecker) SetErr(err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.Err = err
 }
 
-func (c *AuthCheckChecker) Clear() {
+func (c *AuthChecker) Clear() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.Err = nil
 }
 
-func (c *AuthCheckChecker) Check(_ *http.Request) error {
+func (c *AuthChecker) Check(_ *http.Request) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -73,71 +183,4 @@ func (c *AuthCheckChecker) Check(_ *http.Request) error {
 	}
 
 	return nil
-}
-
-func (a *AuthChecker) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1.Pod{}, builder.WithPredicates(
-			predicate.Funcs{
-				CreateFunc: func(e event.CreateEvent) bool {
-					return e.Object.GetName() == a.Podname
-				},
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					return e.ObjectNew.GetName() == a.Podname
-				},
-				DeleteFunc: func(event.DeleteEvent) bool {
-					return false
-				},
-				GenericFunc: func(e event.GenericEvent) bool {
-					return false
-				},
-			})).
-		Complete(a)
-}
-
-func (a *AuthChecker) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	pod := &v1.Pod{}
-	secrets := &v1.SecretList{}
-	err := a.Client.Get(context.TODO(), types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, pod)
-
-	if err != nil {
-		a.Logger.Error(err, "failed to get pod")
-		a.Checker.SetErr(err)
-		return reconcile.Result{}, err
-	}
-
-	err = a.Client.List(context.TODO(), secrets)
-
-	if err != nil {
-		a.Logger.Error(err, "failed to list secrets")
-		a.Checker.SetErr(err)
-		return reconcile.Result{}, err
-	}
-
-volume:
-	for _, vol := range pod.Spec.Volumes {
-		if vol.Secret == nil {
-			continue
-		}
-
-		if vol.Secret.Optional != nil && *vol.Secret.Optional {
-			continue
-		}
-
-		for _, secret := range secrets.Items {
-			if vol.Secret.SecretName == secret.Name {
-				a.Logger.V(4).Info("found secret", "secret", secret.Name)
-				continue volume
-			}
-		}
-
-		err := errors.NewWithDetails("secret missing", "pod", pod.Name, "secret", vol.Secret.SecretName)
-		a.Logger.Error(err, "failed to get secret")
-		a.Checker.SetErr(err)
-		return reconcile.Result{RequeueAfter: a.RetryTime}, nil
-	}
-
-	// ensure the checker is clear
-	a.Checker.Clear()
-	return reconcile.Result{RequeueAfter: a.RetryTime}, nil
 }

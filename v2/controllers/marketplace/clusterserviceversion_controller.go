@@ -75,7 +75,6 @@ type ClusterServiceVersionReconciler struct {
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=update;patch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and makes changes based on the state read
@@ -102,17 +101,6 @@ func (r *ClusterServiceVersionReconciler) Reconcile(ctx context.Context, request
 	annotations := CSV.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
-	}
-
-	// check if CSV is being deleted
-	// if yes -> finalizer logic
-	// if no -> do nothing
-	if !CSV.ObjectMeta.DeletionTimestamp.IsZero() {
-		//Run finalization logic for the CSV.
-		result, isReconcile, err := r.finalizeCSV(CSV)
-		if isReconcile {
-			return result, err
-		}
 	}
 
 	result, isRequeue, err := r.reconcileMeterDefAnnotation(CSV, annotations)
@@ -226,67 +214,6 @@ func (r *ClusterServiceVersionReconciler) Reconcile(ctx context.Context, request
 
 	reqLogger.Info("reconciliation complete")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
-}
-
-func (r *ClusterServiceVersionReconciler) finalizeCSV(CSV *olmv1alpha1.ClusterServiceVersion) (reconcile.Result, bool, error) {
-	reqLogger := r.Log.WithValues("Request.Name", CSV.GetName(), "Request.Namespace", CSV.GetNamespace())
-
-	reqLogger.Info("deleting csv")
-	if err := r.deleteExternalResources(CSV); err != nil {
-		reqLogger.Error(err, "unable to delete csv")
-		return reconcile.Result{}, false, err
-	}
-
-	// Stop reconciliation as the item is being deleted
-	return reconcile.Result{}, true, nil
-}
-
-// deleteExternalResources searches for the MeterDefinition created by the CSV, if it's found delete it
-func (r *ClusterServiceVersionReconciler) deleteExternalResources(CSV *olmv1alpha1.ClusterServiceVersion) error {
-	reqLogger := r.Log.WithValues("Request.Name", CSV.GetName(), "Request.Namespace", CSV.GetNamespace())
-	reqLogger.Info("deleting csv")
-
-	annotations := CSV.GetAnnotations()
-	if annotations == nil {
-		reqLogger.Info("No annotations for this CSV")
-		return nil
-	}
-
-	meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
-	if !ok {
-		reqLogger.Info("No value for ", "key: ", utils.CSV_METERDEFINITION_ANNOTATION)
-		return nil
-	}
-
-	var errAlpha, errBeta error
-	meterDefinitionBeta := &marketplacev1beta1.MeterDefinition{}
-	meterDefinitionAlpha := &marketplacev1alpha1.MeterDefinition{}
-
-	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-
-	if errBeta != nil {
-		errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-	}
-
-	switch {
-	case errBeta == nil:
-		err := r.Client.Delete(context.TODO(), meterDefinitionBeta, client.PropagationPolicy(metav1.DeletePropagationForeground))
-		if err != nil && errors.IsNotFound(err) {
-			return err
-		}
-	case errAlpha == nil:
-		err := r.Client.Delete(context.TODO(), meterDefinitionAlpha, client.PropagationPolicy(metav1.DeletePropagationForeground))
-		if err != nil && errors.IsNotFound(err) {
-			return err
-		}
-	default:
-		err := emperrors.Combine(errBeta, errAlpha)
-		reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
-		return err
-	}
-
-	reqLogger.Info("found and deleted MeterDefinition")
-	return nil
 }
 
 // reconcileMeterDefAnnotation checks the Annotations for the rhm CSV
@@ -486,10 +413,11 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 func csvFilter(metaNew metav1.Object) int {
 	ann := metaNew.GetAnnotations()
+	labels := metaNew.GetLabels()
 
 	//annotation values
 	ignoreVal, hasIgnoreTag := ann[ignoreTag]
-	_, hasCopiedFrom := ann[olmCopiedFromTag]
+	_, hasCopiedFrom := labels[olmCopiedFromTag]
 	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 
 	switch {
@@ -514,7 +442,7 @@ var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
 		return csvFilter(evt.ObjectNew) > 0 && checkForUpdateToMdef(evt)
 	},
 	DeleteFunc: func(evt event.DeleteEvent) bool {
-		return true
+		return false
 	},
 	CreateFunc: func(evt event.CreateEvent) bool {
 		return csvFilter(evt.Object) > 0

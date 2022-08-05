@@ -28,6 +28,9 @@ spec:
           resources:
             requests:
               cpu: 10m
+              memory: 12Mi
+            limits:
+              cpu: 15m
               memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
         - image: 'us.icr.io/armada-master/remoteresources3:0.11.2_082c995'

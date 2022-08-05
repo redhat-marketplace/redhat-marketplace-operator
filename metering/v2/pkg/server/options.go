@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
@@ -36,8 +37,6 @@ type Options struct {
 	TelemetryPort int
 	TelemetryHost string
 	Namespaces    options.NamespaceList
-	Shard         int32
-	TotalShards   int
 	Pod           string
 	Namespace     string
 	Version       bool
@@ -55,25 +54,12 @@ func ProvideNamespaces(opts *Options) types.Namespaces {
 	return types.Namespaces(opts.Namespaces)
 }
 
-func ConvertOptions(optsIn *Options) *options.Options {
-	return &options.Options{
-		Apiserver:          optsIn.Apiserver,
-		Kubeconfig:         optsIn.Kubeconfig,
-		Help:               optsIn.Help,
-		Port:               optsIn.Port,
-		Host:               optsIn.Host,
-		TelemetryPort:      optsIn.TelemetryPort,
-		TelemetryHost:      optsIn.TelemetryHost,
-		Namespaces:         optsIn.Namespaces,
-		Version:            optsIn.Version,
-		EnableGZIPEncoding: optsIn.EnableGZIPEncoding,
-	}
-}
-
 // NewOptions returns a new instance of `Options`.
 func NewOptions() *Options {
 	return &Options{}
 }
+
+const trueStr = "true"
 
 func (o *Options) AddFlags() {
 	o.flags = pflag.NewFlagSet("", pflag.ExitOnError)
@@ -81,9 +67,12 @@ func (o *Options) AddFlags() {
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 	o.flags.AddGoFlagSet(klogFlags)
-	o.flags.Lookup("logtostderr").Value.Set("true")
-	o.flags.Lookup("logtostderr").DefValue = "true"
-	o.flags.Lookup("logtostderr").NoOptDefVal = "true"
+	if f := o.flags.Lookup("logtostderr"); f != nil {
+		//nolint:errcheck
+		f.Value.Set(trueStr)
+	}
+	o.flags.Lookup("logtostderr").DefValue = trueStr
+	o.flags.Lookup("logtostderr").NoOptDefVal = trueStr
 
 	o.flags.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -98,13 +87,9 @@ func (o *Options) AddFlags() {
 	o.flags.IntVar(&o.TelemetryPort, "telemetry-port", 8081, `Port to expose kube-state-metrics self metrics on.`)
 	o.flags.StringVar(&o.TelemetryHost, "telemetry-host", "0.0.0.0", `Host to expose kube-state-metrics self metrics on.`)
 	o.flags.Var(&o.Namespaces, "namespaces", fmt.Sprintf("Comma-separated list of namespaces to be enabled. Defaults to %q", &DefaultNamespaces))
-	o.flags.Int32Var(&o.Shard, "shard", int32(0), "The instances shard nominal (zero indexed) within the total number of shards. (default 0)")
-	o.flags.IntVar(&o.TotalShards, "total-shards", 1, "The total number of shards. Sharding is disabled when total shards is set to 1.")
 
-	autoshardingNotice := "When set, it is expected that --pod and --pod-namespace are both set. Most likely this should be passed via the downward API. This is used for auto-detecting sharding. If set, this has preference over statically configured sharding. This is experimental, it may be removed without notice."
-
-	o.flags.StringVar(&o.Pod, "pod", "", "Name of the pod that contains the kube-state-metrics container. "+autoshardingNotice)
-	o.flags.StringVar(&o.Namespace, "pod-namespace", "", "Name of the namespace of the pod specified by --pod. "+autoshardingNotice)
+	o.flags.StringVar(&o.Pod, "pod", "", "Name of the pod that contains the kube-state-metrics container.")
+	o.flags.StringVar(&o.Namespace, "pod-namespace", "", "Name of the namespace of the pod specified by --pod.")
 	o.flags.BoolVarP(&o.Version, "version", "", false, "kube-state-metrics build version information")
 	o.flags.BoolVar(&o.EnableGZIPEncoding, "enable-gzip-encoding", false, "Gzip responses when requested by clients via 'Accept-Encoding: gzip' header.")
 }
@@ -113,3 +98,5 @@ func (o *Options) Mount(addFlags func(newSet *pflag.FlagSet)) {
 	o.AddFlags()
 	addFlags(o.flags)
 }
+
+var DefaultNamespaces = options.NamespaceList{metav1.NamespaceAll}

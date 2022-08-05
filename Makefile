@@ -11,10 +11,10 @@ export
 
 include utils.Makefile
 
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := build
 
 .PHONY: all
-all: svu fmt vet generate docker-build
+all: svu fmt vet generate build
 
 skaffold-dev:
 	make operator/skaffold-dev
@@ -27,7 +27,7 @@ skaffold-build: vet fmt
 
 .PHONY: build
 build:
-	$(MAKE) docker-build
+	$(MAKE) $(addsuffix /build,$(PROJECTS))
 
 .PHONY: vet
 vet:

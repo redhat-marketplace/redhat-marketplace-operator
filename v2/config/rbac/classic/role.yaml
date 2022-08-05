@@ -7,11 +7,24 @@ metadata:
 rules:
   - apiGroups:
       - operators.coreos.com
-      - marketplace.redhat.com
     resources:
-      - '*'
+      - subscriptions
     verbs:
       - '*'
+  - apiGroups:
+      - marketplace.redhat.com
+    resources:
+      - remoteresources3s
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+    - authentication.k8s.io
+    resources:
+    - tokenreviews
+    verbs:
+    - create
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -93,6 +106,12 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -163,20 +182,73 @@ kind: ClusterRole
 metadata:
   name: watch-keeper
 rules:
-  - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
+- apiGroups:
+  - '*'
+  resources:
+  - configmaps
+  - namespaces
+  - nodes
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch  
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  - infrastructures
+  - consoles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - get
+  - list
+  - watch 
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -194,6 +266,13 @@ rules:
       - get
       - watch
       - list
+  - apiGroups:
+      - marketplace.redhat.com
+    resources:
+      - remoteresources3s
+      - remoteresources3s/status
+    verbs:
+      - '*'      
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -245,12 +324,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: reporter
-  namespace: openshift-config
+  namespace: system
 rules:
   - apiGroups:
       - ''
-    resourceNames:
-      - pull-secret
     resources:
       - secrets
     verbs:
@@ -276,22 +353,59 @@ rules:
       - get
       - watch
       - list
+  - apiGroups:
+      - marketplace.redhat.com
+    resources:
+      - meterreports
+      - marketplaceconfigs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - marketplace.redhat.com
+    resources:
+      - meterreports
+      - meterreports/status
+    verbs:
+      - update
+      - patch   
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: metric-state
-  namespace: system
+  name: reporter
 rules:
   - apiGroups:
       - ''
     resources:
-      - secrets
+      - services
     verbs:
       - get
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - pull-secret
+    verbs:
+      - get
+      - watch
+      - list
+  - nonResourceURLs:
+    - /api/v1/query
+    - /api/v1/query_range
+    - /api/v1/targets
+    verbs:
+    - create
+    - get
+  - nonResourceURLs:
+    - /dataservice.v1.fileserver.FileServer/*
+    verbs:
+    - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -305,6 +419,7 @@ rules:
     verbs:
       - get
       - list
+      - watch
       - update
   - apiGroups:
       - 'marketplace.redhat.com'
@@ -314,15 +429,25 @@ rules:
     verbs:
       - get
       - list
+      - watch
       - update
   - apiGroups:
-      - '*'
+      - operators.coreos.com
     resources:
-      - '*'
+      - operatorgroups
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - servicemonitors
     verbs:
       - get
       - list
       - watch
+      - update
+      - patch
   - apiGroups:
       - authentication.k8s.io
     resources:
@@ -340,4 +465,12 @@ rules:
       - list
       - update
       - patch
+      - watch
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
       - watch

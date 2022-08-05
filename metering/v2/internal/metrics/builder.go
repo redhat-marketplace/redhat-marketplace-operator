@@ -18,8 +18,8 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 )
 
-func ComposeMetricGenFuncs(familyGens []FamilyGenerator) func(interface{}, []marketplacev1beta1.MeterDefinition) []FamilyByteSlicer {
-	return func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) []FamilyByteSlicer {
+func ComposeMetricGenFuncs(familyGens []FamilyGenerator) func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer {
+	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer {
 		families := make([]FamilyByteSlicer, len(familyGens))
 
 		for i, gen := range familyGens {

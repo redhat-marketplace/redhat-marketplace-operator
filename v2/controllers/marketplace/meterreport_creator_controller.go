@@ -53,6 +53,8 @@ type MeterReportCreatorReconciler struct {
 	cfg    *config.OperatorConfig
 }
 
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports,verbs=get;list;watch;create;delete
+
 func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log
 

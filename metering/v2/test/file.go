@@ -22,8 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 )
 
-func MustOpen(fs embed.FS, name string) fs.File {
-	f, err := fs.Open(name)
+func MustOpen(emFs embed.FS, name string) fs.File {
+	f, err := emFs.Open(name)
 
 	if err != nil {
 		panic(err)

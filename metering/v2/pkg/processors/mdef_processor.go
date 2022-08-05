@@ -16,37 +16,34 @@ package processors
 
 import (
 	"context"
+	"fmt"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MeterDefinitionRemovalWatcher struct {
 	*Processor
-	dictionary           *dictionary.MeterDefinitionDictionary
-	meterDefinitionStore *meterdefinition.MeterDefinitionStore
-	keyFunc              cache.KeyFunc
-
-	messageChan chan cache.Delta
-	log         logr.Logger
-	kubeClient  client.Client
+	dictionary           *stores.MeterDefinitionDictionary
+	meterDefinitionStore *stores.MeterDefinitionStore
+	nsWatcher            *filter.NamespaceWatcher
+	messageChan          chan cache.Delta
+	log                  logr.Logger
+	kubeClient           client.Client
 }
 
 func ProvideMeterDefinitionRemovalWatcher(
-	dictionary *dictionary.MeterDefinitionDictionary,
-	meterDefinitionStore *meterdefinition.MeterDefinitionStore,
+	dictionary *stores.MeterDefinitionDictionary,
+	meterDefinitionStore *stores.MeterDefinitionStore,
 	mb *mailbox.Mailbox,
 	log logr.Logger,
 	kubeClient client.Client,
+	nsWatcher *filter.NamespaceWatcher,
 ) *MeterDefinitionRemovalWatcher {
 	sp := &MeterDefinitionRemovalWatcher{
 		Processor: &Processor{
@@ -61,6 +58,7 @@ func ProvideMeterDefinitionRemovalWatcher(
 		messageChan:          make(chan cache.Delta),
 		log:                  log.WithName("meterDefinitionRemovalWatcher"),
 		kubeClient:           kubeClient,
+		nsWatcher:            nsWatcher,
 	}
 	sp.Processor.DeltaProcessor = sp
 	return sp
@@ -86,113 +84,62 @@ func (w *MeterDefinitionRemovalWatcher) Process(ctx context.Context, d cache.Del
 	return nil
 }
 
-func (w *MeterDefinitionRemovalWatcher) onAdd(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+// A MeterDefinition add/update/sync must Resync Objects in case the workloadFilter was updated, in order to match appropriate Objects
+// A MeterDefinition delete must Resync Objects that are associated with the MeterDefinition
+// The store Resync function decides to emit a delta update or delete if a MeterDefinition still matches the Object
+
+func (w *MeterDefinitionRemovalWatcher) onAdd(_ context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
 
-	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
-	return w.meterDefinitionStore.Resync()
+	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace, "namespaces", fmt.Sprintf("%+v", meterdef.Filter.GetNamespaces()))
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition), meterdef.Filter.GetNamespaces())
+
+	return w.meterDefinitionStore.SyncByIndex(stores.IndexNamespace, meterdef.GetNamespace())
 }
 
-func (w *MeterDefinitionRemovalWatcher) onDelete(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
+func (w *MeterDefinitionRemovalWatcher) onDelete(_ context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
 
-	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
+	w.log.Info("deleting meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
+	w.nsWatcher.RemoveNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition))
 
-	key, err := cache.MetaNamespaceKeyFunc(&meterdef.MeterDefinition)
+	key, err := cache.MetaNamespaceKeyFunc(meterdef.MeterDefinition)
 
 	if err != nil {
 		w.log.Error(err, "error creating key")
 		return errors.WithStack(err)
 	}
 
-	objects, err := w.meterDefinitionStore.ByIndex(meterdefinition.IndexMeterDefinition, key)
-
-	if err != nil {
-		w.log.Error(err, "error finding data")
-		return errors.WithStack(err)
-	}
-
-	for i := range objects {
-		obj := objects[i]
-		w.log.Info("deleting obj", "object", obj)
-		err := w.meterDefinitionStore.Delete(obj)
-
-		if err != nil {
-			w.log.Error(err, "error deleting data")
-			return errors.WithStack(err)
-		}
-	}
-
-	return nil
+	return w.meterDefinitionStore.SyncByIndex(stores.IndexMeterDefinition, key)
 }
 
-func (w *MeterDefinitionRemovalWatcher) onUpdate(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
-
+func (w *MeterDefinitionRemovalWatcher) onUpdate(_ context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
 
-	w.log.Info("processing meterdef", "name/namespace", meterdef.Name+"/"+meterdef.Namespace)
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition), meterdef.Filter.GetNamespaces())
 
-	key, err := cache.MetaNamespaceKeyFunc(&meterdef.MeterDefinition)
-
-	if err != nil {
-		w.log.Error(err, "error creating key")
-		return errors.WithStack(err)
-	}
-
-	objects, err := w.meterDefinitionStore.ByIndex(meterdefinition.IndexMeterDefinition, key)
-
-	if err != nil {
-		w.log.Error(err, "error finding data")
-		return errors.WithStack(err)
-	}
-
-	for i := range objects {
-		obj := objects[i]
-		err := w.meterDefinitionStore.DeleteFromIndex(obj)
-
-		if err != nil {
-			w.log.Error(err, "error deleting data")
-			return errors.WithStack(err)
-		}
-	}
-
-	return w.meterDefinitionStore.Resync()
+	return w.meterDefinitionStore.SyncByIndex(stores.IndexNamespace, meterdef.GetNamespace())
 }
 
 // Clear Status.WorkloadResources on initial sync such that Status is correct when metric-state starts
-func (w *MeterDefinitionRemovalWatcher) onSync(ctx context.Context, d cache.Delta) error {
-	meterdef, ok := d.Object.(*dictionary.MeterDefinitionExtended)
-
+func (w *MeterDefinitionRemovalWatcher) onSync(_ context.Context, d cache.Delta) error {
+	meterdef, ok := d.Object.(*stores.MeterDefinitionExtended)
 	if !ok {
 		return errors.New("encountered unexpected type")
 	}
 
-	resources := []common.WorkloadResource{}
-	mdef := &marketplacev1beta1.MeterDefinition{}
+	w.nsWatcher.AddNamespace(client.ObjectKeyFromObject(meterdef.MeterDefinition), meterdef.Filter.GetNamespaces())
 
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := w.kubeClient.Get(ctx, types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace}, mdef); err != nil {
-			return err
-		}
-
-		mdef.Status.WorkloadResources = resources
-
-		return w.kubeClient.Status().Update(ctx, mdef)
-	})
-	if err != nil {
-		w.log.Error(err, "meterdefinition status update failed")
-	}
-
-	return nil
+	return w.meterDefinitionStore.SyncByIndex(stores.IndexNamespace, meterdef.GetNamespace())
 }

@@ -108,11 +108,39 @@ metadata:
   namespace: openshift-config
 subjects:
 - kind: ServiceAccount
-  name: operator
+  name: reporter
   namespace: system
 roleRef:
   kind: Role
   name: reporter
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: reporter-binding
+  namespace: system
+subjects:
+- kind: ServiceAccount
+  name: reporter
+  namespace: system
+roleRef:
+  kind: ClusterRole
+  name: reporter
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: reporter-cluster-monitoring-binding
+  namespace: system
+subjects:
+- kind: ServiceAccount
+  name: reporter
+  namespace: system
+roleRef:
+  kind: ClusterRole
+  name: cluster-monitoring-view
   apiGroup: rbac.authorization.k8s.io
 ---
 kind: ClusterRoleBinding
@@ -143,16 +171,16 @@ roleRef:
   name: metric-state
   apiGroup: rbac.authorization.k8s.io
 ---
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: metric-state-binding
+  name: metric-state-view-binding
   namespace: openshift-config
 subjects:
 - kind: ServiceAccount
   name: metric-state
   namespace: system
 roleRef:
-  kind: Role
-  name: metric-state
+  kind: ClusterRole
+  name: view
   apiGroup: rbac.authorization.k8s.io

@@ -17,6 +17,8 @@ package processors
 import (
 	"context"
 	"sort"
+	"sync"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -24,14 +26,15 @@ import (
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/sasha-s/go-deadlock"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type StatusFlushDuration time.Duration
 
 // StatusProcessor will update the meter definition
 // status with the objects that matched it.
@@ -39,8 +42,22 @@ type StatusProcessor struct {
 	*Processor
 	log        logr.Logger
 	kubeClient client.Client
-	mutex      deadlock.Mutex
-	scheme     *runtime.Scheme
+	mutex      sync.Mutex
+
+	flushTime time.Duration
+	resources map[client.ObjectKey]*updateableStatus
+}
+
+type updateableStatus struct {
+	needsUpdate bool
+	resources   map[types.UID]*common.WorkloadResource
+}
+
+func newUpdateableStatus() *updateableStatus {
+	return &updateableStatus{
+		needsUpdate: true,
+		resources:   make(map[types.UID]*common.WorkloadResource),
+	}
 }
 
 // NewStatusProcessor is the provider that creates
@@ -49,7 +66,8 @@ func ProvideStatusProcessor(
 	log logr.Logger,
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
-	scheme *runtime.Scheme,
+	duration StatusFlushDuration,
+	_ managers.CacheIsStarted,
 ) *StatusProcessor {
 	sp := &StatusProcessor{
 		Processor: &Processor{
@@ -61,11 +79,109 @@ func ProvideStatusProcessor(
 		},
 		log:        log.WithValues("process", "statusProcessor"),
 		kubeClient: kubeClient,
-		scheme:     scheme,
+		resources:  make(map[client.ObjectKey]*updateableStatus),
+		flushTime:  time.Duration(duration),
 	}
 
 	sp.Processor.DeltaProcessor = sp
 	return sp
+}
+
+func (u *StatusProcessor) Start(ctx context.Context) error {
+	if err := u.Processor.Start(ctx); err != nil {
+		return err
+	}
+
+	tick := time.NewTicker(u.flushTime)
+	go func() {
+		defer tick.Stop()
+
+		for {
+			u.flush(ctx)
+			select {
+			case <-tick.C:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (u *StatusProcessor) flush(ctx context.Context) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	deleted := []types.NamespacedName{}
+	mdef := &marketplacev1beta1.MeterDefinition{}
+
+	for key, status := range u.resources {
+		if !status.needsUpdate {
+			continue
+		}
+
+		u.log.Info("flushing status",
+			"key", key,
+			"resources", len(status.resources),
+		)
+
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			err := u.kubeClient.Get(ctx, key, mdef)
+			// it's not found, let's delete it
+			if err != nil && k8serrors.IsNotFound(err) {
+				deleted = append(deleted, key)
+				return nil
+			}
+
+			// random err, return it for backoff and retry
+			if err != nil {
+				return err
+			}
+
+			// is there really a change?
+			equal := true
+
+			// if they don't have the same length
+			if len(mdef.Status.WorkloadResources) != len(status.resources) {
+				equal = false
+			} else {
+				// if a UID is not the same between the two resources
+				for i := range mdef.Status.WorkloadResources {
+					res1 := mdef.Status.WorkloadResources[i]
+					_, ok := status.resources[res1.UID]
+					if !ok {
+						equal = false
+					}
+				}
+			}
+
+			// no op if the resources are equal
+			if equal {
+				return nil
+			}
+
+			mdef.Status.WorkloadResources = make([]common.WorkloadResource, 0, len(status.resources))
+
+			for i := range status.resources {
+				mdef.Status.WorkloadResources = append(mdef.Status.WorkloadResources, *status.resources[i])
+			}
+
+			sort.Sort(common.ByAlphabetical(mdef.Status.WorkloadResources))
+			return u.kubeClient.Status().Update(ctx, mdef)
+		})
+
+		if err != nil {
+			u.log.Error(err, "failed to update", "key", key)
+		}
+
+		status.needsUpdate = false
+	}
+
+	// remove resources that are not found
+	for _, name := range deleted {
+		delete(u.resources, name)
+	}
 }
 
 // Process will receive a new ObjectResourceMessage and find and update the metere
@@ -78,69 +194,45 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		return errors.WithStack(errors.New("obj is unexpected type"))
 	}
 
-	u.log.Info("updating status",
+	u.log.V(2).Info("updating status",
 		"obj", enhancedObj.GetName()+"/"+enhancedObj.GetNamespace(),
 		"mdefs", len(enhancedObj.MeterDefinitions),
 	)
 
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	var status *updateableStatus
+
 	for i := range enhancedObj.MeterDefinitions {
-		key := client.ObjectKeyFromObject(&enhancedObj.MeterDefinitions[i])
+		key := client.ObjectKeyFromObject(enhancedObj.MeterDefinitions[i])
 
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			u.mutex.Lock()
-			defer u.mutex.Unlock()
+		if status, ok = u.resources[key]; !ok {
+			status = newUpdateableStatus()
+			u.resources[key] = status
+		}
 
-			resources := []common.WorkloadResource{}
-			set := map[types.UID]common.WorkloadResource{}
+		for k := range status.resources {
+			obj := status.resources[k]
+			status.resources[obj.UID] = obj
+		}
 
-			mdef := &marketplacev1beta1.MeterDefinition{}
-
-			if err := u.kubeClient.Get(ctx, key, mdef); err != nil {
-				return err
-			}
-
-			for _, obj := range mdef.Status.WorkloadResources {
-				set[obj.UID] = obj
-			}
-
-			workload, err := common.NewWorkloadResource(enhancedObj.Object, u.scheme)
-
-			if err != nil {
-				return errors.WithStack(err)
-			}
-
-			switch inObj.Type {
-			case cache.Deleted:
-				delete(set, workload.UID)
-			case cache.Added:
-				fallthrough
-			case cache.Sync:
-				fallthrough
-			case cache.Updated:
-				fallthrough
-			case cache.Replaced:
-				set[workload.UID] = *workload
-			default:
-				return nil
-			}
-
-			for i := range set {
-				resources = append(resources, set[i])
-			}
-
-			sort.Sort(common.ByAlphabetical(resources))
-			mdef.Status.WorkloadResources = resources
-
-			return u.kubeClient.Status().Update(ctx, mdef)
-		})
+		workload, err := common.NewWorkloadResource(enhancedObj.Object)
 
 		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-
 			return errors.WithStack(err)
 		}
+
+		switch inObj.Type {
+		case cache.Deleted:
+			delete(status.resources, workload.UID)
+		case cache.Replaced, cache.Added, cache.Sync, cache.Updated:
+			status.resources[workload.UID] = workload
+		default:
+			return nil
+		}
+
+		status.needsUpdate = true
 	}
 
 	return nil

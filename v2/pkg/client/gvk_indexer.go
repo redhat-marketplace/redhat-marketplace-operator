@@ -61,7 +61,7 @@ func AddUIDIndex(fieldIndexer client.FieldIndexer, types []client.Object) error 
 				if meta, ok := obj.(metav1.Object); ok {
 					return []string{string(meta.GetUID())}
 				}
-				return []string{}
+				return nil
 			})
 		if err != nil {
 			return err
@@ -113,29 +113,29 @@ func ObjRefToStr(apiversion, kind string) string {
 }
 
 func indexAnnotations(obj client.Object) []string {
-	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
+		results := make([]string, 0, len(meta.GetAnnotations()))
 		for key, val := range meta.GetAnnotations() {
 			results = append(results, fmt.Sprintf("%s=%s", key, val))
 		}
 	}
 
-	return results
+	return nil
 }
 
 func indexOwner(obj client.Object) []string {
-	results := []string{}
-	if meta, ok := obj.(metav1.Object); ok {
+	meta, ok := obj.(metav1.Object)
+	if ok && len(meta.GetOwnerReferences()) != 0 {
+		results := make([]string, 0, len(meta.GetOwnerReferences()))
+
 		for _, ref := range meta.GetOwnerReferences() {
 			results = append(results, string(ref.UID))
 		}
 
-		log.V(4).Info("indexing owenrs", "name", meta.GetName(), "namespace", meta.GetNamespace(), "results", results)
-
 		return results
 	}
 
-	return results
+	return nil
 }
 
 func getOwnersReferences(object metav1.Object, isController bool) []metav1.OwnerReference {
@@ -158,7 +158,7 @@ func indexOperatorSourceNamespaces(obj client.Object) []string {
 	og, ok := obj.(*olmv1.OperatorGroup)
 
 	if !ok {
-		return []string{}
+		return nil
 	}
 
 	return og.Status.Namespaces
@@ -174,7 +174,7 @@ func indexOperatorSourceProvidedAPIs(obj client.Object) []string {
 	val, ok := og.GetAnnotations()["olm.providedAPIs"]
 
 	if !ok {
-		return []string{}
+		return nil
 	}
 
 	vals := strings.Split(val, ",")

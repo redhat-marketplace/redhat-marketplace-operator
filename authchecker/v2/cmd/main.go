@@ -15,20 +15,23 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap/zapcore"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -38,89 +41,88 @@ var (
 		Run:   run,
 	}
 
-	podname, namespace string
-	retry              int64
+	retry        int64
+	pprofEnabled bool
 
 	log = logf.Log.WithName("authvalid_cmd")
 
-	scheme   = runtime.NewScheme()
 	setupLog = log.WithName("setup")
 
-	metricsAddr, probeAddr string
+	httpAddr string
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	encoderConfig := func(ec *zapcore.EncoderConfig) {
+		ec.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	zapOpts := func(o *zap.Options) {
+		o.EncoderConfigOptions = append(o.EncoderConfigOptions, encoderConfig)
+	}
 
-	logf.SetLogger(zap.New(zap.UseDevMode(true)))
-	rootCmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8089", "The address the probe endpoint binds to.")
-	rootCmd.Flags().StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace to list")
-	rootCmd.Flags().StringVar(&podname, "podname", os.Getenv("POD_NAME"), "podname")
-	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry count")
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
+
+	rootCmd.Flags().StringVar(&httpAddr, "http-addr", ":28088", "The address the probe endpoint binds to.")
+	rootCmd.Flags().Int64Var(&retry, "retry", 300, "retry time in seconds")
+	rootCmd.Flags().BoolVar(&pprofEnabled, "pprof", os.Getenv("PPROF_DEBUG") == "true", "enable pprof")
+	rootCmd.Flags().MarkHidden("pprof")
 }
 
+// Why authchecker? If you have a partial uninstall, for example,
+// just delete and recreate a SA. The tokens originally associated to
+// that SA are invalidated but the pods don't realize that and start throwing
+// errors. Restarting the pod doesn't work because it doesn't get a new
+// token on just a restart. The pod has to be deleted. Authchecker
+// detects this scenario and deletes the pod for you.
 func run(cmd *cobra.Command, args []string) {
-	log.Info("starting up with vars",
-		"podname", podname,
-		"namespace", namespace,
-		"retry", retry,
-	)
+	debug.SetGCPercent(50)
 
-	if namespace == "" {
-		setupLog.Error(errors.New("namespace not provided"), "namespace not provided", "namespace", namespace)
-		os.Exit(1)
-	}
+	restConfig := config.GetConfigOrDie()
 
-	opts := ctrl.Options{
-		Scheme:                 scheme,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         false,
-		Namespace:              namespace,
-		MetricsBindAddress:     "0",
-	}
+	dynamicConfig := dynamic.NewForConfigOrDie(restConfig)
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
-	if err != nil {
-		log.Error(err, "error starting auth checker")
-		er(err)
-	}
+	dynamicResource := dynamicConfig.Resource(schema.GroupVersionResource{
+		Group:    "authentication.k8s.io",
+		Version:  "v1",
+		Resource: "tokenreviews",
+	})
 
 	ac := &authchecker.AuthChecker{
 		RetryTime: time.Duration(retry) * time.Second,
-		Podname:   podname,
-		Namespace: namespace,
 		Logger:    log,
-		Client:    mgr.GetClient(),
-		Checker:   &authchecker.AuthCheckChecker{},
-	}
-	err = (ac).SetupWithManager(mgr)
-
-	if err != nil {
-		setupLog.Error(err, "error starting auth checker")
-		er(err)
+		Client:    dynamicResource,
+		FilePath:  "/var/run/secrets/kubernetes.io/serviceaccount/token",
 	}
 
-	if err := mgr.AddHealthzCheck("health", ac.Checker.Check); err != nil {
-		setupLog.Error(err, "unable to set up health check")
+	ctx := signals.SetupSignalHandler()
+
+	if err := ac.Start(ctx); err != nil {
+		setupLog.Error(err, "failed to add runnable")
 		os.Exit(1)
 	}
 
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+	r := http.NewServeMux()
+
+	healthzHandler := &healthz.Handler{Checks: map[string]healthz.Checker{}}
+	healthzHandler.Checks["health"] = ac.Check
+	r.Handle("/healthz", http.StripPrefix("/healthz", healthzHandler))
+
+	readyHandler := &healthz.Handler{Checks: map[string]healthz.Checker{}}
+	readyHandler.Checks["ready"] = healthz.Ping
+	r.Handle("/readyz", http.StripPrefix("/readyz", readyHandler))
+
+	if pprofEnabled {
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	setupLog.Info("starting server on port", "port", httpAddr)
+	if err := http.ListenAndServe(httpAddr, r); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func er(msg interface{}) {
-	fmt.Println("Error:", msg)
-	os.Exit(1)
 }
 
 func main() {

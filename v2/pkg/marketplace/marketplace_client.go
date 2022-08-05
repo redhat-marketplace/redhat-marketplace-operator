@@ -397,6 +397,10 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 
 	logger.Info("get cluster objId query", "query", u.String())
 	resp, err := m.httpClient.Get(u.String())
+	if err != nil {
+		return "", err
+	}
+
 	clusterDef, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
@@ -404,7 +408,6 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 		return "", err
 	}
 
-	utils.PrettyPrint(string(clusterDef))
 	registrations, err := getRegistrations(string(clusterDef))
 
 	var objId string
@@ -457,35 +460,16 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 			Err:                err,
 			StatusCode:         http.StatusInternalServerError,
 		}, err
-	}
-	if resp.StatusCode != 200 {
+	} else if resp.StatusCode == 200 {
+		return RegistrationStatusOutput{
+			StatusCode:         resp.StatusCode,
+			RegistrationStatus: "UNREGISTERED",
+		}, nil
+	} else {
 		return RegistrationStatusOutput{
 			RegistrationStatus: "HttpError",
 			Err:                err,
 			StatusCode:         resp.StatusCode,
 		}, err
 	}
-
-	logger.Info("Un-register call status code", "httpstatus", resp.StatusCode)
-	clusterDef, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	registrations, err := getRegistrations(string(clusterDef))
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	var unregistered RegistrationStatusOutput
-	if len(registrations) == 0 {
-		unregistered = RegistrationStatusOutput{
-			StatusCode:         resp.StatusCode,
-			RegistrationStatus: "UNREGISTERED",
-		}
-	}
-
-	return unregistered, nil
 }

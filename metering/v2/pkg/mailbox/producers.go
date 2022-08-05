@@ -19,8 +19,7 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -36,7 +35,7 @@ type ObjectChannelProducer struct {
 }
 
 func ProvideObjectChannelProducer(
-	meterDefinitionStore *meterdefinition.MeterDefinitionStore,
+	meterDefinitionStore *stores.MeterDefinitionStore,
 	mb *Mailbox,
 	log logr.Logger,
 ) *ObjectChannelProducer {
@@ -55,7 +54,7 @@ type MeterDefinitionChannelProducer struct {
 }
 
 func ProvideMeterDefinitionChannelProducer(
-	dictionary *dictionary.MeterDefinitionDictionary,
+	dictionary *stores.MeterDefinitionDictionary,
 	mb *Mailbox,
 	log logr.Logger,
 ) *MeterDefinitionChannelProducer {
@@ -72,10 +71,8 @@ func ProvideMeterDefinitionChannelProducer(
 // Start will start processing pops from the dictionary. Will block
 func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 	go func() {
-		select {
-		case <-ctx.Done():
-			w.queue.Close()
-		}
+		<-ctx.Done()
+		w.queue.Close()
 	}()
 
 	go func() {
@@ -88,7 +85,10 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 				}
 
 				w.log.Error(err, "error processing")
-				w.queue.AddIfNotPresent(obj)
+				err := w.queue.AddIfNotPresent(obj)
+				if err != nil {
+					w.log.Error(err, "error adding if not present")
+				}
 			}
 		}
 	}()

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meterdefinition
+package stores
 
 import (
 	"context"
@@ -21,55 +21,40 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MeterDefinitionStores = map[string]*MeterDefinitionStore
-type ObjectsSeenStore cache.Store
 
 // MeterDefinitionStore keeps the MeterDefinitions in place
 // and tracks the dependents using the rules based on the
-// rules. MeterDefinition controller uses this to effectively
+// spec. MeterDefinition controller uses this to effectively
 // find the child assets of a meter definition rules.
 type MeterDefinitionStore struct {
-	dictionary  *dictionary.MeterDefinitionDictionary
-	indexStore  cache.Indexer
-	delta       *cache.DeltaFIFO
-	objectsSeen ObjectsSeenStore
-	keyFunc     cache.KeyFunc
+	dictionary *MeterDefinitionDictionary
+	indexStore cache.Indexer
+	delta      *cache.DeltaFIFO
+	keyFunc    cache.KeyFunc
 
 	ctx    context.Context
 	log    logr.Logger
 	scheme *runtime.Scheme
 
 	sync.RWMutex
-
-	// kubeClient to query kube
-	kubeClient clientset.Interface
-
-	findOwner                *rhmclient.FindOwnerHelper
-	monitoringClient         *monitoringv1client.MonitoringV1Client
-	marketplaceClientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client
 }
 
 var _ cache.Queue = &MeterDefinitionStore{}
 
 const IndexMeterDefinition = "meterDefinition"
+const IndexNamespace = "namespace"
 
 func EnhancedObjectKeyFunc(scheme *runtime.Scheme) func(obj interface{}) (string, error) {
 	return func(obj interface{}) (string, error) {
-		mdefObj, err := newMeterDefinitionExtended(obj)
+		mdefObj, err := newStoreObject(obj)
 
 		if err != nil {
 			return "", err
@@ -88,7 +73,7 @@ func MeterDefinitionIndexFunc(obj interface{}) ([]string, error) {
 	keys := make([]string, 0, len(v.MeterDefinitions))
 	for i := range v.MeterDefinitions {
 		meterDef := v.MeterDefinitions[i]
-		key, err := cache.MetaNamespaceKeyFunc(&meterDef)
+		key, err := cache.MetaNamespaceKeyFunc(meterDef)
 		if !ok {
 			return nil, errors.Wrap(err, "failed to get obj key")
 		}
@@ -103,18 +88,43 @@ func MeterDefinitionIndexFunc(obj interface{}) ([]string, error) {
 // Add inserts adds to the OwnerCache by calling the metrics generator functions and
 // adding the generated metrics to the metrics map that underlies the MetricStore.
 func (s *MeterDefinitionStore) Add(obj interface{}) error {
+	addObj, err := s.addObj(obj)
+	if err != nil {
+		return err
+	}
+
+	s.Lock()
+	defer s.Unlock()
+	if addObj != nil {
+		if len(addObj.MeterDefinitions) != 0 {
+			if err := s.delta.Add(addObj); err != nil {
+				s.log.Error(err, "failed to update/add to delta store")
+				return err
+			}
+		}
+		if err := s.indexStore.Add(addObj); err != nil {
+			s.log.Error(err, "failed to update/add to index store")
+			return err
+		}
+	}
+	return nil
+}
+
+// Create an MeterDefinitionEnhancedObject with matching MeterDefinitions to be added to the store
+func (s *MeterDefinitionStore) addObj(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, error) {
 	key, err := s.keyFunc(obj)
 
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
-		return err
+		return nil, err
 	}
 
-	if err := s.objectsSeen.Add(obj); err != nil {
-		s.log.Error(err, "cannot add object seen")
+	mdefObj, err := newStoreObject(obj)
+	if err != nil {
+		return nil, err
 	}
 
-	logger := s.log.WithValues("func", "add", "namespace/name", key).V(4)
+	logger := s.log.WithValues("func", "addObj", "namespace/name", key)
 	logger.Info("adding object", "type", fmt.Sprintf("%T", obj))
 
 	// look over all meterDefinitions, matching workloads are saved
@@ -125,105 +135,17 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 		logger.Error(err,
 			"failed to find object matches",
 			errors.GetDetails(err)...)
-		return err
+		return mdefObj, err
 	}
 
 	if len(results) == 0 {
 		logger.Info("no results returned")
-		return nil
+		return mdefObj, nil
 	}
 
-	meterDefs := []v1beta1.MeterDefinition{}
+	for i := range results {
+		result := results[i]
 
-	for _, result := range results {
-		if !result.Ok {
-			logger.Info("no match", "obj", obj)
-			continue
-		}
-
-		mdef := *result.Lookup.MeterDefinition
-		logger.Info("result", "name", mdef.GetName())
-		meterDefs = append(meterDefs, mdef)
-	}
-
-	if len(meterDefs) == 0 {
-		logger.Info("no matched meterdefs returned")
-		return nil
-	}
-
-	logger.Info("return meterdefs results", "len", len(meterDefs))
-	mdefObj, err := newMeterDefinitionExtended(obj)
-
-	if err != nil {
-		return err
-	}
-
-	mdefObj.MeterDefinitions = meterDefs
-
-	s.Lock()
-	defer s.Unlock()
-
-	if err := s.delta.Add(mdefObj); err != nil {
-		logger.Error(err, "failed to add to delta store")
-		return err
-	}
-
-	if err := s.indexStore.Add(mdefObj); err != nil {
-		logger.Error(err, "failed to add to index store")
-		return err
-	}
-
-	return nil
-}
-
-// Update updates the existing entry in the OwnerCache.
-func (s *MeterDefinitionStore) Update(obj interface{}) error {
-
-	// Skip Updates where Generation does not change
-	oldobj, exists, err := s.Get(obj)
-	if exists && err == nil {
-		meta, ok := obj.(metav1.ObjectMeta)
-		oldmeta, oldok := oldobj.(metav1.ObjectMeta)
-		if ok && oldok {
-			if meta.GetGeneration() == oldmeta.GetGeneration() {
-				return nil
-			}
-		}
-	}
-
-	key, err := s.keyFunc(obj)
-
-	if err != nil {
-		s.log.Error(err, "cannot create a key")
-		return err
-	}
-
-	if err := s.objectsSeen.Update(obj); err != nil {
-		s.log.Error(err, "error updating seen object")
-	}
-
-	logger := s.log.WithValues("func", "update", "namespace/name", key).V(4)
-	logger.Info("updating obj")
-
-	// look over all meterDefinitions, matching workloads are saved
-	results := []filter.Result{}
-
-	err = s.dictionary.FindObjectMatches(obj, &results)
-	if err != nil {
-		logger.Error(err,
-			"failed to find object matches",
-			errors.GetDetails(err)...)
-		return err
-	}
-
-	if len(results) == 0 {
-		logger.Info("no results returned")
-		return nil
-	}
-
-	meterDefs := []v1beta1.MeterDefinition{}
-
-	for _, result := range results {
 		if !result.Ok {
 			logger.Info("no match", "obj", obj)
 			continue
@@ -231,35 +153,58 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 
 		mdef := result.Lookup.MeterDefinition
 		logger.Info("result", "name", mdef.GetName())
-		meterDefs = append(meterDefs, *mdef)
+		mdefObj.MeterDefinitions = append(mdefObj.MeterDefinitions, mdef)
 	}
 
-	if len(meterDefs) == 0 {
+	if len(mdefObj.MeterDefinitions) == 0 {
 		logger.Info("no matched meterdefs returned")
-		return nil
+		return mdefObj, nil
 	}
 
-	logger.Info("return meterdefs results", "len", len(meterDefs))
+	logger.Info("return meterdefs results", "len", len(mdefObj.MeterDefinitions))
 
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	return mdefObj, nil
+}
 
+// Update updates the existing entry in the OwnerCache.
+func (s *MeterDefinitionStore) Update(obj interface{}) error {
+	addObj, err := s.addObj(obj)
 	if err != nil {
 		return err
 	}
 
-	mdefObj.MeterDefinitions = meterDefs
-
 	s.Lock()
 	defer s.Unlock()
 
-	if err := s.delta.Update(mdefObj); err != nil {
-		logger.Error(err, "failed to add to delta store")
-		return err
-	}
+	if addObj != nil {
+		item, exists, err := s.indexStore.Get(addObj)
+		if exists && err == nil {
+			// Skip Updates where Generation does not change
+			prevObj, ok := item.(*pkgtypes.MeterDefinitionEnhancedObject)
+			if ok {
+				if addObj.Object.GetGeneration() == prevObj.Object.GetGeneration() {
+					return nil
+				}
+			}
 
-	if err := s.indexStore.Update(mdefObj); err != nil {
-		logger.Error(err, "failed to add to index store")
-		return err
+			// Emit a delta delete for processing if the object no longer matches a meterdefinition
+			if len(addObj.MeterDefinitions) != 0 {
+				if err := s.delta.Add(addObj); err != nil {
+					s.log.Error(err, "failed to update/add to delta store")
+					return err
+				}
+			} else {
+				if err := s.delta.Delete(addObj); err != nil {
+					s.log.Error(err, "failed to update/delete to delta store")
+					return err
+				}
+			}
+
+			if err := s.indexStore.Add(addObj); err != nil {
+				s.log.Error(err, "failed to update/add to index store")
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -267,17 +212,14 @@ func (s *MeterDefinitionStore) Update(obj interface{}) error {
 
 // Delete deletes an existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) Delete(obj interface{}) error {
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	s.Lock()
+	defer s.Unlock()
+
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
 		return err
-	}
-
-	// This just seems to produce error: deleting seen object      {"error": "couldn't create key for object
-	// When MeterDefinitions are deleted
-	if err := s.objectsSeen.Delete(obj); err != nil {
-		s.log.Error(err, "error deleting seen object")
 	}
 
 	key, err := s.keyFunc(mdefObj)
@@ -287,7 +229,7 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 		return err
 	}
 
-	logger := s.log.WithValues("func", "delete",
+	logger := s.log.V(2).WithValues("func", "delete",
 		"name", mdefObj.GetName(),
 		"namespace", mdefObj.GetNamespace(),
 		"key", key)
@@ -301,8 +243,6 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 	if found {
 		logger.Info("deleting obj")
 
-		s.Lock()
-		defer s.Unlock()
 		if err := s.delta.Delete(fullObj); err != nil {
 			logger.Error(err, "can't delete obj")
 			return err
@@ -319,7 +259,7 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 
 // Delete deletes an existing entry in the OwnerCache.
 func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		s.log.Error(err, "cannot create a key")
@@ -345,7 +285,7 @@ func (s *MeterDefinitionStore) DeleteFromIndex(obj interface{}) error {
 	}
 
 	if found {
-		logger.Info("deleting obj")
+		logger.V(2).Info("deleting obj")
 
 		s.Lock()
 		defer s.Unlock()
@@ -405,7 +345,7 @@ func (s *MeterDefinitionStore) Get(obj interface{}) (item interface{}, exists bo
 	s.RLock()
 	defer s.RUnlock()
 
-	mdefObj, err := newMeterDefinitionExtended(obj)
+	mdefObj, err := newStoreObject(obj)
 
 	if err != nil {
 		return nil, false, err
@@ -438,71 +378,81 @@ func (s *MeterDefinitionStore) Replace(list []interface{}, _ string) error {
 }
 
 // Resync implements the Resync method of the store interface.
+// Resync walks the entire cache to refresh the Object matches to MeterDefinitions
+// Updates and Delta deletes if the no MeterDefinitions match
 func (s *MeterDefinitionStore) Resync() error {
-	list := s.objectsSeen.List()
-	for i := range list {
-		obj := list[i]
-		_, exists, err := s.Get(obj)
-
-		if err != nil {
-			s.log.Error(err, "failed to get")
-			return err
-		}
-
-		key, _ := s.keyFunc(obj.(client.Object))
-		if !exists {
-			s.log.Info("adding obj from objectsSeen", "obj", key)
-			if err := s.Add(obj); err != nil {
-				s.log.Error(err, "failed to add")
-				return err
-			}
-		} else {
-			s.log.Info("updating obj from objectsSeen", "obj", key)
-			if err := s.Update(obj); err != nil {
-				s.log.Error(err, "failed to add")
-				return err
-			}
-		}
-	}
-
-	seenKeys := s.objectsSeen.ListKeys()
-	if len(seenKeys) == 0 {
-		return nil
-	}
-
-	s.log.Info("objects seen keys", "keys", seenKeys)
-	seenKeysMap := make(map[string]interface{})
-
-	for j := range seenKeys {
-		seenKeysMap[seenKeys[j]] = nil
-	}
-
-	keys := s.ListKeys()
-	for i := range keys {
-		key := keys[i]
-		enobj, _, err := s.GetByKey(key)
-
-		if err != nil {
-			s.log.Error(err, "failed to get")
-			return err
-		}
-
-		_, exists := seenKeysMap[key]
-
-		if !exists {
-			s.log.Info("deleting object from objectsseen", "obj", key)
-			err := s.Delete(enobj)
+	s.Lock()
+	defer s.Unlock()
+	objs := s.indexStore.List()
+	for _, obj := range objs {
+		if mdeo, ok := obj.(*pkgtypes.MeterDefinitionEnhancedObject); ok {
+			addObj, err := s.addObj(mdeo.Object)
 			if err != nil {
-				s.log.Error(err, "failed to delete")
 				return err
+			} else if addObj != nil {
+				// Emit a delta delete if the object no longer matches a meterdefinition
+				if len(addObj.MeterDefinitions) != 0 {
+					if err := s.delta.Add(addObj); err != nil {
+						s.log.Error(err, "failed to update/add to delta store")
+						return err
+					}
+				} else {
+					if err := s.delta.Delete(addObj); err != nil {
+						s.log.Error(err, "failed to update/delete to delta store")
+						return err
+					}
+				}
+
+				if err := s.indexStore.Add(addObj); err != nil {
+					s.log.Error(err, "failed to resync/add to index store")
+					return err
+				}
 			}
 		}
 	}
-
 	return nil
 }
 
-func newMeterDefinitionExtended(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, error) {
+// For a MeterDefinition event, Delta Add or Delete Objects if they still match
+func (s *MeterDefinitionStore) SyncByIndex(indexName, indexedValue string) error {
+
+	s.Lock()
+	defer s.Unlock()
+
+	objs, err := s.indexStore.ByIndex(indexName, indexedValue)
+	if err != nil {
+		return err
+	}
+
+	for _, obj := range objs {
+		if mdeo, ok := obj.(*pkgtypes.MeterDefinitionEnhancedObject); ok {
+			addObj, err := s.addObj(mdeo.Object)
+			if err != nil {
+				return err
+			}
+			// Emit a delta delete for processing if the object no longer matches a meterdefinition
+			if len(addObj.MeterDefinitions) != 0 {
+				if err := s.delta.Add(addObj); err != nil {
+					s.log.Error(err, "failed to update/add to delta store")
+					return err
+				}
+			} else {
+				if err := s.delta.Delete(addObj); err != nil {
+					s.log.Error(err, "failed to update/delete to delta store")
+					return err
+				}
+			}
+
+			if err := s.indexStore.Add(addObj); err != nil {
+				s.log.Error(err, "failed to update/add to index store")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func newStoreObject(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, error) {
 	if v, ok := obj.(*pkgtypes.MeterDefinitionEnhancedObject); ok {
 		return v, nil
 	}
@@ -519,39 +469,26 @@ func newMeterDefinitionExtended(obj interface{}) (*pkgtypes.MeterDefinitionEnhan
 func NewMeterDefinitionStore(
 	ctx context.Context,
 	log logr.Logger,
-	kubeClient clientset.Interface,
-	findOwner *rhmclient.FindOwnerHelper,
-	monitoringClient *monitoringv1client.MonitoringV1Client,
-	marketplaceclientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client,
-	dictionary *dictionary.MeterDefinitionDictionary,
+	dictionary *MeterDefinitionDictionary,
 	scheme *runtime.Scheme,
 ) *MeterDefinitionStore {
 	keyFunc := EnhancedObjectKeyFunc(scheme)
 
 	storeIndexers := cache.Indexers{
 		IndexMeterDefinition: MeterDefinitionIndexFunc,
+		IndexNamespace:       cache.MetaNamespaceIndexFunc,
 	}
 
 	store := cache.NewIndexer(keyFunc, storeIndexers)
-	delta := cache.NewDeltaFIFO(keyFunc, store)
-	return &MeterDefinitionStore{
-		ctx:                      ctx,
-		log:                      log.WithName("obj_store").V(4),
-		scheme:                   scheme,
-		kubeClient:               kubeClient,
-		monitoringClient:         monitoringClient,
-		marketplaceClientV1beta1: marketplaceclientV1beta1,
-		dictionary:               dictionary,
-		findOwner:                findOwner,
-		delta:                    delta,
-		indexStore:               store,
-		objectsSeen:              NewObjectsSeenStore(scheme),
-		keyFunc:                  keyFunc,
-	}
-}
+	delta := cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{KeyFunction: keyFunc, KnownObjects: store})
 
-func NewObjectsSeenStore(
-	scheme *runtime.Scheme,
-) ObjectsSeenStore {
-	return cache.NewStore(pkgtypes.GVKNamespaceKeyFunc(scheme))
+	return &MeterDefinitionStore{
+		ctx:        ctx,
+		log:        log.WithName("obj_store").V(4),
+		scheme:     scheme,
+		dictionary: dictionary,
+		delta:      delta,
+		indexStore: store,
+		keyFunc:    keyFunc,
+	}
 }

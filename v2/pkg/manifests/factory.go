@@ -148,24 +148,27 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.AuthChecker
 		container.Args = []string{}
 		container.LivenessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
-					Port: intstr.FromInt(8089),
+					Port: intstr.FromInt(28088),
 				},
 			},
-			InitialDelaySeconds: 20,
-			PeriodSeconds:       30,
+			TimeoutSeconds:   5,
+			PeriodSeconds:    30,
+			FailureThreshold: 3,
 		}
 		container.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/readyz",
-					Port: intstr.FromInt(8089),
+					Port: intstr.FromInt(28088),
 				},
 			},
-			InitialDelaySeconds: 20,
+			TimeoutSeconds:      5,
+			InitialDelaySeconds: 15,
 			PeriodSeconds:       30,
+			FailureThreshold:    3,
 		}
 
 		envChanges.Append(addPodName)
