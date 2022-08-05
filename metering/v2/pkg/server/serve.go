@@ -64,7 +64,7 @@ type Service struct {
 	engine          *engine.Engine
 	prometheusData  *metrics.PrometheusData
 
-	*isReady
+	*isReady `wire:"-"`
 }
 
 type isReady struct {

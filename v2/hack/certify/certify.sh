@@ -85,6 +85,13 @@ oc delete ns $CERT_NAMESPACE --ignore-not-found
 oc adm new-project $CERT_NAMESPACE
 oc project $CERT_NAMESPACE
 
+# Wait for the tekton serviceaccount to generate
+echo "Waiting for ServiceAccount pipeline in namespace $CERT_NAMESPACE to generate."
+until oc -n $CERT_NAMESPACE get serviceaccount pipeline
+do
+  sleep $SLEEP_LONG
+done
+
 oc create secret generic pyxis-api-secret --from-literal pyxis_api_key=$PYXIS_API_KEY
 
 # Create the kubeconfig used by the certification pipeline
@@ -116,6 +123,10 @@ OP_DIR=$CWD/../..
 cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
+
+# Patch for TLSVERIFY=false to use internal registry
+yq eval -i '(.spec.params[] | select(.name == "TLSVERIFY") | .default) = "false"' ansible/roles/operator-pipeline/templates/openshift/tasks/buildah.yml
+
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/pipelines
 oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/tasks
 
@@ -168,6 +179,7 @@ BUNDLE_PATH=operators/redhat-marketplace-operator/$VERSION
 if [ "$SUBMIT" == "true" ]; then
     oc create secret generic github-api-token --from-literal GITHUB_TOKEN=$GITHUB_TOKEN
     ./tkn pipeline start operator-ci-pipeline \
+    --use-param-defaults \
     --param git_repo_url=$GIT_REPO_URL \
     --param git_branch=$VERSION \
     --param bundle_path=$BUNDLE_PATH \
@@ -175,16 +187,15 @@ if [ "$SUBMIT" == "true" ]; then
     --param submit=true \
     --param env=prod \
     --workspace name=pipeline,volumeClaimTemplateFile=templates/workspace-template.yml \
-    --workspace name=kubeconfig,secret=kubeconfig \
     --workspace name=pyxis-api-key,secret=pyxis-api-secret \
     --showlog
 else
     ./tkn pipeline start operator-ci-pipeline \
+    --use-param-defaults \
     --param git_repo_url=$GIT_REPO_URL \
     --param git_branch=$VERSION \
     --param bundle_path=$BUNDLE_PATH \
     --param env=prod \
     --workspace name=pipeline,volumeClaimTemplateFile=templates/workspace-template.yml \
-    --workspace name=kubeconfig,secret=kubeconfig \
     --showlog
 fi

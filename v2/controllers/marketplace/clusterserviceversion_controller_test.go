@@ -52,18 +52,19 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			ignoreTag: ignoreTagValue,
 		}, empty, 0),
 		Entry("deny mdef with copied from", map[string]string{
-			olmCopiedFromTag:                     "foo",
 			utils.CSV_METERDEFINITION_ANNOTATION: "some meterdef",
-		}, empty, 0),
+		}, map[string]string{
+			olmCopiedFromTag: "foo",
+		}, 0),
 		Entry("accept mdef without copied from", map[string]string{
 			utils.CSV_METERDEFINITION_ANNOTATION: "some meterdef",
 		}, empty, 1),
 	)
 
 	Context("predicates", func() {
-		It("should allow delete events", func() {
+		It("should deny delete events", func() {
 			evt := event.DeleteEvent{}
-			Expect(clusterServiceVersionPredictates.Delete(evt)).To(BeTrue())
+			Expect(clusterServiceVersionPredictates.Delete(evt)).To(BeFalse())
 		})
 		It("should deny generic events", func() {
 			evt := event.GenericEvent{}

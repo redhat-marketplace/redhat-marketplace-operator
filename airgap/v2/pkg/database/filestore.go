@@ -179,9 +179,11 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 		return fmt.Sprintf("%d", file.ID), err
 	}
 
-	if !foundFile.DeletedAt.Time.IsZero() {
-		file.DeletedAt = gorm.DeletedAt{}
-	}
+	// Explicitly set DeletedAt.Valid false to prevent UPDATE of deleted_at
+	// A DeletedAt.Time = 0 is set in the struct produced by a Get(), even if deleted_at is NULL
+	// A default DeletedAt struct will also trigger and UPDATE of deleted_at from NULL to 0
+	// This will cause LIST to fail, and the file to be tombstoned
+	file.DeletedAt = gorm.DeletedAt{Valid: false}
 
 	for i := range file.Metadata {
 		metadata := &file.Metadata[i]

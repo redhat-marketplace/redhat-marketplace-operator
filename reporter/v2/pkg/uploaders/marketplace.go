@@ -26,14 +26,11 @@ import (
 	"net/http"
 	"net/textproto"
 	"path/filepath"
-	"time"
 
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 )
 
 type MarketplaceUploaderConfig struct {
@@ -43,8 +40,6 @@ type MarketplaceUploaderConfig struct {
 
 	certificates []*x509.Certificate `json:"-"`
 	httpVersion  *int                `json:"-"`
-	polling      time.Duration       `json:"-"`
-	timeout      time.Duration       `json:"-"`
 }
 
 type MarketplaceUploader struct {
@@ -93,15 +88,6 @@ func NewMarketplaceUploader(
 		client.Transport = WithBearerAuth(client.Transport, config.Token)
 	}
 
-	// default timeout 2 minutes
-	if config.timeout == 0 {
-		config.timeout = 2 * time.Minute
-	}
-	// default polling 15 seconds
-	if config.polling == 0 {
-		config.polling = 15 * time.Second
-	}
-
 	return &MarketplaceUploader{
 		client:                    client,
 		MarketplaceUploaderConfig: *config,
@@ -125,55 +111,7 @@ type MarketplaceUsageResponse struct {
 
 type MktplStatus = string
 
-const (
-	MktplStatusSuccess    MktplStatus = "success"
-	MktplStatusInProgress MktplStatus = "inProgress"
-	MktplStatusFailed     MktplStatus = "failed"
-)
-
-// https://sandbox.marketplace.redhat.com/metering/api/v2/metrics/<request id>
-func (r *MarketplaceUploader) statusRequest(id string) (*MarketplaceUsageResponse, error) {
-	marketplaceUploadURLCheck := "%s/metering/api/v2/metrics/%s"
-
-	resp, err := r.client.Get(fmt.Sprintf(marketplaceUploadURLCheck, r.URL, id))
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	data, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	status := MarketplaceUsageResponse{}
-	jsonErr := json.Unmarshal(data, &status)
-
-	if err := checkError(resp, status, "failed to get status"); err != nil {
-		return &status, err
-	}
-
-	if jsonErr != nil {
-		return nil, err
-	}
-
-	return &status, nil
-}
-
-const RetryableError = errors.Sentinel("retryable")
-
-const DuplicateError = errors.Sentinel("duplicate")
-
 const VerificationError = errors.Sentinel("verification")
-
-func isRetryable(err error) bool {
-	if errors.Is(err, RetryableError) {
-		return true
-	}
-	return false
-}
 
 func checkError(resp *http.Response, status MarketplaceUsageResponse, message string) error {
 	if resp.StatusCode < 300 && resp.StatusCode >= 200 {
@@ -184,14 +122,6 @@ func checkError(resp *http.Response, status MarketplaceUsageResponse, message st
 
 	if resp.StatusCode == http.StatusUnprocessableEntity {
 		return errors.WrapWithDetails(VerificationError, "status", status.Message)
-	}
-
-	if resp.StatusCode == http.StatusConflict {
-		return errors.WrapWithDetails(DuplicateError, "status", status.Message)
-	}
-	// return status says retrybale
-	if status.Details != nil && status.Details.Retryable {
-		return errors.WrapWithDetails(RetryableError, "retryable error", append(errors.GetDetails(err), "message", err.Error())...)
 	}
 
 	return err
@@ -253,7 +183,7 @@ func (r *MarketplaceUploader) uploadFile(req *http.Request) (string, error) {
 		return "", errors.Wrap(err, "failed to read response body")
 	}
 
-	logger.V(5).Info(
+	logger.Info(
 		"retrieved response",
 		"statusCode", resp.StatusCode,
 		"proto", resp.Proto,
@@ -274,13 +204,6 @@ func (r *MarketplaceUploader) uploadFile(req *http.Request) (string, error) {
 	return status.RequestID, err
 }
 
-var DefaultBackoff = wait.Backoff{
-	Steps:    4,
-	Duration: 50 * time.Millisecond,
-	Factor:   5.0,
-	Jitter:   0.1,
-}
-
 func (r *MarketplaceUploader) UploadFile(ctx context.Context, fileName string, reader io.Reader) (id string, err error) {
 	var req *http.Request
 
@@ -292,75 +215,17 @@ func (r *MarketplaceUploader) UploadFile(ctx context.Context, fileName string, r
 
 	done := make(chan struct{})
 
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(r.polling)
-	defer ticker.Stop()
-
 	go func() {
 		defer close(done)
-
-		err = retry.OnError(DefaultBackoff, isRetryable, func() error {
-			var errL error
-			id, errL = r.uploadFile(req)
-
-			if errL != nil {
-				return errors.Wrap(errL, "failed to get upload file req")
-			}
-
-			return nil
-		})
+		id, err = r.uploadFile(req)
 
 		if err != nil {
-			if errors.Is(err, DuplicateError) || errors.Is(err, VerificationError) {
+			if errors.Is(err, VerificationError) {
 				err = nil
+			} else {
+				errors.Wrap(err, "file upload failed")
 			}
 			return
-		}
-
-		for {
-			var resp MarketplaceUsageResponse
-			err = retry.OnError(DefaultBackoff, isRetryable, func() error {
-				var localErr error
-				innerResp, localErr := r.statusRequest(id)
-
-				if localErr != nil {
-					return localErr
-				}
-
-				if innerResp == nil {
-					return errors.New("no response provided")
-				}
-
-				resp = *innerResp
-				return nil
-			})
-
-			if err != nil {
-				if errors.Is(err, DuplicateError) || errors.Is(err, VerificationError) {
-					err = nil
-					return
-				}
-
-				logger.Error(err, "failed to get status")
-			}
-
-			if resp.Status == MktplStatusSuccess {
-				return
-			}
-
-			if resp.Status == MktplStatusFailed {
-				err = errors.NewWithDetails("upload processing failed", "message", resp.Message, "code", resp.ErrorCode)
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				err = errors.New("couldn't verify upload, context was cancelled")
-				return
-			case <-ticker.C:
-			}
 		}
 	}()
 

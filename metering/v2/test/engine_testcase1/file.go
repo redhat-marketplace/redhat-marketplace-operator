@@ -36,4 +36,5 @@ var (
 	ServicePrometheus *unstructured.Unstructured = testCase1.MustGetUnstructured("service-ibm-licensing-service-prometheus.yaml")
 	MDefExample       *unstructured.Unstructured = testCase1.MustGetUnstructured("mdef-pod.yaml")
 	Pod               *unstructured.Unstructured = testCase1.MustGetUnstructured("pod.yaml")
+	OperatorGroup     *unstructured.Unstructured = testCase1.MustGetUnstructured("operatorgroup.yaml")
 )

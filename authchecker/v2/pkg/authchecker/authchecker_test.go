@@ -62,6 +62,24 @@ var _ = Describe("authchecker", func() {
 		mock.AssertExpectationsForObjects(GinkgoT(), mockClient)
 	})
 
+	It("should init tokenReview field if it's nil", func() {
+		sut.tokenReview = nil
+
+		mockClient.On("Create", ctx, mock.Anything, mock.Anything).Times(1).Return(&unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"status": map[string]interface{}{
+					"authenticated": true,
+				},
+			},
+		}, nil)
+
+		err := sut.CheckToken(ctx)
+		Expect(err).To(Succeed())
+		Expect(sut.Check(nil)).To(Succeed())
+
+		mock.AssertExpectationsForObjects(GinkgoT(), mockClient)
+	})
+
 	It("should error if token is invalid", func() {
 		mockClient.On("Create", ctx, mock.Anything, mock.Anything).Times(1).Return(&unstructured.Unstructured{
 			Object: map[string]interface{}{

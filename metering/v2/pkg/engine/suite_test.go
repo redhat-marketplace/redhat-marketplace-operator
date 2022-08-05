@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -64,6 +65,7 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
+		UseExistingCluster: ptr.Bool(false),
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "v2", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "..", "tests", "v2", "testdata"),
