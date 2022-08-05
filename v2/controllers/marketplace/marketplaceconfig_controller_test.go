@@ -197,15 +197,6 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 
 	It("marketplace config controller in connected mode", func() {
 
-		// create required resources
-		ns := &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: utils.OPERATOR_MKTPLACE_NS,
-			},
-		}
-
-		Expect(k8sClient.Create(context.TODO(), ns)).Should(Succeed(), "create openshift-marketplace namespace")
-
 		Eventually(func() bool {
 			var failed bool
 			err := k8sClient.Create(context.TODO(), marketplaceconfigConnected.DeepCopy())

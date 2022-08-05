@@ -140,6 +140,15 @@ var _ = BeforeSuite(func() {
 
 	Expect(k8sClient.Create(context.TODO(), ns)).Should(Succeed(), "create operator namespace")
 
+	// create required resources
+	omns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: utils.OPERATOR_MKTPLACE_NS,
+		},
+	}
+
+	Expect(k8sClient.Create(context.TODO(), omns)).Should(Succeed(), "create openshift-marketplace namespace")
+
 	// Deployment is necessary for marketplaceconfig or clusterregistration controller to set marketplaceconfig controller reference
 	ls := map[string]string{"redhat.marketplace.com/name": "redhat-marketplace-operator"}
 	replicas := int32(0)
