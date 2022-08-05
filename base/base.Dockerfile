@@ -15,7 +15,7 @@ RUN dnf -y install git make yum gzip jq \
   && rm -rf /var/cache/yum
 
 
-RUN FOUND_VER=$(curl -s 'https://go.dev/dl/?mode=json' -H 'Accept: application/json' | jq -r '.[].version|select(contains(env.VERSION))') && \
+RUN FOUND_VER=$(curl -s 'https://go.dev/dl/?mode=json&include=all' -H 'Accept: application/json' | jq -r '[.[]|select(.stable==true)|.version|select(contains(env.VERSION))][0]') && \
   echo "go major version: $VERSION, found latest stable minor version: $FOUND_VER" && \
   curl -L -o go.tar.gz https://go.dev/dl/$FOUND_VER.$OS-$ARCH.tar.gz && \
   rm -rf /usr/local/go && \
