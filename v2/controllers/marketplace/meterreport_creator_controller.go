@@ -29,20 +29,21 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
 type MeterReportCreatorReconciler struct {
@@ -399,6 +400,23 @@ func (r *MeterReportCreatorReconciler) newMeterReport(
 			PrometheusService: promService,
 		},
 	}
+
+	gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+	if err != nil {
+		return nil
+	}
+
+	// create owner ref object
+	ref := metav1.OwnerReference{
+		APIVersion:         gvk.GroupVersion().String(),
+		Kind:               gvk.Kind,
+		Name:               instance.GetName(),
+		UID:                instance.GetUID(),
+		BlockOwnerDeletion: pointer.BoolPtr(false),
+		Controller:         pointer.BoolPtr(false),
+	}
+
+	mreport.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 
 	if instance.Spec.IsDataServiceEnabled() {
 		mreport.Spec.ExtraArgs = append(mreport.Spec.ExtraArgs, "--uploadTargets=data-service")
