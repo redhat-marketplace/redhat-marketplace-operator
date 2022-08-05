@@ -51,6 +51,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	EnableMetering *bool `json:"enableMetering,omitempty"`
 
+	// IsDisconnected represents the installation of operator in disconnected mode
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install in Disconnected mode"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	IsDisconnected *bool `json:"isDisconnected,omitempty"`
+
 	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"
@@ -129,6 +135,9 @@ const (
 	// ConditionIsDisconnected means the rhm operator is running in a disconnected environment
 	ConditionIsDisconnected status.ConditionType = "IsDisconnected"
 
+	// ConditionSecretError means the redhat-marketplace-pull-secret or ibm-entitlement-key is missing in a connected env
+	ConditionSecretError status.ConditionType = "SecretError"
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
@@ -140,11 +149,12 @@ const (
 	ReasonRegistrationSuccess   status.ConditionReason = "ClusterRegistered"
 	ReasonRegistrationFailure   status.ConditionReason = "ClusterNotRegistered"
 	ReasonServiceUnavailable    status.ConditionReason = "ServiceUnavailable"
-	ReasonInternetDisconnected  status.ConditionReason = "InterntNotAvailable"
+	ReasonInternetDisconnected  status.ConditionReason = "InternetNotAvailable"
 	ReasonClientError           status.ConditionReason = "ClientError"
 	ReasonRegistrationError     status.ConditionReason = "HttpError"
 	ReasonOperatingNormally     status.ConditionReason = "OperatingNormally"
 	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
+	ReasonNoSecret              status.ConditionReason = "NoSecret"
 
 	// Enablement/Disablement of features conditions
 	// ConditionDeploymentEnabled means the particular option is enabled

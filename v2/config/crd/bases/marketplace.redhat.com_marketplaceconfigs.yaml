@@ -86,6 +86,10 @@ spec:
                 description: InstallIBMCatalogSource is the flag that indicates if
                   the IBM Catalog Source is installed
                 type: boolean
+              isDisconnected:
+                description: IsDisconnected represents the installation of operator
+                  in disconnected mode
+                type: boolean
               namespaceLabelSelector:
                 description: NamespaceLabelSelector is a LabelSelector that overrides
                   the default LabelSelector used to build the OperatorGroup Namespace

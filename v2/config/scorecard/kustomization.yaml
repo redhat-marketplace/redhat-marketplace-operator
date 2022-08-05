@@ -1,3 +1,4 @@
+namePrefix: redhat-marketplace-
 resources:
 - bases/config.yaml
 patchesJson6902:

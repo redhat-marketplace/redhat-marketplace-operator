@@ -31,7 +31,7 @@ RUN git clone --depth 1 -b $DQLITE_VERSION https://github.com/canonical/dqlite.g
 
 WORKDIR /opt/golang
 
-RUN FOUND_VER=$(wget -cq --header='Accept: application/json' 'https://go.dev/dl/?mode=json' -O - | jq -r '.[].version|select(contains(env.GO_VERSION))') && \
+RUN FOUND_VER=$(wget -cq --header='Accept: application/json' 'https://go.dev/dl/?mode=json&include=all' -O - | jq -r '[.[]|select(.stable==true)|.version|select(contains(env.GO_VERSION))][0]') && \
     echo "go major version: $GO_VERSION, found latest stable minor version: $FOUND_VER" && \
     wget -qO./go.tar.gz https://dl.google.com/go/$FOUND_VER.$OS-$TARGETARCH.tar.gz && \
     rm -rf /usr/local/go && \
