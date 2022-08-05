@@ -169,9 +169,11 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 
 	logger.Info("sending queries")
 
-	r.ProduceMeterDefinitions(
-		r.meterDefinitions,
-		meterDefsChan)
+	err := r.ProduceMeterDefinitions(r.meterDefinitions, meterDefsChan)
+	if err != nil {
+		logger.Error(err, "error occurred processing")
+		errorsChan <- err
+	}
 
 	logger.Info("sending queries done")
 	close(meterDefsChan)

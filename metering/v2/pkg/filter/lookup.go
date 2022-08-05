@@ -18,10 +18,10 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -30,7 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,32 +70,34 @@ func (f *MeterDefinitionLookupFilterFactory) New(
 		log:             f.Log.WithName("meterDefLookupFilter").WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace).V(4),
 	}
 
-	ns, err := s.findNamespaces(meterdef)
+	if len(meterdef.Spec.ResourceFilters) == 0 {
+		return nil, errors.New("no resource filters provided")
+	}
+
+	filters, err := s.createFilters(meterdef)
 	if err != nil {
-		s.log.Error(err, "error creating find namespaces")
+		s.log.Error(err, "error creating filters")
 		return nil, err
 	}
 
-	if len(ns) != 0 {
-		filters, err := s.createFilters(meterdef, ns)
-		if err != nil {
-			s.log.Error(err, "error creating filters")
-			return nil, err
-		}
-
-		s.filters = filters
-	} else {
-		// no namespace covered, add no op filters
-		s.filters = []FilterRuntimeObjects{
-			{
-				&FalseFilter{},
-			},
-		}
-	}
-
+	s.filters = filters
 	s.workloads = meterdef.Spec.ResourceFilters
 
 	return s, nil
+}
+
+func (s *MeterDefinitionLookupFilter) GetNamespaces() map[string][]reflect.Type {
+	namespaces := map[string][]reflect.Type{}
+
+	for _, f := range s.filters {
+		types := f.Types()
+
+		for _, ns := range f.Namespaces() {
+			namespaces[ns] = append(namespaces[ns], types...)
+		}
+	}
+
+	return namespaces
 }
 
 func (s *MeterDefinitionLookupFilter) String() string {
@@ -116,6 +117,10 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 
 	for key, workloadFilters := range s.filters {
 		ans, i, err := workloadFilters.Test(obj)
+		// Don't produce an error if the object gets deleted while testing
+		if err != nil && k8serrors.IsNotFound(err) {
+			return false, nil
+		}
 		if err != nil {
 			filterLogger.Error(err, "filter failed", "key", key, "filters", workloadFilters, "i", i)
 			return false, err
@@ -128,124 +133,139 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 	return false, nil
 }
 
-func (s *MeterDefinitionLookupFilter) findNamespaces(
+func (s *MeterDefinitionLookupFilter) installedByNamespace(
 	instance *v1beta1.MeterDefinition,
-) (namespaces []string, err error) {
-	functionError := errors.NewWithDetails("error with findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
-	reqLogger := s.log.WithValues("func", "findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace).V(4)
+	csv *olmv1alpha1.ClusterServiceVersion,
+) ([]string, error) {
+	reqLogger := s.log.WithValues("func", "installedByNamespace", "meterdef", instance.Name+"/"+instance.Namespace).V(4)
 
-	for _, resourceFilter := range instance.Spec.ResourceFilters {
-		if resourceFilter.Namespace == nil {
+	olmGroup, ok := csv.GetAnnotations()["olm.operatorGroup"]
+	if !ok {
+		return []string{instance.GetNamespace()}, nil
+	}
+
+	olmNamespace, ok := csv.GetAnnotations()["olm.operatorNamespace"]
+	if !ok {
+		return []string{instance.GetNamespace()}, nil
+	}
+
+	if ok && olmGroup == "global-operators" && olmNamespace == "openshift-operators" {
+		if olmNamespace == csv.Namespace {
 			reqLogger.Info("operatorGroup is for all namespaces")
-			namespaces = []string{corev1.NamespaceAll}
-			return namespaces, err
+			return []string{corev1.NamespaceAll}, nil
+		} else {
+			reqLogger.Info("operatorGroup is for all namespaces, but csv is a copy")
+			return []string{}, nil
 		}
+	}
 
-		if resourceFilter.Namespace.UseOperatorGroup {
-			reqLogger.Info("operatorGroup vertex")
-			csv := &olmv1alpha1.ClusterServiceVersion{}
+	reqLogger.Info("installedBy not found, falling back to namespace")
+	return []string{instance.GetNamespace()}, nil
+}
 
-			if instance.Spec.InstalledBy == nil {
-				reqLogger.Info("installedBy not provided, falling back to namespace")
+func (s *MeterDefinitionLookupFilter) findNamespacesForResource(
+	instance *v1beta1.MeterDefinition,
+	resourceFilter v1beta1.ResourceFilter,
+) ([]string, error) {
+	functionError := errors.NewWithDetails("error with findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
+	reqLogger := s.log.WithValues("func", "findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
 
-				return []string{instance.GetNamespace()}, nil
-			}
+	reqLogger.Info("getting namespaces for resource")
 
-			reqLogger.Info("installedBy provided, looking for operatorgroup")
+	namespaces := []string{instance.GetNamespace()}
 
-			err = s.client.Get(context.TODO(), instance.Spec.InstalledBy.ToTypes(), csv)
+	if instance.GetNamespace() == "openshift-operators" {
+		namespaces = []string{corev1.NamespaceAll}
+	}
+
+	if resourceFilter.Namespace == nil {
+		return namespaces, nil
+	}
+
+	if resourceFilter.Namespace.UseOperatorGroup {
+		csv := &olmv1alpha1.ClusterServiceVersion{}
+
+		if instance.Spec.InstalledBy != nil {
+			reqLogger.Info("using installedBy")
+			err := s.client.Get(context.TODO(), instance.Spec.InstalledBy.ToTypes(), csv)
 
 			if err != nil && k8serrors.IsNotFound(err) {
 				reqLogger.Info("installedBy not found, falling back to namespace")
-
-				return []string{instance.GetNamespace()}, nil
+				return namespaces, nil
 			}
 
 			if err != nil {
 				err = errors.Wrap(functionError, "csv not found due to error")
 				reqLogger.Error(err, "installed by is not found")
-
 				return namespaces, err
 			}
 
-			olmNamespacesStr, ok := csv.GetAnnotations()["olm.operatorGroup"]
+			return s.installedByNamespace(instance, csv)
+		}
 
-			if ok && olmNamespacesStr == "" {
-				reqLogger.Info("operatorGroup is for all namespaces")
-				namespaces = []string{corev1.NamespaceAll}
-				return namespaces, nil
-			}
-
-			if ok && olmNamespacesStr != "" {
-				namespaces = strings.Split(olmNamespacesStr, ",")
-				return namespaces, nil
-			}
-
-			olmGroup, ok := csv.GetAnnotations()["olm.operatorGroup"]
-
-			if ok && olmGroup == "global-operators" {
-				olmNamespace, nsOk := csv.GetAnnotations()["olm.operatorNamespace"]
-				if nsOk && olmNamespace == csv.Namespace {
-					reqLogger.Info("operatorGroup is for all namespaces")
-					namespaces = []string{corev1.NamespaceAll}
-				} else {
-					reqLogger.Info("operatorGroup is for all namespaces, but csv is a copy")
-					namespaces = []string{}
-				}
-				return namespaces, err
-			}
-
+		reqLogger.Info("looking for operator group")
+		operatorGroups := &olmv1.OperatorGroupList{}
+		err := s.client.List(context.TODO(), operatorGroups, client.InNamespace(instance.Namespace))
+		if err != nil && k8serrors.IsNotFound(err) {
 			reqLogger.Info("installedBy not found, falling back to namespace")
-			return []string{instance.GetNamespace()}, nil
+			return namespaces, nil
 		}
 
-		if resourceFilter.Namespace.LabelSelector != nil {
-			reqLogger.Info("namespace vertex with filter")
-
-			if resourceFilter.Namespace.LabelSelector == nil {
-				reqLogger.Info("namespace vertex is for all namespaces")
-				break
-			}
-
-			namespaceList := &corev1.NamespaceList{}
-
-			var selector labels.Selector
-			selector, err = metav1.LabelSelectorAsSelector(resourceFilter.Namespace.LabelSelector)
-
-			if err != nil {
-				return namespaces, err
-			}
-
-			err = s.client.List(context.TODO(), namespaceList, client.MatchingLabelsSelector{Selector: selector})
-
-			if err != nil {
-				err = errors.Wrap(functionError, "csv not found")
-				reqLogger.Info("csv not found", "csv", instance.Spec.InstalledBy)
-
-				return namespaces, err
-			}
-
-			for i := range namespaceList.Items {
-				localNs := namespaceList.Items[i].GetName()
-				namespaces = append(namespaces, localNs)
-			}
+		if len(operatorGroups.Items) == 0 || len(operatorGroups.Items) > 1 {
+			return namespaces, nil
 		}
+
+		og := operatorGroups.Items[0]
+		reqLogger.Info("found operator group", "name", og.Name, "namespaces", fmt.Sprintf("%+v", og.Status.Namespaces))
+		return og.Status.Namespaces, nil
 	}
-	return namespaces, err
+
+	if resourceFilter.Namespace.LabelSelector != nil {
+		reqLogger.Info("namespace vertex with label filter")
+		namespaceList := &corev1.NamespaceList{}
+
+		selector, err := metav1.LabelSelectorAsSelector(resourceFilter.Namespace.LabelSelector)
+
+		if err != nil {
+			return namespaces, err
+		}
+
+		err = s.client.List(context.TODO(), namespaceList, client.MatchingLabelsSelector{Selector: selector})
+
+		if err != nil {
+			err = errors.Wrap(functionError, "namespace list error")
+			return namespaces, err
+		}
+
+		for i := range namespaceList.Items {
+			localNs := namespaceList.Items[i].GetName()
+			namespaces = append(namespaces, localNs)
+		}
+
+		return namespaces, nil
+	}
+
+	return namespaces, nil
 }
 
 func (s *MeterDefinitionLookupFilter) createFilters(
 	instance *v1beta1.MeterDefinition,
-	namespaces []string,
 ) ([]FilterRuntimeObjects, error) {
 	// Bottom Up
 	// Start with pods, filter, go to owner. If owner not provided, stop.
 	filters := []FilterRuntimeObjects{}
 
 	for _, filter := range instance.Spec.ResourceFilters {
+		namespaces, err := s.findNamespacesForResource(instance, filter)
+		if err != nil {
+			s.log.Error(err, "namespaces err")
+			return nil, err
+		}
+
+		s.log.Info("filter info", "namespaces", fmt.Sprintf("%+v", namespaces))
+
 		runtimeFilters := []FilterRuntimeObject{&WorkloadNamespaceFilter{namespaces: namespaces}}
 
-		var err error
 		typeFilter := &WorkloadTypeFilter{}
 		switch filter.WorkloadType {
 		case common.WorkloadTypePod:

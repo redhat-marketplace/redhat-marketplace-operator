@@ -33,6 +33,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -74,8 +75,10 @@ type SecretInfo struct {
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
 // and what is in the ClusterRegistration.Spec
@@ -378,6 +381,22 @@ func (r *ClusterRegistrationReconciler) updateSecretWithMessage(si *utils.Secret
 	}
 	reqLogger.Info("Secret updated with status on failiure")
 	return reconcile.Result{}, err
+}
+
+func (r *ClusterRegistrationReconciler) setControllerReference(controlled metav1.Object) error {
+	// Set the controller deployment as the controller-ref, since it owns the finalizer
+	dep := &appsv1.Deployment{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+		Namespace: r.cfg.DeployedNamespace,
+	}, dep)
+	if err != nil {
+		return err
+	}
+	if err = controllerutil.SetControllerReference(dep, controlled, r.Scheme); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {

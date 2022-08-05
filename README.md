@@ -16,18 +16,31 @@ The Red Hat Marketplace operator is the Openshift client side tool for the Red H
 ### Prerequisites
 * User with **Cluster Admin** role
 * OpenShift Container Platform, major version 4 with any available supported minor version
+* It is recommended to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
+  * A minimum retention time of 168h and minimum storage capacity of 40Gi per volume.
 
 ### Resources Required
 
 Minimum system resources required:
 
-| Software  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
+| Operator  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
 | --------- | ----------- | ----------- | --------- | ----- |
-| **Total** |          7  |     2       | 40        |       |
+| **Operator** |          1  |     0.5       | 3x1        |    3   |
+
+| Prometheus Provider  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
+| --------- | ----------- | ----------- | --------- | ----- |
+| **[Openshift User Workload Monitoring](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html)** |          1  |     0.1       | 2x40        |   2    |
+| **RedHat Marketplace Prometheus** |          2.5  |     0.5       | 2x20        |    2   |
+
+Multiple nodes are required to provide pod scheduling for high availability for RedHat Marketplace Data Service and Prometheus.
 
 ### Storage
 
-The RedHat Marketplace Operator creates 2 dynamic persistent volumes to store monitoring data used for telemetry, both with _ReadWriteOnce_ access mode.
+The RedHat Marketplace Operator creates 3 x 1GB dynamic persistent volumes to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+
+If using Openshift User Workload Monitoring as the Prometheus provider, the RedHat Marketplace Operator requires User Workload Monitoring to be configured with 40Gi persistent volumes at minimum.
+
+If using RedHat Marketplace Operator to configure a Prometheus provider, the RedHat Marketplace Operator creates 2 x 20Gi dynamic persistent volumes to store monitoring data used for telemetry, both with _ReadWriteOnce_ access mode.
 
 ### Installing
 
@@ -38,11 +51,11 @@ For installation and configuration see the [RedHat Marketplace documentation](ht
 
 ### SecurityContextConstraints requirements
 
-The Redhat Marketplace Operator and its components support running under the OpenShift Container Platform default restricted security context constraints except for the Razee deployment controller which requires the anyuid security context constraint.
+The Redhat Marketplace Operator and its components support running under the OpenShift Container Platform default restricted security context constraints.
 
 ### Documentation
 
 [RedHat Marketplace](https://marketplace.redhat.com/en-us/documentation)
 
 [Wiki](https://github.com/redhat-marketplace/redhat-marketplace-operator/wiki/Home)
-
+ 

@@ -9,7 +9,7 @@ ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0
 
 WORKDIR /src
 
-RUN --mount=target=. \
+RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,target=/root/.cache/go-build \
     cd ${path} && \
     go mod download
@@ -22,7 +22,7 @@ ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0
 
 WORKDIR /src
 
-RUN --mount=target=. \
+RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,target=/root/.cache/go-build \
     cd ${path} && \
     BINDIR=/usr/local/go/bin make build

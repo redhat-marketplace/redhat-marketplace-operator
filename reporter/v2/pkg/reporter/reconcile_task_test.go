@@ -201,7 +201,7 @@ var _ = Describe("reconcile_task", func() {
 			Expect(reason).To(Equal(SkipDisconnected))
 
 			sut.Config.IsDisconnected = false
-			report.Status.RetryUpload = 3
+			report.Status.RetryUpload = 24
 
 			reason, ok = sut.CanRunUploadReportTask(nil, report)
 			Expect(ok).To(BeFalse())

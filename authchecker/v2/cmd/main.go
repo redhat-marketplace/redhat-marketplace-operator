@@ -62,11 +62,17 @@ func init() {
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 
 	rootCmd.Flags().StringVar(&httpAddr, "http-addr", ":28088", "The address the probe endpoint binds to.")
-	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry time in seconds")
+	rootCmd.Flags().Int64Var(&retry, "retry", 300, "retry time in seconds")
 	rootCmd.Flags().BoolVar(&pprofEnabled, "pprof", os.Getenv("PPROF_DEBUG") == "true", "enable pprof")
 	rootCmd.Flags().MarkHidden("pprof")
 }
 
+// Why authchecker? If you have a partial uninstall, for example,
+// just delete and recreate a SA. The tokens originally associated to
+// that SA are invalidated but the pods don't realize that and start throwing
+// errors. Restarting the pod doesn't work because it doesn't get a new
+// token on just a restart. The pod has to be deleted. Authchecker
+// detects this scenario and deletes the pod for you.
 func run(cmd *cobra.Command, args []string) {
 	debug.SetGCPercent(50)
 

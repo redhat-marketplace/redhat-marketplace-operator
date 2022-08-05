@@ -29,6 +29,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -177,6 +178,21 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
+	meterdefsPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return reconcileForMeterDef(r.cfg.DeployedNamespace, e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return reconcileForMeterDef(r.cfg.DeployedNamespace, e.Object.GetNamespace(), e.Object.GetName())
+		},
+	}
+
 	secretMapHandler = predicates.NewSyncedMapHandler(func(in types.NamespacedName) bool {
 		secret := corev1.Secret{}
 		err := mgr.GetClient().Get(context.Background(), in, &secret)
@@ -248,6 +264,12 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
+			&source.Kind{Type: &v1beta1.MeterDefinition{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(meterdefsPred)).
+		Watches(
 			&source.Kind{Type: &corev1.Namespace{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn)).Complete(r)
 }
@@ -271,8 +293,13 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=servicemonitors,verbs=update;patch;delete,resourceNames=rhm-metric-state;kube-state-metrics;rhm-prometheus-meterbase;redhat-marketplace-kubelet;prometheus-user-workload;redhat-marketplace-kube-state-metrics
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorgroups,verbs=get;list
 // +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs,verbs=update;patch;delete,resourceNames=rhm-meter-report-upload
+
+// The operator SA token is used by rhm-prom ServiceMonitors. Must be able to scrape metrics.
+// +kubebuilder:rbac:groups="",resources=nodes/metrics,verbs=get
+// +kubebuilder:rbac:urls=/metrics,verbs=get
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -307,28 +334,13 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return result.Return()
 	}
 
-	// Execute the finalizer, will only run if we are in delete state
-	if result, _ = cc.Do(
-		context.TODO(),
-		Call(SetFinalizer(instance, utils.CONTROLLER_FINALIZER)),
-		Call(
-			RunFinalizer(instance, utils.CONTROLLER_FINALIZER,
-				Do(r.uninstallPrometheusOperator(instance)...),
-				Do(r.uninstallPrometheus(instance)...),
-				Do(r.uninstallMetricState(instance)...),
-				Do(r.uninstallPrometheusServingCertsCABundle()...),
-				Do(r.uninstallUserWorkloadMonitoring()...),
-			)),
-	); !result.Is(Continue) {
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+	// Remove finalizer used by previous versions, ownerref gc deletion is used for cleanup
+	if controllerutil.ContainsFinalizer(instance, utils.CONTROLLER_FINALIZER) {
+		controllerutil.RemoveFinalizer(instance, utils.CONTROLLER_FINALIZER)
+		if err := r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update MeterBase")
+			return reconcile.Result{}, err
 		}
-
-		if result.Is(Return) {
-			reqLogger.Info("Delete is complete.")
-		}
-
-		return result.Return()
 	}
 
 	// if instance.Enabled == false
@@ -672,6 +684,18 @@ func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.Met
 	return categoryList
 }
 
+func reconcileForMeterDef(deployedNamespace string, meterdefNamespace string, meterdefName string) bool {
+	if meterdefNamespace == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE && meterdefName == utils.UserWorkloadMonitoringMeterdef {
+		return true
+	}
+
+	var meterdefSlice = []string{utils.PrometheusMeterbaseUptimeMeterdef, utils.MetricStateUptimeMeterdef, utils.MeterReportJobFailedMeterdef}
+	if meterdefNamespace == deployedNamespace && Contains(meterdefSlice, meterdefName) {
+		return true
+	}
+	return false
+}
+
 const promServiceName = "rhm-prometheus-meterbase"
 
 func (r *MeterBaseReconciler) reconcilePrometheusOperator(
@@ -704,7 +728,11 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			service,
 			func() (client.Object, error) {
-				return r.factory.NewPrometheusOperatorService()
+				obj, err := r.factory.NewPrometheusOperatorService()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
@@ -717,7 +745,11 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 				}
 				sort.Strings(nsValues)
 				reqLogger.Info("found namespaces", "ns", nsValues)
-				return r.factory.NewPrometheusOperatorDeployment(nsValues)
+				obj, err := r.factory.NewPrometheusOperatorDeployment(nsValues)
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
@@ -861,42 +893,66 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateDeployment,
 			func() (client.Object, error) {
-				return r.factory.MetricStateDeployment()
+				obj, err := r.factory.MetricStateDeployment()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateService,
 			func() (client.Object, error) {
-				return r.factory.MetricStateService()
+				obj, err := r.factory.MetricStateService()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (client.Object, error) {
-				return r.factory.MetricStateServiceMonitor(&secret.Name)
+				obj, err := r.factory.MetricStateServiceMonitor(&secret.Name)
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateMeterDefinition,
 			func() (client.Object, error) {
-				return r.factory.MetricStateMeterDefinition()
+				obj, err := r.factory.MetricStateMeterDefinition()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			kubeStateMetricsService,
 			func() (client.Object, error) {
-				return r.factory.KubeStateMetricsService()
+				obj, err := r.factory.KubeStateMetricsService()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			reporterMeterDefinition,
 			func() (client.Object, error) {
-				return r.factory.ReporterMeterDefinition()
+				obj, err := r.factory.ReporterMeterDefinition()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
@@ -911,14 +967,22 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
 				func() (client.Object, error) {
-					return r.factory.KubeStateMetricsServiceMonitor(&secret.Name)
+					obj, err := r.factory.KubeStateMetricsServiceMonitor(&secret.Name)
+					if err == nil {
+						r.factory.SetControllerReference(instance, obj)
+					}
+					return obj, err
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeletServiceMonitor,
 				func() (client.Object, error) {
-					return r.factory.KubeletServiceMonitor(&secret.Name)
+					obj, err := r.factory.KubeletServiceMonitor(&secret.Name)
+					if err == nil {
+						r.factory.SetControllerReference(instance, obj)
+					}
+					return obj, err
 				},
 				args,
 			),
@@ -1141,36 +1205,60 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.ConfigMap{},
 			func() (client.Object, error) {
-				return r.factory.PrometheusServingCertsCABundle()
+				obj, err := r.factory.PrometheusServingCertsCABundle()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 		),
 		manifests.CreateIfNotExistsFactoryItem(
 			dataSecret,
 			func() (client.Object, error) {
-				return r.factory.PrometheusDatasources()
+				obj, err := r.factory.PrometheusDatasources()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			}),
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
 			func() (client.Object, error) {
-				return r.factory.PrometheusProxySecret()
+				obj, err := r.factory.PrometheusProxySecret()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			}),
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
 			func() (client.Object, error) {
-				return r.factory.PrometheusRBACProxySecret()
+				obj, err := r.factory.PrometheusRBACProxySecret()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			&monitoringv1.ServiceMonitor{},
 			func() (client.Object, error) {
-				return r.factory.PrometheusServiceMonitor()
+				obj, err := r.factory.PrometheusServiceMonitor()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			&marketplacev1beta1.MeterDefinition{},
 			func() (client.Object, error) {
-				return r.factory.PrometheusMeterDefinition()
+				obj, err := r.factory.PrometheusMeterDefinition()
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args,
 		),
@@ -1183,7 +1271,11 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 					return nil, errors.New("basicAuthSecret not on data")
 				}
 
-				return r.factory.PrometheusHtpasswdSecret(string(data))
+				obj, err := r.factory.PrometheusHtpasswdSecret(string(data))
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			}),
 			OnError(RequeueResponse()),
 		),
@@ -1206,7 +1298,11 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 		manifests.CreateOrUpdateFactoryItemAction(
 			&corev1.Service{},
 			func() (client.Object, error) {
-				return r.factory.PrometheusService(instance.Name)
+				obj, err := r.factory.PrometheusService(instance.Name)
+				if err == nil {
+					r.factory.SetControllerReference(instance, obj)
+				}
+				return obj, err
 			},
 			args),
 		HandleResult(

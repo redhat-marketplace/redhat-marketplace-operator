@@ -89,6 +89,7 @@ func (u *PrometheusProcessor) Process(ctx context.Context, inObj cache.Delta) er
 
 	switch inObj.Type {
 	case cache.Deleted:
+		u.log.V(2).Info("object deleted", "object", metaobj.GetUID(), "meterdefs", len(obj.MeterDefinitions))
 		if err := u.prometheusData.Remove(obj.Object); err != nil {
 			u.log.Error(err, "error deleting obj to prometheus")
 			return errors.WithStack(err)
@@ -156,23 +157,28 @@ func (u *PrometheusMdefProcessor) Process(ctx context.Context, inObj cache.Delta
 		return errors.New("encountered unexpected type")
 	}
 
+	metaobj, _ := meta.Accessor(inObj.Object)
+
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	switch inObj.Type {
 	case cache.Deleted:
+		u.log.V(2).Info("object deleted", "object", metaobj.GetUID())
 		if err := u.prometheusData.Remove(meterdef.MeterDefinition); err != nil {
 			u.log.Error(err, "error deleting mdef from prometheus")
 			return errors.WithStack(err)
 		}
 	case cache.Updated, cache.Replaced, cache.Sync:
 		// Flush the prometheus data when a MeterDefinition is updated
+		u.log.V(2).Info("object updated", "object", metaobj.GetUID())
 		if err := u.prometheusData.Remove(meterdef.MeterDefinition); err != nil {
 			u.log.Error(err, "error deleting mdef from prometheus")
 			return errors.WithStack(err)
 		}
 		fallthrough
 	case cache.Added:
+		u.log.V(2).Info("object added", "object", metaobj.GetUID())
 		if err := u.prometheusData.Add(meterdef.MeterDefinition, nil); err != nil {
 			u.log.Error(err, "error adding mdef to prometheus")
 			return errors.WithStack(err)

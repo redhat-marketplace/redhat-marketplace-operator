@@ -241,8 +241,8 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=update;patch;delete,resourceNames=watch-keeper-non-namespaced;watch-keeper-limit-poll;razee-cluster-metadata;watch-keeper-config
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
@@ -275,6 +275,15 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// Remove finalizer used by previous versions, ownerref gc deletion is used for cleanup
+	if controllerutil.ContainsFinalizer(instance, utils.RAZEE_DEPLOYMENT_FINALIZER) {
+		controllerutil.RemoveFinalizer(instance, utils.RAZEE_DEPLOYMENT_FINALIZER)
+		if err := r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update RazeeDeployment")
+			return reconcile.Result{}, err
+		}
 	}
 
 	// if not enabled then exit
@@ -334,23 +343,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Adding a finalizer to this CR
-	if !utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
-		if err := r.addFinalizer(instance, request.Namespace); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	// Check if the RazeeDeployment instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
-		if utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
-			//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
-			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.fullUninstall(instance)
-		}
 		return reconcile.Result{}, nil
 	}
 
@@ -1095,11 +1089,24 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	//Only create the parent s3 resource when the razee deployment is enabled
 	if rrs3DeploymentEnabled {
 		var op controllerutil.OperationResult
+
+		// Set the remoteresources3-controller as the controller, since it owns the finalizer
+		rrs3Deployment := &appsv1.Deployment{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+			Namespace: request.Namespace,
+		}, rrs3Deployment)
+		if errors.IsNotFound(err) {
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+		} else if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		parentRRS3 := r.makeParentRemoteResourceS3(instance)
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			op, err = controllerutil.CreateOrUpdate(context.TODO(), r.Client, parentRRS3, func() error {
 				r.updateParentRemoteResourceS3(parentRRS3, instance)
-				return r.factory.SetOwnerReference(instance, parentRRS3)
+				return r.factory.SetControllerReference(rrs3Deployment, parentRRS3)
 			})
 			return err
 		})

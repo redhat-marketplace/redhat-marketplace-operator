@@ -16,12 +16,14 @@ package engine
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/stretchr/testify/mock"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,6 +31,7 @@ var _ = Describe("NamespacedCacheLister", func() {
 	var sut *NamespacedCachedListers
 	var listWatcher1, listWatcher2 *RunAndStopMock
 	var item1, item2, item3, item4, item5 client.ObjectKey
+	var types1, types2, types3, types4, types5 map[string][]reflect.Type
 	var nsWatcher *filter.NamespaceWatcher
 	var ctx context.Context
 	var cancel context.CancelFunc
@@ -39,17 +42,22 @@ var _ = Describe("NamespacedCacheLister", func() {
 		nsWatcher = filter.ProvideNamespaceWatcher(logr.Discard())
 
 		item1 = client.ObjectKey{Namespace: "foo", Name: "pod1"}
+		types1 = map[string][]reflect.Type{"foo": {reflect.TypeOf(&corev1.Pod{})}}
 		item2 = client.ObjectKey{Namespace: "foo2", Name: "pod1"}
+		types2 = map[string][]reflect.Type{"foo2": {reflect.TypeOf(&corev1.Pod{})}}
 		item3 = client.ObjectKey{Namespace: "foo", Name: "pod2"}
-		item4 = client.ObjectKey{Namespace: "foo3", Name: "pod"}
-		item5 = client.ObjectKey{Namespace: "foo4", Name: "pod"}
+		types3 = map[string][]reflect.Type{"foo": {reflect.TypeOf(&corev1.Pod{})}}
+		item4 = client.ObjectKey{Namespace: "foo3", Name: "service"}
+		types4 = map[string][]reflect.Type{"foo3": {reflect.TypeOf(&corev1.Service{})}}
+		item5 = client.ObjectKey{Namespace: "foo4", Name: "service"}
+		types5 = map[string][]reflect.Type{"foo4": {reflect.TypeOf(&corev1.Service{})}}
 
 		ctx, cancel = context.WithCancel(context.Background())
 
 		sut = ProvideNamespacedCacheListers(nsWatcher, logr.Discard(),
 			ListWatchers{
-				"1": listWatcher1.Get,
-				"2": listWatcher2.Get,
+				reflect.TypeOf(&corev1.Pod{}):     listWatcher1.Get,
+				reflect.TypeOf(&corev1.Service{}): listWatcher2.Get,
 			})
 
 		By("Starting namedcachelister")
@@ -66,24 +74,20 @@ var _ = Describe("NamespacedCacheLister", func() {
 
 		listWatcher1.On("Get", "foo").Return(listWatcher1)
 		listWatcher1.On("Get", "foo2").Return(listWatcher1)
-		listWatcher1.On("Get", "foo3").Return(listWatcher1)
-		listWatcher1.On("Get", "foo4").Return(listWatcher1)
-		listWatcher2.On("Get", "foo").Return(listWatcher2)
-		listWatcher2.On("Get", "foo2").Return(listWatcher2)
 		listWatcher2.On("Get", "foo3").Return(listWatcher2)
 		listWatcher2.On("Get", "foo4").Return(listWatcher2)
-		listWatcher1.On("Start", mock.AnythingOfType(argType)).Return(nil).Times(4)
-		listWatcher2.On("Start", mock.AnythingOfType(argType)).Return(nil).Times(4)
+		listWatcher1.On("Start", mock.AnythingOfType(argType)).Return(nil).Times(2)
+		listWatcher2.On("Start", mock.AnythingOfType(argType)).Return(nil).Times(2)
 
-		nsWatcher.AddNamespace(item1)
-		nsWatcher.AddNamespace(item2)
-		nsWatcher.AddNamespace(item3)
-		nsWatcher.AddNamespace(item4)
-		nsWatcher.AddNamespace(item5)
+		nsWatcher.AddNamespace(item1, types1)
+		nsWatcher.AddNamespace(item2, types2)
+		nsWatcher.AddNamespace(item3, types3)
+		nsWatcher.AddNamespace(item4, types4)
+		nsWatcher.AddNamespace(item5, types5)
 
 		Eventually(func() int {
 			return len(listWatcher1.Calls) + len(listWatcher2.Calls)
-		}, 5).Should(Equal(16))
+		}, 5).Should(Equal(8))
 
 		mock.AssertExpectationsForObjects(GinkgoT(), listWatcher1, listWatcher2)
 	}, 30)
@@ -93,27 +97,24 @@ var _ = Describe("NamespacedCacheLister", func() {
 
 		listWatcher1.On("Get", "foo").Return(listWatcher1)
 		listWatcher1.On("Get", "foo2").Return(listWatcher1)
-		listWatcher2.On("Get", "foo").Return(listWatcher2)
-		listWatcher2.On("Get", "foo2").Return(listWatcher2)
 		listWatcher1.On("Start", mock.AnythingOfType(argType)).Return(nil).Times(2)
-		listWatcher2.On("Start", mock.AnythingOfType(argType)).Return(nil).Times(2)
 		listWatcher1.On("Stop").Times(1)
-		listWatcher2.On("Stop").Times(1)
 
-		nsWatcher.AddNamespace(item1)
-		nsWatcher.AddNamespace(item2)
-		nsWatcher.AddNamespace(item3)
+		nsWatcher.AddNamespace(item1, types1)
+		nsWatcher.AddNamespace(item2, types2)
+		nsWatcher.AddNamespace(item3, types3)
 
 		Eventually(func() int {
-			return len(listWatcher1.Calls) + len(listWatcher2.Calls)
-		}, 5).Should(Equal(8))
+			return len(listWatcher1.Calls)
+		}, 5).Should(Equal(4))
 
 		nsWatcher.RemoveNamespace(item2)
 
 		Eventually(func() int {
-			return len(listWatcher1.Calls) + len(listWatcher2.Calls)
-		}, 5).Should(Equal(10))
+			return len(listWatcher1.Calls)
+		}, 5).Should(Equal(5))
 
+		Expect(listWatcher2.Calls).Should(HaveLen(0))
 		mock.AssertExpectationsForObjects(GinkgoT(), listWatcher1, listWatcher2)
 	}, 30)
 

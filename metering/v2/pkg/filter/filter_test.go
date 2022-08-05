@@ -18,6 +18,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("filter", func() {
@@ -63,6 +66,31 @@ var _ = Describe("filter", func() {
 		Expect(pass).To(BeTrue())
 		Expect(i).To(Equal(-1))
 		Expect(err).To(Succeed())
+	})
+})
+
+var _ = Describe("label_filter", func() {
+	var obj client.Object
+
+	BeforeEach(func() {
+		obj = &corev1.Pod{}
+		obj.SetLabels(map[string]string{
+			"app.kubernetes.io/name": "a",
+		})
+	})
+
+	It("should match labels", func() {
+		selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app.kubernetes.io/name": "a",
+			},
+		})
+		Expect(err).To(Succeed())
+		sut := &WorkloadLabelFilter{
+			labelSelector: selector,
+		}
+
+		Expect(sut.Filter(obj)).To(BeTrue())
 	})
 })
 

@@ -131,7 +131,7 @@ func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
 		return err
 	}
 
-	def.log.Info("recording obj", "obj", fmt.Sprintf("%+v", obj))
+	def.log.Info("recording obj", "filters", fmt.Sprintf("%+v", addObj.Filter), "obj", fmt.Sprintf("%+v", obj))
 
 	def.Lock()
 	defer def.Unlock()

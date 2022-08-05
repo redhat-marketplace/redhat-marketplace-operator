@@ -38,6 +38,10 @@ rules:
   verbs:
   - get
 - nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+- nonResourceURLs:
   - /system-meterdef-index/*
   verbs:
   - get
@@ -58,6 +62,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes/metrics
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -288,14 +298,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secret
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
   - create
@@ -435,11 +437,22 @@ rules:
   - update
 - apiGroups:
   - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
   resourceNames:
   - rhm-remoteresources3-controller
   - rhm-watch-keeper
   resources:
   - deployments
+  - deployments/finalizers
   verbs:
   - delete
   - patch
@@ -564,20 +577,10 @@ rules:
   - marketplace.redhat.com
   resources:
   - marketplaceconfigs
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - marketplaceconfigs
   - marketplaceconfigs/finalizers
   - marketplaceconfigs/status
   verbs:
+  - create
   - delete
   - get
   - list

@@ -397,6 +397,10 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 
 	logger.Info("get cluster objId query", "query", u.String())
 	resp, err := m.httpClient.Get(u.String())
+	if err != nil {
+		return "", err
+	}
+
 	clusterDef, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
