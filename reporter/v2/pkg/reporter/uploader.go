@@ -47,6 +47,8 @@ func ProvideUploaders(
 ) (u.Uploaders, error) {
 	uploaders := u.Uploaders{}
 
+	log.Info("ProvideUploaders", "reporterConfig.UploaderTargets", reporterConfig.UploaderTargets)
+
 	for _, target := range reporterConfig.UploaderTargets {
 		switch target.(type) {
 		case *u.RedHatInsightsUploader:
@@ -60,6 +62,7 @@ func ProvideUploaders(
 		case *u.LocalFilePathUploader:
 			uploaders = append(uploaders, target.(u.Uploader))
 		case *dataservice.DataService:
+			log.Info("case DataService")
 			dataServiceConfig, err := provideDataServiceConfig(reporterConfig)
 			if err != nil {
 				return nil, err
@@ -84,13 +87,17 @@ func ProvideUploaders(
 			uploaders = append(uploaders, uploader)
 		case *u.MarketplaceUploader:
 			config, err := provideMarketplaceConfig(ctx, client, reporterConfig.DeployedNamespace, log)
-
-			if err != nil {
+			// No secret is acceptable in disconnected environment
+			if err == utils.NoSecretsFound && reporterConfig.IsDisconnected {
+				log.Info("Disconnected mode, no redhat-marketplace-pull-secret or ibm-entitlement-key secret found, MarketplaceUploader will be unavailable")
+			} else if err != nil {
 				return nil, err
+			} else {
+				uploader, err := u.NewMarketplaceUploader(config)
+				if err != nil {
+					uploaders = append(uploaders, uploader)
+				}
 			}
-
-			uploader, err := u.NewMarketplaceUploader(config)
-			uploaders = append(uploaders, uploader)
 		default:
 			return nil, errors.Errorf("uploader target not available %s", target.Name())
 		}
