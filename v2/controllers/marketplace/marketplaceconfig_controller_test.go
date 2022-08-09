@@ -113,6 +113,19 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		}, marketplaceConfig)).Should(Succeed(), "get marketplaceconfig")
 		k8sClient.Delete(context.TODO(), marketplaceConfig)
 
+		// Wait for finalizer to complete
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      utils.MARKETPLACECONFIG_NAME,
+				Namespace: operatorNamespace,
+			}, marketplaceConfig)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+			return notFound
+		}, timeout, interval).Should(BeTrue())
+
 		meterBase := &marketplacev1alpha1.MeterBase{}
 		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
 			Name:      utils.METERBASE_NAME,
