@@ -208,7 +208,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	if !*marketplaceConfig.Spec.IsDisconnected {
+	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 		//only check registration status, compare pull secret from COS if we are not in a disconnected environment
 		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
 			NewMarketplaceClient(jwtToken, tokenClaims)
@@ -497,7 +497,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				CreateFunc: func(e event.CreateEvent) bool {
 					marketplaceConfig, ok := e.Object.(*marketplacev1alpha1.MarketplaceConfig)
 					if ok {
-						return !*marketplaceConfig.Spec.IsDisconnected
+						return !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected)
 					}
 					return false
 				},
@@ -507,11 +507,11 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 					marketplaceConfigOld, oldOk := e.ObjectOld.(*marketplacev1alpha1.MarketplaceConfig)
 
 					if newOk && oldOk {
-						if *marketplaceConfigNew.Spec.IsDisconnected == false && *marketplaceConfigOld.Spec.IsDisconnected == true {
+						if ptr.ToBool(marketplaceConfigNew.Spec.IsDisconnected) == false && ptr.ToBool(marketplaceConfigOld.Spec.IsDisconnected) == true {
 							return true
 						}
 
-						if !*marketplaceConfigNew.Spec.IsDisconnected {
+						if ptr.ToBool(marketplaceConfigNew.Spec.IsDisconnected) {
 							if marketplaceConfigNew.Spec.RhmAccountID != marketplaceConfigOld.Spec.RhmAccountID {
 								return true
 							}
