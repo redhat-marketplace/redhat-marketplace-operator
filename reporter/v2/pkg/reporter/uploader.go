@@ -96,6 +96,7 @@ func ProvideUploaders(
 				uploader, err := u.NewMarketplaceUploader(config)
 				if err != nil {
 					uploaders = append(uploaders, uploader)
+					log.Info("added NewMarketplaceUploader")
 				}
 			}
 		default:
