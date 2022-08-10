@@ -23,7 +23,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	dataservicev1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
@@ -178,7 +177,7 @@ func (r *UploadTask) uploadFile(
 	localFileName, downloadErr := r.fileStorage.DownloadFile(ctx, file)
 
 	// Upload the file to uploaders
-	log.Info("uploadFile", "r.uploaders", r.uploaders)
+	logger.Info("uploadFile", "r.uploaders", r.uploaders)
 	for _, uploader := range r.uploaders {
 		details := &marketplacev1alpha1.UploadDetails{}
 		details.Target = uploader.Name()
