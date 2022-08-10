@@ -47,8 +47,6 @@ func ProvideUploaders(
 ) (u.Uploaders, error) {
 	uploaders := u.Uploaders{}
 
-	log.Info("ProvideUploaders", "reporterConfig.UploaderTargets", reporterConfig.UploaderTargets)
-
 	for _, target := range reporterConfig.UploaderTargets {
 		switch target.(type) {
 		case *u.RedHatInsightsUploader:
@@ -62,7 +60,6 @@ func ProvideUploaders(
 		case *u.LocalFilePathUploader:
 			uploaders = append(uploaders, target.(u.Uploader))
 		case *dataservice.DataService:
-			log.Info("case DataService")
 			dataServiceConfig, err := provideDataServiceConfig(reporterConfig)
 			if err != nil {
 				return nil, err
@@ -95,8 +92,9 @@ func ProvideUploaders(
 			} else {
 				uploader, err := u.NewMarketplaceUploader(config)
 				if err != nil {
-					uploaders = append(uploaders, uploader)
+					return nil, err
 				}
+				uploaders = append(uploaders, uploader)
 			}
 		default:
 			return nil, errors.Errorf("uploader target not available %s", target.Name())
