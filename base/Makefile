@@ -9,7 +9,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 # Push the docker image
 docker-push:
-	docker push $(IMG)
+	docker push $(17IMG)
 
 docker-build: base data-service
 

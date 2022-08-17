@@ -29,6 +29,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -177,6 +178,21 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
+	meterdefsPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return reconcileForMeterDef(r.cfg.DeployedNamespace, e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return reconcileForMeterDef(r.cfg.DeployedNamespace, e.Object.GetNamespace(), e.Object.GetName())
+		},
+	}
+
 	secretMapHandler = predicates.NewSyncedMapHandler(func(in types.NamespacedName) bool {
 		secret := corev1.Secret{}
 		err := mgr.GetClient().Get(context.Background(), in, &secret)
@@ -247,6 +263,12 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				IsController: true,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
+		Watches(
+			&source.Kind{Type: &v1beta1.MeterDefinition{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(meterdefsPred)).
 		Watches(
 			&source.Kind{Type: &corev1.Namespace{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn)).Complete(r)
@@ -585,9 +607,22 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		}
 	}
 
+	// Fetch the MarketplaceConfig instance
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: request.Namespace}, marketplaceConfig)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get MarketplaceConfig instance")
+		return reconcile.Result{}, err
+	}
+
+	isDisconnected := false
+	if marketplaceConfig != nil && marketplaceConfig.Spec.IsDisconnected != nil && *marketplaceConfig.Spec.IsDisconnected {
+		isDisconnected = true
+	}
+
 	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
 	if instance.Spec.IsDataServiceEnabled() {
-		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled, r.cfg.IsDisconnected)
+		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled, isDisconnected)
 		if err != nil {
 			reqLogger.Error(err, "Failed to createReporterCronJob")
 			return result, err
@@ -595,7 +630,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			return result, err
 		}
 	} else {
-		result, err := r.deleteReporterCronJob()
+		result, err := r.deleteReporterCronJob(isDisconnected)
 		if err != nil {
 			reqLogger.Error(err, "Failed to deleteReporterCronJob")
 			return result, err
@@ -647,6 +682,18 @@ func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.Met
 		}
 	}
 	return categoryList
+}
+
+func reconcileForMeterDef(deployedNamespace string, meterdefNamespace string, meterdefName string) bool {
+	if meterdefNamespace == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE && meterdefName == utils.UserWorkloadMonitoringMeterdef {
+		return true
+	}
+
+	var meterdefSlice = []string{utils.PrometheusMeterbaseUptimeMeterdef, utils.MetricStateUptimeMeterdef, utils.MeterReportJobFailedMeterdef}
+	if meterdefNamespace == deployedNamespace && Contains(meterdefSlice, meterdefName) {
+		return true
+	}
+	return false
 }
 
 const promServiceName = "rhm-prometheus-meterbase"
@@ -1847,8 +1894,8 @@ func validateUserWorkLoadMonitoringConfig(cc ClientCommandRunner, reqLogger logr
 	return false, nil
 }
 
-func (r *MeterBaseReconciler) deleteReporterCronJob() (reconcile.Result, error) {
-	cronJob, err := r.factory.NewReporterCronJob(false, r.cfg.IsDisconnected)
+func (r *MeterBaseReconciler) deleteReporterCronJob(isDisconnected bool) (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(false, isDisconnected)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

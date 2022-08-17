@@ -1,12 +1,14 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MarketplaceConfig
 metadata:
-  # NOTE: Named this way to prevent an error in scanning
-  name: rhm-marketplaceconfig
+  name: marketplaceconfig
 spec:
-  # Add fields here 
-  rhmAccountID: example-userid
-  clusterUUID: example-clusterUUID
-  deploySecretName: rhm-operator-secret
-  installIBMCatalogSource: false
- 
+  clusterUUID: ""
+  features:
+    deployment: true
+    meterDefinitionCatalogServer: false
+    registration: true
+  installIBMCatalogSource: true
+  isDisconnected: false
+  rhmAccountID: ""
+

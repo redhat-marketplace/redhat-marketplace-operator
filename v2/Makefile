@@ -146,10 +146,12 @@ ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
+ifneq ($(PODMAN),true)
 ifeq ($(IMAGE_PUSH),true)
 ARGS=--push
 else
 ARGS=--load
+endif
 endif
 else
 DOCKERCMD=docker

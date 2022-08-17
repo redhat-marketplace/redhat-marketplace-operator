@@ -1,6 +1,5 @@
 comma := ,
-space :=
-space +=
+space := $(subst ,, )
 
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
@@ -11,6 +10,7 @@ export VERSION
 export TAG
 
 BINDIR ?= ./bin
+# GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
 GO_VERSION ?= 1.17
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
@@ -173,10 +173,12 @@ ifneq ($(DOCKERBUILDXCACHE),)
 DOCKER_EXTRA_ARGS = --cache-from "type=local,src=$(DOCKERBUILDXCACHE)" --cache-to "type=local,dest=$(DOCKERBUILDXCACHE)" --output "type=image,push=$(IMAGE_PUSH)"
 else
 DOCKER_EXTRA_ARGS =
+ifneq ($(PODMAN),true)
 ifeq ($(IMAGE_PUSH),true)
 DOCKER_BUILD += --push
 else
 DOCKER_BUILD += --load
+endif
 endif
 endif
 

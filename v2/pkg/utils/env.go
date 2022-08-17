@@ -128,6 +128,11 @@ const (
 	FileServerAudience   = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
 	ProductionURL        = "https://marketplace.redhat.com"
 	StageURL             = "https://sandbox.marketplace.redhat.com"
+
+	UserWorkloadMonitoringMeterdef    = "prometheus-user-workload-uptime"
+	MeterReportJobFailedMeterdef      = "rhm-meter-report-job-failed"
+	MetricStateUptimeMeterdef         = "rhm-metric-state-uptime"
+	PrometheusMeterbaseUptimeMeterdef = "rhm-prometheus-meterbase-uptime"
 )
 
 var (

@@ -475,7 +475,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		//Deployment is disabled - update status
 		reqLogger.V(0).Info("RemoteResourceS3 deployment is disabled")
 		//update status to reflect disabled
-		message := "RemoteResourceS3 deployment disabled"
+		message := "Deployment feature is disabled. RemoteResourceS3 deployment disabled. Operator deployment will be unavailable on marketplace.redhat.com"
 		changed := instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
 			Status:  corev1.ConditionFalse,
@@ -511,7 +511,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		//Deployment is disabled - update status
 		reqLogger.V(0).Info("Registration watchkeeper deployment is disabled")
 		//update status to reflect disabled
-		message := "Registration deployment disabled"
+		message := "Registration feature is disabled. WatchKeeper disabled. Registration status will be unavailable on marketplace.redhat.com"
 		changed := instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
 			Status:  corev1.ConditionFalse,

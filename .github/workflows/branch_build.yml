@@ -55,6 +55,24 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Test
       run: make operator/test
+
+    - name: WhiteSource Unified Agent Scan
+      env:
+        WS_APIKEY: ${{secrets.WS_APIKEY}}
+        WS_USERKEY: ${{secrets.WS_USERKEY}}
+        WS_WSS_URL: https://ibmets.whitesourcesoftware.com/agent
+        WS_PRODUCTNAME: PSIRT_PRD0011140
+        WS_PROJECTNAME: ${{github.event.repository.name}}
+      run: |
+        echo Downloading WhiteSource Unified Agent
+        curl -LJO https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar
+        if [[ "$(curl -sL https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar.sha256)" != "$(sha256sum wss-unified-agent.jar)" ]] ; then
+          echo "Integrity Check Failed"
+        else
+          echo "Integrity Check Passed"
+          echo Starting WhiteSource Scan
+          java -jar wss-unified-agent.jar
+        fi
   matrix-test:
     name: Matrix Test
     runs-on: ubuntu-20.04

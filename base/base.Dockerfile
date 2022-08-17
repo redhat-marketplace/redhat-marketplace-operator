@@ -7,7 +7,7 @@ ARG ARCH=${TARGETARCH}
 ARG OS=${TARGETOS:-linux}
 ENV VERSION=${GO_VERSION} OS=${OS} ARCH=${ARCH}
 
-RUN dnf -y install git make yum gzip \
+RUN dnf -y install git make yum gzip jq \
   && dnf -y update \
   && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
   && yum -y clean all \
@@ -15,7 +15,9 @@ RUN dnf -y install git make yum gzip \
   && rm -rf /var/cache/yum
 
 
-RUN curl -o go.tar.gz https://dl.google.com/go/go$VERSION.$OS-$ARCH.tar.gz && \
+RUN FOUND_VER=$(curl -s 'https://go.dev/dl/?mode=json&include=all' -H 'Accept: application/json' | jq -r '[.[]|select(.stable==true)|.version|select(contains(env.VERSION))][0]') && \
+  echo "go major version: $VERSION, found latest stable minor version: $FOUND_VER" && \
+  curl -L -o go.tar.gz https://go.dev/dl/$FOUND_VER.$OS-$ARCH.tar.gz && \
   rm -rf /usr/local/go && \
   sha256sum go.tar.gz && \
   tar -C /usr/local -xzf go.tar.gz && \

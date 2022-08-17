@@ -15,7 +15,7 @@
 package marketplace
 
 import (
-	"io/ioutil"
+	"context"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -23,77 +23,52 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-
-	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const timeout = time.Second * 20
-const interval = time.Second * 3
+const timeout = time.Second * 50
+const interval = time.Second * 5
 
-var _ = Describe("Testing with Ginkgo", func() {
-	var (
-		server        *ghttp.Server
-		statusCode    int
-		body          []byte
-		path          string
-		err           error
-		name                 = utils.MARKETPLACECONFIG_NAME
-		namespace            = "redhat-marketplace-operator"
-		customerID    string = "accountid"
-		razeeName            = "rhm-marketplaceconfig-razeedeployment"
-		meterBaseName        = "rhm-marketplaceconfig-meterbase"
-		req                  = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}
+var (
+	statusCode int
+	body       []byte
+	path       string
+	err        error
+	namespace         = "openshift-redhat-marketplace"
+	customerID string = "accountid"
 
-		opts = []StepOption{
-			WithRequest(req),
-		}
+	secret                     *corev1.Secret
+	tokenString                string
+	server                     *ghttp.Server
+	marketplaceconfig          *marketplacev1alpha1.MarketplaceConfig
+	marketplaceconfigConnected *marketplacev1alpha1.MarketplaceConfig
+)
 
-		features = &common.Features{
-			Deployment:                         ptr.Bool(true),
-			EnableMeterDefinitionCatalogServer: ptr.Bool(true),
-		}
+var _ = Describe("Testing MarketplaceConfig controller", func() {
 
-		deployedNamespace = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-			},
-		}
+	var marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
+	marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
+	marketplaceconfig.Spec.ClusterUUID = "test"
+	marketplaceconfig.Spec.IsDisconnected = ptr.Bool(true)
+	marketplaceconfig.Spec.ClusterName = "test-cluster"
 
-		secret      *corev1.Secret
-		tokenString string
-
-		marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
-		razeedeployment   *marketplacev1alpha1.RazeeDeployment
-		meterbase         *marketplacev1alpha1.MeterBase
-		cfg               *config.OperatorConfig
-	)
+	var marketplaceconfigConnected *marketplacev1alpha1.MarketplaceConfig
+	marketplaceconfigConnected = utils.BuildMarketplaceConfigCR(namespace, customerID)
+	marketplaceconfigConnected.Spec.ClusterUUID = "test"
+	marketplaceconfigConnected.Spec.ClusterName = "test-cluster-connected"
+	marketplaceconfigConnected.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 
 	BeforeEach(func() {
-		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
-		marketplaceconfig.Spec.ClusterUUID = "test"
-		marketplaceconfig.Spec.Features = features
-		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-		meterbase = utils.BuildMeterBaseCr(namespace, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+
+		// setup redhat-marketplace-pull-secret
 		tokenClaims := marketplace.MarketplaceClaims{
 			AccountID: "foo",
 			APIKey:    "test",
@@ -108,18 +83,13 @@ var _ = Describe("Testing with Ginkgo", func() {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenClaims)
 
 		Eventually(func() string {
-			// Create the token
 			tokenString, err = token.SignedString(signingKey)
 			if err != nil {
 				panic(err)
 			}
-
 			return tokenString
 		}, timeout, interval).ShouldNot(BeEmpty())
-		// start a test http server
-		server = ghttp.NewTLSServer()
-		server.SetAllowUnhandledRequests(true)
-		addr := "https://" + server.Addr() + path
+
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.RHMPullSecretName,
@@ -129,82 +99,206 @@ var _ = Describe("Testing with Ginkgo", func() {
 				utils.RHMPullSecretKey: []byte(tokenString),
 			},
 		}
-		cfg = &config.OperatorConfig{
-			DeployedNamespace: namespace,
-			Marketplace: config.Marketplace{
-				URL:            addr,
-				InsecureClient: true,
-			},
-		}
 
-		statusCode = 200
-		path = "/" + marketplace.RegistrationEndpoint
-		body, err = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
-		if err != nil {
-			panic(err)
-		}
-
-		server.RouteToHandler(
-			"GET", path, ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", path, "accountId=accountid&uuid=test"),
-				ghttp.RespondWithPtr(&statusCode, &body),
-			))
+		// setup mock backend server
+		server = ghttp.NewTLSServer()
+		server.SetAllowUnhandledRequests(true)
 	})
 
 	AfterEach(func() {
+		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.MARKETPLACECONFIG_NAME,
+			Namespace: operatorNamespace,
+		}, marketplaceConfig)).Should(Succeed(), "get marketplaceconfig")
+		k8sClient.Delete(context.TODO(), marketplaceConfig)
+
+		// Wait for finalizer to complete
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      utils.MARKETPLACECONFIG_NAME,
+				Namespace: operatorNamespace,
+			}, marketplaceConfig)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+			return notFound
+		}, timeout, interval).Should(BeTrue())
+
+		meterBase := &marketplacev1alpha1.MeterBase{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.METERBASE_NAME,
+			Namespace: operatorNamespace,
+		}, meterBase)).Should(Succeed(), "get meterbase")
+		k8sClient.Delete(context.TODO(), meterBase)
+
+		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RAZEE_NAME,
+			Namespace: operatorNamespace,
+		}, razeeDeployment)).Should(Succeed(), "get razeedeployment")
+		k8sClient.Delete(context.TODO(), razeeDeployment)
+
+		pullSecret := &corev1.Secret{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHMPullSecretName,
+			Namespace: operatorNamespace,
+		}, pullSecret)).Should(Succeed(), "get RHM pull secret")
+		k8sClient.Delete(context.TODO(), pullSecret)
+
 		server.Close()
 	})
 
-	It("marketplace config controller", func() {
-		var testCleanInstall = func(t GinkgoTInterface) {
-			var setup = func(r *ReconcilerTest) error {
-				var log = logf.Log.WithName("mockcontroller")
-				s := provideScheme()
-				_ = opsrcApi.AddToScheme(s)
-				_ = operatorsv1alpha1.AddToScheme(s)
-				s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
-				s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
-				s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+	It("marketplace config controller in disconnected mode", func() {
 
-				r.Client = fake.NewFakeClientWithScheme(s, r.GetGetObjects()...)
-				r.Reconciler = &MarketplaceConfigReconciler{
-					Client: r.Client,
-					Scheme: s,
-					Log:    log,
-					cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
-					cfg:    cfg,
-				}
-				return nil
+		// create required resources
+		Expect(k8sClient.Create(context.TODO(), marketplaceconfig.DeepCopy())).Should(Succeed(), "create MarketplaceConfig CR")
+		Expect(k8sClient.Create(context.TODO(), secret.DeepCopy())).Should(Succeed(), "create RHM pull secret")
+
+		// fetch created resources
+		rd := &marketplacev1alpha1.RazeeDeployment{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: operatorNamespace}, rd)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
 			}
-			marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
-			marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 
-			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace, secret)
-			reconcilerTest.TestAll(t,
-				ReconcileStep(opts, ReconcileWithUntilDone(true)),
-				GetStep(opts,
-					GetWithNamespacedName(razeeName, namespace),
-					GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),
-				),
-				GetStep(opts,
-					GetWithNamespacedName(meterBaseName, namespace),
-					GetWithObj(&marketplacev1alpha1.MeterBase{}),
-				),
-				GetStep(opts,
-					GetWithNamespacedName(utils.IBM_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
-					GetWithObj(&operatorsv1alpha1.CatalogSource{}),
-				),
-				GetStep(opts,
-					GetWithNamespacedName(utils.OPENCLOUD_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
-					GetWithObj(&operatorsv1alpha1.CatalogSource{}),
-				),
-			)
-		}
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
 
-		defaultFeatures := []string{"razee", "meterbase"}
-		viper.Set("features", defaultFeatures)
-		viper.Set("IBMCatalogSource", true)
-		testCleanInstall(GinkgoT())
+		mb := &marketplacev1alpha1.MeterBase{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: operatorNamespace}, mb)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
 
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		mc := &marketplacev1alpha1.MarketplaceConfig{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: operatorNamespace}, mc)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionIsDisconnected).Message, timeout, interval).Should(Equal("Detected disconnected environment"))
+		Expect(*mc.Spec.Features.Deployment).Should(BeFalse())
+		Expect(*mc.Spec.Features.Registration).Should(BeFalse())
+		Expect(*mc.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
+		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete), timeout, interval).ShouldNot(BeNil())
+		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message, timeout, interval).Should(Equal("Finished Installing necessary components"))
+
+		Expect(mb.Spec.Enabled).Should(BeTrue())
+		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer).Should(BeFalse())
+		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions).Should(BeFalse())
+		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions).Should(BeFalse())
+
+		Expect(*rd.Spec.Features.Deployment).Should(BeFalse())
+		Expect(*rd.Spec.Features.Registration).Should(BeFalse())
+		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
+		Eventually(rd.Spec.ClusterDisplayName, timeout, interval).Should(Equal("test-cluster"))
+	})
+
+	It("marketplace config controller in connected mode", func() {
+
+		Eventually(func() bool {
+			var failed bool
+			err := k8sClient.Create(context.TODO(), marketplaceconfigConnected.DeepCopy())
+			if err != nil {
+				failed = true
+			}
+
+			return failed
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		Eventually(func() bool {
+			var failed bool
+			err := k8sClient.Create(context.TODO(), secret.DeepCopy())
+			if err != nil {
+				failed = true
+			}
+
+			return failed
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		// fetch created resources
+		rd := &marketplacev1alpha1.RazeeDeployment{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: operatorNamespace}, rd)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		mb := &marketplacev1alpha1.MeterBase{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: operatorNamespace}, mb)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		mc := &marketplacev1alpha1.MarketplaceConfig{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: operatorNamespace}, mc)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		Expect(*mc.Spec.Features.Deployment).Should(BeTrue())
+		Expect(*mc.Spec.Features.Registration).Should(BeTrue())
+		Expect(*mc.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
+		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message).Should(Equal("Finished Installing necessary components"))
+
+		Expect(mb.Spec.Enabled).Should(BeTrue())
+		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer).Should(BeFalse())
+		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions).Should(BeFalse())
+		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions).Should(BeFalse())
+
+		Expect(*rd.Spec.Features.Deployment).Should(BeTrue())
+		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
+		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
+		Expect(rd.Spec.ClusterDisplayName).Should(Equal("test-cluster-connected"))
+
+		ibm_cs := &operatorsv1alpha1.CatalogSource{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.IBM_CATALOGSRC_NAME, Namespace: utils.OPERATOR_MKTPLACE_NS}, ibm_cs)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		opencloud_cs := &operatorsv1alpha1.CatalogSource{}
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.OPENCLOUD_CATALOGSRC_NAME, Namespace: utils.OPERATOR_MKTPLACE_NS}, opencloud_cs)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+
+			return notFound
+		}, timeout, interval).ShouldNot(BeTrue())
 	})
 })
