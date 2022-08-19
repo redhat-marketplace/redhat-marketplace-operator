@@ -254,7 +254,7 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 
 		meterBaseCopy := meterBase.DeepCopy()
 
-		if *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer {
+		if ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer) {
 			// if meterbase doesn't have MeterdefinitionCatalogServerConfig on MeterBase.Spec.
 			// Set the struct and set all flags to true
 			if meterBase.Spec.MeterdefinitionCatalogServerConfig == nil {
@@ -262,7 +262,7 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 				meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
 					SyncCommunityMeterDefinitions:      true,
 					SyncSystemMeterDefinitions:         false, //always making this false for now
-					DeployMeterDefinitionCatalogServer: !*marketplaceConfig.Spec.IsDisconnected && *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
+					DeployMeterDefinitionCatalogServer: !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer),
 				}
 			} else {
 				// foundMeterBase.Spec.MeterdefinitionCatalogServerConfig already exists
@@ -272,14 +272,14 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 					meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
 						SyncCommunityMeterDefinitions:      meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions,
 						SyncSystemMeterDefinitions:         meterBase.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions,
-						DeployMeterDefinitionCatalogServer: !*marketplaceConfig.Spec.IsDisconnected && *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
+						DeployMeterDefinitionCatalogServer: !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer),
 					}
 				}
 			}
 		}
 
 		// meterdef catalog server disabled, set all flags to false. This will remove file server resources and all community & system meterdefs
-		if !*marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer && meterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
+		if !ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer) && meterBase.Spec.MeterdefinitionCatalogServerConfig != nil {
 			reqLogger.Info("disabling MeterDefinitionCatalogServerConfig values")
 
 			meterBase.Spec.MeterdefinitionCatalogServerConfig = &common.MeterDefinitionCatalogServerConfig{
@@ -538,7 +538,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 
 		// Initialize enabled features if not set, based on IsDisconnected state
 		if marketplaceConfig.Spec.Features == nil {
-			if *marketplaceConfig.Spec.IsDisconnected {
+			if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 				marketplaceConfig.Spec.Features = &common.Features{
 					Deployment:                         ptr.Bool(false),
 					Registration:                       ptr.Bool(false),
@@ -554,14 +554,14 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		}
 
 		// Initilize individual features if nil or toggle based on IsDisconnected
-		if marketplaceConfig.Spec.Features.Deployment == nil || *marketplaceConfig.Spec.IsDisconnected {
-			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(!*marketplaceConfig.Spec.IsDisconnected)
+		if marketplaceConfig.Spec.Features.Deployment == nil || ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected))
 		}
-		if marketplaceConfig.Spec.Features.Registration == nil || *marketplaceConfig.Spec.IsDisconnected {
-			marketplaceConfig.Spec.Features.Registration = ptr.Bool(!*marketplaceConfig.Spec.IsDisconnected)
+		if marketplaceConfig.Spec.Features.Registration == nil || ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected))
 		}
-		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil || *marketplaceConfig.Spec.IsDisconnected {
-			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(!*marketplaceConfig.Spec.IsDisconnected)
+		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil || ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected))
 		}
 
 		// Removing EnabledMetering field so setting them all to nil
@@ -571,7 +571,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		}
 
 		// Set Cluster DisplayName
-		if !*marketplaceConfig.Spec.IsDisconnected {
+		if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 			si, err := secretFetcher.ReturnSecret()
 			if err == nil { // check for missing secret in during status update
 				reqLogger.Info("found secret", "secret", si.Name)
@@ -642,7 +642,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		}
 
 		updated := false
-		if *marketplaceConfig.Spec.IsDisconnected {
+		if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionSecretError)
 			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionIsDisconnected,
@@ -699,7 +699,7 @@ func (r *MarketplaceConfigReconciler) createOrUpdateMeterBase(request reconcile.
 	if k8serrors.IsNotFound(err) {
 		meterBase = utils.BuildMeterBaseCr(
 			request.Namespace,
-			!*marketplaceConfig.Spec.IsDisconnected && *marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer,
+			!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer),
 		)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, meterBase, r.Scheme); err != nil {
@@ -814,7 +814,7 @@ func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request
 			}
 
 			// Disable razee in disconnected environment
-			razeeDeployment.Spec.Enabled = !*marketplaceConfig.Spec.IsDisconnected
+			razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected)
 
 			reqLogger.Info("creating razee cr")
 			err = r.Client.Create(context.TODO(), razeeDeployment)
@@ -863,7 +863,7 @@ func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request
 		razeeDeploymentCopy := razeeDeployment.DeepCopy()
 
 		// Disable razee in disconnected environment
-		razeeDeployment.Spec.Enabled = !*marketplaceConfig.Spec.IsDisconnected
+		razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected)
 		razeeDeployment.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 		razeeDeployment.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
 		razeeDeployment.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
@@ -969,7 +969,7 @@ func (r *MarketplaceConfigReconciler) findRegistrationStatus(
 	// clear registration status for disconnected environment
 	// registration status for cluster may not be up to date with marketplace while diconnected
 	// or may be in error state if the disconnected flag was set incorrect of cluster connectivity state
-	if *marketplaceConfig.Spec.IsDisconnected {
+	if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {

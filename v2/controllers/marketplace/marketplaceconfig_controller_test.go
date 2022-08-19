@@ -113,6 +113,19 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		}, marketplaceConfig)).Should(Succeed(), "get marketplaceconfig")
 		k8sClient.Delete(context.TODO(), marketplaceConfig)
 
+		// Wait for finalizer to complete
+		Eventually(func() bool {
+			var notFound bool
+			err := k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      utils.MARKETPLACECONFIG_NAME,
+				Namespace: operatorNamespace,
+			}, marketplaceConfig)
+			if k8serrors.IsNotFound(err) {
+				notFound = true
+			}
+			return notFound
+		}, timeout, interval).Should(BeTrue())
+
 		meterBase := &marketplacev1alpha1.MeterBase{}
 		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
 			Name:      utils.METERBASE_NAME,
@@ -177,12 +190,12 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			return notFound
 		}, timeout, interval).ShouldNot(BeTrue())
 
-		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionIsDisconnected).Message).Should(Equal("Detected disconnected environment"))
+		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionIsDisconnected).Message, timeout, interval).Should(Equal("Detected disconnected environment"))
 		Expect(*mc.Spec.Features.Deployment).Should(BeFalse())
 		Expect(*mc.Spec.Features.Registration).Should(BeFalse())
 		Expect(*mc.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
-		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete)).ShouldNot(BeNil())
-		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message).Should(Equal("Finished Installing necessary components"))
+		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete), timeout, interval).ShouldNot(BeNil())
+		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message, timeout, interval).Should(Equal("Finished Installing necessary components"))
 
 		Expect(mb.Spec.Enabled).Should(BeTrue())
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer).Should(BeFalse())
@@ -192,7 +205,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(*rd.Spec.Features.Deployment).Should(BeFalse())
 		Expect(*rd.Spec.Features.Registration).Should(BeFalse())
 		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
-		Expect(rd.Spec.ClusterDisplayName).Should(Equal("test-cluster"))
+		Eventually(rd.Spec.ClusterDisplayName, timeout, interval).Should(Equal("test-cluster"))
 	})
 
 	It("marketplace config controller in connected mode", func() {
