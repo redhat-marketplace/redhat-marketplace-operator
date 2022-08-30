@@ -7,6 +7,7 @@ require (
 	github.com/InVisionApp/go-health/v2 v2.1.2
 	github.com/go-logr/logr v1.2.0
 	github.com/google/wire v0.4.0
+	github.com/gotidy/ptr v1.3.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
@@ -60,7 +61,6 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
-	github.com/gotidy/ptr v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
