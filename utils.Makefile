@@ -46,7 +46,7 @@ code-generator:
 		git clone -b tags/$(CODEGEN_VERSION) git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
-KUSTOMIZE_VERSION=v4.4.0
+KUSTOMIZE_VERSION=v4.5.7
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
