@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/skaffold-tdd-tool
 
-go 1.17
+go 1.19
 
 require (
 	emperror.dev/errors v0.8.0

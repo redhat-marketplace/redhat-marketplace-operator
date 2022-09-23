@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/tooling
 
-go 1.17
+go 1.19
 
 require (
 	github.com/Masterminds/semver/v3 v3.1.0
