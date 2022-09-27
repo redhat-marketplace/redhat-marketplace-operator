@@ -39,3 +39,5 @@ RUN FOUND_VER=$(wget -cq --header='Accept: application/json' 'https://go.dev/dl/
 
 RUN wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_VERSION}/grpc_health_probe-$TARGETOS-$TARGETARCH && \
     chmod +x /bin/grpc_health_probe
+
+RUN go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION}
