@@ -27,7 +27,7 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.7.0
+CONTROLLER_GEN_VERSION=v0.10.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
