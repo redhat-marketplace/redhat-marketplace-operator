@@ -6,7 +6,7 @@ ARG GO_VERSION
 ARG DQLITE_VERSION=v1.9.0
 ARG RAFT_VERSION=v0.11.2
 ARG DEBIAN_FRONTEND="noninteractive"
-ARG GRPC_HEALTH_VERSION=v0.4.11
+ARG GRPC_HEALTH_VERSION=v0.4.13
 ENV TZ=America/New_York
 ENV LD_LIBRARY_PATH=/usr/local/lib
 ENV GOROOT=/usr/local/go
@@ -39,3 +39,5 @@ RUN FOUND_VER=$(wget -cq --header='Accept: application/json' 'https://go.dev/dl/
 
 RUN wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_VERSION}/grpc_health_probe-$TARGETOS-$TARGETARCH && \
     chmod +x /bin/grpc_health_probe
+
+RUN go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION}

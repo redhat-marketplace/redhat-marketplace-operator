@@ -11,7 +11,7 @@ export TAG
 
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
-GO_VERSION ?= 1.17
+GO_VERSION ?= 1.19
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -27,7 +27,7 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.7.0
+CONTROLLER_GEN_VERSION=v0.10.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
@@ -46,7 +46,7 @@ code-generator:
 		git clone -b tags/$(CODEGEN_VERSION) git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
-KUSTOMIZE_VERSION=v4.4.0
+KUSTOMIZE_VERSION=v4.5.7
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
@@ -216,7 +216,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo $(1) ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 mkdir -p $$(dirname $(1)) ;\
 touch $(1)-$(3) ;\
