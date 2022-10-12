@@ -72,7 +72,12 @@ COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 
 COPY --from=dqlite-lib-builder /go/bin/main /opt/main
+
+# from https://github.com/grpc-ecosystem/grpc-health-probe/releases
 COPY --from=dqlite-lib-builder /bin/grpc_health_probe /bin/grpc_health_probe
+
+# built using latest golang on dqlite-lib-builder
+# COPY --from=dqlite-lib-builder /go/bin/grpc-health-probe /bin/grpc_health_probe
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
