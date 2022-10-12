@@ -38,7 +38,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/envvar"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -476,7 +475,7 @@ func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (u
 	return updated
 }
 
-func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1.CronJob, error) {
 	j, err := NewCronJob(manifest)
 	if err != nil {
 		return nil, err
@@ -513,7 +512,7 @@ var (
 	}
 )
 
-func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -1365,8 +1364,8 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	return &j, nil
 }
 
-func NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
-	j := batchv1beta1.CronJob{}
+func NewCronJob(manifest io.Reader) (*batchv1.CronJob, error) {
+	j := batchv1.CronJob{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
 	if err != nil {
 		return nil, err

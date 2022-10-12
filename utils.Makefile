@@ -125,7 +125,7 @@ skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 
 BUF=$(PROJECT_DIR)/bin/buf
-BUF_VERSION=v1.0.0-rc8
+BUF_VERSION=v1.8.0
 ifeq ($(UNAME_S),Linux)
 WILDCARDS=--wildcards
 endif

@@ -46,7 +46,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -209,7 +209,13 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
-			&source.Kind{Type: &batchv1beta1.CronJob{}},
+			&source.Kind{Type: &batchv1.CronJob{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
+		Watches(
+			&source.Kind{Type: &batchv1.CronJob{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
