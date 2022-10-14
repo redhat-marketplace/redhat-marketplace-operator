@@ -67,8 +67,16 @@ spec:
     ### **Important Note**
     A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).
     To access images from Red Hat Marketplace and the Marketplace container catalog you will need to make the pull secret attained in installation available to the workloads running on the cluster.
+    
+    ### **Deprecation Notice**
+    The bundled Prometheus provided by the Red Hat Marketplace Operator is deprecated in v2.9.0.
+    On upgrade to redhat-marketplace-operator.v2.9.0, the bundled Prometheus provided by the Red Hat Marketplace Operator will continue to function for this minor release only.
+    New installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html).
+    vNext will remove the bundled Prometheus provided by the Red Hat Marketplace Operator.
+    [Enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) before upgrading to avoid loss of reporting data.
+
     ### Prerequisites
-    1. It is recommended to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
+    1. New installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
     2. Edit the cluster-monitoring-config ConfigMap object:
       
        ```sh
