@@ -498,35 +498,53 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	} else { // if userWorkload is not enabled
 		// RHM provides Prometheus
 
-		// Leave additionalConfigSecret nil if v4.6+
-		var cfg *corev1.Secret
-		if !r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-			cfg = &corev1.Secret{}
-		}
+		// Only reconcile RHM Prometheus if this is an upgrade which is currently using RHM Prometheus
+		// Decide by whether prometheus-operator deployment already exists
+		prometheusOperatorDeployment := &appsv1.Deployment{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_PROMETHEUS_OPERATOR_NAME, Namespace: request.Namespace}, prometheusOperatorDeployment)
+	    if err != nil && !kerrors.IsNotFound(err) {
+			reqLogger.Error(err, "Failed to get prometheus-operator deployment")
+			return reconcile.Result{}, err
+		} else if kerrors.IsNotFound(err) { // Deployment does not exist, assume new installation
 
-		prometheus := &monitoringv1.Prometheus{}
-		if result, _ := cc.Do(context.TODO(),
-			Do(r.installPrometheusServingCertsCABundle()...),
-			Do(r.reconcilePrometheusOperator(instance)...),
-			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
-			Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
-			Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
-			Do(r.verifyPVCSize(reqLogger, instance, prometheus)...),
-			Do(r.recyclePrometheusPods(reqLogger, instance, prometheus)...),
-			Do(r.uninstallUserWorkloadMonitoring()...),
-		); !result.Is(Continue) {
-			if result.Is(Error) {
-				reqLogger.Error(result, "error in reconcile")
-				return result.ReturnWithError(errors.Wrap(result, "error creating prometheus"))
+			// event message RHM Prom is deprecated, uwm is required
+			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", "Use of redhat-marketplace-operator Prometheus is deprecated. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring")
+
+		} else { // Deployment exists, this is an upgrade
+
+			// event message RHM Prom is deprecated, and will be removed
+			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", "Use of redhat-marketplace-operator Prometheus is deprecated, and will be removed next release. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring")
+
+			// Leave additionalConfigSecret nil if v4.6+
+			var cfg *corev1.Secret
+			if !r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+				cfg = &corev1.Secret{}
 			}
 
-			reqLogger.Info("returning result from prometheus install", "result", *result)
-			return result.Return()
-		}
+			prometheus := &monitoringv1.Prometheus{}
+			if result, _ := cc.Do(context.TODO(),
+				Do(r.installPrometheusServingCertsCABundle()...),
+				Do(r.reconcilePrometheusOperator(instance)...),
+				Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
+				Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
+				Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
+				Do(r.verifyPVCSize(reqLogger, instance, prometheus)...),
+				Do(r.recyclePrometheusPods(reqLogger, instance, prometheus)...),
+				Do(r.uninstallUserWorkloadMonitoring()...),
+			); !result.Is(Continue) {
+				if result.Is(Error) {
+					reqLogger.Error(result, "error in reconcile")
+					return result.ReturnWithError(errors.Wrap(result, "error creating prometheus"))
+				}
 
-		promStsNamespacedName = types.NamespacedName{
-			Namespace: prometheus.Namespace,
-			Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
+				reqLogger.Info("returning result from prometheus install", "result", *result)
+				return result.Return()
+			}
+
+			promStsNamespacedName = types.NamespacedName{
+				Namespace: prometheus.Namespace,
+				Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
+			}
 		}
 	}
 
