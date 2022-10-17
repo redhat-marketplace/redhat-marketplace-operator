@@ -79,6 +79,9 @@ const (
 	DEFAULT_CONFIGMAP_RELOAD       = "jimmidyson/configmap-reload:v0.3.0"
 	RELATED_IMAGE_PROM_SERVER      = "RELATED_IMAGE_PROM_SERVER"
 	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
+	
+	PROM_DEP_NEW_WARNING_MSG = "Use of redhat-marketplace-operator Prometheus is deprecated. Configuration of user workload monitoring is required https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
+	PROM_DEP_UPGRADE_WARNING_MSG = "Use of redhat-marketplace-operator Prometheus is deprecated, and will be removed next release. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
 )
 
 var (
@@ -506,14 +509,13 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			reqLogger.Error(err, "Failed to get prometheus-operator deployment")
 			return reconcile.Result{}, err
 		} else if kerrors.IsNotFound(err) { // Deployment does not exist, assume new installation
-
 			// event message RHM Prom is deprecated, uwm is required
-			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", "Use of redhat-marketplace-operator Prometheus is deprecated. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring")
-
+			reqLogger.Error(fmt.Errorf(PROM_DEP_NEW_WARNING_MSG), PROM_DEP_NEW_WARNING_MSG)
+			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", PROM_DEP_NEW_WARNING_MSG)
 		} else { // Deployment exists, this is an upgrade
-
-			// event message RHM Prom is deprecated, and will be removed
-			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", "Use of redhat-marketplace-operator Prometheus is deprecated, and will be removed next release. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring")
+			// event message RHM Prom is deprecated
+			reqLogger.Info(PROM_DEP_UPGRADE_WARNING_MSG)
+			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", PROM_DEP_UPGRADE_WARNING_MSG)
 
 			// Leave additionalConfigSecret nil if v4.6+
 			var cfg *corev1.Secret
