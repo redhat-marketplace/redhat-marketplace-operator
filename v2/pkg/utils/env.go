@@ -43,6 +43,7 @@ const (
 	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
 	DATA_SERVICE_NAME                      = "rhm-data-service"
+	METERBASE_PROMETHEUS_OPERATOR_NAME     = "prometheus-operator"
 	METERBASE_PROMETHEUS_NAME              = "rhm-prometheus-meterbase"
 	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
