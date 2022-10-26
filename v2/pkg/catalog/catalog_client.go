@@ -71,7 +71,7 @@ type CatalogClient struct {
 }
 
 /*
-	CatalogRequest defined in the file server repo
+CatalogRequest defined in the file server repo
 */
 type CatalogRequest struct {
 	SubInfo `json:"subInfo"`

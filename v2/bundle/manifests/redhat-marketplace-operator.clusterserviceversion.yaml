@@ -11,14 +11,19 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-rhm-marketplaceconfig",
+            "name": "marketplaceconfig",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
-            "clusterUUID": "example-clusterUUID",
-            "deploySecretName": "rhm-operator-secret",
-            "installIBMCatalogSource": false,
-            "rhmAccountID": "example-userid"
+            "clusterUUID": "",
+            "features": {
+              "deployment": true,
+              "meterDefinitionCatalogServer": false,
+              "registration": true
+            },
+            "installIBMCatalogSource": true,
+            "isDisconnected": false,
+            "rhmAccountID": ""
           }
         },
         {
@@ -28,7 +33,7 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-meterbase",
+            "name": "meterbase",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
@@ -57,7 +62,7 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-example-meterreport",
+            "name": "example-meterreport",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
@@ -77,7 +82,7 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-razeedeployment-example",
+            "name": "razeedeployment-example",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
@@ -92,7 +97,7 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-example-remoteresources3",
+            "name": "example-remoteresources3",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
@@ -127,7 +132,7 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-example-meterdefinition-4",
+            "name": "example-meterdefinition-4",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
@@ -163,7 +168,7 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
-            "name": "redhat-marketplace-meterdefinition-sample",
+            "name": "meterdefinition-sample",
             "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
@@ -196,10 +201,10 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
-    createdAt: "2021-11-22T21:20:07Z"
+    containerImage: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-operator@sha256:4fdc7b61855312044fdca6787dbc433cf60bc0557429b269eb761bb97bee7c89
+    createdAt: "2022-10-26T12:33:59Z"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.5.0'
+    olm.skipRange: '>=1.0.0 <2.9.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.13.0+git
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
@@ -211,7 +216,7 @@ metadata:
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: redhat-marketplace-operator.v2.5.0
+  name: redhat-marketplace-operator.v2.9.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -245,54 +250,7 @@ spec:
         kind: RemoteResourceS3
         name: remoteresources3s.marketplace.redhat.com
         version: v1alpha1
-  description: |
-    The Red Hat Marketplace Operator provides cluster management, metering and
-    operator installation for Red Hat Marketplace customers.
-    ### **Important Note**
-    A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).
-    To access images from Red Hat Marketplace and the Marketplace container catalog you will need to make the pull secret attained in installation available to the workloads running on the cluster.
-    ### Installation
-    1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
-    2. Install the Red Hat Marketplace Operator in the openshift-redhat-marketplace namespace.
-    3. Create a Kubernetes secret in the openshift-redhat-marketplace namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
-
-       ```sh
-       # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-       oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
-       ```
-
-    4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
-       **Warning:** This step will make your cluster perform a rolling restart.
-       These steps require `oc`, `jq`, and `base64` to be available on your machine.
-
-       ```sh
-       # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
-       # Store it in a file called entitledregistryconfigjson.
-       oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=true --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
-       # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
-       oc get secret pull-secret -n openshift-config --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > dockerconfigjson
-       # Merge the two dockerconfigs together into a file called dockerconfigjson-merged.
-       jq -s '.[0] * .[1]' dockerconfigjson entitledregistryconfigjson > dockerconfigjson-merged
-       # Set the cluster's dockerconfig file to the new merged version.
-       oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
-       # Cluster will now restart.
-       ```
-
-    ### Why is a global pull secret required?
-    In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
-    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html).
-    ### Documentation
-    You can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)
-    ### Getting help
-    If you encounter any issues while using Red Hat Marketplace operator, you
-    can create an issue on our [Github
-    repo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for
-    bugs, enhancements, or other requests. You can also visit our main page and
-    review our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).
-    ### Readme
-    You can find our readme [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/README.md)
-    ### License information
-    You can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)
+  description: "The Red Hat Marketplace Operator provides cluster management, metering and\noperator installation for Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).\nTo access images from Red Hat Marketplace and the Marketplace container catalog you will need to make the pull secret attained in installation available to the workloads running on the cluster.\n\n### **Deprecation Notice**\nThe bundled Prometheus provided by the Red Hat Marketplace Operator is deprecated in v2.9.0.\nOn upgrade to redhat-marketplace-operator.v2.9.0, the bundled Prometheus provided by the Red Hat Marketplace Operator will continue to function for this minor release only.\nNew installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html).\nvNext will remove the bundled Prometheus provided by the Red Hat Marketplace Operator.\n[Enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) before upgrading to avoid loss of reporting data.\n\n### Prerequisites\n1. New installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n  \n   ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n    apiVersion: v1\n    kind: ConfigMap\n    metadata:\n      name: cluster-monitoring-config\n      namespace: openshift-monitoring\n    data:\n      config.yaml: |\n        enableUserWorkload: true\n    ```\n\n4. Configure the user-workload-monitoring-config ConfigMap object:\n  \n    ```sh\n    $ oc -n openshift-user-workload-monitoring edit configmap user-workload-monitoring-config\n    ```\n\n5. Configure a minimum retention time of 168h and minimum storage capacity of 40Gi\n  \n    ```sh\n    apiVersion: v1\n    kind: ConfigMap\n    metadata:\n      name: user-workload-monitoring-config\n      namespace: openshift-user-workload-monitoring\n    data:\n      config.yaml: |\n        prometheus:\n          retention: 168h\n          volumeClaimTemplate:\n            spec:\n              resources:\n                requests:\n                  storage: 40Gi\n    ```\n\n### Installation\n1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2. Install the Red Hat Marketplace Operator in the openshift-redhat-marketplace namespace.\n3. Create a Kubernetes secret in the openshift-redhat-marketplace namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.\n\n   ```sh\n   # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace\n   oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}\n   ```\n\n4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.\n   **Warning:** This step will make your cluster perform a rolling restart.\n   These steps require `oc`, `jq`, and `base64` to be available on your machine.\n\n   ```sh\n   # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.\n   # Store it in a file called entitledregistryconfigjson.\n   oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username \"cp\" --docker-password \"${PULL_SECRET}\" --dry-run=true --output=\"jsonpath={.data.\\.dockerconfigjson}\" | base64 --decode > entitledregistryconfigjson\n   # Get the current global secrets on the cluster and store it as a file named dockerconfigjson\n   oc get secret pull-secret -n openshift-config --output=\"jsonpath={.data.\\.dockerconfigjson}\" | base64 --decode > dockerconfigjson\n   # Merge the two dockerconfigs together into a file called dockerconfigjson-merged.\n   jq -s '.[0] * .[1]' dockerconfigjson entitledregistryconfigjson > dockerconfigjson-merged\n   # Set the cluster's dockerconfig file to the new merged version.\n   oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged\n   # Cluster will now restart.\n   ```\n\n### Why is a global pull secret required?\nIn order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).\nFor alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html).\n### Documentation\nYou can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)\n### Getting help\nIf you encounter any issues while using Red Hat Marketplace operator, you\ncan create an issue on our [Github\nrepo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for\nbugs, enhancements, or other requests. You can also visit our main page and\nreview our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).\n### Readme\nYou can find our readme [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/README.md)\n### License information\nYou can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)\n"
   displayName: Red Hat Marketplace
   icon:
     - base64data: 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
@@ -302,10 +260,6 @@ spec:
       clusterPermissions:
         - rules:
             - nonResourceURLs:
-                - '*'
-              verbs:
-                - create
-            - nonResourceURLs:
                 - /api/v1/query
                 - /api/v1/query_range
                 - /api/v1/targets
@@ -313,26 +267,42 @@ spec:
                 - create
                 - get
             - nonResourceURLs:
+                - /community-meterdef-index/*
+              verbs:
+                - get
+            - nonResourceURLs:
+                - /get-community-meterdefs
+              verbs:
+                - create
+                - get
+                - post
+            - nonResourceURLs:
+                - /get-system-meterdefs/*
+              verbs:
+                - create
+                - get
+                - post
+            - nonResourceURLs:
+                - /global-community-meterdef-index
+              verbs:
+                - get
+            - nonResourceURLs:
+                - /global-system-meterdef-index
+              verbs:
+                - get
+            - nonResourceURLs:
                 - /metrics
               verbs:
                 - get
+            - nonResourceURLs:
+                - /system-meterdef-index/*
+              verbs:
+                - get
             - apiGroups:
                 - ""
               resources:
                 - configmaps
                 - namespaces
-                - secrets
-                - services
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - configmaps
-                - pods
-                - secrets
               verbs:
                 - get
                 - list
@@ -344,52 +314,13 @@ spec:
               verbs:
                 - get
                 - list
-                - patch
-                - update
                 - watch
             - apiGroups:
                 - ""
               resources:
-                - nodes
+                - nodes/metrics
               verbs:
                 - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - persistentvolumeclaims
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - pods
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - secret
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resourceNames:
-                - razeedeploy-sa
-                - watch-keeper-sa
-              resources:
-                - serviceaccounts
-              verbs:
-                - delete
             - apiGroups:
                 - ""
               resources:
@@ -398,33 +329,6 @@ spec:
                 - get
                 - list
                 - watch
-            - apiGroups:
-                - apps
-              resources:
-                - deployments
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - apps
-              resourceNames:
-                - clustersubscription
-                - featureflagsetld-controller
-                - managedset-controller
-                - mustachetemplate-controller
-                - remoteresource-controller
-                - remoteresources3-controller
-                - remoteresources3decrypt-controller
-                - watch-keeper
-              resources:
-                - deployments
-              verbs:
-                - delete
             - apiGroups:
                 - apps
               resources:
@@ -439,98 +343,18 @@ spec:
                 - tokenreviews
               verbs:
                 - create
+                - get
             - apiGroups:
                 - authorization.k8s.io
               resources:
                 - subjectaccessreviews
               verbs:
                 - create
-            - apiGroups:
-                - batch
-                - extensions
-              resources:
-                - cronjobs
-                - jobs
-              verbs:
                 - get
-                - list
-                - watch
-            - apiGroups:
-                - batch
-                - extensions
-              resources:
-                - jobs
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - batch
-                - extensions
-              resourceNames:
-                - razeedeploy-job
-              resources:
-                - jobs
-              verbs:
-                - delete
             - apiGroups:
                 - config.openshift.io
               resources:
                 - clusterversions
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - config.openshift.io
-              resources:
-                - clusterversions
-                - consoles
-                - infrastructures
-              verbs:
-                - get
-                - patch
-                - update
-            - apiGroups:
-                - deploy.razee.io
-              resources:
-                - '*'
-              verbs:
-                - delete
-                - get
-                - list
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - marketplaceconfigs
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - marketplaceconfigs
-                - marketplaceconfigs/finalizers
-                - marketplaceconfigs/status
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - meterbases
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - meterbases
-                - meterbases/finalizers
-                - meterbases/status
               verbs:
                 - get
                 - list
@@ -569,48 +393,6 @@ spec:
                 - list
                 - patch
                 - update
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - meterreports
-              verbs:
-                - get
-                - list
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - meterreports
-                - meterreports/finalizers
-                - meterreports/status
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - razeedeployments
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - remoteresources3s
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - monitoring.coreos.com
-              resources:
-                - prometheuses
-                - servicemonitors
-              verbs:
-                - get
-                - list
-                - watch
             - apiGroups:
                 - operators.coreos.com
               resources:
@@ -624,6 +406,7 @@ spec:
                 - operators.coreos.com
               resourceNames:
                 - ibm-operator-catalog
+                - opencloud-operators
               resources:
                 - catalogsources
               verbs:
@@ -633,10 +416,12 @@ spec:
               resources:
                 - clusterserviceversions
               verbs:
-                - create
                 - delete
+                - get
+                - list
                 - patch
                 - update
+                - watch
             - apiGroups:
                 - operators.coreos.com
               resources:
@@ -655,7 +440,6 @@ spec:
                 - delete
                 - get
                 - list
-                - update
                 - watch
             - apiGroups:
                 - operators.coreos.com
@@ -667,23 +451,6 @@ spec:
                 - list
                 - patch
                 - update
-                - watch
-            - apiGroups:
-                - rbac.authorization.k8s.io
-              resourceNames:
-                - razeedeploy-admin-cr
-                - redhat-marketplace-razeedeploy
-              resources:
-                - clusterroles
-              verbs:
-                - delete
-            - apiGroups:
-                - route.openshift.io
-              resources:
-                - routes
-              verbs:
-                - get
-                - list
                 - watch
             - apiGroups:
                 - storage.k8s.io
@@ -728,33 +495,33 @@ spec:
                       - --enable-leader-election
                     env:
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-                        value: quay.io/razee/remoteresources3@sha256:a77eedbe78497d974109695355c1f104a7d1cba7dcb68fa27bf140c4e6be3a2b
+                        value: us.icr.io/armada-master/remoteresources3@sha256:6e7a075b9ff8d3e2459dad46445758a2a3f6fc4887392645b4ca86fe5b1d0fb0
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-                        value: quay.io/razee/watch-keeper@sha256:76ab668d92d8473a97fe26ecf5a9f687b8e37820b9c293c39dc72a8e3bc7a507
+                        value: us.icr.io/armada-master/watch-keeper@sha256:9dd6a3999077d1830a6d0b3a7dfb7e744fc29ac9858df674472ee82c2e5b8ff4
                       - name: RELATED_IMAGE_PROMETHEUS
-                        value: registry.redhat.io/openshift4/ose-prometheus@sha256:8e925d050b2789cac4b4115fbb5e2173807f00a3b9aaff587155695c1dcd106c
+                        value: registry.redhat.io/openshift4/ose-prometheus@sha256:e30352d7ba95146059f472dbc7a68890efbbe68ccc469e8b8745cc0dc3e96dcc
                       - name: RELATED_IMAGE_OAUTH_PROXY
-                        value: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:dee06a88f4949af82071ea69515057c3fccfc328eb0392c5c5b8617663fd4888
+                        value: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:e94ab35f4e71b6b91b1c00381446588ccc7d075c3e5e6ab2362b9efa5f987fe9
                       - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-                        value: registry.redhat.io/openshift4/ose-prometheus-operator@sha256:8efefbad4dba108286f521b2706cfc84aa384b51e8d7af1291c632f368ad3757
+                        value: registry.redhat.io/openshift4/ose-prometheus-operator@sha256:b65d8aeda2b4474a388a13f9552d0c1dd17d7cb191e3806ed0ba4c7d2d584c75
                       - name: RELATED_IMAGE_CONFIGMAP_RELOADER
-                        value: registry.redhat.io/openshift4/ose-configmap-reloader@sha256:b1d88293fbbf70451214978cd29ad791eae16903808d2d33caaf9b667f6b1f42
+                        value: registry.redhat.io/openshift4/ose-configmap-reloader@sha256:a8463accd3b01ff25023973f29f538d3273b1f50156b2b84c3a8894f1b89fc43
                       - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-                        value: registry.redhat.io/openshift4/ose-prometheus-config-reloader@sha256:13be6173e9af8274cd8ae0971ad051dad4603b7b761830a85a5f082fe0abf92f
+                        value: registry.redhat.io/openshift4/ose-prometheus-config-reloader@sha256:1c6b0e2ccdcd2a992c17f8f24671ff814d677d6531af835e79dbdf132c5c96a2
                       - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:8b4f814c112d7b91dc5e7904d4f3c684f3d77227344d2b553a84d4a1bc2829d3
+                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:cd779f7b8b12a4ef79f8473d44c01c8abae76e4b9017b2f795c33fd9e6f7a03d
                       - name: IBMCATALOGSOURCE
                         value: "true"
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter@sha256:65baaba9dbf88dfde4337a3d970b698342c0170a4fefb7d6954edc62c4dafe00
+                        value: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-reporter@sha256:f3579a73ccc543cea781c19be7562b187ca9b4a460565e3ed4f9099463bee4c5
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state@sha256:44b0ec2c739db8ee968d006cec07eda0bb9b5a011f8aa8265fc19343bccf6f70
+                        value: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-metric-state@sha256:2ad3b26b373dfc70c8ced55532f6edc1f8d0799b6b49c208e0f4261bf5293608
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/zach_source/redhat-marketplace-authcheck@sha256:6995e5a4439e576c72170c5fb43e6f49c391a4759f6de099cda96c2ff76222df
+                        value: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-authcheck@sha256:ee0d50bb55b10cd3b661b817b26373a773ef06b378ea2d40ea695c602e805738
                       - name: RELATED_IMAGE_DQLITE
-                        value: quay.io/zach_source/redhat-marketplace-data-service@sha256:6c48e98f01686df57ad09cd431195243e9bd37e0cbaae901117037ffa2535eae
+                        value: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-data-service@sha256:888858e91b15e91f380a8cdcbea69c58e3e94cafd000c9f1207596ea483c1aaf
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -783,7 +550,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
+                    image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-operator@sha256:4fdc7b61855312044fdca6787dbc433cf60bc0557429b269eb761bb97bee7c89
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -803,7 +570,7 @@ spec:
                         memory: 700Mi
                       requests:
                         cpu: 100m
-                        memory: 100Mi
+                        memory: 225Mi
                     securityContext:
                       allowPrivilegeEscalation: false
                       capabilities:
@@ -853,10 +620,27 @@ spec:
                 - configmaps
               verbs:
                 - create
+            - apiGroups:
+                - ""
+              resourceNames:
+                - kubelet-serving-ca-bundle
+                - serving-certs-ca-bundle
+              resources:
+                - configmaps
+              verbs:
                 - delete
-                - get
                 - patch
                 - update
+            - apiGroups:
+                - ""
+              resources:
+                - namespaces
+              verbs:
+                - get
+                - list
+                - patch
+                - update
+                - watch
             - apiGroups:
                 - ""
               resources:
@@ -879,24 +663,6 @@ spec:
             - apiGroups:
                 - ""
               resources:
-                - secret
-              verbs:
-                - create
-            - apiGroups:
-                - ""
-              resourceNames:
-                - redhat-marketplace-pull-secret
-              resources:
-                - secret
-              verbs:
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
-              resources:
                 - secrets
               verbs:
                 - create
@@ -906,6 +672,27 @@ spec:
                 - patch
                 - update
                 - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - ibm-entitlement-key
+                - redhat-marketplace-pull-secret
+                - rhm-operator-secret
+              resources:
+                - secrets
+              verbs:
+                - patch
+                - update
+            - apiGroups:
+                - ""
+              resourceNames:
+                - rhm-data-service-mtls
+              resources:
+                - secrets
+              verbs:
+                - delete
+                - patch
+                - update
             - apiGroups:
                 - ""
               resources:
@@ -921,47 +708,171 @@ spec:
                 - services
               verbs:
                 - create
-                - delete
                 - get
                 - list
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - kube-state-metrics
+                - prometheus-operator
+                - rhm-metric-state-service
+                - rhm-prometheus-meterbase
+              resources:
+                - services
+              verbs:
+                - delete
                 - patch
                 - update
-                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - rhm-data-service
+              resources:
+                - services
+              verbs:
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - ""
+              resourceNames:
+                - rhm-meterdefinition-file-server
+              resources:
+                - services
+              verbs:
+                - delete
+                - patch
+                - update
             - apiGroups:
                 - apps
               resources:
                 - deployments
               verbs:
                 - create
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - prometheus-operator
+                - rhm-metric-state
+              resources:
+                - deployments
+              verbs:
                 - delete
                 - patch
                 - update
             - apiGroups:
                 - apps
               resources:
-                - statefulsets
+                - deployments
+                - deployments/finalizers
               verbs:
-                - create
-                - delete
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - redhat-marketplace-controller-manager
+              resources:
+                - deployments/finalizers
+              verbs:
                 - get
                 - list
                 - patch
                 - update
                 - watch
             - apiGroups:
+                - apps
+              resources:
+                - statefulsets
+              verbs:
+                - create
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - rhm-data-service
+              resources:
+                - statefulsets
+              verbs:
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - apps.openshift.io
+              resources:
+                - deploymentconfigs
+              verbs:
+                - create
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps.openshift.io
+              resourceNames:
+                - rhm-meterdefinition-file-server
+              resources:
+                - deploymentconfigs
+              verbs:
+                - delete
+                - patch
+                - update
+            - apiGroups:
                 - batch
                 - extensions
               resources:
                 - cronjobs
-                - jobs
               verbs:
                 - create
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - batch
+                - extensions
+              resourceNames:
+                - rhm-meter-report-upload
+              resources:
+                - cronjobs
+              verbs:
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - batch
+                - extensions
+              resources:
+                - jobs
+              verbs:
                 - delete
                 - get
                 - list
+                - watch
+            - apiGroups:
+                - image.openshift.io
+              resources:
+                - imagestreams
+              verbs:
+                - create
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - image.openshift.io
+              resourceNames:
+                - rhm-meterdefinition-file-server
+              resources:
+                - imagestreams
+              verbs:
+                - delete
                 - patch
                 - update
-                - watch
             - apiGroups:
                 - marketplace.redhat.com
               resources:
@@ -973,20 +884,11 @@ spec:
                 - marketplace.redhat.com
               resources:
                 - marketplaceconfigs
-              verbs:
-                - create
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - marketplaceconfigs
                 - marketplaceconfigs/finalizers
                 - marketplaceconfigs/status
               verbs:
+                - create
+                - delete
                 - get
                 - list
                 - patch
@@ -998,12 +900,19 @@ spec:
                 - meterbases
               verbs:
                 - create
-                - delete
                 - get
                 - list
+                - watch
+            - apiGroups:
+                - marketplace.redhat.com
+              resourceNames:
+                - rhm-marketplaceconfig-meterbase
+              resources:
+                - meterbases
+              verbs:
+                - delete
                 - patch
                 - update
-                - watch
             - apiGroups:
                 - marketplace.redhat.com
               resources:
@@ -1025,6 +934,7 @@ spec:
                 - delete
                 - get
                 - list
+                - watch
             - apiGroups:
                 - marketplace.redhat.com
               resources:
@@ -1043,47 +953,29 @@ spec:
                 - razeedeployments
               verbs:
                 - create
-                - delete
                 - get
                 - list
-                - patch
-                - update
                 - watch
             - apiGroups:
                 - marketplace.redhat.com
+              resourceNames:
+                - rhm-marketplaceconfig-razeedeployment
               resources:
                 - razeedeployments
-                - razeedeployments/finalizers
-                - razeedeployments/status
               verbs:
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - marketplace.redhat.com
-              resources:
-                - remoteresources3s
-              verbs:
-                - create
                 - delete
-                - get
-                - list
                 - patch
                 - update
-                - watch
             - apiGroups:
-                - marketplace.redhat.com
+                - monitoring.coreos.com
+              resourceNames:
+                - rhm-marketplaceconfig-meterbase
               resources:
-                - remoteresources3s
-                - remoteresources3s/status
+                - prometheuses
               verbs:
-                - get
-                - list
+                - delete
                 - patch
                 - update
-                - watch
             - apiGroups:
                 - monitoring.coreos.com
               resources:
@@ -1091,21 +983,24 @@ spec:
                 - servicemonitors
               verbs:
                 - create
-                - delete
                 - get
                 - list
-                - patch
-                - update
                 - watch
             - apiGroups:
-                - operators.coreos.com
+                - monitoring.coreos.com
+              resourceNames:
+                - kube-state-metrics
+                - prometheus-user-workload
+                - redhat-marketplace-kube-state-metrics
+                - redhat-marketplace-kubelet
+                - rhm-metric-state
+                - rhm-prometheus-meterbase
               resources:
-                - subscriptions
+                - servicemonitors
               verbs:
-                - create
-                - get
-                - list
-                - watch
+                - delete
+                - patch
+                - update
             - apiGroups:
                 - route.openshift.io
               resources:
@@ -1123,38 +1018,8 @@ spec:
                 - routes
               verbs:
                 - delete
-                - get
                 - patch
                 - update
-            - apiGroups:
-                - ""
-              resourceNames:
-                - pull-secret
-              resources:
-                - secrets
-              verbs:
-                - get
-                - watch
-                - list
-            - apiGroups:
-                - ""
-              resources:
-                - events
-              verbs:
-                - get
-                - watch
-                - list
-                - create
-                - update
-                - patch
-            - apiGroups:
-                - batch
-              resources:
-                - jobs
-              verbs:
-                - get
-                - watch
-                - list
           serviceAccountName: redhat-marketplace-operator
     strategy: deployment
   installModes:
@@ -1184,33 +1049,33 @@ spec:
   provider:
     name: Red Hat Marketplace
   relatedImages:
-    - image: registry.redhat.io/openshift4/ose-configmap-reloader@sha256:b1d88293fbbf70451214978cd29ad791eae16903808d2d33caaf9b667f6b1f42
-      name: configmap_reloader
-    - image: registry.redhat.io/openshift4/ose-prometheus@sha256:8e925d050b2789cac4b4115fbb5e2173807f00a3b9aaff587155695c1dcd106c
-      name: prometheus
-    - image: registry.redhat.io/openshift4/ose-prometheus-operator@sha256:8efefbad4dba108286f521b2706cfc84aa384b51e8d7af1291c632f368ad3757
-      name: prometheus_operator
-    - image: quay.io/zach_source/redhat-marketplace-data-service@sha256:6c48e98f01686df57ad09cd431195243e9bd37e0cbaae901117037ffa2535eae
-      name: dqlite
-    - image: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
-      name: redhat-marketplace-operator-2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f-annotation
-    - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:8b4f814c112d7b91dc5e7904d4f3c684f3d77227344d2b553a84d4a1bc2829d3
-      name: kube_rbac_proxy
-    - image: quay.io/zach_source/redhat-marketplace-reporter@sha256:65baaba9dbf88dfde4337a3d970b698342c0170a4fefb7d6954edc62c4dafe00
-      name: reporter
-    - image: quay.io/zach_source/redhat-marketplace-metric-state@sha256:44b0ec2c739db8ee968d006cec07eda0bb9b5a011f8aa8265fc19343bccf6f70
-      name: metric_state
-    - image: quay.io/zach_source/redhat-marketplace-authcheck@sha256:6995e5a4439e576c72170c5fb43e6f49c391a4759f6de099cda96c2ff76222df
-      name: authcheck
-    - image: quay.io/razee/remoteresources3@sha256:a77eedbe78497d974109695355c1f104a7d1cba7dcb68fa27bf140c4e6be3a2b
-      name: rhm_rrs3_deployment
-    - image: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:dee06a88f4949af82071ea69515057c3fccfc328eb0392c5c5b8617663fd4888
-      name: oauth_proxy
-    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader@sha256:13be6173e9af8274cd8ae0971ad051dad4603b7b761830a85a5f082fe0abf92f
+    - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader@sha256:1c6b0e2ccdcd2a992c17f8f24671ff814d677d6531af835e79dbdf132c5c96a2
       name: prometheus_configmap_reloader
-    - image: quay.io/zach_source/redhat-marketplace-operator@sha256:2d397d2ffcd298a5b99640ae09fc0cf2f46cb5176ab258d6f302ae1f36f5855f
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-operator@sha256:4fdc7b61855312044fdca6787dbc433cf60bc0557429b269eb761bb97bee7c89
+      name: redhat-marketplace-operator-4fdc7b61855312044fdca6787dbc433cf60bc0557429b269eb761bb97bee7c89-annotation
+    - image: registry.redhat.io/openshift4/ose-prometheus@sha256:e30352d7ba95146059f472dbc7a68890efbbe68ccc469e8b8745cc0dc3e96dcc
+      name: prometheus
+    - image: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:e94ab35f4e71b6b91b1c00381446588ccc7d075c3e5e6ab2362b9efa5f987fe9
+      name: oauth_proxy
+    - image: registry.redhat.io/openshift4/ose-prometheus-operator@sha256:b65d8aeda2b4474a388a13f9552d0c1dd17d7cb191e3806ed0ba4c7d2d584c75
+      name: prometheus_operator
+    - image: registry.redhat.io/openshift4/ose-configmap-reloader@sha256:a8463accd3b01ff25023973f29f538d3273b1f50156b2b84c3a8894f1b89fc43
+      name: configmap_reloader
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-metric-state@sha256:2ad3b26b373dfc70c8ced55532f6edc1f8d0799b6b49c208e0f4261bf5293608
+      name: metric_state
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-operator@sha256:4fdc7b61855312044fdca6787dbc433cf60bc0557429b269eb761bb97bee7c89
       name: manager
-    - image: quay.io/razee/watch-keeper@sha256:76ab668d92d8473a97fe26ecf5a9f687b8e37820b9c293c39dc72a8e3bc7a507
+    - image: us.icr.io/armada-master/remoteresources3@sha256:6e7a075b9ff8d3e2459dad46445758a2a3f6fc4887392645b4ca86fe5b1d0fb0
+      name: rhm_rrs3_deployment
+    - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:cd779f7b8b12a4ef79f8473d44c01c8abae76e4b9017b2f795c33fd9e6f7a03d
+      name: kube_rbac_proxy
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-data-service@sha256:888858e91b15e91f380a8cdcbea69c58e3e94cafd000c9f1207596ea483c1aaf
+      name: dqlite
+    - image: us.icr.io/armada-master/watch-keeper@sha256:9dd6a3999077d1830a6d0b3a7dfb7e744fc29ac9858df674472ee82c2e5b8ff4
       name: rhm_watch_keeper_deployment
-  version: 2.5.0
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-reporter@sha256:f3579a73ccc543cea781c19be7562b187ca9b4a460565e3ed4f9099463bee4c5
+      name: reporter
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-authcheck@sha256:ee0d50bb55b10cd3b661b817b26373a773ef06b378ea2d40ea695c602e805738
+      name: authcheck
+  version: 2.9.0
   webhookdefinitions: []

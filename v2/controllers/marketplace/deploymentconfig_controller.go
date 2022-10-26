@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -334,7 +334,7 @@ func (m *ConditionMap) GetCondition(t osappsv1.DeploymentConditionType) *Conditi
 	return nil
 }
 
-//TODO: zach remove ExecResult - low priority
+// TODO: zach remove ExecResult - low priority
 func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	subs, err := listSubs(r.Client)
 	if err != nil {
@@ -540,9 +540,9 @@ func (r *DeploymentConfigReconciler) syncCommunityMeterDefs(cr *catalog.CatalogR
 }
 
 /*
-	//TODO:
-	setting this to a var so I can mock it in deploymentconfig_conttroller_test.go
-	was having trouble setting the status for subscriptions created in the test env
+//TODO:
+setting this to a var so I can mock it in deploymentconfig_conttroller_test.go
+was having trouble setting the status for subscriptions created in the test env
 */
 var listSubs = func(k8sclient client.Client) ([]olmv1alpha1.Subscription, error) {
 	subList := &olmv1alpha1.SubscriptionList{}
@@ -912,8 +912,8 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 }
 
 /*
-	// currently checking for a diff on Spec and Annoations
-	//TODO: what fields should we check a diff for ?
+// currently checking for a diff on Spec and Annoations
+//TODO: what fields should we check a diff for ?
 */
 func (r *DeploymentConfigReconciler) updateMeterdef(onClusterMeterDef *marketplacev1beta1.MeterDefinition, catalogMeterDef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) error {
 	updatedMeterdefinition := onClusterMeterDef.DeepCopy()

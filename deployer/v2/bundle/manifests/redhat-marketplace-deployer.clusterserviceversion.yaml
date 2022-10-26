@@ -1,0 +1,192 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Seamless Upgrades
+    containerImage: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-deployer@sha256:db04fda688b51e5c7b308476ae6d533b7f6ef0af4643acbfe479ac228b117efc
+    createdAt: "2022-10-26T12:34:14Z"
+    olm.skipRange: '>=1.0.0 <2.9.0'
+    operators.operatorframework.io/builder: operator-sdk-v1.13.0+git
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+  name: redhat-marketplace-deployer.v2.9.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  description: Redhat Marketplace Deployer description. TODO.
+  displayName: Redhat Marketplace Deployer
+  icon:
+    - base64data: ""
+      mediatype: ""
+  install:
+    spec:
+      deployments:
+        - name: redhat-marketplace-deployer-controller-manager
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                redhat.marketplace.com/name: redhat-marketplace-operator
+            strategy: {}
+            template:
+              metadata:
+                annotations:
+                  productID: 36cdaba810c348c096b85800dd62bcf1
+                  productMetric: FREE
+                  productName: Red Hat Marketplace Operator
+                labels:
+                  control-plane: deployer-controller-manager
+                  redhat.marketplace.com/name: redhat-marketplace-operator
+              spec:
+                affinity:
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                        - matchExpressions:
+                            - key: kubernetes.io/arch
+                              operator: In
+                              values:
+                                - amd64
+                                - ppc64le
+                                - s390x
+                containers:
+                  - args:
+                      - --enable-leader-election
+                    env:
+                      - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+                        value: us.icr.io/armada-master/remoteresources3@sha256:6e7a075b9ff8d3e2459dad46445758a2a3f6fc4887392645b4ca86fe5b1d0fb0
+                      - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+                        value: us.icr.io/armada-master/watch-keeper@sha256:9dd6a3999077d1830a6d0b3a7dfb7e744fc29ac9858df674472ee82c2e5b8ff4
+                      - name: OPERATOR_NAME
+                        value: redhat-marketplace-operator
+                      - name: RELATED_IMAGE_AUTHCHECK
+                        value: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-authcheck@sha256:ee0d50bb55b10cd3b661b817b26373a773ef06b378ea2d40ea695c602e805738
+                      - name: WATCH_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.annotations['olm.targetNamespaces']
+                      - name: POD_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: POD_NAME
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.name
+                      - name: OLM_OWNER_NAME
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.labels['olm.owner']
+                      - name: OLM_OWNER_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.labels['olm.owner.namespace']
+                      - name: OLM_OWNER_KIND
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.labels['olm.owner.kind']
+                      - name: OPERATOR_GROUP
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.annotations['olm.operatorGroup']
+                    image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-deployer@sha256:db04fda688b51e5c7b308476ae6d533b7f6ef0af4643acbfe479ac228b117efc
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: 8081
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
+                    name: manager
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: 8081
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                    resources:
+                      limits:
+                        cpu: 400m
+                        memory: 700Mi
+                      requests:
+                        cpu: 100m
+                        memory: 225Mi
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
+                      privileged: false
+                      readOnlyRootFilesystem: true
+                      runAsNonRoot: true
+                serviceAccountName: operator
+                terminationGracePeriodSeconds: 10
+      permissions:
+        - rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - coordination.k8s.io
+              resources:
+                - leases
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - events
+              verbs:
+                - create
+                - patch
+          serviceAccountName: operator
+    strategy: deployment
+  installModes:
+    - supported: false
+      type: OwnNamespace
+    - supported: false
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+  keywords:
+    - redhat-marketplace-deployer
+  links:
+    - name: Redhat Marketplace Deployer
+      url: https://redhat-marketplace-deployer.domain
+  maintainers:
+    - email: your@email.com
+      name: Maintainer Name
+  maturity: alpha
+  provider:
+    name: Provider Name
+    url: https://your.domain
+  relatedImages:
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-deployer@sha256:db04fda688b51e5c7b308476ae6d533b7f6ef0af4643acbfe479ac228b117efc
+      name: redhat-marketplace-deployer-db04fda688b51e5c7b308476ae6d533b7f6ef0af4643acbfe479ac228b117efc-annotation
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-deployer@sha256:db04fda688b51e5c7b308476ae6d533b7f6ef0af4643acbfe479ac228b117efc
+      name: manager
+    - image: us.icr.io/armada-master/remoteresources3@sha256:6e7a075b9ff8d3e2459dad46445758a2a3f6fc4887392645b4ca86fe5b1d0fb0
+      name: rhm_rrs3_deployment
+    - image: us.icr.io/armada-master/watch-keeper@sha256:9dd6a3999077d1830a6d0b3a7dfb7e744fc29ac9858df674472ee82c2e5b8ff4
+      name: rhm_watch_keeper_deployment
+    - image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-authcheck@sha256:ee0d50bb55b10cd3b661b817b26373a773ef06b378ea2d40ea695c602e805738
+      name: authcheck
+  version: 2.9.0
+  webhookdefinitions: []

@@ -1208,7 +1208,7 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 	return cm
 }
 
-//watch-keeper-non-namespace
+// watch-keeper-non-namespace
 func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) *corev1.ConfigMap {
@@ -1223,7 +1223,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 	return cm
 }
 
-//watch-keeper-non-namespace
+// watch-keeper-non-namespace
 func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) *corev1.ConfigMap {
@@ -1381,7 +1381,7 @@ func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *mar
 	return parentRRS3
 }
 
-//Undeploy the razee deployment and parent
+// Undeploy the razee deployment and parent
 func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) error {
@@ -1525,7 +1525,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	return nil
 }
 
-//Undeploy the watchkeeper deployment
+// Undeploy the watchkeeper deployment
 func (r *RazeeDeploymentReconciler) removeWatchkeeperDeployment(req *marketplacev1alpha1.RazeeDeployment) (*reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting delete of watchkeeper deployment")
@@ -1625,7 +1625,7 @@ func (r *RazeeDeploymentReconciler) fullUninstall(
 	return reconcile.Result{}, nil
 }
 
-//uninstallLegacyResources deletes resources used by version 1.3 of the operator and below.
+// uninstallLegacyResources deletes resources used by version 1.3 of the operator and below.
 func (r *RazeeDeploymentReconciler) uninstallLegacyResources(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {

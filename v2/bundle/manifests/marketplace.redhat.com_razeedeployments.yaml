@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
@@ -92,6 +92,7 @@ spec:
                     required:
                     - key
                     type: object
+                    x-kubernetes-map-type: atomic
                   ibmCosUrl:
                     description: Base url for the instance of IBM COS
                     type: string
@@ -113,6 +114,7 @@ spec:
                     required:
                     - key
                     type: object
+                    x-kubernetes-map-type: atomic
                   razeeDashUrl:
                     description: Url used by the razee install to post data
                     type: string
@@ -132,6 +134,11 @@ spec:
                   deployment:
                     description: Deployment represents the enablement of the razee
                       deployment, defaults to true when not set
+                    type: boolean
+                  meterDefinitionCatalogServer:
+                    description: EnableMeterDefinitionCatalogServer represents the
+                      enablement of the meterdefinition catalog server, defaults to
+                      true when not set
                     type: boolean
                   registration:
                     description: Registration represents the enablement of the registration
@@ -229,7 +236,7 @@ spec:
                   Job'
                 properties:
                   active:
-                    description: The number of actively running pods.
+                    description: The number of pending and running pods.
                     format: int32
                     type: integer
                   completedIndexes:
@@ -293,6 +300,13 @@ spec:
                     description: The number of pods which reached phase Failed.
                     format: int32
                     type: integer
+                  ready:
+                    description: "The number of pods which have a Ready condition.
+                      \n This field is alpha-level. The job controller populates the
+                      field when the feature gate JobReadyPods is enabled (disabled
+                      by default)."
+                    format: int32
+                    type: integer
                   startTime:
                     description: Represents time when the job controller started processing
                       a job. When a Job is created in the suspended state, this field
@@ -313,11 +327,11 @@ spec:
                       the controller does three steps to account for it in the job
                       status: (1) Add the pod UID to the arrays in this field. (2)
                       Remove the pod finalizer. (3) Remove the pod UID from the arrays
-                      while increasing the corresponding     counter. \n This field
-                      is alpha-level. The job controller only makes use of this field
-                      when the feature gate PodTrackingWithFinalizers is enabled.
-                      Old jobs might not be tracked using this field, in which case
-                      the field remains null."
+                      while increasing the corresponding counter. \n This field is
+                      beta-level. The job controller only makes use of this field
+                      when the feature gate JobTrackingWithFinalizers is enabled (enabled
+                      by default). Old jobs might not be tracked using this field,
+                      in which case the field remains null."
                     properties:
                       failed:
                         description: Failed holds UIDs of failed Pods.
@@ -398,5 +412,5 @@ status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: []
-  storedVersions: []
+  conditions: null
+  storedVersions: null

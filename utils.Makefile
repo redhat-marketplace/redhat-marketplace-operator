@@ -51,7 +51,7 @@ KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
 
-OMT_VERSION=v0.1.6
+OMT_VERSION=v0.2.2
 OMT=$(PROJECT_DIR)/bin/operator-manifest-tools
 omt:
 	$(call go-get-tool,$(OMT),github.com/operator-framework/operator-manifest-tools@$(OMT_VERSION),$(OMT_VERSION))
@@ -125,7 +125,7 @@ skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 
 BUF=$(PROJECT_DIR)/bin/buf
-BUF_VERSION=v1.0.0-rc8
+BUF_VERSION=v1.9.0
 ifeq ($(UNAME_S),Linux)
 WILDCARDS=--wildcards
 endif

@@ -1,4 +1,3 @@
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -107,14 +106,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - deploy.razee.io
-  resources:
-  - '*'
-  verbs:
-  - delete
-  - get
-  - list
-- apiGroups:
   - marketplace.redhat.com
   resources:
   - meterdefinitions
@@ -208,15 +199,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - rbac.authorization.k8s.io
-  resourceNames:
-  - razeedeploy-admin-cr
-  - redhat-marketplace-razeedeploy
-  resources:
-  - clusterroles
-  verbs:
-  - delete
-- apiGroups:
   - storage.k8s.io
   resources:
   - storageclasses
@@ -224,7 +206,6 @@ rules:
   - get
   - list
   - watch
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -239,27 +220,11 @@ rules:
   - configmaps
   verbs:
   - create
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resourceNames:
   - kubelet-serving-ca-bundle
   - serving-certs-ca-bundle
-  resources:
-  - configmaps
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resourceNames:
-  - razee-cluster-metadata
-  - watch-keeper-config
-  - watch-keeper-limit-poll
-  - watch-keeper-non-namespaced
   resources:
   - configmaps
   verbs:
@@ -310,18 +275,6 @@ rules:
 - apiGroups:
   - ""
   resourceNames:
-  - clustersubscription
-  - rhm-operator-secret
-  - watch-keeper-secret
-  resources:
-  - secrets
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resourceNames:
   - ibm-entitlement-key
   - redhat-marketplace-pull-secret
   - rhm-operator-secret
@@ -340,15 +293,6 @@ rules:
   - delete
   - patch
   - update
-- apiGroups:
-  - ""
-  resourceNames:
-  - razeedeploy-sa
-  - watch-keeper-sa
-  resources:
-  - serviceaccounts
-  verbs:
-  - delete
 - apiGroups:
   - ""
   resources:
@@ -412,21 +356,6 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - clustersubscription
-  - featureflagsetld-controller
-  - managedset-controller
-  - mustachetemplate-controller
-  - remoteresource-controller
-  - remoteresources3-controller
-  - remoteresources3decrypt-controller
-  - watch-keeper
-  resources:
-  - deployments
-  verbs:
-  - delete
-- apiGroups:
-  - apps
-  resourceNames:
   - prometheus-operator
   - rhm-metric-state
   resources:
@@ -441,22 +370,9 @@ rules:
   - deployments
   - deployments/finalizers
   verbs:
-  - create
   - get
   - list
   - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - rhm-remoteresources3-controller
-  - rhm-watch-keeper
-  resources:
-  - deployments
-  - deployments/finalizers
-  verbs:
-  - delete
-  - patch
-  - update
 - apiGroups:
   - apps
   resourceNames:
@@ -538,15 +454,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - batch
-  - extensions
-  resourceNames:
-  - razeedeploy-job
-  resources:
-  - jobs
-  verbs:
-  - delete
 - apiGroups:
   - image.openshift.io
   resources:
@@ -659,49 +566,6 @@ rules:
   - delete
   - patch
   - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - razeedeployments
-  - razeedeployments/finalizers
-  - razeedeployments/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resourceNames:
-  - child
-  - parent
-  resources:
-  - remoteresources3s
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  - remoteresources3s/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - monitoring.coreos.com
   resourceNames:

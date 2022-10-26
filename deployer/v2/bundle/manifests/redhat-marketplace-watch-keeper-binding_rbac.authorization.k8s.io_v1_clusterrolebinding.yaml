@@ -1,15 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-metric-state-binding
+  name: redhat-marketplace-watch-keeper-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: redhat-marketplace-metric-state
+  kind: ClusterRole
+  name: redhat-marketplace-watch-keeper
 subjects:
 - kind: ServiceAccount
-  name: redhat-marketplace-metric-state
+  name: redhat-marketplace-watch-keeper
   namespace: openshift-redhat-marketplace

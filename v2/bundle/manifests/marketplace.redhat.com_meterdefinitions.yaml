@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
@@ -134,6 +134,7 @@ spec:
                       are ANDed.
                     type: object
                 type: object
+                x-kubernetes-map-type: atomic
               workloadVertexType:
                 description: WorkloadVertexType is the top most object of a workload.
                   It allows you to identify the upper bounds of your workloads.
@@ -191,6 +192,7 @@ spec:
                             only "value". The requirements are ANDed.
                           type: object
                       type: object
+                      x-kubernetes-map-type: atomic
                     labelSelector:
                       description: LabelSelector are used to filter to the correct
                         workload.
@@ -236,6 +238,7 @@ spec:
                             only "value". The requirements are ANDed.
                           type: object
                       type: object
+                      x-kubernetes-map-type: atomic
                     metricLabels:
                       description: MetricLabels are the labels to collect
                       items:
@@ -622,6 +625,7 @@ spec:
                                 contains only "value". The requirements are ANDed.
                               type: object
                           type: object
+                          x-kubernetes-map-type: atomic
                       type: object
                     label:
                       description: Label uses the resource annotations to find resources
@@ -673,6 +677,7 @@ spec:
                                 contains only "value". The requirements are ANDed.
                               type: object
                           type: object
+                          x-kubernetes-map-type: atomic
                       type: object
                     namespace:
                       description: Namespace is the filter to control which namespaces
@@ -725,6 +730,7 @@ spec:
                                 contains only "value". The requirements are ANDed.
                               type: object
                           type: object
+                          x-kubernetes-map-type: atomic
                         useOperatorGroup:
                           description: UseOperatorGroup use your operator group for
                             namespace filtering
@@ -893,5 +899,5 @@ status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: []
-  storedVersions: []
+  conditions: null
+  storedVersions: null

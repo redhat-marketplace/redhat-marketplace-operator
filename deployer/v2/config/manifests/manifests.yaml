@@ -1,0 +1,51 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: deployer-controller-manager-service
+      namespace: system
+      path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+  failurePolicy: Fail
+  name: mmeterdefinition.marketplace.redhat.com
+  rules:
+  - apiGroups:
+    - marketplace.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - meterdefinitions
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: deployer-controller-manager-service
+      namespace: system
+      path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+  failurePolicy: Fail
+  name: vmeterdefinition.marketplace.redhat.com
+  rules:
+  - apiGroups:
+    - marketplace.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - meterdefinitions
+  sideEffects: None

@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: meterreports.marketplace.redhat.com
 spec:
@@ -106,6 +105,7 @@ spec:
                       are ANDed.
                     type: object
                 type: object
+                x-kubernetes-map-type: atomic
               meterDefinitionReferences:
                 description: MeterDefinitionReferences are used as the first meter
                   definition source. Prometheus data is used to supplement.
@@ -316,6 +316,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               label:
                                 description: Label uses the resource annotations to
@@ -372,6 +373,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               namespace:
                                 description: Namespace is the filter to control which
@@ -429,6 +431,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   useOperatorGroup:
                                     description: UseOperatorGroup use your operator
                                       group for namespace filtering
@@ -605,6 +608,7 @@ spec:
                                 contains only "value". The requirements are ANDed.
                               type: object
                           type: object
+                          x-kubernetes-map-type: atomic
                         workloadVertexType:
                           description: WorkloadVertexType is the top most object of
                             a workload. It allows you to identify the upper bounds
@@ -667,6 +671,7 @@ spec:
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                                x-kubernetes-map-type: atomic
                               labelSelector:
                                 description: LabelSelector are used to filter to the
                                   correct workload.
@@ -715,6 +720,7 @@ spec:
                                       The requirements are ANDed.
                                     type: object
                                 type: object
+                                x-kubernetes-map-type: atomic
                               metricLabels:
                                 description: MetricLabels are the labels to collect
                                 items:
@@ -938,6 +944,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           secret:
                             description: Secret containing data to use for the targets.
                             properties:
@@ -957,6 +964,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       caFile:
                         description: Path to the CA cert in the Prometheus container
@@ -985,6 +993,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           secret:
                             description: Secret containing data to use for the targets.
                             properties:
@@ -1004,6 +1013,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       certFile:
                         description: Path to the client cert file in the Prometheus
@@ -1035,6 +1045,7 @@ spec:
                         required:
                         - key
                         type: object
+                        x-kubernetes-map-type: atomic
                       serverName:
                         description: Used to verify the hostname for the targets.
                         type: string
@@ -1062,6 +1073,7 @@ spec:
                     required:
                     - key
                     type: object
+                    x-kubernetes-map-type: atomic
                   name:
                     description: Name of the job Required
                     type: string
@@ -1101,6 +1113,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           secret:
                             description: Secret containing data to use for the targets.
                             properties:
@@ -1120,6 +1133,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       caFile:
                         description: Path to the CA cert in the Prometheus container
@@ -1148,6 +1162,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                           secret:
                             description: Secret containing data to use for the targets.
                             properties:
@@ -1167,6 +1182,7 @@ spec:
                             required:
                             - key
                             type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       certFile:
                         description: Path to the client cert file in the Prometheus
@@ -1198,6 +1214,7 @@ spec:
                         required:
                         - key
                         type: object
+                        x-kubernetes-map-type: atomic
                       serverName:
                         description: Used to verify the hostname for the targets.
                         type: string
@@ -1406,9 +1423,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
