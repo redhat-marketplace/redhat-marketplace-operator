@@ -38,10 +38,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/envvar"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -476,7 +474,7 @@ func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (u
 	return updated
 }
 
-func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1.CronJob, error) {
 	j, err := NewCronJob(manifest)
 	if err != nil {
 		return nil, err
@@ -513,7 +511,7 @@ var (
 	}
 )
 
-func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -770,75 +768,7 @@ func (f *Factory) NewPrometheusDeployment(
 	cr *marketplacev1alpha1.MeterBase,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
-	logger := log.WithValues("func", "NewPrometheusDeployment")
-	p, err := f.NewPrometheus(MustAssetReader(f.prometheusDeployment()))
-
-	if err != nil {
-		logger.Error(err, "failed to read the file")
-		return p, err
-	}
-
-	p.Name = cr.Name
-	p.ObjectMeta.Name = cr.Name
-
-	p.Spec.Image = &f.config.RelatedImages.Prometheus
-
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Replicas != nil {
-		p.Spec.Replicas = cr.Spec.Prometheus.Replicas
-	}
-
-	if f.config.PrometheusConfig.Retention != "" {
-		p.Spec.Retention = f.config.PrometheusConfig.Retention
-	}
-
-	//Set empty dir if present in the CR, will override a pvc specified (per prometheus docs)
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.EmptyDir != nil {
-		p.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
-	}
-
-	storageClass := ptr.String("")
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class != nil {
-		storageClass = cr.Spec.Prometheus.Storage.Class
-	}
-
-	if cr.Spec.Prometheus != nil {
-		quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
-		quanBytes.Sub(resource.MustParse("2Gi"))
-		replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
-		storageSize := replacer.Replace(quanBytes.String())
-		p.Spec.RetentionSize = storageSize
-
-		pvc, _ := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
-			ObjectMeta: &metav1.ObjectMeta{
-				Name: "storage-volume",
-			},
-			StorageClass: storageClass,
-			StorageSize:  &cr.Spec.Prometheus.Storage.Size,
-		})
-
-		p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
-			Spec: pvc.Spec,
-		}
-	}
-	if cfg != nil {
-		p.Spec.AdditionalScrapeConfigs = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: cfg.GetName(),
-			},
-			Key: "meterdef.yaml",
-		}
-	}
-
-	for i := range p.Spec.Containers {
-		container := &p.Spec.Containers[i]
-		err := f.ReplaceImages(container)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return p, err
+	return nil, nil
 }
 
 func (f *Factory) prometheusOperatorService() string {
@@ -1365,8 +1295,8 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	return &j, nil
 }
 
-func NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
-	j := batchv1beta1.CronJob{}
+func NewCronJob(manifest io.Reader) (*batchv1.CronJob, error) {
+	j := batchv1.CronJob{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
 	if err != nil {
 		return nil, err

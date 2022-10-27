@@ -301,8 +301,8 @@ spec:
                     type: integer
                   ready:
                     description: "The number of pods which have a Ready condition.
-                      \n This field is alpha-level. The job controller populates the
-                      field when the feature gate JobReadyPods is enabled (disabled
+                      \n This field is beta-level. The job controller populates the
+                      field when the feature gate JobReadyPods is enabled (enabled
                       by default)."
                     format: int32
                     type: integer

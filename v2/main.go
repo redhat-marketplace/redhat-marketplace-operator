@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
@@ -129,8 +128,7 @@ func main() {
 			&appsv1.Deployment{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			// batchv1beta1 forOpenshift 4.6; kubernetes 1.19
-			&batchv1beta1.CronJob{}: {
+			&batchv1.CronJob{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&batchv1.Job{}: {

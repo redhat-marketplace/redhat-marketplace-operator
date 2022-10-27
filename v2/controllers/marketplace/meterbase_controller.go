@@ -46,7 +46,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -212,7 +212,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
-			&source.Kind{Type: &batchv1beta1.CronJob{}},
+			&source.Kind{Type: &batchv1.CronJob{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
@@ -1108,104 +1108,8 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 	prometheus *monitoringv1.Prometheus,
 	additionalConfigSecret *corev1.Secret,
 ) []ClientAction {
-	// Additional config secret not required on ose-prometheus-operator v4.6, handled by ServiceMonitors
-	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		return []ClientAction{}
-	}
-
-	reqLogger := r.Log.WithValues("func", "reconcileAdditionalConfigSecret", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
-	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
-	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
-	secretsInNamespace := &corev1.SecretList{}
-	metricStateMonitor, _ := r.factory.MetricStateServiceMonitor(nil)
-
-	return []ClientAction{
-		Do(
-
-			HandleResult(
-				Do(
-					GetAction(types.NamespacedName{
-						Namespace: "openshift-monitoring",
-						Name:      "kubelet",
-					}, openshiftKubeletMonitor),
-					GetAction(types.NamespacedName{
-						Namespace: "openshift-monitoring",
-						Name:      "kube-state-metrics",
-					}, openshiftKubeStateMonitor),
-					GetAction(types.NamespacedName{
-						Namespace: metricStateMonitor.ObjectMeta.Namespace,
-						Name:      metricStateMonitor.ObjectMeta.Name,
-					}, metricStateMonitor),
-					ListAction(secretsInNamespace, client.InNamespace(prometheus.GetNamespace()))),
-				OnNotFound(ReturnWithError(errors.New("required serviceMonitor not found"))),
-				OnError(ReturnWithError(errors.New("required serviceMonitor errored")))),
-		),
-		Call(func() (ClientAction, error) {
-			newEndpoints := []monitoringv1.Endpoint{}
-
-			for _, ep := range openshiftKubeStateMonitor.Spec.Endpoints {
-				newEp := ep.DeepCopy()
-				configs := []*monitoringv1.RelabelConfig{
-					{
-						SourceLabels: []string{"__name__"},
-						Action:       "drop",
-						Regex:        fmt.Sprintf("(%s)", strings.Join(ignoreKubeStateList, "|")),
-					},
-				}
-				newEp.RelabelConfigs = append(configs, ep.RelabelConfigs...)
-				newEndpoints = append(newEndpoints, *newEp)
-			}
-
-			openshiftKubeStateMonitor.Spec.Endpoints = newEndpoints
-
-			sMons := map[string]*monitoringv1.ServiceMonitor{
-				"kube-state": openshiftKubeStateMonitor,
-				"kubelet":    openshiftKubeletMonitor,
-			}
-			sMons[metricStateMonitor.Name] = metricStateMonitor
-
-			cfgGen := prom.NewConfigGenerator(reqLogger)
-
-			basicAuthSecrets, err := prom.LoadBasicAuthSecrets(r.Client, sMons, prometheus.Spec.RemoteRead, prometheus.Spec.RemoteWrite, prometheus.Spec.APIServerConfig, secretsInNamespace)
-			if err != nil {
-				return nil, err
-			}
-
-			bearerTokens, err := prom.LoadBearerTokensFromSecrets(r.Client, sMons)
-			if err != nil {
-				return nil, err
-			}
-
-			cfg, err := cfgGen.GenerateConfig(prometheus, sMons, basicAuthSecrets, bearerTokens, []string{})
-
-			if err != nil {
-				return nil, err
-			}
-
-			sec, err := r.factory.PrometheusAdditionalConfigSecret(cfg)
-
-			if err != nil {
-				return nil, err
-			}
-
-			key := client.ObjectKeyFromObject(sec)
-
-			if err != nil {
-				return nil, err
-			}
-
-			return HandleResult(
-				GetAction(key, additionalConfigSecret),
-				OnNotFound(CreateAction(sec, CreateWithAddController(instance))),
-				OnContinue(Call(func() (ClientAction, error) {
-					if reflect.DeepEqual(additionalConfigSecret.Data, sec.Data) {
-						return nil, nil
-					}
-
-					return UpdateAction(sec), nil
-				}))), nil
-		}),
-	}
+	// to be removed
+	return []ClientAction{}
 }
 
 func (r *MeterBaseReconciler) reconcilePrometheus(

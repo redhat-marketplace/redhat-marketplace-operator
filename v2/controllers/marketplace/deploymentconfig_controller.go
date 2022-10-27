@@ -31,7 +31,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -153,10 +152,6 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(nsPred).
 		For(&osappsv1.DeploymentConfig{}).
-		WithOptions(controller.Options{
-			Reconciler: r,
-			Log:        r.Log,
-		}).
 		Watches(
 			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
 			&handler.EnqueueRequestForObject{},
