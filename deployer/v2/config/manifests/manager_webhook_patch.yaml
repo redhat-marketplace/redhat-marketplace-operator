@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deployer-controller-manager
+  name: controller-manager
   namespace: system
 spec:
   template:
@@ -47,7 +47,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: deployer-controller-manager-service
+  name: controller-manager-service
   namespace: system
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: $(SERVICE_NAME)

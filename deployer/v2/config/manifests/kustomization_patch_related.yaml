@@ -26,7 +26,7 @@ vars:
   - name: AUTHCHECK_IMAGE_MARKER
     objref:
       kind: Deployment
-      name: deployer-controller-manager
+      name: controller-manager
       apiVersion: apps/v1
     fieldref:
       fieldpath: metadata.annotations.authcheckImage

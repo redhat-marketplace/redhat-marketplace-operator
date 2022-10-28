@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deployer-controller-manager
+  name: controller-manager
   namespace: system
   annotations:
     reporterImage: {{ .Values.reporterImage }}
@@ -15,7 +15,7 @@ spec:
   template:
     metadata:
       labels:
-        control-plane: deployer-controller-manager
+        control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
       annotations:
         productName: "Red Hat Marketplace Operator"
