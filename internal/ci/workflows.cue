@@ -643,22 +643,22 @@ branch_build: _#bashWorkflow & {
               apiVersion: operators.coreos.com/v1alpha1
               kind: CatalogSource
               metadata:
-                name: rhm-test
+                name: rhm-metering-operator-test
                 namespace: openshift-marketplace
               spec:
-                displayName: RHM Test
-                image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
+                displayName: RHM Metering Test
+                image: quay.io/rh-marketplace/redhat-marketplace-metering-dev-index:${{ env.TAG }}
                 publisher: ''
                 sourceType: grpc
               ---
               apiVersion: operators.coreos.com/v1alpha1
               kind: CatalogSource
               metadata:
-                name: rhm-deployer-test
+                name: rhm-operator-test
                 namespace: openshift-marketplace
               spec:
-                displayName: RHM Deployer Test
-                image: quay.io/rh-marketplace/redhat-marketplace-deployer-dev-index:${{ env.TAG }}
+                displayName: RHM Operator Test
+                image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
                 publisher: ''
                 sourceType: grpc
               ```
