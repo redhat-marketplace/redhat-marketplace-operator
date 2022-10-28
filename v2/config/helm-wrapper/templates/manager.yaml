@@ -112,4 +112,4 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true   
       terminationGracePeriodSeconds: 10
-      serviceAccountName: operator
+      serviceAccountName: metering-operator

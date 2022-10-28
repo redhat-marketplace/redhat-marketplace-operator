@@ -13,6 +13,7 @@ commonLabels:
 resources:
   - ../rbac
   - ../manager
+  - ../prometheus
   - ../scorecard
 
 #patchesStrategicMerge:
