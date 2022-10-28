@@ -157,3 +157,6 @@ bin/
 *.gorm.db
 default.etcd
 database/
+
+v2/bundle
+deployer/v2/bundle

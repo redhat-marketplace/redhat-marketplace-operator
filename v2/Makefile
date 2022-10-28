@@ -20,7 +20,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = redhat-marketplace-operator
+OPERATOR_IMAGE_NAME = redhat-marketplace-metering-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
@@ -40,10 +40,10 @@ DQLITE_IMAGE_NAME ?= redhat-marketplace-data-service
 DQLITE_IMAGE_TAG ?= $(TAG)
 DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
 
-BUNDLE_NAME ?= redhat-marketplace-operator-manifest
+BUNDLE_NAME ?= redhat-marketplace-metering-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
+DEV_INDEX_NAME ?= redhat-marketplace-metering-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
@@ -173,8 +173,8 @@ docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
 
-CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-operator.clusterserviceversion.yaml
-CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-metering-operator.clusterserviceversion.yaml
+CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-metering-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
@@ -256,10 +256,10 @@ bundle-dev-index: opm
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
-	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
+	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-metering-operator-catalog
 	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-metering-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-metering-operator.openshift-redhat-marketplace
 
 skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses

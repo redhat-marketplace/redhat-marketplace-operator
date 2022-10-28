@@ -20,7 +20,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = redhat-marketplace-deployer
+OPERATOR_IMAGE_NAME = redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
@@ -28,10 +28,10 @@ AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
 AUTHCHECK_IMAGE_TAG ?= $(TAG)
 AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
-BUNDLE_NAME ?= redhat-marketplace-deployer-manifest
+BUNDLE_NAME ?= redhat-marketplace-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= redhat-marketplace-deployer-dev-index
+DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
@@ -141,11 +141,11 @@ DOCKERCMD=docker
 endif
 
 build:
-	$(call multiarch-build,redhat-marketplace-deployer)
+	$(call multiarch-build,redhat-marketplace-operator)
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),Deployer,./deployer/v2/,./,redhat-marketplace-deployer,../..)
+	$(call docker-templated-build,$(IMAGE),Deployer,./deployer/v2/,./,redhat-marketplace-operator,../..)
 
 # Push the docker image
 docker-push:
@@ -156,8 +156,8 @@ docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
 
-CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-deployer.clusterserviceversion.yaml
-CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-deployer.clusterserviceversion.yaml
+CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-operator.clusterserviceversion.yaml
+CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 

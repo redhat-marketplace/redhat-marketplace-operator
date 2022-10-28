@@ -42,7 +42,7 @@ spec:
         - name: manager
           args:
             - --enable-leader-election
-          image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-deployer:v2.9.0-test
+          image: default-route-openshift-image-registry.apps.dac-48.cp.fyre.ibm.com/openshift/redhat-marketplace-operator:v2.9.0-test
           resources:
             requests:
               cpu: 100m
