@@ -13,6 +13,5 @@ commonLabels:
 configurations:
   - kustomizeconfig.yaml
 resources:
-  - ../crd
   - ../rbac
   - ../manager

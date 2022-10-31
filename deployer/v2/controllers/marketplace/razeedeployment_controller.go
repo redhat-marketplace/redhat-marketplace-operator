@@ -256,6 +256,9 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="deploy.razee.io",resources=*,verbs=get;list;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=razeedeploy-admin-cr;redhat-marketplace-razeedeploy,verbs=delete
 
+// operator_config
+// +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {

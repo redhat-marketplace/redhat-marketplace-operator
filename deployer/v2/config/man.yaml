@@ -6,9 +6,9 @@ metadata:
   name: controller-manager
   namespace: system
   annotations:
-    reporterImage: 
-    metricStateImage: 
-    authcheckImage: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1667246364
+    reporterImage:
+    metricStateImage:
+    authcheckImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.9.0
 spec:
   selector:
     matchLabels:
@@ -37,12 +37,12 @@ spec:
                   values:
                     - amd64
                     - ppc64le
-                    - s390x    
+                    - s390x
       containers:
         - name: manager
           args:
             - --enable-leader-election
-          image: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-operator:tag-1667246364
+          image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.9.0
           resources:
             requests:
               cpu: 100m
@@ -66,7 +66,7 @@ spec:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
             - name: RELATED_IMAGE_AUTHCHECK
-              value: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1667246364
+              value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.9.0
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -102,6 +102,7 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true   
+            runAsNonRoot: true
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator
+

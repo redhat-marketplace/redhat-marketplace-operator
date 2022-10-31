@@ -8,7 +8,24 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
   - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
   verbs:
   - get
   - list

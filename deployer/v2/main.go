@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
@@ -43,13 +42,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	osimagev1 "github.com/openshift/api/image/v1"
-	routev1 "github.com/openshift/api/route/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"net/http"
@@ -62,8 +57,6 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -86,9 +79,7 @@ func init() {
 	utilruntime.Must(olmv1.AddToScheme(scheme))
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
-	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
@@ -129,11 +120,10 @@ func main() {
 			&corev1.PersistentVolumeClaim{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			&appsv1.Deployment{}: {
+			&corev1.ConfigMap{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			// batchv1beta1 forOpenshift 4.6; kubernetes 1.19
-			&batchv1beta1.CronJob{}: {
+			&appsv1.Deployment{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&batchv1.Job{}: {
@@ -146,24 +136,6 @@ func main() {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&marketplacev1alpha1.RemoteResourceS3{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
-			&routev1.Route{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
-			&osappsv1.DeploymentConfig{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
-			&osimagev1.ImageStream{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
-			&operatorsv1alpha1.CatalogSource{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": utils.OPERATOR_MKTPLACE_NS}),
-			},
-			&monitoringv1.Prometheus{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
-			&monitoringv1.ServiceMonitor{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
@@ -200,97 +172,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	/*
-		if err = (&controllers.DeploymentConfigReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.MeterDefinitionInstallReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.ClusterRegistrationReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("ClusterRegistration"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ClusterRegistration")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.ClusterServiceVersionReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersion"),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ClusterServiceVersion")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.MarketplaceConfigReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MarketplaceConfig")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.MeterBaseReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("MeterBase"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MeterBase")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.DataServiceReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("DataService"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DataService")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.MeterDefinitionReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("MeterDefinition"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MeterDefinition")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.MeterReportReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("MeterReport"),
-			Scheme: mgr.GetScheme(),
-		}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MeterReport")
-			os.Exit(1)
-		}
-
-		if err = (&controllers.RHMSubscriptionController{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("RHMSubscription"),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "RHMSubscription")
-			os.Exit(1)
-		}
-	*/
 	if err = (&controllers.RazeeDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
@@ -309,39 +190,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	/*
-		if err = (&controllers.SubscriptionReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("SubscriptionReconciler"),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "SubscriptionReconciler")
-			os.Exit(1)
-		}
-	*/
-
-	if err = (&runnables.PodMonitor{
-		Logger: ctrl.Log.WithName("controllers").WithName("PodMonitor"),
-		Client: mgr.GetClient(),
-	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
-		os.Exit(1)
-	}
-
 	doneChan := make(chan struct{})
-
-	/*
-		reportCreatorReconciler := &controllers.MeterReportCreatorReconciler{
-			Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}
-		reportCreatorReconciler.Inject(injector)
-		if err := reportCreatorReconciler.SetupWithManager(mgr, doneChan); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
-			os.Exit(1)
-		}
-	*/
 
 	// +kubebuilder:scaffold:builder
 
