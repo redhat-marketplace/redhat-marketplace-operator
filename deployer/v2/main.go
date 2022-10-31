@@ -146,7 +146,7 @@ func main() {
 		MetricsBindAddress:     metricsAddr,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "deployer.marketplace.redhat.com",
+		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
 		NewCache:               newCacheFunc,
 	}
 
