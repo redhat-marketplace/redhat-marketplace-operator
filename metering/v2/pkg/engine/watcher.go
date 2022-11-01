@@ -301,6 +301,7 @@ func provideMeterDefinitionListerRunnable(
 	ns string,
 	c *marketplacev1beta1client.MarketplaceV1beta1Client,
 	store cache.Store,
+	kubeClient clientset.Interface,
 ) *MeterDefinitionListerRunnable {
 	return &MeterDefinitionListerRunnable{
 		ListerRunnable: ListerRunnable{
@@ -308,8 +309,9 @@ func provideMeterDefinitionListerRunnable(
 				expectedType: &v1beta1.MeterDefinition{},
 				lister:       CreateMeterDefinitionV1Beta1Watch(c),
 			},
-			namespace: ns,
-			Store:     store,
+			namespace:  ns,
+			Store:      store,
+			kubeClient: kubeClient,
 		},
 	}
 }

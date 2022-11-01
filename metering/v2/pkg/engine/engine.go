@@ -26,6 +26,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
+	authv1beta1 "k8s.io/api/authorization/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,13 +85,35 @@ type ListerRunnable struct {
 	reflectorConfig
 	namespace  string
 	cancelFunc context.CancelFunc
-
-	Store cache.Store
+	kubeClient clientset.Interface
+	Store      cache.Store
 }
 
 func (p *ListerRunnable) Start(ctx context.Context) error {
 	if p.Store == nil {
 		return errors.New("cache is nil")
+	}
+
+	sar := &authv1beta1.SubjectAccessReview{
+
+		Spec: authv1beta1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authv1beta1.ResourceAttributes{
+				Verb:     "get,list,watch",
+				Group:    p.expectedType.GetObjectKind().GroupVersionKind().Group,
+				Resource: p.expectedType.GetObjectKind().GroupVersionKind().Kind,
+				Version:  p.expectedType.GetObjectKind().GroupVersionKind().Version,
+			},
+		},
+	}
+
+	opts := metav1.CreateOptions{}
+	review, err := p.kubeClient.AuthorizationV1beta1().SubjectAccessReviews().Create(ctx, sar, opts)
+	if err != nil {
+		return err
+	}
+
+	if review.Status.Denied {
+		return errors.New("could not get access to object")
 	}
 
 	var localCtx context.Context
@@ -168,7 +192,7 @@ func ProvideMeterDefinitionDictionaryStoreRunnable(
 	runnables := []Runnable{}
 
 	for _, ns := range nses {
-		runnables = append(runnables, provideMeterDefinitionListerRunnable(ns, c, store))
+		runnables = append(runnables, provideMeterDefinitionListerRunnable(ns, c, store, kubeClient))
 	}
 
 	return &MeterDefinitionDictionaryStoreRunnable{
