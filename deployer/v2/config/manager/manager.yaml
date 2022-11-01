@@ -8,7 +8,7 @@ metadata:
   annotations:
     reporterImage: 
     metricStateImage: 
-    authcheckImage: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1667309584
+    authcheckImage: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1667327768
 spec:
   selector:
     matchLabels:
@@ -42,7 +42,7 @@ spec:
         - name: manager
           args:
             - --enable-leader-election
-          image: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-operator:tag-1667309584
+          image: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-operator:tag-1667327768
           resources:
             requests:
               cpu: 100m
@@ -66,7 +66,7 @@ spec:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
             - name: RELATED_IMAGE_AUTHCHECK
-              value: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1667309584
+              value: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1667327768
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

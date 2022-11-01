@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -48,14 +46,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
@@ -394,51 +388,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			}
 			return result.Return()
 		}
-	} else if condition := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled); condition != nil {
-		if userWorkloadMonitoringEnabled != instance.Status.Conditions.IsTrueFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
-			// If UWM setting has changed vs. current status condition, mark as transitioning
-			if condition.Reason != marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning {
-				if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-					Status:  condition.Status,
-					Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning,
-					Message: marketplacev1alpha1.MessageUserWorkloadMonitoringTransitioning,
-				})); result.Is(Error) || result.Is(Requeue) {
-					if err != nil {
-						return result.ReturnWithError(errors.Wrap(err, "error updating status"))
-					}
-					return result.Return()
-				}
-			}
-		} else {
-			// Update UWM status
-			if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
-				instance,
-				userWorkloadMonitoringEnabledSpec,
-				userWorkloadMonitoringEnabledOnCluster,
-				userWorkloadConfigurationIsValid,
-				userWorkloadErr,
-			); result.Is(Error) || result.Is(Requeue) {
-				if err != nil {
-					return result.ReturnWithError(errors.Wrap(err, "error updating status"))
-				}
-				return result.Return()
-			}
-		}
-	}
-
-	// Determine state of UWM transition
-	transitionTimeExpired := false
-	var transitionTimeLeft time.Duration
-	if condition := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled); condition != nil {
-		if condition.Reason == marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning {
-			afterOneDay := condition.LastTransitionTime.Add(r.cfg.MeterBaseValues.TransitionTime)
-			if time.Now().UTC().After(afterOneDay) {
-				transitionTimeExpired = true
-				transitionTimeLeft = time.Now().UTC().Sub(afterOneDay)
-			}
-		}
-	}
+	} 
 
 	message = "Meter Base install started"
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
@@ -460,96 +410,43 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	// Install Objects
 	// ---
 	//
-	if userWorkloadMonitoringEnabled && transitionTimeExpired {
-		// Remove RHM Prom, transitionTime has expired
-		if result, _ := cc.Do(context.TODO(),
-			Do(r.uninstallPrometheusOperator(instance)...),
-			Do(r.uninstallPrometheus(instance)...),
-		); !result.Is(Continue) {
-			if result.Is(Error) {
-				reqLogger.Error(result, "error in reconcile")
-				return result.ReturnWithError(errors.Wrap(result, "error uninstalling prometheus"))
-			}
 
-			reqLogger.Info("returning result from prometheus uninstall", "result", *result)
-			return result.Return()
+	// Uninstall old Prom
+	if result, _ := cc.Do(context.TODO(),
+		Do(r.uninstallPrometheusOperator(instance)...),
+		Do(r.uninstallPrometheus(instance)...),
+	); !result.Is(Continue) {
+		if result.Is(Error) {
+			reqLogger.Error(result, "error in reconcile")
+			return result.ReturnWithError(errors.Wrap(result, "error uninstalling prometheus"))
 		}
+
+		reqLogger.Info("returning result from prometheus uninstall", "result", *result)
+		return result.Return()
+	}
+	
+
+	// Openshift provides Prometheus
+	if result, _ := cc.Do(context.TODO(),
+		Do(r.checkUWMDefaultStorageClassPrereq(instance)...),
+		Do(r.installPrometheusServingCertsCABundle()...),
+		Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
+		Do(r.installUserWorkloadMonitoring(instance)...),
+	); !result.Is(Continue) {
+		if result.Is(Error) {
+			reqLogger.Error(result, "error in reconcile")
+			return result.ReturnWithError(errors.Wrap(result, "error creating metric-state"))
+		}
+
+		reqLogger.Info("returning result from openshift provides prometheus", "result", *result)
+		return result.Return()
 	}
 
-	promStsNamespacedName := types.NamespacedName{}
-	if userWorkloadMonitoringEnabled {
-		// Openshift provides Prometheus
-		if result, _ := cc.Do(context.TODO(),
-			Do(r.checkUWMDefaultStorageClassPrereq(instance)...),
-			Do(r.installPrometheusServingCertsCABundle()...),
-			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
-			Do(r.installUserWorkloadMonitoring(instance)...),
-		); !result.Is(Continue) {
-			if result.Is(Error) {
-				reqLogger.Error(result, "error in reconcile")
-				return result.ReturnWithError(errors.Wrap(result, "error creating metric-state"))
-			}
-
-			reqLogger.Info("returning result from openshift provides prometheus", "result", *result)
-			return result.Return()
-		}
-
-		promStsNamespacedName = types.NamespacedName{
-			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME,
-		}
-	} else { // if userWorkload is not enabled
-		// RHM provides Prometheus
-
-		// Only reconcile RHM Prometheus if this is an upgrade which is currently using RHM Prometheus
-		// Decide by whether prometheus-operator deployment already exists
-		prometheusOperatorDeployment := &appsv1.Deployment{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_PROMETHEUS_OPERATOR_NAME, Namespace: request.Namespace}, prometheusOperatorDeployment)
-		if err != nil && !kerrors.IsNotFound(err) {
-			reqLogger.Error(err, "Failed to get prometheus-operator deployment")
-			return reconcile.Result{}, err
-		} else if kerrors.IsNotFound(err) { // Deployment does not exist, assume new installation
-			// event message RHM Prom is deprecated, uwm is required
-			reqLogger.Error(fmt.Errorf(PROM_DEP_NEW_WARNING_MSG), PROM_DEP_NEW_WARNING_MSG)
-			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", PROM_DEP_NEW_WARNING_MSG)
-		} else { // Deployment exists, this is an upgrade
-			// event message RHM Prom is deprecated
-			reqLogger.Info(PROM_DEP_UPGRADE_WARNING_MSG)
-			r.recorder.Event(instance, "Warning", "PrometheusDeprecated", PROM_DEP_UPGRADE_WARNING_MSG)
-
-			// Leave additionalConfigSecret nil if v4.6+
-			var cfg *corev1.Secret
-			if !r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-				cfg = &corev1.Secret{}
-			}
-
-			prometheus := &monitoringv1.Prometheus{}
-			if result, _ := cc.Do(context.TODO(),
-				Do(r.installPrometheusServingCertsCABundle()...),
-				Do(r.reconcilePrometheusOperator(instance)...),
-				Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
-				Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
-				Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
-				Do(r.verifyPVCSize(reqLogger, instance, prometheus)...),
-				Do(r.recyclePrometheusPods(reqLogger, instance, prometheus)...),
-				Do(r.uninstallUserWorkloadMonitoring()...),
-			); !result.Is(Continue) {
-				if result.Is(Error) {
-					reqLogger.Error(result, "error in reconcile")
-					return result.ReturnWithError(errors.Wrap(result, "error creating prometheus"))
-				}
-
-				reqLogger.Info("returning result from prometheus install", "result", *result)
-				return result.Return()
-			}
-
-			promStsNamespacedName = types.NamespacedName{
-				Namespace: prometheus.Namespace,
-				Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
-			}
-		}
+	promStsNamespacedName := types.NamespacedName{
+		Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+		Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME,
 	}
-
+	
 	// ----
 	// Update our status
 	// ----
@@ -611,21 +508,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return result.Return()
 	}
 
-	// Update uwm status
-	if transitionTimeExpired {
-		if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
-			instance,
-			userWorkloadMonitoringEnabledSpec,
-			userWorkloadMonitoringEnabledOnCluster,
-			userWorkloadConfigurationIsValid,
-			userWorkloadErr,
-		); result.Is(Error) || result.Is(Requeue) {
-			if err != nil {
-				return result.ReturnWithError(errors.Wrap(err, "error updating status"))
-			}
-			return result.Return()
-		}
-	}
+
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -684,11 +567,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return result.Return()
 	}
 
-	if userWorkloadMonitoringEnabled && !transitionTimeExpired {
-		reqLogger.Info("userWorkloadEnabled: waiting for transitition time",
-			"transitionTimeExpired", transitionTimeExpired, "transitionTime", transitionTimeLeft)
-	}
-
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
@@ -717,64 +595,6 @@ func reconcileForMeterDef(deployedNamespace string, meterdefNamespace string, me
 }
 
 const promServiceName = "rhm-prometheus-meterbase"
-
-func (r *MeterBaseReconciler) reconcilePrometheusOperator(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
-	reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
-	nsList := &corev1.NamespaceList{}
-	deployment := &appsv1.Deployment{}
-	service := &corev1.Service{}
-
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:   instance,
-		Patcher: r.patcher,
-	}
-
-	nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      "openshift.io/cluster-monitoring",
-				Operator: "In",
-				Values:   []string{"true"},
-			},
-		},
-	})
-
-	return []ClientAction{
-		ListAction(nsList, client.MatchingLabelsSelector{
-			Selector: nsLabelSelector,
-		}),
-		manifests.CreateOrUpdateFactoryItemAction(
-			service,
-			func() (client.Object, error) {
-				obj, err := r.factory.NewPrometheusOperatorService()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			deployment,
-			func() (client.Object, error) {
-				nsValues := []string{}
-				for _, ns := range nsList.Items {
-					nsValues = append(nsValues, ns.Name)
-				}
-				sort.Strings(nsValues)
-				reqLogger.Info("found namespaces", "ns", nsValues)
-				obj, err := r.factory.NewPrometheusOperatorDeployment(nsValues)
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-	}
-}
 
 const tokenSecretName = "redhat-marketplace-service-account-token"
 
@@ -1102,319 +922,8 @@ var ignoreKubeStateList = []string{
 	"kube_statefulset.*",
 }
 
-func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
-	cc ClientCommandRunner,
-	instance *marketplacev1alpha1.MeterBase,
-	prometheus *monitoringv1.Prometheus,
-	additionalConfigSecret *corev1.Secret,
-) []ClientAction {
-	// to be removed
-	return []ClientAction{}
-}
 
-func (r *MeterBaseReconciler) reconcilePrometheus(
-	instance *marketplacev1alpha1.MeterBase,
-	prometheus *monitoringv1.Prometheus,
-	configSecret *corev1.Secret,
-) []ClientAction {
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:   instance,
-		Patcher: r.patcher,
-	}
 
-	dataSecret := &corev1.Secret{}
-	kubeletCertsCM := &corev1.ConfigMap{}
-
-	return []ClientAction{
-		manifests.CreateIfNotExistsFactoryItem(
-			&corev1.ConfigMap{},
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusServingCertsCABundle()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-		),
-		manifests.CreateIfNotExistsFactoryItem(
-			dataSecret,
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusDatasources()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			}),
-		manifests.CreateIfNotExistsFactoryItem(
-			&corev1.Secret{},
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusProxySecret()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			}),
-		manifests.CreateIfNotExistsFactoryItem(
-			&corev1.Secret{},
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusRBACProxySecret()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			&monitoringv1.ServiceMonitor{},
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusServiceMonitor()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			&marketplacev1beta1.MeterDefinition{},
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusMeterDefinition()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		HandleResult(manifests.CreateIfNotExistsFactoryItem(
-			&corev1.Secret{},
-			func() (client.Object, error) {
-				data, ok := dataSecret.Data["basicAuthSecret"]
-
-				if !ok {
-					return nil, errors.New("basicAuthSecret not on data")
-				}
-
-				obj, err := r.factory.PrometheusHtpasswdSecret(string(data))
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			}),
-			OnError(RequeueResponse()),
-		),
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE, Name: utils.KUBELET_SERVING_CA_BUNDLE_NAME},
-				kubeletCertsCM,
-			),
-			OnNotFound(Call(func() (ClientAction, error) {
-				return nil, errors.New("require kubelet-serving configmap is not found")
-			})),
-			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
-				&corev1.ConfigMap{},
-				func() (client.Object, error) {
-					return r.factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["ca-bundle.crt"])
-				},
-				args,
-			))),
-
-		manifests.CreateOrUpdateFactoryItemAction(
-			&corev1.Service{},
-			func() (client.Object, error) {
-				obj, err := r.factory.PrometheusService(instance.Name)
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args),
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
-				prometheus,
-			),
-			OnNotFound(Call(r.createPrometheus(instance, configSecret))),
-			OnContinue(
-				Call(func() (ClientAction, error) {
-					expectedPrometheus, err := r.newPrometheusOperator(instance, configSecret)
-
-					if orig, _ := r.patcher.GetOriginalConfiguration(prometheus); orig == nil {
-						data, _ := r.patcher.GetModifiedConfiguration(prometheus, false)
-						r.patcher.SetOriginalConfiguration(prometheus, data)
-					}
-
-					patch, err := r.patcher.Calculate(prometheus, expectedPrometheus)
-					if err != nil {
-						return nil, errors.Wrap(err, "error creating patch")
-					}
-
-					if patch.IsEmpty() {
-						return nil, nil
-					}
-
-					err = r.patcher.SetLastAppliedAnnotation(expectedPrometheus)
-					if err != nil {
-						return nil, errors.Wrap(err, "error creating patch")
-					}
-
-					patch, err = r.patcher.Calculate(prometheus, expectedPrometheus)
-					if err != nil {
-						return nil, errors.Wrap(err, "error creating patch")
-					}
-
-					if patch.IsEmpty() {
-						return nil, nil
-					}
-
-					jsonPatch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(patch.Original, patch.Modified, patch.Current)
-					if err != nil {
-						return nil, errors.Wrap(err, "Failed to generate merge patch")
-					}
-
-					updateResult := &ExecResult{}
-
-					return HandleResult(
-						StoreResult(
-							updateResult,
-							UpdateWithPatchAction(prometheus, types.MergePatchType, jsonPatch),
-						),
-						OnRequeue(ContinueResponse()),
-						OnError(
-							Call(func() (ClientAction, error) {
-								return UpdateStatusCondition(
-									instance, &instance.Status.Conditions, status.Condition{
-										Type:    marketplacev1alpha1.ConditionError,
-										Status:  corev1.ConditionFalse,
-										Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-										Message: updateResult.Error(),
-									}), nil
-							})),
-					), nil
-				},
-				))),
-	}
-}
-
-func (r *MeterBaseReconciler) recyclePrometheusPods(
-	log logr.Logger,
-	instance *marketplacev1alpha1.MeterBase,
-	prometheusDeployment *monitoringv1.Prometheus,
-) []ClientAction {
-	pvcs := &corev1.PersistentVolumeClaimList{}
-
-	return []ClientAction{
-		Call(func() (ClientAction, error) {
-			return ListAction(pvcs, client.MatchingLabels{"prometheus": prometheusDeployment.Name}), nil
-		}),
-		Call(func() (ClientAction, error) {
-			if len(pvcs.Items) == 0 {
-				log.Info("no pvcs found")
-				return nil, nil
-			}
-
-			for _, item := range pvcs.Items {
-				for _, cond := range item.Status.Conditions {
-					if cond.Type == corev1.PersistentVolumeClaimFileSystemResizePending {
-						name := strings.Replace(item.Name, "prometheus-rhm-marketplaceconfig-meterbase-db-", "", -1)
-						log.Info("volume pending resize, restarting pod", "name", name)
-						pod := &corev1.Pod{}
-
-						return HandleResult(
-							GetAction(types.NamespacedName{Name: name, Namespace: instance.Namespace}, pod),
-							OnContinue(
-								HandleResult(
-									DeleteAction(pod),
-									OnAny(RequeueAfterResponse(10*time.Second))),
-							),
-						), nil
-					}
-				}
-			}
-
-			return nil, nil
-		}),
-	}
-}
-
-func (r *MeterBaseReconciler) verifyPVCSize(
-	log logr.Logger,
-	instance *marketplacev1alpha1.MeterBase,
-	prometheusDeployment *monitoringv1.Prometheus,
-) []ClientAction {
-	storageClass := &storagev1.StorageClass{}
-	pvcs := &corev1.PersistentVolumeClaimList{}
-
-	return []ClientAction{
-		Call(func() (ClientAction, error) {
-			return ListAction(pvcs, client.MatchingLabels{"prometheus": prometheusDeployment.Name}), nil
-		}),
-		HandleResult(
-			Call(func() (ClientAction, error) {
-				if len(pvcs.Items) == 0 {
-					log.Info("no pvcs found")
-					return nil, nil
-				}
-
-				for _, item := range pvcs.Items {
-					if item.Spec.StorageClassName == nil {
-						log.Info("storage class is nil, skipping")
-						continue
-					}
-
-					log.Info("storage class lookup", "name", *item.Spec.StorageClassName)
-					return GetAction(types.NamespacedName{Name: *item.Spec.StorageClassName}, storageClass), nil
-				}
-
-				return nil, nil
-			}),
-			OnContinue(Call(func() (ClientAction, error) {
-				if len(pvcs.Items) == 0 {
-					return nil, nil
-				}
-
-				if storageClass == nil {
-					return nil, nil
-				}
-
-				if storageClass.AllowVolumeExpansion == nil ||
-					(storageClass.AllowVolumeExpansion != nil && *storageClass.AllowVolumeExpansion != true) {
-					log.Info("storage class does not allow for expansion", "storageClass", storageClass.String())
-					return nil, nil
-				}
-
-				if prometheusDeployment.Spec.Storage == nil ||
-					prometheusDeployment.Spec.Storage.VolumeClaimTemplate.Spec.Resources.Requests.Storage() == nil {
-					log.Info("prometheusDeployment Storage not defined")
-					return nil, nil
-				}
-
-				actions := []ClientAction{}
-				promDefinedStorage := prometheusDeployment.Spec.Storage.VolumeClaimTemplate.Spec.Resources.Requests.Storage()
-
-				for _, item := range pvcs.Items {
-					switch item.Spec.Resources.Requests.Storage().Cmp(*promDefinedStorage) {
-					case 0:
-						fallthrough
-					case 1:
-						log.Info("pvc size is not different", "oldSize", item.Spec.Resources.Requests.Storage().String(), "newSize", promDefinedStorage.String())
-						continue
-					default:
-					}
-
-					localItem := item.DeepCopy()
-					log.Info("pvc size is different", "oldSize", localItem.Spec.Resources.Requests.Storage().String(), "newSize", promDefinedStorage.String())
-					localItem.Spec.Resources.Requests = corev1.ResourceList{
-						corev1.ResourceStorage: *promDefinedStorage,
-					}
-					actions = append(actions, UpdateAction(localItem))
-				}
-
-				return Do(actions...), nil
-			})),
-		),
-	}
-}
 
 func (r *MeterBaseReconciler) uninstallMetricState(
 	instance *marketplacev1alpha1.MeterBase,
@@ -1546,133 +1055,26 @@ func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
 	}
 }
 
-func (r *MeterBaseReconciler) reconcilePrometheusService(
-	instance *marketplacev1alpha1.MeterBase,
-	service *corev1.Service,
-) []ClientAction {
-	newService := r.serviceForPrometheus(instance, 9090)
-	return []ClientAction{
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
-				service,
-			),
-			OnNotFound(CreateAction(newService, CreateWithAddController(instance)))),
-	}
-}
 
-func (r *MeterBaseReconciler) createPrometheus(
-	instance *marketplacev1alpha1.MeterBase,
-	configSecret *corev1.Secret,
-) func() (ClientAction, error) {
-	return func() (ClientAction, error) {
-		newProm, err := r.newPrometheusOperator(instance, configSecret)
-		createResult := &ExecResult{}
 
-		if err != nil {
-			if errors.Is(err, operrors.DefaultStorageClassNotFound) {
-				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
-
-				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionError,
-					Status:  corev1.ConditionFalse,
-					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-					Message: err.Error(),
-				}), nil
-			}
-			return nil, errors.Wrap(err, "error creating prometheus")
-		}
-
-		return HandleResult(
-			StoreResult(
-				createResult, CreateAction(
-					newProm,
-					CreateWithAddController(instance),
-					CreateWithPatch(r.patcher),
-				)),
-			OnError(
-				Call(func() (ClientAction, error) {
-					return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-						Type:    marketplacev1alpha1.ConditionError,
-						Status:  corev1.ConditionFalse,
-						Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-						Message: createResult.Error(),
-					}), nil
-				})),
-			OnRequeue(
-				UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionInstalling,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-					Message: "created prometheus",
-				})),
-		), nil
-	}
-}
 
 func (r *MeterBaseReconciler) newPrometheusOperator(
 	cr *marketplacev1alpha1.MeterBase,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
-	prom, err := r.factory.NewPrometheusDeployment(cr, cfg)
+	//prom, err := r.factory.NewPrometheusDeployment(cr, cfg)
 
-	r.factory.SetOwnerReference(cr, prom)
-
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class == nil {
-		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
-		if err != nil {
-			return prom, err
-		}
-		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(defaultClass)
-	}
-
-	return prom, err
+	prom :=monitoringv1.Prometheus{}
+	prom.Name = utils.METERBASE_PROMETHEUS_OPERATOR_NAME
+	prom.Namespace = cr.GetNamespace()
+	
+	return &prom, nil
 }
 
-// serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.
-func (r *MeterBaseReconciler) serviceForPrometheus(
-	cr *marketplacev1alpha1.MeterBase,
-	port int32) *corev1.Service {
-	ser := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"prometheus": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "web",
-					Port:       port,
-					TargetPort: intstr.FromString("web"),
-				},
-			},
-			ClusterIP: "None",
-		},
-	}
-	return ser
-}
 
-func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
-	int, err := utils.LoadYAML(filename, corev1.ConfigMap{})
-	if err != nil {
-		return nil, err
-	}
 
-	cfg := (int).(*corev1.ConfigMap)
-	cfg.Namespace = cr.Namespace
-	cfg.Name = cr.Name
 
-	return cfg, nil
-}
 
-// labelsForPrometheusOperator returns the labels for selecting the resources
-// belonging to the given prometheus CR name.
-func labelsForPrometheusOperator(name string) map[string]string {
-	return map[string]string{"prometheus": name}
-}
 
 func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool, isDisconnected bool) (reconcile.Result, error) {
 	cronJob, err := r.factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)
