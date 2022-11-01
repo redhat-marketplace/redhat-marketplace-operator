@@ -8,15 +8,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - namespaces
   verbs:
   - get
@@ -98,6 +89,7 @@ rules:
   - ""
   resourceNames:
   - clustersubscription
+  - rhm-cos-reader-key
   - rhm-operator-secret
   - watch-keeper-secret
   resources:
