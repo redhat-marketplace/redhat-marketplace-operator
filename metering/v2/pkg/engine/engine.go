@@ -26,7 +26,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	authv1beta1 "k8s.io/api/authorization/v1beta1"
+
+	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -94,11 +95,10 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 		return errors.New("cache is nil")
 	}
 
-	sar := &authv1beta1.SubjectAccessReview{
-
-		Spec: authv1beta1.SubjectAccessReviewSpec{
-			ResourceAttributes: &authv1beta1.ResourceAttributes{
-				Verb:     "get,list,watch",
+	sar := &authv1.SubjectAccessReview{
+		Spec: authv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authv1.ResourceAttributes{
+				// Verb:     "get,list,watch",
 				Group:    p.expectedType.GetObjectKind().GroupVersionKind().Group,
 				Resource: p.expectedType.GetObjectKind().GroupVersionKind().Kind,
 				Version:  p.expectedType.GetObjectKind().GroupVersionKind().Version,
@@ -106,8 +106,12 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 		},
 	}
 
+	if p.kubeClient == nil {
+		return errors.New("kubeclient is nil")
+	}
+
 	opts := metav1.CreateOptions{}
-	review, err := p.kubeClient.AuthorizationV1beta1().SubjectAccessReviews().Create(ctx, sar, opts)
+	review, err := p.kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, opts)
 	if err != nil {
 		return err
 	}

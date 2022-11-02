@@ -204,7 +204,7 @@ func ProvideMeterDefinitionStoreListWatchers(
 			return provideServiceListerRunnable(kubeClient, ns, store)
 		},
 		reflect.TypeOf(&monitoringv1.ServiceMonitor{}): func(ns string) RunAndStop {
-			return provideServiceMonitorListerRunnable(c, ns, store)
+			return provideServiceMonitorListerRunnable(c, ns, store, kubeClient)
 		},
 	}
 }
@@ -224,8 +224,9 @@ func providePVCLister(
 				expectedType: &corev1.PersistentVolumeClaim{},
 				lister:       CreatePVCListWatch(kubeClient),
 			},
-			Store:     store,
-			namespace: ns,
+			Store:      store,
+			namespace:  ns,
+			kubeClient: kubeClient,
 		},
 	}
 }
@@ -245,8 +246,9 @@ func providePodListerRunnable(
 				expectedType: &corev1.Pod{},
 				lister:       CreatePodListWatch(kubeClient),
 			},
-			namespace: ns,
-			Store:     store,
+			namespace:  ns,
+			Store:      store,
+			kubeClient: kubeClient,
 		},
 	}
 }
@@ -266,8 +268,9 @@ func provideServiceListerRunnable(
 				expectedType: &corev1.Service{},
 				lister:       CreateServiceListWatch(kubeClient),
 			},
-			namespace: ns,
-			Store:     store,
+			namespace:  ns,
+			Store:      store,
+			kubeClient: kubeClient,
 		},
 	}
 }
@@ -280,6 +283,7 @@ func provideServiceMonitorListerRunnable(
 	c *monitoringv1client.MonitoringV1Client,
 	ns string,
 	store cache.Store,
+	kubeClient clientset.Interface,
 ) *ServiceMonitorListerRunnable {
 	return &ServiceMonitorListerRunnable{
 		ListerRunnable: ListerRunnable{
@@ -287,8 +291,9 @@ func provideServiceMonitorListerRunnable(
 				expectedType: &monitoringv1.ServiceMonitor{},
 				lister:       CreateServiceMonitorListWatch(c),
 			},
-			namespace: ns,
-			Store:     store,
+			namespace:  ns,
+			Store:      store,
+			kubeClient: kubeClient,
 		},
 	}
 }
