@@ -308,36 +308,34 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
-	result, _ := cc.Do(
-		context.TODO(),
-		HandleResult(
-			GetAction(
-				request.NamespacedName,
-				instance,
-			),
-		),
-	)
-
-	if !result.Is(Continue) {
-		if result.Is(NotFound) {
-			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+		if kerrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			reqLogger.Info("Resource not found. Ignoring since object must be deleted")
 			return reconcile.Result{}, nil
 		}
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-		}
-
-		return result.Return()
+		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "Failed to get MeterBase")
+		return reconcile.Result{}, err
 	}
 
+
 	// Remove finalizer used by previous versions, ownerref gc deletion is used for cleanup
-	if controllerutil.ContainsFinalizer(instance, utils.CONTROLLER_FINALIZER) {
-		controllerutil.RemoveFinalizer(instance, utils.CONTROLLER_FINALIZER)
-		if err := r.Client.Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "Failed to update MeterBase")
-			return reconcile.Result{}, err
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
 		}
+		if controllerutil.ContainsFinalizer(instance, utils.CONTROLLER_FINALIZER) {
+			controllerutil.RemoveFinalizer(instance, utils.CONTROLLER_FINALIZER)
+			if err := r.Client.Update(context.TODO(), instance); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// if instance.Enabled == false
@@ -555,7 +553,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		condition = marketplacev1alpha1.MeterBasePrometheusTargetBadHealth
 	}
 
-	result, _ = cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, condition))
+	result, _ := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, condition))
 	if result.Is(Error) {
 		reqLogger.Error(result.GetError(), "Failed to update status condition.")
 		return result.Return()
@@ -1295,6 +1293,8 @@ func updateUserWorkloadMonitoringEnabledStatus(
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
 ) (*ExecResult, error) {
+
+	
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
 		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
