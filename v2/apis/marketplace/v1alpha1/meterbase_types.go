@@ -260,4 +260,53 @@ var (
 		Reason:  ReasonMeterBasePrometheusTargetsHealthGood,
 		Message: "Prometheus activeTargets contains targets with HealthGood.",
 	}
+
+	UserWorkloadMonitoringEnabled = status.Condition{
+		Type:    ConditionUserWorkloadMonitoringEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonUserWorkloadMonitoringEnabled,
+		Message: MessageUserWorkloadMonitoringEnabled,
+	}
+
+	UserWorkloadMonitoringDisabledSpec = status.Condition{
+		Type:    ConditionUserWorkloadMonitoringEnabled,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonUserWorkloadMonitoringSpecDisabled,
+		Message: MessageUserWorkloadMonitoringSpecDisabled,
+	}
+
+	UserWorkloadMonitoringDisabledOnCluster = status.Condition{
+		Type:    ConditionUserWorkloadMonitoringEnabled,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonUserWorkloadMonitoringClusterDisabled,
+		Message: MessageUserWorkloadMonitoringClusterDisabled,
+	}
+
+	UserWorkloadMonitoringStorageConfigurationErr = status.Condition{
+		Type:   ConditionUserWorkloadMonitoringEnabled,
+		Status: corev1.ConditionFalse,
+		Reason: ReasonUserWorkloadMonitoringInsufficientStorage,
+		// Message: userWorkloadConfigurationErr.Error(),
+	}
+
+	UserWorkloadMonitoringRetentionTimeConfigurationErr = status.Condition{
+		Type:   ConditionUserWorkloadMonitoringEnabled,
+		Status: corev1.ConditionFalse,
+		Reason: ReasonUserWorkloadMonitoringRetentionTime,
+		// Message: userWorkloadConfigurationErr.Error(),
+	}
+
+	UserWorkloadMonitoringParseUserWorkloadConfigurationErr = status.Condition{
+		Type:   ConditionUserWorkloadMonitoringEnabled,
+		Status: corev1.ConditionFalse,
+		Reason: ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration,
+		// Message: userWorkloadConfigurationErr.Error(),
+	}
+
+	UserWorkloadMonitoringConfigNotFound = status.Condition{
+		Type:   ConditionUserWorkloadMonitoringEnabled,
+		Status: corev1.ConditionFalse,
+		Reason: ReasonUserWorkloadMonitoringConfigNotFound,
+		// Message: userWorkloadConfigurationErr.Error(),
+	}
 )

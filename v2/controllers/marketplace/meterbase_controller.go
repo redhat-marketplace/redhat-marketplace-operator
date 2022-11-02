@@ -372,21 +372,26 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	// userWorkloadMonitoringEnabled is considered enabled if the Spec,cluster configuration,and user workload config validation are satisfied
 	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigurationIsValid
 
-	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
-		// Set initial UWM status
-		if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
-			instance,
-			userWorkloadMonitoringEnabledSpec,
-			userWorkloadMonitoringEnabledOnCluster,
-			userWorkloadConfigurationIsValid,
-			userWorkloadErr,
-		); result.Is(Error) || result.Is(Requeue) {
-			if err != nil {
-				return result.ReturnWithError(errors.Wrap(err, "error updating status"))
-			}
-			return result.Return()
+	// set the condition of UserWorkloadMonitoring on Status
+	userWorkloadMonitoringCondition := getUserWorkloadMonitoringCondition(userWorkloadMonitoringEnabledSpec,
+		userWorkloadMonitoringEnabledOnCluster,
+		userWorkloadConfigurationIsValid,
+		userWorkloadErr)
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
 		}
-	} 
+		if instance.Status.Conditions.SetCondition(userWorkloadMonitoringCondition){
+			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
+
 
 	message = "Meter Base install started"
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
@@ -1285,91 +1290,49 @@ func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastruc
 	return false, nil
 }
 
-func updateUserWorkloadMonitoringEnabledStatus(
-	cc ClientCommandRunner,
-	instance *marketplacev1alpha1.MeterBase,
+func getUserWorkloadMonitoringCondition(
 	userWorkloadMonitoringEnabledSpec bool,
 	userWorkloadMonitoringEnabledOnCluster bool,
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
-) (*ExecResult, error) {
-
+) (status.Condition) {
+	var condition status.Condition
 	
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
-		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringEnabled,
-			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringEnabled,
-		}))
-		return result, err
+		condition = marketplacev1alpha1.UserWorkloadMonitoringEnabled
 	}
 
 	if !userWorkloadMonitoringEnabledSpec {
-		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-			Status:  corev1.ConditionFalse,
-			Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringSpecDisabled,
-			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringSpecDisabled,
-		}))
-		return result, err
+		condition = marketplacev1alpha1.UserWorkloadMonitoringDisabledSpec
 	}
 
 	if !userWorkloadMonitoringEnabledOnCluster {
-		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-			Status:  corev1.ConditionFalse,
-			Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringClusterDisabled,
-			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringClusterDisabled,
-		}))
-		return result, err
+		condition = marketplacev1alpha1.UserWorkloadMonitoringDisabledOnCluster
 	}
 
 	if !userWorkloadConfigurationSet && userWorkloadConfigurationErr != nil {
 		if errors.Is(userWorkloadConfigurationErr, ErrInsufficientStorageConfiguration) {
-			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringInsufficientStorage,
-				Message: userWorkloadConfigurationErr.Error(),
-			}))
-			return result, err
+			condition := marketplacev1alpha1.UserWorkloadMonitoringStorageConfigurationErr
+			condition.Message = userWorkloadConfigurationErr.Error()
 		}
 
 		if errors.Is(userWorkloadConfigurationErr, ErrRetentionTime) {
-			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringRetentionTime,
-				Message: userWorkloadConfigurationErr.Error(),
-			}))
-			return result, err
+			condition := marketplacev1alpha1.UserWorkloadMonitoringRetentionTimeConfigurationErr
+			condition.Message = userWorkloadConfigurationErr.Error()
 		}
 
 		if errors.Is(userWorkloadConfigurationErr, ErrParseUserWorkloadConfiguration) {
-			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringParseUserWorkloadConfiguration,
-				Message: userWorkloadConfigurationErr.Error(),
-			}))
-			return result, err
+			condition := marketplacev1alpha1.UserWorkloadMonitoringParseUserWorkloadConfigurationErr
+			condition.Message = userWorkloadConfigurationErr.Error()
 		}
 
 		if errors.Is(userWorkloadConfigurationErr, ErrUserWorkloadMonitoringConfigNotFound) {
-			result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-				Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
-				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringConfigNotFound,
-				Message: userWorkloadConfigurationErr.Error(),
-			}))
-			return result, err
+			condition := marketplacev1alpha1.UserWorkloadMonitoringConfigNotFound
+			condition.Message = userWorkloadConfigurationErr.Error()
 		}
 	}
 
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}, nil
+	return condition
 }
 
 // Return Prometheus ActiveTargets with HealthBad or Unknown status
