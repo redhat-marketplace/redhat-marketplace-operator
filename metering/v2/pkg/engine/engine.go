@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -104,10 +103,6 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 				Version:  p.expectedType.GetObjectKind().GroupVersionKind().Version,
 			},
 		},
-	}
-
-	if p.kubeClient == nil {
-		return errors.New("kubeclient is nil")
 	}
 
 	opts := metav1.CreateOptions{}
