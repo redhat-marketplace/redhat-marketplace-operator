@@ -309,4 +309,18 @@ var (
 		Reason: ReasonUserWorkloadMonitoringConfigNotFound,
 		// Message: userWorkloadConfigurationErr.Error(),
 	}
+
+	MeterBaseStartInstall = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonMeterBaseStartInstall,
+		Message: "MeterBase install started",
+	}
+
+	MeterBaseFinishInstall = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonMeterBaseFinishInstall,
+		Message: "MeterBase install complete",
+	}
 )

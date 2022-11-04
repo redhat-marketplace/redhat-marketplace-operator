@@ -99,7 +99,6 @@ type MeterBaseReconciler struct {
 	Client               client.Client
 	Scheme               *runtime.Scheme
 	Log                  logr.Logger
-	CC                   ClientCommandRunner
 	cfg                  *config.OperatorConfig
 	factory              *manifests.Factory
 	patcher              patch.Patcher
@@ -117,9 +116,8 @@ func (r *MeterBaseReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) e
 	return nil
 }
 
+// to be deleted
 func (r *MeterBaseReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.Log.Info("command runner")
-	r.CC = ccp
 	return nil
 }
 
@@ -218,11 +216,6 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
-			&source.Kind{Type: &monitoringv1.Prometheus{}},
-			&handler.EnqueueRequestForOwner{
-				OwnerType: &marketplacev1alpha1.MeterBase{}},
-			builder.WithPredicates(namespacePredicate)).
-		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(monitoringPred)).
@@ -304,8 +297,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
-	cc := r.CC
-
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
 	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
@@ -320,7 +311,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		reqLogger.Error(err, "Failed to get MeterBase")
 		return reconcile.Result{}, err
 	}
-
 
 	// Remove finalizer used by previous versions, ownerref gc deletion is used for cleanup
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -345,12 +335,11 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, nil
 	}
 
-	message := "Meter Base install starting"
 	if instance.Status.Conditions == nil {
 		instance.Status.Conditions = status.Conditions{}
 	}
 
-	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(cc, r.cfg.Infrastructure, reqLogger)
+	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(r.Client, r.cfg.Infrastructure, reqLogger)
 	if err != nil {
 		reqLogger.Error(err, "failed to get user workload monitoring")
 	}
@@ -364,7 +353,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
 
-	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(cc, reqLogger)
+	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(r.Client, reqLogger)
 	if userWorkloadErr != nil {
 		reqLogger.Info(userWorkloadErr.Error())
 	}
@@ -382,7 +371,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 			return err
 		}
-		if instance.Status.Conditions.SetCondition(userWorkloadMonitoringCondition){
+		if instance.Status.Conditions.SetCondition(userWorkloadMonitoringCondition) {
 			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
 				return err
 			}
@@ -392,20 +381,20 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, err
 	}
 
-
-	message = "Meter Base install started"
+	// Start Install Condition
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
-		if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
-			Message: message,
-		})); result.Is(Error) || result.Is(Requeue) {
-			if err != nil {
-				return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+				return err
 			}
-
-			return result.Return()
+			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.MeterBaseStartInstall) {
+				if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 
@@ -414,106 +403,24 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	// ---
 	//
 
-	// Uninstall old Prom
-	if result, _ := cc.Do(context.TODO(),
-		Do(r.uninstallPrometheusOperator(instance)...),
-		Do(r.uninstallPrometheus(instance)...),
-	); !result.Is(Continue) {
-		if result.Is(Error) {
-			reqLogger.Error(result, "error in reconcile")
-			return result.ReturnWithError(errors.Wrap(result, "error uninstalling prometheus"))
-		}
-
-		reqLogger.Info("returning result from prometheus uninstall", "result", *result)
-		return result.Return()
-	}
-	
-
-	// Openshift provides Prometheus
-	if result, _ := cc.Do(context.TODO(),
-		Do(r.checkUWMDefaultStorageClassPrereq(instance)...),
-		Do(r.installPrometheusServingCertsCABundle()...),
-		Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
-		Do(r.installUserWorkloadMonitoring(instance)...),
-	); !result.Is(Continue) {
-		if result.Is(Error) {
-			reqLogger.Error(result, "error in reconcile")
-			return result.ReturnWithError(errors.Wrap(result, "error creating metric-state"))
-		}
-
-		reqLogger.Info("returning result from openshift provides prometheus", "result", *result)
-		return result.Return()
+	// Uninstall old Prometheus
+	if err := r.uninstallPrometheus(instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
-	promStsNamespacedName := types.NamespacedName{
-		Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-		Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME,
-	}
-	
-	// ----
-	// Update our status
-	// ----
-
-	// Set status for prometheus
-	prometheusStatefulset := &appsv1.StatefulSet{}
-	if result, err := cc.Do(
-		context.TODO(),
-		GetAction(types.NamespacedName{
-			Namespace: instance.Namespace,
-			Name:      instance.Name,
-		}, instance),
-		HandleResult(
-			GetAction(promStsNamespacedName, prometheusStatefulset),
-			OnContinue(Call(func() (ClientAction, error) {
-				updatedInstance := instance.DeepCopy()
-				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.Replicas
-				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
-				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
-				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
-					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
-
-				var action ClientAction = nil
-
-				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
-
-				if !reflect.DeepEqual(updatedInstance.Status, instance.Status) {
-					reqLogger.Info("prometheus statefulset status is up to date")
-					return HandleResult(UpdateAction(updatedInstance, UpdateStatusOnly(true)), OnContinue(action)), nil
-				}
-
-				return action, nil
-			})),
-			OnNotFound(Call(func() (ClientAction, error) {
-				reqLogger.Info("can't find prometheus statefulset, requeuing")
-				return RequeueAfterResponse(30 * time.Second), nil
-			})),
-		),
-	); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(errors.Wrap(err, "error updating status"))
-		}
-
-		return result.Return()
+	if err := r.checkUWMDefaultStorageClassPrereq(instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
-	// Update final condition
-	message = "Meter Base install complete"
-	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionFalse,
-		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
-		Message: message,
-	})); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(errors.Wrap(err, "error creating service monitor"))
-		}
-
-		return result.Return()
+	if err := r.installMetricStateDeployment(instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
+	if err := r.installUserWorkloadMonitoring(instance); err != nil {
+		return reconcile.Result{}, err
+	}
 
-
-	// Fetch the MarketplaceConfig instance
+	// Fetch the MarketplaceConfig instance for isDisconnected state
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: request.Namespace}, marketplaceConfig)
 	if err != nil {
@@ -545,8 +452,48 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		}
 	}
 
+	// ----
+	// Update Status
+	// ----
+
+	// Set status on meterbase reflecting user workload monitoring prometheus
+	prometheusStatefulSet := &appsv1.StatefulSet{}
+	promStsNamespacedName := types.NamespacedName{
+		Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+		Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME,
+	}
+
+	if err := r.Client.Get(context.TODO(), promStsNamespacedName, prometheusStatefulSet); kerrors.IsNotFound(err) {
+		reqLogger.Info("can't find user workload monitoring prometheus statefulset, requeuing")
+		return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
+		}
+
+		if *instance.Status.Replicas != prometheusStatefulSet.Status.Replicas ||
+			*instance.Status.UpdatedReplicas != prometheusStatefulSet.Status.UpdatedReplicas ||
+			*instance.Status.AvailableReplicas != prometheusStatefulSet.Status.ReadyReplicas {
+			instance.Status.Replicas = &prometheusStatefulSet.Status.Replicas
+			instance.Status.UpdatedReplicas = &prometheusStatefulSet.Status.UpdatedReplicas
+			instance.Status.AvailableReplicas = &prometheusStatefulSet.Status.ReadyReplicas
+			instance.Status.UnavailableReplicas = ptr.Int32(
+				prometheusStatefulSet.Status.CurrentReplicas - prometheusStatefulSet.Status.ReadyReplicas)
+
+			return r.Client.Update(context.TODO(), instance)
+		}
+
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Provide Status on Prometheus ActiveTargets
-	targets, err := r.healthBadActiveTargets(cc, userWorkloadMonitoringEnabled, reqLogger)
+	targets, err := r.healthBadActiveTargets(userWorkloadMonitoringEnabled, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -558,16 +505,33 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		condition = marketplacev1alpha1.MeterBasePrometheusTargetBadHealth
 	}
 
-	result, _ := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, condition))
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to update status condition.")
-		return result.Return()
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
+		}
+		if instance.Status.Conditions.SetCondition(condition) {
+			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
 	}
 
-	result, _ = cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true)))
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to update status targets.")
-		return result.Return()
+	// Finish Install Condition
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
+		}
+		if instance.Status.Conditions.SetCondition(marketplacev1alpha1.MeterBaseFinishInstall) {
+			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("finished reconciling")
@@ -651,249 +615,98 @@ func (r *MeterBaseReconciler) createTokenSecret(instance *marketplacev1alpha1.Me
 
 func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
-	userWorkoadMonitoring bool,
-) []ClientAction {
-	pod := &corev1.Pod{}
+) error {
+
 	secret := &corev1.Secret{}
-	secretList := &corev1.SecretList{}
-	metricStateDeployment := &appsv1.Deployment{}
-	metricStateService := &corev1.Service{}
-	metricStateServiceMonitor := &monitoringv1.ServiceMonitor{}
-	metricStateMeterDefinition := &marketplacev1beta1.MeterDefinition{}
-	kubeStateMetricsService := &corev1.Service{}
-	reporterMeterDefinition := &marketplacev1beta1.MeterDefinition{}
+	secret.Name = "dacdebug TBD"
 
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:   instance,
-		Patcher: r.patcher,
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.MetricStateDeployment()
+	}); err != nil {
+		return err
 	}
 
-	secretAction := Do(
-		HandleResult(
-			ListAction(
-				secretList, client.InNamespace(r.cfg.DeployedNamespace), client.MatchingLabels{
-					"name": "redhat-marketplace-service-account-token",
-				}),
-			OnContinue(Call(func() (ClientAction, error) {
-				if secretList == nil || len(secretList.Items) == 0 {
-					return manifests.CreateIfNotExistsFactoryItem(secret, func() (client.Object, error) {
-						return r.factory.ServiceAccountPullSecret()
-					}, CreateWithAddOwner(pod)), nil
-				}
-
-				if len(secretList.Items) > 1 {
-					actions := []ClientAction{}
-
-					for _, secret := range secretList.Items {
-						actions = append(actions, DeleteAction(&secret))
-					}
-
-					return Do(actions...), nil
-				}
-
-				secret = &secretList.Items[0]
-
-				secretMapHandler.AddOrUpdate(
-					types.NamespacedName{
-						Name:      secret.Name,
-						Namespace: secret.Namespace,
-					},
-					types.NamespacedName{
-						Name:      instance.Name,
-						Namespace: instance.Namespace,
-					},
-				)
-				return nil, nil
-			}))),
-		Call(func() (ClientAction, error) {
-			if secret == nil {
-				return nil, errors.New("secret -l name=redhat-marketplace-service-account-token secret not found")
-			}
-
-			secretMapHandler.AddOrUpdate(
-				types.NamespacedName{
-					Name:      secret.Name,
-					Namespace: secret.Namespace,
-				},
-				types.NamespacedName{
-					Name:      instance.Name,
-					Namespace: instance.Namespace,
-				},
-			)
-
-			return nil, nil
-		}),
-	)
-
-	actions := []ClientAction{
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: r.cfg.DeployedNamespace, Name: r.cfg.DeployedPodName},
-				pod,
-			),
-			OnNotFound(ReturnWithError(errors.New("pod not found")))),
-		secretAction,
-		manifests.CreateOrUpdateFactoryItemAction(
-			metricStateDeployment,
-			func() (client.Object, error) {
-				obj, err := r.factory.MetricStateDeployment()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			metricStateService,
-			func() (client.Object, error) {
-				obj, err := r.factory.MetricStateService()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			metricStateServiceMonitor,
-			func() (client.Object, error) {
-				obj, err := r.factory.MetricStateServiceMonitor(&secret.Name)
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			metricStateMeterDefinition,
-			func() (client.Object, error) {
-				obj, err := r.factory.MetricStateMeterDefinition()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			kubeStateMetricsService,
-			func() (client.Object, error) {
-				obj, err := r.factory.KubeStateMetricsService()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			reporterMeterDefinition,
-			func() (client.Object, error) {
-				obj, err := r.factory.ReporterMeterDefinition()
-				if err == nil {
-					r.factory.SetControllerReference(instance, obj)
-				}
-				return obj, err
-			},
-			args,
-		),
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.MetricStateService()
+	}); err != nil {
+		return err
 	}
 
-	kubeStateMetricsServiceMonitor := &monitoringv1.ServiceMonitor{}
-	kubeletServiceMonitor := &monitoringv1.ServiceMonitor{}
-
-	if !userWorkoadMonitoring {
-		actions = append(actions,
-			secretAction,
-			manifests.CreateOrUpdateFactoryItemAction(
-				kubeStateMetricsServiceMonitor,
-				func() (client.Object, error) {
-					obj, err := r.factory.KubeStateMetricsServiceMonitor(&secret.Name)
-					if err == nil {
-						r.factory.SetControllerReference(instance, obj)
-					}
-					return obj, err
-				},
-				args,
-			),
-			manifests.CreateOrUpdateFactoryItemAction(
-				kubeletServiceMonitor,
-				func() (client.Object, error) {
-					obj, err := r.factory.KubeletServiceMonitor(&secret.Name)
-					if err == nil {
-						r.factory.SetControllerReference(instance, obj)
-					}
-					return obj, err
-				},
-				args,
-			),
-		)
-	} else {
-		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor(nil)
-		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor(nil)
-
-		actions = append(actions,
-			HandleResult(
-				GetAction(types.NamespacedName{Namespace: kubeStateMetricsServiceMonitor.Namespace, Name: kubeStateMetricsServiceMonitor.Name}, kubeStateMetricsServiceMonitor),
-				OnContinue(DeleteAction(kubeStateMetricsServiceMonitor))),
-			HandleResult(
-				GetAction(types.NamespacedName{Namespace: kubeletServiceMonitor.Namespace, Name: kubeletServiceMonitor.Name}, kubeletServiceMonitor),
-				OnContinue(DeleteAction(kubeletServiceMonitor))),
-		)
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.MetricStateServiceMonitor(&secret.Name)
+	}); err != nil {
+		return err
 	}
 
-	return actions
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.MetricStateMeterDefinition()
+	}); err != nil {
+		return err
+	}
+
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.KubeStateMetricsService()
+	}); err != nil {
+		return err
+	}
+
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.ReporterMeterDefinition()
+	}); err != nil {
+		return err
+	}
+
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.KubeStateMetricsServiceMonitor()
+	}); err != nil {
+		return err
+	}
+
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.KubeletServiceMonitor()
+	}); err != nil {
+		return err
+	}
+
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.PrometheusServingCertsCABundle()
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Record a DefaultClassNotFound Event, but do not err
 // User could possibly, but less likely, set up UWM storage without a default
-func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
-	return []ClientAction{
-		Call(func() (ClientAction, error) {
-			_, err := utils.GetDefaultStorageClass(r.Client)
-			if err != nil {
-				if errors.Is(err, operrors.DefaultStorageClassNotFound) {
-					r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
-				} else {
-					return nil, err
-				}
-			}
-			return nil, nil
-		})}
+func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(instance *marketplacev1alpha1.MeterBase) error {
+	_, err := utils.GetDefaultStorageClass(r.Client)
+	if err != nil {
+		if errors.Is(err, operrors.DefaultStorageClassNotFound) {
+			r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
-func (r *MeterBaseReconciler) installUserWorkloadMonitoring(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
-	serviceMonitor := &monitoringv1.ServiceMonitor{}
-	meterDefinition := &marketplacev1beta1.MeterDefinition{}
+// Install the ServiceMonitor and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
+func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplacev1alpha1.MeterBase) error {
 
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:   instance,
-		Patcher: r.patcher,
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.UserWorkloadMonitoringServiceMonitor()
+	}); err != nil {
+		return err
 	}
 
-	actions := []ClientAction{
-		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor,
-			func() (client.Object, error) {
-				return r.factory.UserWorkloadMonitoringServiceMonitor()
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			meterDefinition,
-			func() (client.Object, error) {
-				return r.factory.UserWorkloadMonitoringMeterDefinition()
-			},
-			args,
-		),
+	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		return r.factory.UserWorkloadMonitoringMeterDefinition()
+	}); err != nil {
+		return err
 	}
-	return actions
+
+	return nil
 }
 
 func (r *MeterBaseReconciler) uninstallPrometheusOperator(
@@ -925,17 +738,14 @@ var ignoreKubeStateList = []string{
 	"kube_statefulset.*",
 }
 
-
-
-
 func (r *MeterBaseReconciler) uninstallMetricState(
 	instance *marketplacev1alpha1.MeterBase,
 ) []ClientAction {
 	deployment, _ := r.factory.MetricStateDeployment()
 	service, _ := r.factory.MetricStateService()
 	sm0, _ := r.factory.MetricStateServiceMonitor(nil)
-	sm1, _ := r.factory.KubeStateMetricsServiceMonitor(nil)
-	sm2, _ := r.factory.KubeletServiceMonitor(nil)
+	sm1, _ := r.factory.KubeStateMetricsServiceMonitor()
+	sm2, _ := r.factory.KubeletServiceMonitor()
 	sm3, _ := r.factory.KubeStateMetricsService()
 	msmd, _ := r.factory.MetricStateMeterDefinition()
 	rmd, _ := r.factory.ReporterMeterDefinition()
@@ -976,68 +786,64 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 	}
 }
 
-func (r *MeterBaseReconciler) uninstallPrometheus(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
+func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.MeterBase) error {
 	secret0, _ := r.factory.PrometheusDatasources()
 	secret1, _ := r.factory.PrometheusProxySecret()
 	secret2, _ := r.factory.PrometheusHtpasswdSecret("foo")
 	secret3, _ := r.factory.PrometheusRBACProxySecret()
-	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
-	prom, _ := r.newPrometheusOperator(instance, nil)
+	cm0, _ := r.factory.PrometheusServingCertsCABundle()
+	prom, _ := r.factory.NewPrometheusDeployment(instance, nil)
 	service, _ := r.factory.PrometheusService(instance.Name)
 	serviceMonitor, _ := r.factory.PrometheusServiceMonitor()
 	meterDefinition, _ := r.factory.PrometheusMeterDefinition()
+	operaterDeployment, _ := r.factory.NewPrometheusOperatorDeployment([]string{})
+	operatorService, _ := r.factory.NewPrometheusOperatorService()
 
-	actions := []ClientAction{}
-	for _, sec := range secrets {
-		actions = append(actions,
-			HandleResult(
-				GetAction(
-					types.NamespacedName{Namespace: sec.Namespace, Name: sec.Name}, sec),
-				OnContinue(DeleteAction(sec))))
+	if err := r.Client.Delete(context.TODO(), secret0); err != nil && !kerrors.IsNotFound(err) {
+		return err
 	}
-
-	return append(actions,
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: meterDefinition.Namespace, Name: meterDefinition.Name}, meterDefinition),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(meterDefinition))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: serviceMonitor.Namespace, Name: serviceMonitor.Name}, serviceMonitor),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(serviceMonitor))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(service))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(prom))),
-	)
+	if err := r.Client.Delete(context.TODO(), secret1); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), secret2); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), secret3); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), cm0); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), prom); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), service); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), serviceMonitor); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), meterDefinition); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), operaterDeployment); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), operatorService); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
-func (r *MeterBaseReconciler) installPrometheusServingCertsCABundle() []ClientAction {
-	return []ClientAction{
-		manifests.CreateIfNotExistsFactoryItem(
-			&corev1.ConfigMap{},
-			func() (client.Object, error) {
-				return r.factory.PrometheusServingCertsCABundle()
-			},
-		),
+func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle() error {
+	configMap, err := r.factory.PrometheusServingCertsCABundle()
+	if err != nil {
+		return err
 	}
-}
-
-func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle() []ClientAction {
-	cm0, _ := r.factory.PrometheusServingCertsCABundle()
-
-	return []ClientAction{
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: cm0.Namespace, Name: cm0.Name}, cm0),
-			OnContinue(DeleteAction(cm0))),
+	if err := r.Client.Delete(context.TODO(), configMap); err != nil && !kerrors.IsNotFound(err) {
+		return err
 	}
+	return nil
 }
 
 func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
@@ -1057,27 +863,6 @@ func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
 			OnContinue(DeleteAction(md))),
 	}
 }
-
-
-
-
-func (r *MeterBaseReconciler) newPrometheusOperator(
-	cr *marketplacev1alpha1.MeterBase,
-	cfg *corev1.Secret,
-) (*monitoringv1.Prometheus, error) {
-	//prom, err := r.factory.NewPrometheusDeployment(cr, cfg)
-
-	prom :=monitoringv1.Prometheus{}
-	prom.Name = utils.METERBASE_PROMETHEUS_OPERATOR_NAME
-	prom.Namespace = cr.GetNamespace()
-	
-	return &prom, nil
-}
-
-
-
-
-
 
 func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool, isDisconnected bool) (reconcile.Result, error) {
 	cronJob, err := r.factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)
@@ -1194,33 +979,24 @@ func isUserWorkLoadMonitoringConfigValid(clusterMonitorConfigMap *corev1.ConfigM
 	return true, nil
 }
 
-func validateUserWorkLoadMonitoringConfig(cc ClientCommandRunner, reqLogger logr.Logger) (bool, error) {
-	reqLogger.Info("validating user-workload-monitoring-config cm")
+func validateUserWorkLoadMonitoringConfig(client client.Client, reqLogger logr.Logger) (bool, error) {
+	reqLogger.Info("validating user-workload-monitoring-config configmap")
 
-	uwmc := &corev1.ConfigMap{}
-	result, _ := cc.Do(
-		context.TODO(),
-		GetAction(types.NamespacedName{
-			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
-		}, uwmc),
-	)
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to get user-workload-monitoring-config.")
-		return false, result
-	} else if result.Is(NotFound) {
-		return false, ErrUserWorkloadMonitoringConfigNotFound
-	} else if result.Is(Continue) {
-		reqLogger.Info("found user-workload-monitoring-config")
-		enableUserWorkload, err := isUserWorkLoadMonitoringConfigValid(uwmc, reqLogger)
-		if err != nil {
-			return false, err
-		}
-
-		return enableUserWorkload, nil
+	uwmConfigMap := &corev1.ConfigMap{}
+	cmNamespacedName := types.NamespacedName{
+		Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+		Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
 	}
 
-	return false, nil
+	if err := client.Get(context.TODO(), cmNamespacedName, uwmConfigMap); kerrors.IsNotFound(err) {
+		return false, ErrUserWorkloadMonitoringConfigNotFound
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get user-workload-monitoring-config configmap")
+		return false, err
+	}
+
+	reqLogger.Info("found user-workload-monitoring-config configmap")
+	return isUserWorkLoadMonitoringConfigValid(uwmConfigMap, reqLogger)
 }
 
 func (r *MeterBaseReconciler) deleteReporterCronJob(isDisconnected bool) (reconcile.Result, error) {
@@ -1254,7 +1030,7 @@ func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (b
 
 // If this is Openshift 4.6+ check if Monitoring for User Defined Projects is enabled
 // https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
-func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, error) {
+func isUserWorkloadMonitoringEnabledOnCluster(client client.Client, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, error) {
 	if !infrastructure.HasOpenshift() || infrastructure.HasOpenshift() && !infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		reqLogger.Info("openshift is not 46 or this isn't an openshift cluster",
 			"hasOpenshift", infrastructure.HasOpenshift(), "version", infrastructure.OpenshiftVersion())
@@ -1264,30 +1040,21 @@ func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastruc
 	reqLogger.Info("attempting to get if userworkload monitoring is enabled on cluster")
 
 	// Check if enableUserWorkload: true in cluster-monitoring-config
+
 	clusterMonitorConfigMap := &corev1.ConfigMap{}
-	result, _ := cc.Do(
-		context.TODO(),
-		GetAction(types.NamespacedName{
-			Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
-			Name:      utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME,
-		}, clusterMonitorConfigMap),
-	)
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to get cluster-monitoring-config.")
-		return false, result
-	} else if result.Is(NotFound) {
-		return false, nil
-	} else if result.Is(Continue) {
-		enableUserWorkload, err := isEnableUserWorkloadConfigMap(clusterMonitorConfigMap)
-		reqLogger.Info("found cluster-monitoring-config", "enabledUserWorkload", enableUserWorkload)
-		if err != nil {
-			reqLogger.Error(result.GetError(), "Failed to parse cluster-monitoring-config.")
-			return false, err
-		}
-		return enableUserWorkload, nil
+	cmNamespacedName := types.NamespacedName{
+		Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+		Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
 	}
 
-	return false, nil
+	if err := client.Get(context.TODO(), cmNamespacedName, clusterMonitorConfigMap); kerrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get cluster-monitoring-config configmap")
+		return false, err
+	}
+
+	return isEnableUserWorkloadConfigMap(clusterMonitorConfigMap)
 }
 
 func getUserWorkloadMonitoringCondition(
@@ -1295,9 +1062,9 @@ func getUserWorkloadMonitoringCondition(
 	userWorkloadMonitoringEnabledOnCluster bool,
 	userWorkloadConfigurationSet bool,
 	userWorkloadConfigurationErr error,
-) (status.Condition) {
+) status.Condition {
 	var condition status.Condition
-	
+
 	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster && userWorkloadConfigurationSet {
 		condition = marketplacev1alpha1.UserWorkloadMonitoringEnabled
 	}
@@ -1336,7 +1103,7 @@ func getUserWorkloadMonitoringCondition(
 }
 
 // Return Prometheus ActiveTargets with HealthBad or Unknown status
-func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) ([]common.Target, error) {
+func (r *MeterBaseReconciler) healthBadActiveTargets(userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) ([]common.Target, error) {
 	targets := []common.Target{}
 
 	/* Must use Prometheus and not Thanos Querier for userWorkloadMonitoring case
