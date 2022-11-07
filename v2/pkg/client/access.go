@@ -7,7 +7,6 @@ import (
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AccessChecker struct {
@@ -22,15 +21,15 @@ func NewAccessChecker(kubeClientSet clientset.Interface, ctx context.Context) Ac
 	}
 }
 
-func (a *AccessChecker) CheckAccess(obj client.Object) (bool, error) {
+func (a *AccessChecker) CheckAccess(group string, version string, kind string) (bool, error) {
 	sar := &authv1.SubjectAccessReview{
 		Spec: authv1.SubjectAccessReviewSpec{
 			User: "system:serviceaccount:openshift-redhat-marketplace:redhat-marketplace-metric-state",
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Verb:     "list",
-				Group:    obj.GetObjectKind().GroupVersionKind().GroupKind().Group,
-				Resource: obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
-				Version:  obj.GetObjectKind().GroupVersionKind().Version,
+				Group:    group,
+				Resource: kind,
+				Version:  version,
 			},
 		},
 	}
@@ -43,7 +42,7 @@ func (a *AccessChecker) CheckAccess(obj client.Object) (bool, error) {
 
 	// utils.PrettyPrint(review)
 
-	if review.Status.Denied {
+	if !review.Status.Allowed {
 		return false, errors.New("could not get access to object")
 	}
 

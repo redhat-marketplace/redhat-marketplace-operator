@@ -49,7 +49,8 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 		return nil, err
 	}
 	metadataClient := client.NewMetadataClient(metadataInterface, restMapper)
-	findOwnerHelper := client.NewFindOwnerHelper(ctx, metadataClient)
+	accessChecker := client.NewAccessChecker(clientset, ctx)
+	findOwnerHelper := client.NewFindOwnerHelper(ctx, metadataClient, accessChecker)
 	cacheIsIndexed, err := managers.AddIndices(ctx, cache)
 	if err != nil {
 		return nil, err
