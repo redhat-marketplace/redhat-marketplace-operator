@@ -202,7 +202,8 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	mgr.Add(secretMapHandler)
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterBase{}).
+		For(&marketplacev1alpha1.MeterBase{},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
 			&source.Kind{Type: &batchv1.CronJob{}},
 			&handler.EnqueueRequestForOwner{
@@ -319,9 +320,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		}
 		if controllerutil.ContainsFinalizer(instance, utils.CONTROLLER_FINALIZER) {
 			controllerutil.RemoveFinalizer(instance, utils.CONTROLLER_FINALIZER)
-			if err := r.Client.Update(context.TODO(), instance); err != nil {
-				return err
-			}
+			return r.Client.Update(context.TODO(), instance)
 		}
 		return nil
 	}); err != nil {
@@ -344,14 +343,19 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		reqLogger.Error(err, "failed to get user workload monitoring")
 	}
 
-	var userWorkloadMonitoringEnabledSpec bool
-
-	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
-	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
-		userWorkloadMonitoringEnabledSpec = true
-	} else {
-		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
+	// With the removal of RHM Prometheus, UserWorkloadMonitoringEnabled should now always be true
+	if !ptr.ToBool(instance.Spec.UserWorkloadMonitoringEnabled) {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+				return err
+			}
+			instance.Spec.UserWorkloadMonitoringEnabled = ptr.Bool(true)
+			return r.Client.Update(context.TODO(), instance)
+		}); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
+	userWorkloadMonitoringEnabledSpec := true
 
 	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(r.Client, reqLogger)
 	if userWorkloadErr != nil {
@@ -359,7 +363,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	}
 
 	// userWorkloadMonitoringEnabled is considered enabled if the Spec,cluster configuration,and user workload config validation are satisfied
-	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigurationIsValid
+	// userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigurationIsValid
 
 	// set the condition of UserWorkloadMonitoring on Status
 	userWorkloadMonitoringCondition := getUserWorkloadMonitoringCondition(userWorkloadMonitoringEnabledSpec,
@@ -372,9 +376,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			return err
 		}
 		if instance.Status.Conditions.SetCondition(userWorkloadMonitoringCondition) {
-			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
-				return err
-			}
+			return r.Client.Status().Update(context.TODO(), instance)
 		}
 		return nil
 	}); err != nil {
@@ -388,9 +390,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 				return err
 			}
 			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.MeterBaseStartInstall) {
-				if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
-					return err
-				}
+				return r.Client.Status().Update(context.TODO(), instance)
 			}
 			return nil
 		}); err != nil {
@@ -435,7 +435,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 
 	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
 	if instance.Spec.IsDataServiceEnabled() {
-		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabled, isDisconnected)
+		result, err := r.createReporterCronJob(instance, userWorkloadMonitoringEnabledSpec, isDisconnected)
 		if err != nil {
 			reqLogger.Error(err, "Failed to createReporterCronJob")
 			return result, err
@@ -475,16 +475,16 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			return err
 		}
 
-		if *instance.Status.Replicas != prometheusStatefulSet.Status.Replicas ||
-			*instance.Status.UpdatedReplicas != prometheusStatefulSet.Status.UpdatedReplicas ||
-			*instance.Status.AvailableReplicas != prometheusStatefulSet.Status.ReadyReplicas {
-			instance.Status.Replicas = &prometheusStatefulSet.Status.Replicas
-			instance.Status.UpdatedReplicas = &prometheusStatefulSet.Status.UpdatedReplicas
-			instance.Status.AvailableReplicas = &prometheusStatefulSet.Status.ReadyReplicas
-			instance.Status.UnavailableReplicas = ptr.Int32(
-				prometheusStatefulSet.Status.CurrentReplicas - prometheusStatefulSet.Status.ReadyReplicas)
+		statusCopy := instance.Status.DeepCopy()
 
-			return r.Client.Update(context.TODO(), instance)
+		instance.Status.Replicas = &prometheusStatefulSet.Status.Replicas
+		instance.Status.UpdatedReplicas = &prometheusStatefulSet.Status.UpdatedReplicas
+		instance.Status.AvailableReplicas = &prometheusStatefulSet.Status.ReadyReplicas
+		instance.Status.UnavailableReplicas = ptr.Int32(
+			prometheusStatefulSet.Status.CurrentReplicas - prometheusStatefulSet.Status.ReadyReplicas)
+
+		if !reflect.DeepEqual(instance.Status, statusCopy) {
+			return r.Client.Status().Update(context.TODO(), instance)
 		}
 
 		return nil
@@ -493,7 +493,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	}
 
 	// Provide Status on Prometheus ActiveTargets
-	targets, err := r.healthBadActiveTargets(userWorkloadMonitoringEnabled, reqLogger)
+	targets, err := r.healthBadActiveTargets(userWorkloadMonitoringEnabledSpec, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -510,9 +510,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			return err
 		}
 		if instance.Status.Conditions.SetCondition(condition) {
-			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
-				return err
-			}
+			return r.Client.Status().Update(context.TODO(), instance)
 		}
 		return nil
 	}); err != nil {
@@ -525,9 +523,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			return err
 		}
 		if instance.Status.Conditions.SetCondition(marketplacev1alpha1.MeterBaseFinishInstall) {
-			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
-				return err
-			}
+			return r.Client.Status().Update(context.TODO(), instance)
 		}
 		return nil
 	}); err != nil {
@@ -791,7 +787,7 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 	secret1, _ := r.factory.PrometheusProxySecret()
 	secret2, _ := r.factory.PrometheusHtpasswdSecret("foo")
 	secret3, _ := r.factory.PrometheusRBACProxySecret()
-	cm0, _ := r.factory.PrometheusServingCertsCABundle()
+	//cm0, _ := r.factory.PrometheusServingCertsCABundle()
 	prom, _ := r.factory.NewPrometheusDeployment(instance, nil)
 	service, _ := r.factory.PrometheusService(instance.Name)
 	serviceMonitor, _ := r.factory.PrometheusServiceMonitor()
@@ -811,9 +807,11 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 	if err := r.Client.Delete(context.TODO(), secret3); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
+	/*
 	if err := r.Client.Delete(context.TODO(), cm0); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
+	*/
 	if err := r.Client.Delete(context.TODO(), prom); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}

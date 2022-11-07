@@ -162,7 +162,7 @@ spec:
         - configMap:
             name: serving-certs-ca-bundle
           name: serving-certs-ca-bundle
-      serviceAccountName: redhat-marketplace-operator
+      serviceAccountName: metering-operator
   volumeClaimTemplates:
     - metadata:
         name: rhm-data-service
