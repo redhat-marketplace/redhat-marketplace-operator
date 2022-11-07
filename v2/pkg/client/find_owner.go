@@ -29,10 +29,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
-	// authv1 "k8s.io/api/authorization/v1"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// clientset "k8s.io/client-go/kubernetes"
-	// "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // FindOwnerHelper is used by metric-state

@@ -40,8 +40,6 @@ func (a *AccessChecker) CheckAccess(group string, version string, kind string) (
 		return false, err
 	}
 
-	// utils.PrettyPrint(review)
-
 	if !review.Status.Allowed {
 		return false, errors.New("could not get access to object")
 	}
