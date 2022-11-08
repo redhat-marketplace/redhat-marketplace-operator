@@ -1035,6 +1035,7 @@ func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.S
 	}
 
 	sm.Namespace = f.namespace
+
 	for i := range sm.Spec.Endpoints {
 		endpoint := &sm.Spec.Endpoints[i]
 		endpoint.TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)

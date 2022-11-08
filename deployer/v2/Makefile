@@ -88,7 +88,7 @@ run: generate fmt vet manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize helm install
-	cd config && $(HELM) template rhm-template ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && $(HELM) template rhm-template ./helm-wrapper \
 	-f ./helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) | ./default/kustomize | kubectl apply -f -
@@ -165,7 +165,7 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	export NAMESPACE=$(namespace) && $(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
@@ -255,7 +255,7 @@ compile-helm: helm
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize compile-helm yq
-	cd config && PATH="$(PWD)/../../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -263,7 +263,7 @@ install: kustomize compile-helm yq
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	cd config && PATH="$(PWD)/../../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \

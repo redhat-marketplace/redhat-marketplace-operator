@@ -629,7 +629,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.MetricStateServiceMonitor(&secret.Name)
+		return r.factory.MetricStateServiceMonitor(nil)
 	}); err != nil {
 		return err
 	}

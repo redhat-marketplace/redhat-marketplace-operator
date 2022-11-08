@@ -35,7 +35,9 @@ spec:
                   values:
                     - amd64
                     - ppc64le
-                    - s390x    
+                    - s390x
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - name: manager
           args:
