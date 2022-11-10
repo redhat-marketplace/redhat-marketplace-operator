@@ -10,13 +10,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      redhat.marketplace.com/name: redhat-marketplace-operator
+      redhat.marketplace.com/name: metering-operator
   replicas: 1
   template:
     metadata:
       labels:
         control-plane: controller-manager
-        redhat.marketplace.com/name: redhat-marketplace-operator
+        redhat.marketplace.com/name: metering-operator
       annotations:
         productName: "Red Hat Marketplace Operator"
         productID: "36cdaba810c348c096b85800dd62bcf1"
@@ -35,7 +35,9 @@ spec:
                   values:
                     - amd64
                     - ppc64le
-                    - s390x    
+                    - s390x
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - name: manager
           args:
@@ -112,4 +114,4 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true   
       terminationGracePeriodSeconds: 10
-      serviceAccountName: operator
+      serviceAccountName: metering-operator

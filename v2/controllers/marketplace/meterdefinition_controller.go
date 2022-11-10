@@ -402,7 +402,7 @@ func labelsForKubeStateMonitor(name, namespace string) map[string]string {
 	}
 }
 
-func makeRelabelConfig(source []string, action, target string) *monitoringv1.RelabelConfig {
+func makeRelabelConfig(source []monitoringv1.LabelName, action, target string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{
 		SourceLabels: source,
 		TargetLabel:  target,
@@ -410,7 +410,7 @@ func makeRelabelConfig(source []string, action, target string) *monitoringv1.Rel
 	}
 }
 
-func makeRelabelReplaceConfig(source []string, target, regex, replacement string) *monitoringv1.RelabelConfig {
+func makeRelabelReplaceConfig(source []monitoringv1.LabelName, target, regex, replacement string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{
 		SourceLabels: source,
 		TargetLabel:  target,
@@ -420,13 +420,14 @@ func makeRelabelReplaceConfig(source []string, target, regex, replacement string
 	}
 }
 
-func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelConfig {
+func makeRelabelKeepConfig(source []monitoringv1.LabelName, regex string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{
 		SourceLabels: source,
 		Action:       "keep",
 		Regex:        regex,
 	}
 }
+
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
 }

@@ -5,32 +5,27 @@ namespace: openshift-redhat-marketplace
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-
+#namePrefix: metering-
 # Labels to add to all resources and selectors.
 commonLabels:
-  redhat.marketplace.com/name: redhat-marketplace-operator
+  redhat.marketplace.com/name: metering-operator
 
 resources:
+  - ../default
   - ../crd
   - ../rbac
   - ../manager
-  #  - ../webhook-openshift
   - ../prometheus
   - ../samples
   - ../scorecard
+  - bases/redhat-marketplace-operator.clusterserviceversion.yaml
 
-#patchesStrategicMerge:
-#- manager_auth_proxy_patch.yaml
-#- manager_webhook_patch.yaml
+patchesStrategicMerge:s
+  - patch_csv/patch-related-images.yaml
 
 configurations:
   - kustomizeconfig.yaml
 vars:
-  # - name: SERVICE_NAME
-  #   objref:
-  #     kind: Service
-  #     version: v1
-  #     name: controller-manager-service
   - name: REPORTER_IMAGE_MARKER
     objref:
       kind: Deployment

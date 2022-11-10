@@ -225,7 +225,6 @@ func (r *ReconcileTask) ReportTask(ctx context.Context, report *marketplacev1alp
 	return nil
 }
 
-//
 func (r *ReconcileTask) CanRunGenericUpload(ctx context.Context) (bool, ReportSkipReason) {
 	if r.Config.IsDisconnected {
 		return false, SkipDisconnected

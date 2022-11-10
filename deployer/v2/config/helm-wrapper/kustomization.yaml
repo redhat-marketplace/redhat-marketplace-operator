@@ -1,0 +1,13 @@
+commonAnnotations:
+  meta.helm.sh/release-name: rhm-operator
+  meta.helm.sh/release-namespace: openshift-redhat-marketplace
+
+commonLabels:
+  app.kubernetes.io/managed-by: Helm
+  redhat.marketplace.com/name: redhat-marketplace-operator
+
+resources:
+- ../default
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: redhat-marketplace

@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.6-v4.10
+OPENSHIFT_VERSIONS ?= v4.8-v4.11
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -20,7 +20,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = redhat-marketplace-operator
+OPERATOR_IMAGE_NAME = redhat-marketplace-metering-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
@@ -40,10 +40,10 @@ DQLITE_IMAGE_NAME ?= redhat-marketplace-data-service
 DQLITE_IMAGE_TAG ?= $(TAG)
 DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
 
-BUNDLE_NAME ?= redhat-marketplace-operator-manifest
+BUNDLE_NAME ?= redhat-marketplace-metering-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
+DEV_INDEX_NAME ?= redhat-marketplace-metering-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
@@ -173,8 +173,8 @@ docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
 
-CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-operator.clusterserviceversion.yaml
-CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-metering-operator.clusterserviceversion.yaml
+CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-metering-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
@@ -182,7 +182,7 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	export NAMESPACE=$(namespace) && $(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
@@ -256,10 +256,10 @@ bundle-dev-index: opm
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
-	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
+	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-metering-operator-catalog
 	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-metering-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-metering-operator.openshift-redhat-marketplace
 
 skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses
@@ -268,7 +268,7 @@ skaffold-build: skaffold
 INSTALL_DEBUG ?= false
 
 compile-helm: helm
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -279,7 +279,7 @@ compile-helm: helm
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize compile-helm yq
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -290,7 +290,7 @@ install: kustomize compile-helm yq
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \

@@ -10,7 +10,7 @@ spec:
   endpoints:
     - bearerTokenSecret:
         key: token
-        name: redhat-marketplace-service-account-token
+        name: metering-servicemonitor-metrics-reader
       honorLabels: true
       interval: 2m
       port: https
@@ -20,7 +20,7 @@ spec:
         ca:
           configMap:
             key: service-ca.crt
-            name: serving-certs-ca-bundle
+            name: metering-serving-certs-ca-bundle
         serverName: server-name-replaced-at-runtime
   jobLabel: k8s-app
   selector:

@@ -1,5 +1,5 @@
 domain: redhat.com
-projectName: redhat-marketplace-operator
+projectName: redhat-marketplace-metering-operator
 layout: go.kubebuilder.io/v3
 multigroup: true
 repo: github.com/redhat-marketplace/redhat-marketplace-operator/v2

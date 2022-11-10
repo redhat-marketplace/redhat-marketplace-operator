@@ -1,3 +1,5 @@
-namePrefix: redhat-marketplace-
+#namePrefix: metering-
 resources:
 - monitor.yaml
+- secret.yaml
+- configmap.yaml

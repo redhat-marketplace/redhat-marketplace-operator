@@ -54,13 +54,13 @@ var warningsFilter = map[error]interface{}{
 // Goals of the reporter:
 // Get current meters to query
 //
-// Build a report for hourly since last reprot
+// # Build a report for hourly since last reprot
 //
-// Query all the meters
+// # Query all the meters
 //
-// Break up reports into manageable chunks
+// # Break up reports into manageable chunks
 //
-// Upload to insights
+// # Upload to insights
 //
 // Update the CR status for each report and queue
 type MarketplaceReporter struct {

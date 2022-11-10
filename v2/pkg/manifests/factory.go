@@ -15,6 +15,7 @@
 package manifests
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
@@ -38,16 +39,18 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/envvar"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/imdario/mergo"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -476,7 +479,7 @@ func (f *Factory) UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream) (u
 	return updated
 }
 
-func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1.CronJob, error) {
 	j, err := NewCronJob(manifest)
 	if err != nil {
 		return nil, err
@@ -513,7 +516,7 @@ var (
 	}
 )
 
-func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1beta1.CronJob, error) {
+func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bool) (*batchv1.CronJob, error) {
 	j, err := f.NewCronJob(MustAssetReader(ReporterCronJob))
 	if err != nil {
 		return nil, err
@@ -781,64 +784,7 @@ func (f *Factory) NewPrometheusDeployment(
 	p.Name = cr.Name
 	p.ObjectMeta.Name = cr.Name
 
-	p.Spec.Image = &f.config.RelatedImages.Prometheus
-
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Replicas != nil {
-		p.Spec.Replicas = cr.Spec.Prometheus.Replicas
-	}
-
-	if f.config.PrometheusConfig.Retention != "" {
-		p.Spec.Retention = f.config.PrometheusConfig.Retention
-	}
-
-	//Set empty dir if present in the CR, will override a pvc specified (per prometheus docs)
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.EmptyDir != nil {
-		p.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
-	}
-
-	storageClass := ptr.String("")
-	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class != nil {
-		storageClass = cr.Spec.Prometheus.Storage.Class
-	}
-
-	if cr.Spec.Prometheus != nil {
-		quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
-		quanBytes.Sub(resource.MustParse("2Gi"))
-		replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
-		storageSize := replacer.Replace(quanBytes.String())
-		p.Spec.RetentionSize = storageSize
-
-		pvc, _ := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
-			ObjectMeta: &metav1.ObjectMeta{
-				Name: "storage-volume",
-			},
-			StorageClass: storageClass,
-			StorageSize:  &cr.Spec.Prometheus.Storage.Size,
-		})
-
-		p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
-			Spec: pvc.Spec,
-		}
-	}
-	if cfg != nil {
-		p.Spec.AdditionalScrapeConfigs = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: cfg.GetName(),
-			},
-			Key: "meterdef.yaml",
-		}
-	}
-
-	for i := range p.Spec.Containers {
-		container := &p.Spec.Containers[i]
-		err := f.ReplaceImages(container)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return p, err
+	return p, nil
 }
 
 func (f *Factory) prometheusOperatorService() string {
@@ -1089,6 +1035,7 @@ func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.S
 	}
 
 	sm.Namespace = f.namespace
+
 	for i := range sm.Spec.Endpoints {
 		endpoint := &sm.Spec.Endpoints[i]
 		endpoint.TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
@@ -1132,7 +1079,7 @@ func (f *Factory) KubeStateMetricsService() (*corev1.Service, error) {
 	return s, nil
 }
 
-func (f *Factory) KubeStateMetricsServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
 	sm, err := f.NewServiceMonitor(MustAssetReader(KubeStateMetricsServiceMonitor))
 	if err != nil {
 		return nil, err
@@ -1140,32 +1087,16 @@ func (f *Factory) KubeStateMetricsServiceMonitor(secretName *string) (*monitorin
 
 	sm.Namespace = f.namespace
 
-	for i := range sm.Spec.Endpoints {
-		endpoint := &sm.Spec.Endpoints[i]
-
-		if secretName != nil && endpoint.BearerTokenFile == "" {
-			addBearerToken(endpoint, *secretName)
-		}
-	}
-
 	return sm, nil
 }
 
-func (f *Factory) KubeletServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
+func (f *Factory) KubeletServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
 	sm, err := f.NewServiceMonitor(MustAssetReader(KubeletServiceMonitor))
 	if err != nil {
 		return nil, err
 	}
 
 	sm.Namespace = f.namespace
-
-	for i := range sm.Spec.Endpoints {
-		endpoint := &sm.Spec.Endpoints[i]
-
-		if secretName != nil && endpoint.BearerTokenFile == "" {
-			addBearerToken(endpoint, *secretName)
-		}
-	}
 
 	return sm, nil
 }
@@ -1365,8 +1296,8 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	return &j, nil
 }
 
-func NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
-	j := batchv1beta1.CronJob{}
+func NewCronJob(manifest io.Reader) (*batchv1.CronJob, error) {
+	j := batchv1.CronJob{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
 	if err != nil {
 		return nil, err
@@ -1532,4 +1463,28 @@ func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, 
 
 func init() {
 	mathrand.Seed(time.Now().UnixNano())
+}
+
+// Common reconcile pattern, create or update to match object from no-arg factory func
+func (f *Factory) CreateOrUpdate(c client.Client, owner metav1.Object, fn func() (client.Object, error)) error {
+
+	obj, err := fn()
+	if err != nil {
+		return err
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), c, obj, func() error {
+			updateObj, _ := fn()
+			if owner != nil {
+				controllerutil.SetControllerReference(owner, updateObj, f.scheme)
+			}
+			return mergo.Merge(obj, updateObj, mergo.WithOverride)
+		})
+		return err
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }

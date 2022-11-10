@@ -233,6 +233,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, err
 		}
 
+		// Secret comes back with namespace "redhat-marketplace-operator", set to request namespace
+		newOptSecretObj.Namespace = request.Namespace
+
 		//Fetch the Secret with name rhm-operator-secret
 		secretKeyname := types.NamespacedName{
 			Name:      newOptSecretObj.Name,

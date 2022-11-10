@@ -131,13 +131,13 @@ spec:
               name: rhm-metric-state-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
+              name: metering-serving-certs-ca-bundle
               readOnly: false
       nodeSelector:
         beta.kubernetes.io/os: linux
         node-role.kubernetes.io/master: ''
       priorityClassName: system-cluster-critical
-      serviceAccountName: redhat-marketplace-metric-state
+      serviceAccountName: metering-metric-state
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
@@ -147,5 +147,5 @@ spec:
           secret:
             secretName: rhm-metric-state-tls
         - configMap:
-            name: serving-certs-ca-bundle
-          name: serving-certs-ca-bundle
+            name: metering-serving-certs-ca-bundle
+          name: metering-serving-certs-ca-bundle

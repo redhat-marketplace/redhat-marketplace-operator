@@ -96,7 +96,7 @@ func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request re
 		return reconcile.Result{}, nil
 	}
 
-	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(r.CC, r.cfg.Infrastructure, reqLogger)
+	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(r.Client, r.cfg.Infrastructure, reqLogger)
 	if err != nil {
 		reqLogger.Error(err, "failed to get user workload monitoring")
 	}
@@ -110,7 +110,7 @@ func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request re
 		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
 	}
 
-	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(r.CC, reqLogger)
+	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(r.Client, reqLogger)
 	if userWorkloadErr != nil {
 		reqLogger.Info(userWorkloadErr.Error())
 	}

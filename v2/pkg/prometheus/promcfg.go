@@ -71,7 +71,7 @@ func (cg *configGenerator) GenerateConfig(
 	p *v1.Prometheus,
 	sMons map[string]*v1.ServiceMonitor,
 	basicAuthSecrets map[string]assets.BasicAuthCredentials,
-	bearerTokens map[string]assets.BearerToken,
+	bearerTokens map[string]assets.Token,
 	ruleConfigMapNames []string,
 ) ([]byte, error) {
 	versionStr := p.Spec.Version
@@ -86,12 +86,12 @@ func (cg *configGenerator) GenerateConfig(
 
 	cfg := yaml.MapSlice{}
 
-	scrapeInterval := "30s"
+	scrapeInterval := v1.Duration("30s")
 	if p.Spec.ScrapeInterval != "" {
 		scrapeInterval = p.Spec.ScrapeInterval
 	}
 
-	evaluationInterval := "30s"
+	evaluationInterval := v1.Duration("30s")
 	if p.Spec.EvaluationInterval != "" {
 		evaluationInterval = p.Spec.EvaluationInterval
 	}
@@ -210,7 +210,7 @@ func (cg *configGenerator) generateServiceMonitorConfig(
 	i int,
 	apiserverConfig *v1.APIServerConfig,
 	basicAuthSecrets map[string]assets.BasicAuthCredentials,
-	bearerTokens map[string]assets.BearerToken,
+	bearerTokens map[string]assets.Token,
 	overrideHonorLabels bool,
 	overrideHonorTimestamps bool,
 	ignoreNamespaceSelectors bool) yaml.MapSlice {

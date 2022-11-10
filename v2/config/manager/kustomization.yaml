@@ -1,4 +1,4 @@
-namePrefix: redhat-marketplace-
+#namePrefix: metering-
 resources:
 - manager.yaml
 - namespace.yaml

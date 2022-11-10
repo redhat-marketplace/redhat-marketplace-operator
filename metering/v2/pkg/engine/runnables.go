@@ -39,11 +39,12 @@ type RunAndStop interface {
 	Runnable
 	Stoppable
 }
+
 /*
-type Recoverable interface {
-	RegisterHealthCheck(func([]*health.Config))
-	Recover()
-}
+	type Recoverable interface {
+		RegisterHealthCheck(func([]*health.Config))
+		Recover()
+	}
 */
 func ProvideRunnables(
 	meterDefinitionStore *MeterDefinitionStoreRunnable,
