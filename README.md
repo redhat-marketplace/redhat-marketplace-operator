@@ -53,6 +53,8 @@ For installation and configuration see the [RedHat Marketplace documentation](ht
 
 The Redhat Marketplace Operator and its components support running under the OpenShift Container Platform default restricted security context constraints.
 
+### Metric State scoping requirements
+*Note:* The metric state deployment has `get/list/watch` accesses to resources via the `view` ClusterRole. For operators deployed using OLM permission are added to clusterrole/view dynamically. If your operator is not deployed through OLM please add the following label to your clusterrole: `rbac.authorization.k8s.io/aggregate-to-view: "true"`
 ### Documentation
 
 [RedHat Marketplace](https://marketplace.redhat.com/en-us/documentation)
