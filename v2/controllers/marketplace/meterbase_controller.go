@@ -559,7 +559,7 @@ func reconcileForMeterDef(deployedNamespace string, meterdefNamespace string, me
 
 const promServiceName = "rhm-prometheus-meterbase"
 
-const tokenSecretName = "redhat-marketplace-service-account-token"
+const tokenSecretName = "servicemonitor-metrics-reader"
 
 func (r *MeterBaseReconciler) createTokenSecret(instance *marketplacev1alpha1.MeterBase) []ClientAction {
 	secretName := tokenSecretName
@@ -613,8 +613,13 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 ) error {
 
-	secret := &corev1.Secret{}
-	secret.Name = "dacdebug TBD"
+	/*
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.ServiceAccountPullSecret()
+	}); err != nil {
+		return err
+	}
+	*/
 
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.factory.MetricStateDeployment()
@@ -652,6 +657,14 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		return err
 	}
 
+// maybe unnecessary now
+/*
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.PrometheusServingCertsCABundle()
+	}); err != nil {
+		return err
+	}
+
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.factory.KubeStateMetricsServiceMonitor()
 	}); err != nil {
@@ -663,12 +676,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}); err != nil {
 		return err
 	}
-
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.PrometheusServingCertsCABundle()
-	}); err != nil {
-		return err
-	}
+*/
 
 	return nil
 }
@@ -690,11 +698,14 @@ func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(instance *market
 // Install the ServiceMonitor and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
 func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplacev1alpha1.MeterBase) error {
 
+	// maybe unnecessary now
+	/*
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.factory.UserWorkloadMonitoringServiceMonitor()
 	}); err != nil {
 		return err
 	}
+	*/
 
 	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
 		return r.factory.UserWorkloadMonitoringMeterDefinition()
@@ -808,9 +819,9 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 		return err
 	}
 	/*
-	if err := r.Client.Delete(context.TODO(), cm0); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
+		if err := r.Client.Delete(context.TODO(), cm0); err != nil && !kerrors.IsNotFound(err) {
+			return err
+		}
 	*/
 	if err := r.Client.Delete(context.TODO(), prom); err != nil && !kerrors.IsNotFound(err) {
 		return err

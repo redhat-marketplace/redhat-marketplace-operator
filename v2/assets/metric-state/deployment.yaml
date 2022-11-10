@@ -131,7 +131,7 @@ spec:
               name: rhm-metric-state-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
+              name: metering-serving-certs-ca-bundle
               readOnly: false
       nodeSelector:
         beta.kubernetes.io/os: linux
@@ -147,5 +147,5 @@ spec:
           secret:
             secretName: rhm-metric-state-tls
         - configMap:
-            name: serving-certs-ca-bundle
-          name: serving-certs-ca-bundle
+            name: metering-serving-certs-ca-bundle
+          name: metering-serving-certs-ca-bundle

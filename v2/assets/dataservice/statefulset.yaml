@@ -115,7 +115,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
+              name: metering-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -146,7 +146,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
+              name: metering-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -160,8 +160,8 @@ spec:
           secret:
             secretName: rhm-data-service-mtls
         - configMap:
-            name: serving-certs-ca-bundle
-          name: serving-certs-ca-bundle
+            name: metering-serving-certs-ca-bundle
+          name: metering-serving-certs-ca-bundle
       serviceAccountName: metering-operator
   volumeClaimTemplates:
     - metadata:

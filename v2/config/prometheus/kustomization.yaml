@@ -1,3 +1,5 @@
-namePrefix: metering-
+#namePrefix: metering-
 resources:
 - monitor.yaml
+- secret.yaml
+- configmap.yaml

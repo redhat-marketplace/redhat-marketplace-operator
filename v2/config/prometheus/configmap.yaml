@@ -1,0 +1,8 @@
+# ConfigMap ca-bundle for metrics rbac-proxy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  name: serving-certs-ca-bundle
+
