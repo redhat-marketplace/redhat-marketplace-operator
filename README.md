@@ -53,6 +53,12 @@ For installation and configuration see the [RedHat Marketplace documentation](ht
 
 The Redhat Marketplace Operator and its components support running under the OpenShift Container Platform default restricted security context constraints.
 
+### Metric State scoping requirements
+The metric-state Deployment obtains `get/list/watch` access to metered resources via the `view` ClusterRole. For operators deployed using Openshift Lifecycle Manager (OLM), permissions are added to `clusterrole/view` dynamically via a generated and annotated `-view` ClusterRole. If you wish to meter an operator, and its Custom Resource Definitions (CRDs) are not deployed through OLM, one of two options are required
+1. Add the following label to a clusterrole that has get/list/watch access to your CRD: `rbac.authorization.k8s.io/aggregate-to-view: "true"`, thereby dynamically adding it to `clusterrole/view`
+2. Create a ClusterRole that has get/list/watch access to your CRD, and create a ClusterRoleBinding for the metric-state ServiceAccount
+
+Attempting to meter a resource with a MeterDefinition without the required permissions will log an `AccessDeniedError` in metric-state.
 ### Documentation
 
 [RedHat Marketplace](https://marketplace.redhat.com/en-us/documentation)

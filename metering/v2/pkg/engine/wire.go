@@ -52,5 +52,6 @@ func NewEngine(
 		monitoringv1client.NewForConfig,
 		rhmclient.NewFindOwnerHelper,
 		rhmclient.NewMetadataClient,
+		rhmclient.NewAccessChecker,
 	))
 }
