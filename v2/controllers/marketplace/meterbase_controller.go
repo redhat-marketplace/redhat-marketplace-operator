@@ -614,11 +614,11 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 ) error {
 
 	/*
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.ServiceAccountPullSecret()
-	}); err != nil {
-		return err
-	}
+		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.factory.ServiceAccountPullSecret()
+		}); err != nil {
+			return err
+		}
 	*/
 
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
@@ -657,26 +657,26 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		return err
 	}
 
-// maybe unnecessary now
-/*
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.PrometheusServingCertsCABundle()
-	}); err != nil {
-		return err
-	}
+	// maybe unnecessary now
+	/*
+		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.factory.PrometheusServingCertsCABundle()
+		}); err != nil {
+			return err
+		}
 
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.KubeStateMetricsServiceMonitor()
-	}); err != nil {
-		return err
-	}
+		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.factory.KubeStateMetricsServiceMonitor()
+		}); err != nil {
+			return err
+		}
 
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.KubeletServiceMonitor()
-	}); err != nil {
-		return err
-	}
-*/
+		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.factory.KubeletServiceMonitor()
+		}); err != nil {
+			return err
+		}
+	*/
 
 	return nil
 }
@@ -700,11 +700,11 @@ func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplac
 
 	// maybe unnecessary now
 	/*
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.UserWorkloadMonitoringServiceMonitor()
-	}); err != nil {
-		return err
-	}
+		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.factory.UserWorkloadMonitoringServiceMonitor()
+		}); err != nil {
+			return err
+		}
 	*/
 
 	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {

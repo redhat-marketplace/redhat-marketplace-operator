@@ -21,8 +21,11 @@ import (
 	"errors"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/signer"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
@@ -367,4 +370,22 @@ func (meterdef *MeterDefinition) IsSigned() bool {
 		return true
 	}
 	return false
+}
+
+func (r *MeterDefinition) ValidateSignature() error {
+	uMeterDef := unstructured.Unstructured{}
+
+	uContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(r)
+	if err != nil {
+		return err
+	}
+
+	uMeterDef.SetUnstructuredContent(uContent)
+
+	caCert, err := signer.CertificateFromAssets()
+	if err != nil {
+		return err
+	}
+
+	return signer.VerifySignature(uMeterDef, caCert)
 }

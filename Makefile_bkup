@@ -567,8 +567,9 @@ testbin/kubectl:
 testbin/kube-apiserver:
 	make install-envtest
 
-K8S_VERSION = v1.18.2
-ETCD_VERSION = v3.4.3
+# Openshift 4.11
+K8S_VERSION = v1.24.0
+ETCD_VERSION = v3.5.5
 install-envtest: testbin
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
