@@ -57,7 +57,7 @@ const (
 	OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME         = "prometheus-user-workload"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME             = "prometheus-user-workload"
 	OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME            = "thanos-querier"
-	SERVING_CERTS_CA_BUNDLE_NAME                                = "serving-certs-ca-bundle"
+	SERVING_CERTS_CA_BUNDLE_NAME                                = "metering-serving-certs-ca-bundle"
 	KUBELET_SERVING_CA_BUNDLE_NAME                              = "kubelet-serving-ca-bundle"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_OPERATOR_SERVICE_ACCOUNT = "prometheus-operator"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_ACCOUNT          = "prometheus-user-workload"
