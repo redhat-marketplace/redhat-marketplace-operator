@@ -1,3 +1,4 @@
-namePrefix: redhat-marketplace-
 resources:
 - monitor.yaml
+- secret.yaml
+- configmap.yaml

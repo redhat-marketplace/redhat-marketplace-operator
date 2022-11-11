@@ -44,7 +44,7 @@ spec:
         - name: manager
           args:
             - --enable-leader-election
-          image: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-operator:tag-1668111978
+          image: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-operator:tag-1668189015
           resources:
             requests:
               cpu: 100m

@@ -1,4 +1,3 @@
-#namePrefix: metering-
 resources:
   - role.yaml
   - role_binding.yaml

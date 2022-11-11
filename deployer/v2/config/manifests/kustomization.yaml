@@ -11,14 +11,15 @@ commonLabels:
   redhat.marketplace.com/name: redhat-marketplace-operator
 
 resources:
+  - ../default
   - ../rbac
   - ../manager
   - ../prometheus
   - ../scorecard
+  - bases/redhat-marketplace-operator.clusterserviceversion.yaml
 
-#patchesStrategicMerge:
-#- manager_auth_proxy_patch.yaml
-#- manager_webhook_patch.yaml
+patchesStrategicMerge:
+  - patch_csv/patch-related-images.yaml
 
 configurations:
   - kustomizeconfig.yaml

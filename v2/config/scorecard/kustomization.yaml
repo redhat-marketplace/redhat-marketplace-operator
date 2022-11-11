@@ -1,4 +1,3 @@
-#namePrefix: metering-
 resources:
 - bases/config.yaml
 patchesJson6902:
