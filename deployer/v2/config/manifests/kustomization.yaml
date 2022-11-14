@@ -6,23 +6,11 @@ namespace: openshift-redhat-marketplace
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
 
-# Labels to add to all resources and selectors.
-commonLabels:
-  redhat.marketplace.com/name: redhat-marketplace-operator
-
 resources:
   - ../default
-  - ../rbac
-  - ../manager
-  - ../prometheus
   - ../scorecard
   - bases/redhat-marketplace-operator.clusterserviceversion.yaml
 
-patchesStrategicMerge:
-  - patch_csv/patch-related-images.yaml
-
-configurations:
-  - kustomizeconfig.yaml
 vars:
   - name: AUTHCHECK_IMAGE_MARKER
     objref:
