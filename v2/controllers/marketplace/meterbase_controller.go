@@ -116,11 +116,6 @@ func (r *MeterBaseReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) e
 	return nil
 }
 
-// to be deleted
-func (r *MeterBaseReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	return nil
-}
-
 func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
 	r.patcher = p
 	return nil
