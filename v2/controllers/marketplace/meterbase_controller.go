@@ -613,14 +613,6 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 ) error {
 
-	/*
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			return r.factory.ServiceAccountPullSecret()
-		}); err != nil {
-			return err
-		}
-	*/
-
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.factory.MetricStateDeployment()
 	}); err != nil {
@@ -657,27 +649,6 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		return err
 	}
 
-	// maybe unnecessary now
-	/*
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			return r.factory.PrometheusServingCertsCABundle()
-		}); err != nil {
-			return err
-		}
-
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			return r.factory.KubeStateMetricsServiceMonitor()
-		}); err != nil {
-			return err
-		}
-
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			return r.factory.KubeletServiceMonitor()
-		}); err != nil {
-			return err
-		}
-	*/
-
 	return nil
 }
 
@@ -695,17 +666,8 @@ func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(instance *market
 	return nil
 }
 
-// Install the ServiceMonitor and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
+// Install the and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
 func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplacev1alpha1.MeterBase) error {
-
-	// maybe unnecessary now
-	/*
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			return r.factory.UserWorkloadMonitoringServiceMonitor()
-		}); err != nil {
-			return err
-		}
-	*/
 
 	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
 		return r.factory.UserWorkloadMonitoringMeterDefinition()
@@ -798,7 +760,6 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 	secret1, _ := r.factory.PrometheusProxySecret()
 	secret2, _ := r.factory.PrometheusHtpasswdSecret("foo")
 	secret3, _ := r.factory.PrometheusRBACProxySecret()
-	//cm0, _ := r.factory.PrometheusServingCertsCABundle()
 	prom, _ := r.factory.NewPrometheusDeployment(instance, nil)
 	service, _ := r.factory.PrometheusService(instance.Name)
 	serviceMonitor, _ := r.factory.PrometheusServiceMonitor()
@@ -818,11 +779,6 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 	if err := r.Client.Delete(context.TODO(), secret3); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
-	/*
-		if err := r.Client.Delete(context.TODO(), cm0); err != nil && !kerrors.IsNotFound(err) {
-			return err
-		}
-	*/
 	if err := r.Client.Delete(context.TODO(), prom); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
