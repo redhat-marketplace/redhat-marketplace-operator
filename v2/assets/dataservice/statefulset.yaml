@@ -28,6 +28,8 @@ spec:
                 topologyKey: kubernetes.io/hostname
               weight: 100
       terminationGracePeriodSeconds: 45
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - command: ['/bin/sh']
           args:
@@ -70,6 +72,14 @@ spec:
             requests:
               cpu: 25m
               memory: 50Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           volumeMounts:
             - name: rhm-data-service
               mountPath: /data
@@ -108,7 +118,14 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private
@@ -139,7 +156,14 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private

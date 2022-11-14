@@ -35,6 +35,8 @@ spec:
                       - amd64
                       - ppc64le
                       - s390x
+      securityContext: 
+        runAsNonRoot: true      
       containers:
         - name: metric-state
           image: metric-state
@@ -65,10 +67,10 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-                - ALL
+              - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           ports:
             - containerPort: 8080
@@ -91,10 +93,10 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-                - ALL
+              - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --logtostderr
@@ -121,10 +123,10 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-                - ALL
+              - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private

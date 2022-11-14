@@ -22,6 +22,8 @@ spec:
       name: remoteresources3-controller
     spec:
       serviceAccountName: razeedeploy-sa
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - image: redhat-marketplace-authcheck:latest
           name: authcheck
@@ -32,6 +34,14 @@ spec:
             limits:
               cpu: 15m
               memory: 20Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           terminationMessagePolicy: FallbackToLogsOnError
         - image: 'us.icr.io/armada-master/remoteresources3:0.11.2_082c995'
           resources:
@@ -58,6 +68,14 @@ spec:
             periodSeconds: 150
             timeoutSeconds: 30
             failureThreshold: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true             
           volumeMounts:
             - mountPath: /usr/src/app/download-cache
               name: cache-volume

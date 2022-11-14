@@ -112,6 +112,6 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true   
+            runAsNonRoot: true
       terminationGracePeriodSeconds: 10
       serviceAccountName: metering-operator
