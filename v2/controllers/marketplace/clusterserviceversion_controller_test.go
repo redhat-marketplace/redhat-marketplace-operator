@@ -41,24 +41,21 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 	var empty map[string]string
 
 	DescribeTable("filter events",
-		func(annotations map[string]string, labels map[string]string, expected int) {
+		func(annotations map[string]string, labels map[string]string, expected bool) {
 			obj := &metav1.ObjectMeta{}
 			obj.SetAnnotations(annotations)
 			obj.SetLabels(labels)
 			Expect(csvFilter(obj)).To(Equal(expected))
 		},
-		Entry("allow unignored csv", empty, empty, 2),
-		Entry("deny ignored", map[string]string{
-			ignoreTag: ignoreTagValue,
-		}, empty, 0),
 		Entry("deny mdef with copied from", map[string]string{
 			utils.CSV_METERDEFINITION_ANNOTATION: "some meterdef",
 		}, map[string]string{
 			olmCopiedFromTag: "foo",
-		}, 0),
+		}, false),
 		Entry("accept mdef without copied from", map[string]string{
 			utils.CSV_METERDEFINITION_ANNOTATION: "some meterdef",
-		}, empty, 1),
+			"olm.operatorNamespace":              "default",
+		}, empty, true),
 	)
 
 	Context("predicates", func() {
@@ -76,6 +73,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
+						"olm.operatorNamespace":              "default",
 					},
 				},
 			}
@@ -83,6 +81,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
+						"olm.operatorNamespace":              "default",
 					},
 				}}
 			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeTrue())
@@ -151,6 +150,8 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 
 			setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("clusterserviceversion_controller")
+				//TBD ReconcilerTest needs to be converted to use client.Object instead of runtime.Object
+				//r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
 				r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
 				r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
 				return nil
@@ -164,11 +165,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 						ReconcileWithExpectedResults(DoneResult)),
 					ListStep(opts,
 						ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-						ListWithFilter(
-							client.InNamespace(namespace),
-							client.MatchingLabels(map[string]string{
-								watchTag: "lite",
-							})),
+						ListWithFilter(client.InNamespace(namespace)),
 						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 

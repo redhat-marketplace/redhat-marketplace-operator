@@ -186,7 +186,7 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 .PHONY: bundle-build
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.6" \
+	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
   --label com.redhat.delivery.operator.bundle=true \
 	--push \
 	.
