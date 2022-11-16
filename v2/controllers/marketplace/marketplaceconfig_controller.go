@@ -35,7 +35,6 @@ import (
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 
@@ -75,7 +74,6 @@ type MarketplaceConfigReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	cc     ClientCommandRunner
 	cfg    *config.OperatorConfig
 }
 
@@ -438,11 +436,6 @@ func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev
 func (r *MarketplaceConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
-}
-
-func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.cc = ccp
-	return nil
 }
 
 func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {

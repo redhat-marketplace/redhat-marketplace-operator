@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -52,7 +51,6 @@ type DataServiceReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	CC     ClientCommandRunner
 
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
@@ -66,12 +64,6 @@ func (r *DataServiceReconciler) Inject(injector mktypes.Injectable) mktypes.Setu
 
 func (r *DataServiceReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	r.cfg = cfg
-	return nil
-}
-
-func (r *DataServiceReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.Log.Info("command runner")
-	r.CC = ccp
 	return nil
 }
 
