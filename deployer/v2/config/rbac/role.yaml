@@ -30,6 +30,31 @@ rules:
   - get
   - list
 - apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
   - razeedeploy-admin-cr

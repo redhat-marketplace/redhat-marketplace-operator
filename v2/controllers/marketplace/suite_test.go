@@ -80,6 +80,9 @@ const (
 	imageStreamTag    string = "v1"
 	listenerAddress   string = "127.0.0.1:2100"
 	operatorNamespace string = "openshift-redhat-marketplace"
+
+	timeout  = time.Second * 50
+	interval = time.Second * 5
 )
 
 func TestAPIs(t *testing.T) {

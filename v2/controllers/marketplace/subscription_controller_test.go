@@ -17,6 +17,7 @@ package marketplace
 import (
 	"context"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 
 	. "github.com/onsi/ginkgo"
@@ -82,7 +83,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Name:      name,
 				Namespace: namespace,
 				Labels: map[string]string{
-					operatorTag: "true",
+					utils.OperatorTag: "true",
 				},
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{
@@ -97,7 +98,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Name:      uninstallSubName,
 				Namespace: namespace,
 				Labels: map[string]string{
-					uninstallTag: "true",
+					utils.UninstallTag: "true",
 				},
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{
@@ -180,7 +181,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 					client.MatchingLabels(map[string]string{
-						operatorTag: "true",
+						utils.OperatorTag: "true",
 					})),
 				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1.OperatorGroupList)
@@ -223,7 +224,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 					client.MatchingLabels(map[string]string{
-						operatorTag: "true",
+						utils.OperatorTag: "true",
 					})),
 				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1.OperatorGroupList)
@@ -242,7 +243,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ListWithFilter(
 					client.InNamespace(namespace),
 					client.MatchingLabels(map[string]string{
-						operatorTag: "true",
+						utils.OperatorTag: "true",
 					})),
 				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 					list, ok := i.(*olmv1.OperatorGroupList)

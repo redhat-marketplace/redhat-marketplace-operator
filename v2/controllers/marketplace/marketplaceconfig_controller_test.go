@@ -16,7 +16,6 @@ package marketplace
 
 import (
 	"context"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/gotidy/ptr"
@@ -33,9 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-const timeout = time.Second * 50
-const interval = time.Second * 5
 
 var (
 	statusCode int

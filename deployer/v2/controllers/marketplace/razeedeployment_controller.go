@@ -1051,7 +1051,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	depListOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
 	}
-	err = r.Client.List(context.TODO(), depList, depListOpts...)
+	if err := r.Client.List(context.TODO(), depList, depListOpts...); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	var depNames []string
 	for _, dep := range depList.Items {

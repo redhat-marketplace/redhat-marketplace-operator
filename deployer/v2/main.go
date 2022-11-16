@@ -172,6 +172,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.ClusterServiceVersionReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersion"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterServiceVersion")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.RazeeDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),

@@ -383,7 +383,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				Name:      subName,
 				Namespace: operatorNamespace,
 				Labels: map[string]string{
-					operatorTag: "true",
+					utils.OperatorTag: "true",
 				},
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{

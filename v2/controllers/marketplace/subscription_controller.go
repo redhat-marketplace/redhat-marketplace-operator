@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,9 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
-const operatorTag = "marketplace.redhat.com/operator"
-const uninstallTag = "marketplace.redhat.com/uninstall"
 
 // blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
 var _ reconcile.Reconciler = &SubscriptionReconciler{}
@@ -54,23 +52,23 @@ func (r *SubscriptionReconciler) SetupWithManager(mgr manager.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				operatorTagLabel, okOperator := evt.ObjectNew.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.ObjectNew.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.ObjectNew.GetLabels()[utils.OperatorTag]
+				uninstallTagLabel, okUninstall := evt.ObjectNew.GetLabels()[utils.UninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				operatorTagLabel, okOperator := evt.Object.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.Object.GetLabels()[utils.OperatorTag]
+				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[utils.UninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
-				operatorTagLabel, okOperator := evt.Object.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.Object.GetLabels()[utils.OperatorTag]
+				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[utils.UninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				operatorTagLabel, okOperator := evt.Object.GetLabels()[operatorTag]
-				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[uninstallTag]
+				operatorTagLabel, okOperator := evt.Object.GetLabels()[utils.OperatorTag]
+				uninstallTagLabel, okUninstall := evt.Object.GetLabels()[utils.UninstallTag]
 				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 		},
@@ -106,7 +104,7 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 	}
 
 	// check for uninstall label and delete the resources
-	if instance.ObjectMeta.Labels[uninstallTag] == "true" {
+	if instance.ObjectMeta.Labels[utils.UninstallTag] == "true" {
 		return r.uninstall(instance)
 	}
 
@@ -133,7 +131,7 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 	if len(groups.Items) > 1 {
 		reqLogger.Info("need to create an operator group")
 		for _, og := range groups.Items {
-			if val, ok := og.Labels[operatorTag]; ok && val == "true" {
+			if val, ok := og.Labels[utils.OperatorTag]; ok && val == "true" {
 				deleteList = append(deleteList, &og)
 			}
 		}
@@ -189,7 +187,7 @@ func (r *SubscriptionReconciler) createOperatorGroup(instance *olmv1alpha1.Subsc
 			Namespace:    instance.Namespace,
 			GenerateName: "redhat-marketplace-og-",
 			Labels: map[string]string{
-				operatorTag: "true",
+				utils.OperatorTag: "true",
 			},
 		},
 		Spec: olmv1.OperatorGroupSpec{

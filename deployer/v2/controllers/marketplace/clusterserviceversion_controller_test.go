@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/extensions/table"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -66,27 +65,6 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		It("should deny generic events", func() {
 			evt := event.GenericEvent{}
 			Expect(clusterServiceVersionPredictates.GenericFunc(evt)).To(BeFalse())
-		})
-		It("should check for change in mdef", func() {
-			evt := event.UpdateEvent{}
-			evt.ObjectNew = &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
-						"olm.operatorNamespace":              "default",
-					},
-				},
-			}
-			evt.ObjectOld = &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
-						"olm.operatorNamespace":              "default",
-					},
-				}}
-			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeTrue())
-			evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION] = "newmdef"
-			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeFalse())
 		})
 	})
 
@@ -150,8 +128,6 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 
 			setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("clusterserviceversion_controller")
-				//TBD ReconcilerTest needs to be converted to use client.Object instead of runtime.Object
-				//r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
 				r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
 				r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
 				return nil
@@ -165,7 +141,11 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 						ReconcileWithExpectedResults(DoneResult)),
 					ListStep(opts,
 						ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-						ListWithFilter(client.InNamespace(namespace)),
+						ListWithFilter(
+							client.InNamespace(namespace),
+							client.MatchingLabels(map[string]string{
+								watchTag: "lite",
+							})),
 						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
 							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 

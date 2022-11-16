@@ -47,7 +47,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	var setup func(r *ReconcilerTest) error
 	var (
 		name                           = utils.RAZEE_NAME
-		namespace                      = "redhat-marketplace"
+		namespace                      = "openshift-redhat-marketplace"
 		secretName                     = "rhm-operator-secret"
 		req                            reconcile.Request
 		opts                           []StepOption
@@ -68,7 +68,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	BeforeEach(func() {
 
 		name = utils.RAZEE_NAME
-		namespace = "redhat-marketplace"
+		namespace = "openshift-redhat-marketplace"
 		secretName = "rhm-operator-secret"
 
 		req = reconcile.Request{

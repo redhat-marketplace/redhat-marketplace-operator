@@ -117,6 +117,7 @@ const (
 	LicenseServerTag = "marketplace.redhat.com/operator"
 	OperatorTag      = "marketplace.redhat.com/operator"
 	OperatorTagValue = "true"
+	UninstallTag     = "marketplace.redhat.com/uninstall"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"

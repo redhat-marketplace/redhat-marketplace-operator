@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/name: redhat-marketplace-kube-state-metrics
     marketplace.redhat.com/metering: 'true'
   name: redhat-marketplace-kube-state-metrics
-  namespace: openshift-redhat-marketplace
 spec:
   endpoints:
     - bearerTokenSecret:

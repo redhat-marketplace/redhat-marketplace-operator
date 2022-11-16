@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -73,6 +74,9 @@ const (
 	imageStreamTag    string = "v1"
 	listenerAddress   string = "127.0.0.1:2100"
 	operatorNamespace string = "openshift-redhat-marketplace"
+
+	timeout  = time.Second * 50
+	interval = time.Second * 5
 )
 
 func TestAPIs(t *testing.T) {
@@ -98,8 +102,8 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "tests", "v2", "testdata"),
+			filepath.Join("..", "..", "..", "..", "v2", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "..", "tests", "v2", "testdata"),
 		},
 	}
 
@@ -166,18 +170,39 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		defer GinkgoRecover()
-
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		// fmt.Println(err)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+		gexec.KillAndWait(4 * time.Second)
+
+		// Teardown the test environment once controller is fnished.
+		// Otherwise from Kubernetes 1.21+, teardon timeouts waiting on
+		// kube-apiserver to return
+		err := testEnv.Stop()
 		Expect(err).ToNot(HaveOccurred())
 	}()
 })
 
 var _ = AfterSuite(func() {
-	close(doneChan)
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
+	/*
+			From Kubernetes 1.21+, when it tries to cleanup the test environment, there is
+			a clash if a custom controller is created during testing. It would seem that
+			the controller is still running and kube-apiserver will not respond to shutdown.
+			This is the reason why teardown happens in BeforeSuite() after controller has stopped.
+			The error shown is as documented in:
+			https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		/*
+		/*
+			By("tearing down the test environment")
+			err := testEnv.Stop()
+			Expect(err).NotTo(HaveOccurred())
+	*/
+
+	/*
+		close(doneChan)
+		By("tearing down the test environment")
+		err := testEnv.Stop()
+		Expect(err).ToNot(HaveOccurred())
+	*/
 })
 
 func provideScheme() *runtime.Scheme {
