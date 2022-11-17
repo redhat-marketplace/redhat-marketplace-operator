@@ -105,6 +105,12 @@ type RazeeDeploymentSpec struct {
 	// +optional
 	LegacyUninstallHasRun *bool `json:"legacyUninstallHasRun,omitempty"`
 
+	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
+
 	// The features that can be enabled or disabled
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Features"

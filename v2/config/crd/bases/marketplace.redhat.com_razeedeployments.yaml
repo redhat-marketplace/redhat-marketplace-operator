@@ -144,6 +144,10 @@ spec:
                       watchkeeper deployment, defaults to true when not set
                     type: boolean
                 type: object
+              installIBMCatalogSource:
+                description: InstallIBMCatalogSource is the flag that indicates if
+                  the IBM Catalog Source is installed
+                type: boolean
               legacyUninstallHasRun:
                 description: Flag used by the RazeeDeployment Controller to decide
                   whether to run legacy uninstall job Used internally by the Operator

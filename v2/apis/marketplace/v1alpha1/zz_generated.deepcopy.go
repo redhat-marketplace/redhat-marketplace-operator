@@ -1018,6 +1018,11 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.InstallIBMCatalogSource != nil {
+		in, out := &in.InstallIBMCatalogSource, &out.InstallIBMCatalogSource
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Features != nil {
 		in, out := &in.Features, &out.Features
 		*out = new(common.Features)

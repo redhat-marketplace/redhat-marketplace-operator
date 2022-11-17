@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -246,6 +247,8 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog;opencloud-operators
 
 // Legacy Uninstall
 
@@ -286,6 +289,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		if err := r.Client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update RazeeDeployment")
 			return reconcile.Result{}, err
+		}
+	}
+
+	// This has no watch/update, only create/delete
+	for _, catalogSrcName := range [2]string{utils.IBM_CATALOGSRC_NAME, utils.OPENCLOUD_CATALOGSRC_NAME} {
+		if result, err := r.createCatalogSource(instance, catalogSrcName); err != nil {
+			return result, err
 		}
 	}
 
@@ -1843,6 +1853,80 @@ func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// Begin installation or deletion of Catalog Source
+func (r *RazeeDeploymentReconciler) createCatalogSource(instance *marketplacev1alpha1.RazeeDeployment, catalogName string) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "createCatalogSource", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
+
+	return reconcile.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+
+		catalogSrc := &operatorsv1alpha1.CatalogSource{}
+		catalogSrcNamespacedName := types.NamespacedName{
+			Name:      catalogName,
+			Namespace: utils.OPERATOR_MKTPLACE_NS}
+
+		// If InstallIBMCatalogSource is true: install Catalog Source
+		// if InstallIBMCatalogSource is false: do not install Catalog Source, and delete existing one (if it exists)
+		if ptr.ToBool(instance.Spec.InstallIBMCatalogSource) {
+			// If the Catalog Source does not exist, create one
+			err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
+			if err != nil && errors.IsNotFound(err) {
+				// Create catalog source
+				var newCatalogSrc *operatorsv1alpha1.CatalogSource
+				if utils.IBM_CATALOGSRC_NAME == catalogName {
+					newCatalogSrc = utils.BuildNewIBMCatalogSrc()
+				} else { // utils.OPENCLOUD_CATALOGSRC_NAME
+					newCatalogSrc = utils.BuildNewOpencloudCatalogSrc()
+				}
+
+				reqLogger.Info("Creating catalog source")
+				if err := r.Client.Create(context.TODO(), newCatalogSrc); err != nil {
+					reqLogger.Error(err, "Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
+					return err
+				}
+
+				ok := instance.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
+					Message: catalogName + " catalog source installed.",
+				})
+
+				if ok {
+					reqLogger.Info("updating marketplaceconfig status")
+					return r.Client.Status().Update(context.TODO(), instance)
+				}
+
+				return nil
+			} else if err != nil {
+				// Could not get catalog source
+				reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+				return err
+			}
+		} else {
+			// Delete catalog source.
+			if err := r.Client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
+				return err
+			}
+
+			ok := instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
+				Message: catalogName + " catalog source deleted.",
+			})
+
+			if ok {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), instance)
+			}
+
+		}
+
+		return nil
+	})
 }
 
 func isMapStringByteEqual(d1, d2 map[string][]byte) bool {

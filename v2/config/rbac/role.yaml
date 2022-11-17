@@ -142,24 +142,6 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
-  - catalogsources
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - operators.coreos.com
-  resourceNames:
-  - ibm-operator-catalog
-  - opencloud-operators
-  resources:
-  - catalogsources
-  verbs:
-  - delete
-- apiGroups:
-  - operators.coreos.com
-  resources:
   - clusterserviceversions
   verbs:
   - delete
