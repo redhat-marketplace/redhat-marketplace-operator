@@ -239,3 +239,61 @@ const (
 	ReasonRhmRemoteResourceS3DeploymentEnabled   status.ConditionReason = "EnabledRemoteResourceS3DeploymentInstall"
 	ReasonRhmRegistrationWatchkeeperEnabled      status.ConditionReason = "EnabledRegistrationWatchkeeperInstall"
 )
+
+var (
+	ConditionWatchKeeperNonNamespacedInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperNonNamespacedInstalled,
+		Message: "watch-keeper-non-namespaced install finished",
+	}
+
+	ConditionWatchKeeperLimitPollInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperLimitPollInstalled,
+		Message: "watch-keeper-limit-poll install finished",
+	}
+
+	ConditionRazeeClusterMetaDataInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeClusterMetaDataInstalled,
+		Message: "Razee cluster meta data install finished",
+	}
+
+	ConditionWatchKeeperConfigInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperConfigInstalled,
+		Message: "watch-keeper-config install finished",
+	}
+
+	ConditionWatchKeeperSecretInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperSecretInstalled,
+		Message: "watch-keeper-secret install finished",
+	}
+
+	ConditionCosReaderKeyInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonCosReaderKeyInstalled,
+		Message: "Cos-reader-key install finished",
+	}
+
+	ConditionRazeeInstallFinished = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "Razee install complete",
+	}
+
+	ConditionRazeeInstallComplete = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "Razee install complete",
+	}
+)

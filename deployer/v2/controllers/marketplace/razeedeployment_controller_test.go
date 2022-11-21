@@ -16,11 +16,11 @@ package marketplace
 
 import (
 	"context"
-	"time"
 
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -30,9 +30,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
-	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,23 +44,22 @@ import (
 var _ = Describe("Testing with Ginkgo", func() {
 	var setup func(r *ReconcilerTest) error
 	var (
-		name                           = utils.RAZEE_NAME
-		namespace                      = "openshift-redhat-marketplace"
-		secretName                     = "rhm-operator-secret"
-		req                            reconcile.Request
-		opts                           []StepOption
-		razeeDeployment                marketplacev1alpha1.RazeeDeployment
-		razeeDeploymentLegacyUninstall marketplacev1alpha1.RazeeDeployment
-		razeeDeploymentDeletion        marketplacev1alpha1.RazeeDeployment
-		namespObj                      corev1.Namespace
-		console                        *unstructured.Unstructured
-		cluster                        *unstructured.Unstructured
-		clusterVersion                 *unstructured.Unstructured
-		secret                         corev1.Secret
-		cosReaderKeySecret             corev1.Secret
-		configMap                      corev1.ConfigMap
-		deployment                     appsv1.Deployment
-		parentRRS3                     marketplacev1alpha1.RemoteResourceS3
+		name                    = utils.RAZEE_NAME
+		namespace               = "openshift-redhat-marketplace"
+		secretName              = "rhm-operator-secret"
+		req                     reconcile.Request
+		opts                    []StepOption
+		razeeDeployment         marketplacev1alpha1.RazeeDeployment
+		razeeDeploymentDeletion marketplacev1alpha1.RazeeDeployment
+		namespObj               corev1.Namespace
+		console                 *unstructured.Unstructured
+		cluster                 *unstructured.Unstructured
+		clusterVersion          *unstructured.Unstructured
+		secret                  corev1.Secret
+		cosReaderKeySecret      corev1.Secret
+		configMap               corev1.ConfigMap
+		deployment              appsv1.Deployment
+		parentRRS3              marketplacev1alpha1.RemoteResourceS3
 	)
 
 	BeforeEach(func() {
@@ -87,21 +84,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 				UID:       types.UID(uuid.NewUUID()),
 			},
 			Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-				Enabled:               true,
-				ClusterUUID:           "foo",
-				DeploySecretName:      &secretName,
-				LegacyUninstallHasRun: ptr.Bool(true),
-			},
-		}
-		razeeDeploymentLegacyUninstall = marketplacev1alpha1.RazeeDeployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-				Enabled:          true,
-				ClusterUUID:      "foo",
-				DeploySecretName: &secretName,
+				Enabled:                 true,
+				ClusterUUID:             "foo",
+				DeploySecretName:        &secretName,
+				LegacyUninstallHasRun:   ptr.Bool(true),
+				InstallIBMCatalogSource: ptr.Bool(true),
 			},
 		}
 		razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
@@ -280,9 +267,28 @@ var _ = Describe("Testing with Ginkgo", func() {
 					assert.Contains(t, names, utils.RHM_OPERATOR_SECRET_NAME)
 					assert.Contains(t, names, utils.COS_READER_KEY_NAME)
 				})),
+			ListStep(opts,
+				ListWithObj(&operatorsv1alpha1.CatalogSourceList{}),
+				ListWithFilter(
+					client.InNamespace(utils.OPERATOR_MKTPLACE_NS),
+				),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+					list, ok := i.(*operatorsv1alpha1.CatalogSourceList)
+
+					assert.Truef(t, ok, "expected CatalogSourceList got type %T", i)
+
+					names := []string{}
+					for _, cs := range list.Items {
+						names = append(names, cs.Name)
+					}
+
+					assert.Contains(t, names, utils.IBM_CATALOGSRC_NAME)
+					assert.Contains(t, names, utils.OPENCLOUD_CATALOGSRC_NAME)
+				})),
 			ReconcileStep(opts,
 				ReconcileWithUntilDone(true)),
 		)
+
 	})
 
 	It("no secret", func() {
@@ -291,9 +297,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		reconcilerTest.TestAll(t,
 			ReconcileStep(opts,
 				ReconcileWithExpectedResults(
-					RequeueResult,
-					RequeueResult,
-					RequeueAfterResult(time.Second*60)),
+					ReconcileResult{}),
 			))
 	})
 
@@ -313,6 +317,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("full uninstall", func() {
 		t := GinkgoT()
 		reconcilerTest := NewReconcilerTest(setup,
+			&secret,
 			&namespObj,
 			&razeeDeploymentDeletion,
 			&parentRRS3,
@@ -322,6 +327,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 		)
 
 		reconcilerTest.TestAll(t,
+			ReconcileStep(opts,
+				ReconcileWithUntilDone(true)),
 			GetStep(opts,
 				GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),
 				GetWithNamespacedName(name, namespace),
@@ -364,68 +371,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}, timeout, interval).Should(HaveLen(0), "system Deployments should be deleted")
 	})
 
-	It("legacy uninstall", func() {
-		t := GinkgoT()
-		reconcilerTest := NewReconcilerTest(setup,
-			&razeeDeploymentLegacyUninstall,
-			&secret,
-			&namespObj,
-		)
-
-		reconcilerTest.TestAll(t,
-			ReconcileStep(opts,
-				ReconcileWithExpectedResults(
-					RequeueResult,
-					RequeueResult,
-					RequeueResult,
-				),
-			),
-			ListStep(append(opts, WithStepName("Get Legacy Job")),
-				ListWithObj(&batch.JobList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*batch.JobList)
-
-					assert.Truef(t, ok, "expected job list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(append(opts, WithStepName("Get Service Account")),
-				ListWithObj(&corev1.ServiceAccountList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*corev1.ServiceAccountList)
-
-					assert.Truef(t, ok, "expected service account list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(append(opts, WithStepName("Get Cluster Role")),
-				ListWithObj(&rbacv1.ClusterRoleList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*rbacv1.ClusterRoleList)
-
-					assert.Truef(t, ok, "expected cluster role list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(append(opts, WithStepName("Get Deployment")),
-				ListWithObj(&appsv1.DeploymentList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-				),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*appsv1.DeploymentList)
-
-					assert.Truef(t, ok, "expected deployment list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-		)
-	})
 })
 
 var _ = Describe("isMapStringByteEqual", func() {

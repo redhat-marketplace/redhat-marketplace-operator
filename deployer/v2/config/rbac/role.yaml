@@ -22,14 +22,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - deploy.razee.io
-  resources:
-  - '*'
-  verbs:
-  - delete
-  - get
-  - list
-- apiGroups:
   - marketplace.redhat.com
   resources:
   - meterdefinitions
@@ -72,15 +64,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resourceNames:
-  - razeedeploy-admin-cr
-  - redhat-marketplace-razeedeploy
-  resources:
-  - clusterroles
-  verbs:
-  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -142,30 +125,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - ""
-  resourceNames:
-  - razeedeploy-sa
-  - watch-keeper-sa
-  resources:
-  - serviceaccounts
-  verbs:
-  - delete
-- apiGroups:
-  - apps
-  resourceNames:
-  - clustersubscription
-  - featureflagsetld-controller
-  - managedset-controller
-  - mustachetemplate-controller
-  - remoteresource-controller
-  - remoteresources3-controller
-  - remoteresources3decrypt-controller
-  - watch-keeper
-  resources:
-  - deployments
-  verbs:
-  - delete
-- apiGroups:
   - apps
   resources:
   - deployments
@@ -187,24 +146,6 @@ rules:
   - delete
   - patch
   - update
-- apiGroups:
-  - batch
-  - extensions
-  resources:
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - batch
-  - extensions
-  resourceNames:
-  - razeedeploy-job
-  resources:
-  - jobs
-  verbs:
-  - delete
 - apiGroups:
   - marketplace.redhat.com
   resources:

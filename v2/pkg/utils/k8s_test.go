@@ -221,9 +221,10 @@ var (
 		Deployment:                         ptr.Bool(true),
 		EnableMeterDefinitionCatalogServer: ptr.Bool(true),
 	}
+	installIBMCatalogSource = ptr.Bool(true)
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
-	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
+	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features, installIBMCatalogSource)
 	meterbase         *marketplacev1alpha1.MeterBase
 
 	testNs1 = &corev1.Namespace{}

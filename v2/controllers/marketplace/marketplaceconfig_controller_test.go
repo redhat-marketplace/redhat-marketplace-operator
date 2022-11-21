@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
@@ -274,27 +273,5 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
 		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
 		Expect(rd.Spec.ClusterDisplayName).Should(Equal("test-cluster-connected"))
-
-		ibm_cs := &operatorsv1alpha1.CatalogSource{}
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.IBM_CATALOGSRC_NAME, Namespace: utils.OPERATOR_MKTPLACE_NS}, ibm_cs)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			}
-
-			return notFound
-		}, timeout, interval).ShouldNot(BeTrue())
-
-		opencloud_cs := &operatorsv1alpha1.CatalogSource{}
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.OPENCLOUD_CATALOGSRC_NAME, Namespace: utils.OPERATOR_MKTPLACE_NS}, opencloud_cs)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			}
-
-			return notFound
-		}, timeout, interval).ShouldNot(BeTrue())
 	})
 })
