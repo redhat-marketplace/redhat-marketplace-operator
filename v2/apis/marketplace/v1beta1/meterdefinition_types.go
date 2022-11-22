@@ -23,6 +23,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/signer"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -389,3 +390,17 @@ func (r *MeterDefinition) ValidateSignature() error {
 
 	return signer.VerifySignature(uMeterDef, caCert)
 }
+
+var (
+	VerifyReportingErrorCondition = status.Condition{
+		Type:   MeterDefVerifyReportingSetupError,
+		Reason: "VerifyReportingError",
+		Status: corev1.ConditionTrue,
+	}
+
+	PreviewErrorCondition = status.Condition{
+		Type:   MeterDefQueryPreviewSetupError,
+		Reason: "PreviewError",
+		Status: corev1.ConditionTrue,
+	}
+)

@@ -1003,8 +1003,8 @@ func isUserWorkloadMonitoringEnabledOnCluster(client client.Client, infrastructu
 
 	clusterMonitorConfigMap := &corev1.ConfigMap{}
 	cmNamespacedName := types.NamespacedName{
-		Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-		Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
+		Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
+		Name:      utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME,
 	}
 
 	if err := client.Get(context.TODO(), cmNamespacedName, clusterMonitorConfigMap); kerrors.IsNotFound(err) {

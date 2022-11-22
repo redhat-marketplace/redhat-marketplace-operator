@@ -17,8 +17,6 @@ package marketplace
 import (
 	. "github.com/onsi/ginkgo"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,12 +56,10 @@ var _ = Describe("MeterDefinitionController", func() {
 
 		r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
 		r.Reconciler = &MeterDefinitionReconciler{
-			Client:  r.Client,
-			Scheme:  k8sScheme,
-			Log:     log,
-			cc:      reconcileutils.NewClientCommand(r.Client, k8sScheme, log),
-			patcher: patch.RHMDefaultPatcher,
-			cfg:     operatorCfg,
+			Client: r.Client,
+			Scheme: k8sScheme,
+			Log:    log,
+			cfg:    operatorCfg,
 		}
 		return nil
 	}
