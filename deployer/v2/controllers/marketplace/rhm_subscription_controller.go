@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -87,8 +88,7 @@ func (r *RHMSubscriptionController) Reconcile(ctx context.Context, request recon
 
 	// Fetch the Subscription instance
 	instance := &olmv1alpha1.Subscription{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -103,14 +103,18 @@ func (r *RHMSubscriptionController) Reconcile(ctx context.Context, request recon
 
 	// add the doNotUninstall label. if the label already existed,
 	// predicate.Funcs would have prevented us from getting this far.
-	updatedSubscription := instance.DeepCopy()
-	labels := updatedSubscription.GetLabels()
-	labels[doNotUninstallLabel] = "true"
-	updatedSubscription.SetLabels(labels)
-	if err := r.Client.Update(context.TODO(), updatedSubscription); err != nil {
-		reqLogger.Error(err, "Failed to update RHM subscription with doNotUninstall label")
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
+		}
+		labels := instance.GetLabels()
+		labels[doNotUninstallLabel] = "true"
+		instance.SetLabels(labels)
+		return r.Client.Update(context.TODO(), instance)
+	}); err != nil {
 		return reconcile.Result{}, err
 	}
+
 	reqLogger.Info("Updated RHM subscription with doNotUninstall label")
 
 	reqLogger.Info("Reconciliation complete")

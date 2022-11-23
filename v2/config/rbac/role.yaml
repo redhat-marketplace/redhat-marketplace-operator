@@ -143,15 +143,6 @@ rules:
   - operators.coreos.com
   resources:
   - clusterserviceversions
-  verbs:
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - clusterserviceversions
   - subscriptions
   verbs:
   - get
@@ -162,21 +153,15 @@ rules:
   resources:
   - operatorgroups
   verbs:
-  - create
-  - delete
   - get
   - list
-  - watch
 - apiGroups:
   - operators.coreos.com
   resources:
   - subscriptions
   verbs:
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - storage.k8s.io

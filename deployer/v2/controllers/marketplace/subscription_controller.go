@@ -91,8 +91,7 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 
 	// Fetch the Subscription instance
 	instance := &olmv1alpha1.Subscription{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -111,11 +110,7 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 	groups := &olmv1.OperatorGroupList{}
 
 	// find operator groups
-	err = r.Client.List(context.TODO(),
-		groups,
-		client.InNamespace(instance.GetNamespace()))
-
-	if err != nil {
+	if err := r.Client.List(context.TODO(), groups, client.InNamespace(instance.GetNamespace())); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -142,10 +137,7 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 			"name", og.GetName(),
 			"namespace", og.GetNamespace())
 
-		err = r.Client.Delete(context.TODO(), og)
-
-		// nothing to create
-		if err != nil {
+		if err := r.Client.Delete(context.TODO(), og); err != nil {
 			reqLogger.Error(err,
 				"failed to delete",
 				"generate-name", og.GetGenerateName(),
@@ -160,10 +152,7 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 		reqLogger.Info("creating an operator group",
 			"generate-name", og.GetGenerateName(),
 			"namespace", og.GetNamespace())
-		err = r.Client.Create(context.TODO(), og)
-
-		// nothing to create
-		if err != nil {
+		if err := r.Client.Create(context.TODO(), og); err != nil {
 			reqLogger.Error(err,
 				"failed to create",
 				"generate-name", og.GetGenerateName(),
@@ -216,8 +205,7 @@ func (r *SubscriptionReconciler) uninstall(sub *olmv1alpha1.Subscription) (recon
 			reqLogger.Error(err, "could not delete csv", "csv name", csvName)
 		}
 		if err == nil {
-			err = r.Client.Delete(context.TODO(), csvObj)
-			if err != nil && !errors.IsNotFound((err)) {
+			if err := r.Client.Delete(context.TODO(), csvObj); err != nil && !errors.IsNotFound((err)) {
 				reqLogger.Error(err, "could not delete csv", "csv name", csvName)
 			}
 			return reconcile.Result{Requeue: true}, nil
@@ -225,8 +213,7 @@ func (r *SubscriptionReconciler) uninstall(sub *olmv1alpha1.Subscription) (recon
 	}
 
 	// delete sub
-	err := r.Client.Delete(context.TODO(), sub)
-	if err != nil && !errors.IsNotFound((err)) {
+	if err := r.Client.Delete(context.TODO(), sub); err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not delete sub")
 	}
 
