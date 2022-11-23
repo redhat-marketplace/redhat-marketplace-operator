@@ -124,8 +124,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 	reqLogger.Info("Reconciling Object")
 
 	instance := &marketplacev1alpha1.MeterBase{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: r.cfg.DeployedNamespace}, instance)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: r.cfg.DeployedNamespace}, instance); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
 			return reconcile.Result{}, nil
@@ -148,8 +147,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 
 	// Fetch the subscription instance
 	sub := &olmv1alpha1.Subscription{}
-	err = r.Client.Get(context.TODO(), request.NamespacedName, sub)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, sub); err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
 			reqLogger.Info("subscription does not exist", "name", request.Name)
@@ -171,8 +169,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 
 	// try to find InstalledCSV in the same namespace as the subscription
 	csv := &olmv1alpha1.ClusterServiceVersion{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: csvName, Namespace: sub.Namespace}, csv); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("no csv found for InstalledCSV", "csv", csvName, "sub", sub.Name, "sub namespace", sub.Namespace)
 			return reconcile.Result{}, nil
@@ -208,8 +205,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 			}
 
 			if err == nil {
-				err = r.createOrUpdateMeterDefs(communityMeterdefs, csv, reqLogger)
-				if err != nil {
+				if err := r.createOrUpdateMeterDefs(communityMeterdefs, csv, reqLogger); err != nil {
 					reqLogger.Error(err, "error creating meterdefs")
 				}
 			}
@@ -271,8 +267,7 @@ func (r *MeterDefinitionInstallReconciler) createOrUpdateMeterDefs(catalogMeterD
 			}
 
 			reqLogger.Info("meterdefinition already present, checking for updates", "meterdef", clusterMeterdef.Name)
-			err = r.updateMeterdef(clusterMeterdef, catalogMeterDef, reqLogger)
-			if err != nil {
+			if err := r.updateMeterdef(clusterMeterdef, catalogMeterDef, reqLogger); err != nil {
 				return err
 			}
 
@@ -289,20 +284,27 @@ func (r *MeterDefinitionInstallReconciler) createOrUpdateMeterDefs(catalogMeterD
 }
 
 func (r *MeterDefinitionInstallReconciler) updateMeterdef(onClusterMeterDef *marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) error {
-	updatedMeterdefinition := onClusterMeterDef.DeepCopy()
-	updatedMeterdefinition.Spec = catalogMdef.Spec
-	updatedMeterdefinition.ObjectMeta.Annotations = catalogMdef.ObjectMeta.Annotations
 
-	if !reflect.DeepEqual(updatedMeterdefinition, onClusterMeterDef) {
-		reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "name", onClusterMeterDef.Name)
-		err := r.Client.Update(context.TODO(), updatedMeterdefinition)
-		if err != nil {
-			reqLogger.Error(err, "Failed updating meter definition", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{
+			Name:      onClusterMeterDef.Name,
+			Namespace: onClusterMeterDef.Namespace,
+		}, onClusterMeterDef); err != nil {
 			return err
 		}
 
-		reqLogger.Info("UPDATE: updated meterdefintion", "name", updatedMeterdefinition.Name, "namespace", updatedMeterdefinition.Namespace)
+		updatedMeterdefinition := onClusterMeterDef.DeepCopy()
+		updatedMeterdefinition.Spec = catalogMdef.Spec
+		updatedMeterdefinition.ObjectMeta.Annotations = catalogMdef.ObjectMeta.Annotations
+
+		if !reflect.DeepEqual(updatedMeterdefinition, onClusterMeterDef) {
+			reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "name", onClusterMeterDef.Name)
+			return r.Client.Update(context.TODO(), updatedMeterdefinition)
+		}
+
 		return nil
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -327,8 +329,7 @@ func (r *MeterDefinitionInstallReconciler) createMeterdefWithOwnerRef(csvVersion
 	meterDefinition.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 	meterDefinition.ObjectMeta.Namespace = csv.Namespace
 
-	err = r.Client.Create(context.TODO(), meterDefinition)
-	if err != nil {
+	if err := r.Client.Create(context.TODO(), meterDefinition); err != nil {
 		return err
 	}
 
