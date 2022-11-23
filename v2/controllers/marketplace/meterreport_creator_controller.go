@@ -22,15 +22,14 @@ import (
 	"strings"
 	"time"
 
-	merrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -50,7 +49,6 @@ type MeterReportCreatorReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	CC     ClientCommandRunner
 	cfg    *config.OperatorConfig
 }
 
@@ -61,27 +59,17 @@ func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request re
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
-	result, _ := r.CC.Do(
-		context.TODO(),
-		HandleResult(
-			GetAction(
-				request.NamespacedName,
-				instance,
-			),
-		),
-	)
-
-	if !result.Is(Continue) {
-		if result.Is(NotFound) {
-			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+		if kerrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			reqLogger.Info("Resource not found. Ignoring since object must be deleted")
 			return reconcile.Result{}, nil
 		}
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-		}
-
-		return result.Return()
+		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "Failed to get MeterBase")
+		return reconcile.Result{}, err
 	}
 
 	if !instance.Spec.Enabled {
@@ -96,81 +84,46 @@ func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request re
 		return reconcile.Result{}, nil
 	}
 
-	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(r.Client, r.cfg.Infrastructure, reqLogger)
-	if err != nil {
-		reqLogger.Error(err, "failed to get user workload monitoring")
-	}
-
-	var userWorkloadMonitoringEnabledSpec bool
-
-	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
-	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
-		userWorkloadMonitoringEnabledSpec = true
-	} else {
-		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
-	}
-
-	userWorkloadConfigurationIsValid, userWorkloadErr := validateUserWorkLoadMonitoringConfig(r.Client, reqLogger)
-	if userWorkloadErr != nil {
-		reqLogger.Info(userWorkloadErr.Error())
-	}
-
-	// userWorkloadMonitoringEnabled is considered enabled if the Spec,cluster configuration,and user workload config validation are satisfied
-	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec && userWorkloadConfigurationIsValid
-
 	meterReportList := &marketplacev1alpha1.MeterReportList{}
-	if result, err := r.CC.Do(
-		context.TODO(),
-		HandleResult(
-			ListAction(meterReportList, client.InNamespace(request.Namespace)),
-			OnContinue(Call(func() (ClientAction, error) {
-				loc := time.UTC
-				dateRangeInDays := -90
 
-				meterReportNames := r.sortMeterReports(meterReportList)
-
-				// prune old reports
-				meterReportNames, err := r.removeOldReports(meterReportNames, loc, dateRangeInDays, request)
-				if err != nil {
-					reqLogger.Error(err, err.Error())
-				}
-
-				// fill in gaps of missing reports
-				// we want the min date to be install date - 1 day
-				endDate := time.Now().In(loc)
-
-				minDate := instance.ObjectMeta.CreationTimestamp.Time.In(loc)
-				minDate = utils.TruncateTime(minDate, loc)
-
-				expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
-				foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
-
-				if err != nil {
-					return nil, err
-				}
-
-				reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
-
-				// Create the report with the active/to-be userWorkloadMonitoringEnabled state, regardless of transition state
-				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance, userWorkloadMonitoringEnabled)
-				if err != nil {
-					return nil, err
-				}
-				return nil, nil
-			})),
-			OnNotFound(Call(func() (ClientAction, error) {
-				reqLogger.Info("can't find meter report list, requeuing")
-				return ReturnFinishedResult(), nil
-			})),
-		),
-	); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-		}
-
-		return result.Return()
+	if err := r.Client.List(context.TODO(), meterReportList, client.InNamespace(request.Namespace)); err != nil {
+		return reconcile.Result{}, nil
 	}
 
+	loc := time.UTC
+	dateRangeInDays := -90
+
+	meterReportNames := r.sortMeterReports(meterReportList)
+
+	// prune old reports
+	meterReportNames, err := r.removeOldReports(meterReportNames, loc, dateRangeInDays, request)
+	if err != nil {
+		reqLogger.Error(err, err.Error())
+	}
+
+	// fill in gaps of missing reports
+	// we want the min date to be install date - 1 day
+	endDate := time.Now().In(loc)
+
+	minDate := instance.ObjectMeta.CreationTimestamp.Time.In(loc)
+	minDate = utils.TruncateTime(minDate, loc)
+
+	expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
+	foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
+
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
+
+	// Create the report with the active/to-be userWorkloadMonitoringEnabled state, regardless of transition state
+	userWorkloadMonitoringEnabled := true
+	if err := r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance, userWorkloadMonitoringEnabled); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
 }
 
@@ -180,11 +133,6 @@ func (r *MeterReportCreatorReconciler) Inject(injector mktypes.Injectable) {
 
 func (r *MeterReportCreatorReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	r.cfg = cfg
-	return nil
-}
-
-func (r *MeterReportCreatorReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.CC = ccp
 	return nil
 }
 
@@ -244,11 +192,6 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 		Complete(r)
 }
 
-func (r *MeterReportCreatorReconciler) newMeterReportNameFromDate(date time.Time) string {
-	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
-	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
-}
-
 func (r *MeterReportCreatorReconciler) newMeterReportNameFromString(dateString string) string {
 	dateSuffix := dateString
 	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
@@ -265,8 +208,7 @@ func (r *MeterReportCreatorReconciler) createReportIfNotFound(expectedCreatedDat
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
 		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, userWorkloadMonitoringEnabled)
-		err := r.Client.Create(context.TODO(), missingMeterReport)
-		if err != nil {
+		if err := r.Client.Create(context.TODO(), missingMeterReport); err != nil {
 			return err
 		}
 		reqLogger.Info("Created Missing Report", "Resource", missingReportName)
@@ -294,8 +236,7 @@ func (r *MeterReportCreatorReconciler) removeOldReports(meterReportNames []strin
 					Namespace: request.Namespace,
 				},
 			}
-			err := r.Client.Delete(context.TODO(), deleteReport)
-			if err != nil {
+			if err := r.Client.Delete(context.TODO(), deleteReport); err != nil {
 				return nil, err
 			}
 		}
@@ -355,7 +296,7 @@ func (r *MeterReportCreatorReconciler) generateExpectedDates(endTime time.Time, 
 
 	// loop through the range of dates we expect
 	var expectedCreatedDates []string
-	for d := startDate; d.After(endDate) == false; d = d.AddDate(0, 0, 1) {
+	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
 		expectedCreatedDates = append(expectedCreatedDates, d.Format(utils.DATE_FORMAT))
 	}
 

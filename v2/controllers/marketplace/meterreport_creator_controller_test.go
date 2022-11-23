@@ -24,7 +24,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,7 +122,6 @@ var _ = Describe("MeterbaseController", func() {
 				Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 				Client: k8sClient,
 				Scheme: k8sScheme,
-				CC:     reconcileutils.NewClientCommand(k8sManager.GetClient(), k8sScheme, ctrl.Log),
 				cfg:    operatorCfg,
 			}
 			err := reportCreatorReconciler.SetupWithManager(k8sManager, doneChan)
