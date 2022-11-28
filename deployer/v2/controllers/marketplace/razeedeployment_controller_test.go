@@ -25,8 +25,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
@@ -203,10 +201,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Client:  r.GetClient(),
 				Scheme:  k8sScheme,
 				Log:     log,
-				CC:      reconcileutils.NewClientCommand(r.GetClient(), k8sScheme, log),
 				cfg:     cfg,
 				factory: factory,
-				patcher: patch.RHMDefaultPatcher,
 			})
 			return nil
 		}

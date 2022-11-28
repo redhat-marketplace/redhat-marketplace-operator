@@ -282,24 +282,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.RHMSubscriptionController{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RHMSubscription"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RHMSubscription")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.SubscriptionReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("SubscriptionReconciler"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SubscriptionReconciler")
-		os.Exit(1)
-	}
-
 	if err = (&runnables.PodMonitor{
 		Logger: ctrl.Log.WithName("controllers").WithName("PodMonitor"),
 		Client: mgr.GetClient(),

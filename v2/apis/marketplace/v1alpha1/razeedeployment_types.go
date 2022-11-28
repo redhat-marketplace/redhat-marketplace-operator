@@ -296,4 +296,60 @@ var (
 		Reason:  ReasonRazeeInstallFinished,
 		Message: "Razee install complete",
 	}
+
+	ConditionRazeeNotEnabled = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "Razee not enabled",
+	}
+
+	ConditionRazeeNameMismatch = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "RazeeDeploy Resource name does not match expected",
+	}
+
+	ConditionRazeeStartInstall = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeStartInstall,
+		Message: "Razee Install starting",
+	}
+
+	ConditionResourceS3DeploymentDisabled = status.Condition{
+		Type:    ConditionDeploymentEnabled,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonRhmRemoteResourceS3DeploymentEnabled,
+		Message: "Deployment feature is disabled. RemoteResourceS3 deployment disabled. Operator deployment will be unavailable on marketplace.redhat.com",
+	}
+
+	ConditionRhmRegistrationWatchkeeperDisabled = status.Condition{
+		Type:    ConditionRegistrationEnabled,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonRhmRegistrationWatchkeeperEnabled,
+		Message: "Registration feature is disabled. WatchKeeper disabled. Registration status will be unavailable on marketplace.redhat.com",
+	}
+
+	ConditionRhmRemoteResourceS3DeploymentEnabled = status.Condition{
+		Type:    ConditionDeploymentEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRhmRemoteResourceS3DeploymentEnabled,
+		Message: "RemoteResourceS3 deployment enabled",
+	}
+
+	ConditionRhmRegistrationWatchkeeperEnabled = status.Condition{
+		Type:    ConditionRegistrationEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRhmRegistrationWatchkeeperEnabled,
+		Message: "Registration deployment enabled",
+	}
+
+	ConditionParentRRS3Installed = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonParentRRS3Installed,
+		Message: "ParentRRS3 install finished",
+	}
 )
