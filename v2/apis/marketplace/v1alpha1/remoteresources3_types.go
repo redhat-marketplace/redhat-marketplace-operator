@@ -220,3 +220,18 @@ type RemoteResourceS3List struct {
 func init() {
 	SchemeBuilder.Register(&RemoteResourceS3{}, &RemoteResourceS3List{})
 }
+
+var (
+	ConditionFailedRequest = status.Condition{
+		Type:   ResourceInstallError,
+		Status: corev1.ConditionTrue,
+		Reason: FailedRequest,
+	}
+
+	ConditionNoBadRequest = status.Condition{
+		Type:    ResourceInstallError,
+		Status:  corev1.ConditionFalse,
+		Message: "No error found",
+		Reason:  NoBadRequest,
+	}
+)

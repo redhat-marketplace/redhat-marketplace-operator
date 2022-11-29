@@ -26,10 +26,9 @@ import (
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -86,8 +85,7 @@ func (r *RemoteResourceS3Reconciler) Reconcile(ctx context.Context, request reco
 	// Fetch the Node instance
 	instance := &marketplacev1alpha1.RemoteResourceS3{}
 
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -99,15 +97,19 @@ func (r *RemoteResourceS3Reconciler) Reconcile(ctx context.Context, request reco
 		return reconcile.Result{}, err
 	}
 
-	if instance.Status.Touched == nil {
-		instance.Status = marketplacev1alpha1.RemoteResourceS3Status{
-			Touched: ptr.Bool(true),
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
 		}
-		err := r.Client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			return reconcile.Result{}, err
+		if instance.Status.Touched == nil {
+			instance.Status = marketplacev1alpha1.RemoteResourceS3Status{
+				Touched: ptr.Bool(true),
+			}
+			return r.Client.Status().Update(context.TODO(), instance)
 		}
-		reqLogger.Info("updated remoteresources3")
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	requests := instance.Spec.Requests
@@ -121,32 +123,27 @@ func (r *RemoteResourceS3Reconciler) Reconcile(ctx context.Context, request reco
 		}
 	}
 
-	update := false
-	if rs3Request != nil {
-		update = instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ResourceInstallError,
-			Status:  corev1.ConditionTrue,
-			Message: rs3Request.Message,
-			Reason:  marketplacev1alpha1.FailedRequest,
-		})
-	} else {
-		update = instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ResourceInstallError,
-			Status:  corev1.ConditionFalse,
-			Message: "No error found",
-			Reason:  marketplacev1alpha1.NoBadRequest,
-		})
-	}
-
-	if update {
-		err := r.Client.Status().Update(context.TODO(), instance)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new CR.")
-			return reconcile.Result{}, err
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		update := false
+		if rs3Request != nil {
+			condition := marketplacev1alpha1.ConditionFailedRequest
+			condition.Message = rs3Request.Message
+			update = instance.Status.Conditions.SetCondition(condition)
+		} else {
+			update = instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionNoBadRequest)
+		}
+
+		if update {
+			return r.Client.Status().Update(context.TODO(), instance)
+		}
+
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("finished reconcile")

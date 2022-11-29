@@ -145,7 +145,6 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	for _, og := range createList {
@@ -163,7 +162,6 @@ func (r *SubscriptionReconciler) Reconcile(ctx context.Context, request reconcil
 		reqLogger.Info("successfully created",
 			"generate-name", og.GetGenerateName(),
 			"namespace", og.GetNamespace())
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	reqLogger.Info("reconciliation complete")
