@@ -15,29 +15,25 @@
 package marketplace
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
-	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 
 	"emperror.dev/errors"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -101,9 +97,8 @@ type MeterBaseReconciler struct {
 	Log                  logr.Logger
 	cfg                  *config.OperatorConfig
 	factory              *manifests.Factory
-	patcher              patch.Patcher
 	recorder             record.EventRecorder
-	prometheusAPIBuilder *prom.PrometheusAPIBuilder
+	prometheusAPIBuilder *prometheus.PrometheusAPIBuilder
 }
 
 func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -113,11 +108,6 @@ func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupW
 
 func (r *MeterBaseReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	r.cfg = cfg
-	return nil
-}
-
-func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
-	r.patcher = p
 	return nil
 }
 
@@ -187,11 +177,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		secret := corev1.Secret{}
 		err := mgr.GetClient().Get(context.Background(), in, &secret)
 
-		if err != nil {
-			return false
-		}
-
-		return true
+		return err == nil
 	})
 
 	mgr.Add(secretMapHandler)
@@ -250,7 +236,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
-			&source.Kind{Type: &v1beta1.MeterDefinition{}},
+			&source.Kind{Type: &marketplacev1beta1.MeterDefinition{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
@@ -546,62 +532,10 @@ func reconcileForMeterDef(deployedNamespace string, meterdefNamespace string, me
 	}
 
 	var meterdefSlice = []string{utils.PrometheusMeterbaseUptimeMeterdef, utils.MetricStateUptimeMeterdef, utils.MeterReportJobFailedMeterdef}
-	if meterdefNamespace == deployedNamespace && Contains(meterdefSlice, meterdefName) {
+	if meterdefNamespace == deployedNamespace && slices.Contains(meterdefSlice, meterdefName) {
 		return true
 	}
 	return false
-}
-
-const promServiceName = "rhm-prometheus-meterbase"
-
-const tokenSecretName = "servicemonitor-metrics-reader"
-
-func (r *MeterBaseReconciler) createTokenSecret(instance *marketplacev1alpha1.MeterBase) []ClientAction {
-	secretName := tokenSecretName
-	secret := corev1.Secret{}
-
-	return []ClientAction{
-		HandleResult(
-			GetAction(types.NamespacedName{
-				Name:      secretName,
-				Namespace: r.cfg.DeployedNamespace,
-			}, &secret),
-			OnNotFound(Call(func() (ClientAction, error) {
-				secret.Name = secretName
-				secret.Namespace = r.cfg.DeployedNamespace
-
-				r.Log.Info("creating secret", "secret", secretName)
-
-				tokenData, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
-				if err != nil {
-					return nil, err
-				}
-
-				secret.Data = map[string][]byte{
-					"token": tokenData,
-				}
-
-				return CreateAction(&secret, CreateWithAddOwner(instance)), nil
-			})),
-			OnContinue(Call(func() (ClientAction, error) {
-				tokenData, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
-				if err != nil {
-					return nil, err
-				}
-
-				r.Log.Info("found secret", "secret", secretName)
-
-				if v, ok := secret.Data["token"]; !ok || ok && bytes.Compare(v, tokenData) != 0 {
-					secret.Data = map[string][]byte{
-						"token": tokenData,
-					}
-					r.Log.Info("updating secret", "secret", secretName)
-					return UpdateAction(&secret), nil
-				}
-				return nil, nil
-			})),
-		),
-	}
 }
 
 func (r *MeterBaseReconciler) installMetricStateDeployment(
@@ -673,6 +607,7 @@ func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplac
 	return nil
 }
 
+/*
 func (r *MeterBaseReconciler) uninstallPrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,
 ) []ClientAction {
@@ -688,20 +623,9 @@ func (r *MeterBaseReconciler) uninstallPrometheusOperator(
 			OnContinue(DeleteAction(deployment))),
 	}
 }
+*/
 
-var ignoreKubeStateList = []string{
-	"kube_configmap.*",
-	"kube_cronjob.*",
-	"kube_daemonset.*",
-	"kube_deployment.*",
-	"kube_endpoint.*",
-	"kube_job.*",
-	"kube_node_status.*",
-	"kube_replicaset.*",
-	"kube_secret.*",
-	"kube_statefulset.*",
-}
-
+/*
 func (r *MeterBaseReconciler) uninstallMetricState(
 	instance *marketplacev1alpha1.MeterBase,
 ) []ClientAction {
@@ -749,6 +673,7 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 			OnContinue(DeleteAction(deployment))),
 	}
 }
+*/
 
 func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.MeterBase) error {
 	secret0, _ := r.factory.PrometheusDatasources()
@@ -795,6 +720,7 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 	return nil
 }
 
+/*
 func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle() error {
 	configMap, err := r.factory.PrometheusServingCertsCABundle()
 	if err != nil {
@@ -805,7 +731,9 @@ func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle() error {
 	}
 	return nil
 }
+*/
 
+/*
 func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
 	sm, _ := r.factory.UserWorkloadMonitoringServiceMonitor()
 	md, _ := r.factory.UserWorkloadMonitoringMeterDefinition()
@@ -823,6 +751,7 @@ func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
 			OnContinue(DeleteAction(md))),
 	}
 }
+*/
 
 func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool, isDisconnected bool) (reconcile.Result, error) {
 	cronJob, err := r.factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)

@@ -18,14 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
@@ -50,27 +45,9 @@ type RemoteResourceS3Reconciler struct {
 }
 
 func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error {
-	cfg, _ := config.GetConfig()
-	labelPreds := []predicate.Predicate{
-		predicate.Funcs{
-			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return evt.ObjectNew.GetNamespace() == cfg.DeployedNamespace && evt.ObjectNew.GetNamespace() == cfg.DeployedNamespace
-			},
-			CreateFunc: func(evt event.CreateEvent) bool {
-				return evt.Object.GetNamespace() == cfg.DeployedNamespace
-			},
-			GenericFunc: func(evt event.GenericEvent) bool {
-				return false
-			},
-			DeleteFunc: func(evt event.DeleteEvent) bool {
-				return false
-			},
-		},
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.RemoteResourceS3{}).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 

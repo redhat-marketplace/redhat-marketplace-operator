@@ -88,11 +88,6 @@ func (r *ClusterServiceVersionReconciler) Reconcile(ctx context.Context, request
 		return reconcile.Result{}, err
 	}
 
-	annotations := CSV.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
 	sub := &olmv1alpha1.SubscriptionList{}
 
 	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {

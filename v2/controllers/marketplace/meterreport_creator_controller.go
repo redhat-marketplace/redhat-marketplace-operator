@@ -311,7 +311,8 @@ func (r *MeterReportCreatorReconciler) newMeterReport(
 	instance *marketplacev1alpha1.MeterBase,
 	userWorkloadMonitoringEnabled bool,
 ) *marketplacev1alpha1.MeterReport {
-	promService := &common.ServiceReference{}
+
+	var promService *common.ServiceReference
 
 	if userWorkloadMonitoringEnabled {
 		promService = &common.ServiceReference{

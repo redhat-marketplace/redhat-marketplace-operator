@@ -30,7 +30,6 @@ import (
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -236,24 +235,21 @@ func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reco
 
 	// catalog server not enabled. Uninstall deploymentconfig resources
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer {
-		result := r.uninstallFileServerDeploymentResources(reqLogger)
-		if !result.Is(Continue) {
-			result.Return()
+		if err := r.uninstallFileServerDeploymentResources(); err != nil {
+			return reconcile.Result{}, err
 		}
 
 		reqLogger.Info("done uninstalling catalog server resources,stopping reconcile")
 		return reconcile.Result{}, nil
 	}
 
-	result := r.reconcileCatalogServerResources(instance, request, reqLogger)
-	if !result.Is(Continue) {
-		return result.Return()
+	if err := r.reconcileCatalogServerResources(instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// get the latest deploymentconfig
 	dc := &osappsv1.DeploymentConfig{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, dc)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, dc); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("deployment config not found, ignoring")
 			return reconcile.Result{}, nil
@@ -293,27 +289,23 @@ func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reco
 	}
 
 	if progressing := conditionMap.GetCondition(osappsv1.DeploymentAvailable); progressing != nil {
-		return result.ReconcileResult, progressing.dcEror
+		return reconcile.Result{}, progressing.dcEror
 	}
 
 	if replicationFailure := conditionMap.GetCondition(osappsv1.DeploymentProgressing); replicationFailure != nil {
-		return result.ReconcileResult, replicationFailure.dcEror
+		return reconcile.Result{}, replicationFailure.dcEror
 	}
 
 	if available := conditionMap.GetCondition(osappsv1.DeploymentAvailable); available != nil {
-		return result.ReconcileResult, available.dcEror
+		return reconcile.Result{}, available.dcEror
 	}
 
 	reqLogger.Info("deploymentconfig is in ready state")
 
 	//syncs the latest meterdefinitions from the catalog with the community & system (templated) meterdefinitions on the cluster
-	result = r.sync(instance, request, reqLogger)
-	if !result.Is(Continue) {
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "error on sync")
-		}
-
-		return result.Return()
+	if err := r.sync(instance, reqLogger); err != nil {
+		reqLogger.Error(err, "error on sync")
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("finished reconciling")
@@ -330,13 +322,10 @@ func (m *ConditionMap) GetCondition(t osappsv1.DeploymentConditionType) *Conditi
 }
 
 // TODO: zach remove ExecResult - low priority
-func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase, reqLogger logr.Logger) error {
 	subs, err := listSubs(r.Client)
 	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		return err
 	}
 
 	for _, sub := range subs {
@@ -372,16 +361,9 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				err = fmt.Errorf("could not find csv: %s, from subscription: %s, subscription namespace: %s", csv.Name, sub.Name, sub.Namespace)
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
+				return err
 			}
-
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
+			return err
 		}
 
 		reqLogger.Info("found installed csv from subscription", "csv", csv.Name)
@@ -417,9 +399,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 		}
 	}
 
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return nil
 }
 
 func checkOperatorTag(sub *olmv1alpha1.Subscription) bool {
@@ -612,298 +592,89 @@ func isDeploymentConfigRunning(client client.Client, deployedNamespace string, r
 	return true
 }
 
-func (r *DeploymentConfigReconciler) uninstallFileServerDeploymentResources(reqLogger logr.Logger) (result *ExecResult) {
-	result = r.uninstallDeploymentConfig(reqLogger)
-	if !result.Is(Continue) {
-		result.Return()
+func (r *DeploymentConfigReconciler) uninstallFileServerDeploymentResources() error {
+	if err := r.uninstallDeploymentConfig(); err != nil {
+		return err
 	}
 
-	result = r.uninstallService(reqLogger)
-	if !result.Is(Continue) {
-		result.Return()
+	if err := r.uninstallService(); err != nil {
+		return err
 	}
 
-	result = r.uninstallImageStream(reqLogger)
-	if !result.Is(Continue) {
-		result.Return()
+	if err := r.uninstallImageStream(); err != nil {
+		return err
 	}
 
-	return result
+	return nil
 }
 
-func (r *DeploymentConfigReconciler) uninstallDeploymentConfig(reqLogger logr.Logger) *ExecResult {
-	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("deploymentconfig not found,skipping uninstall")
-			return &ExecResult{
-				Status: ActionResultStatus(Continue),
-			}
-		}
+func (r *DeploymentConfigReconciler) uninstallDeploymentConfig() error {
+	deploymentConfig := &osappsv1.DeploymentConfig{}
+	deploymentConfig.Name = utils.DeploymentConfigName
+	deploymentConfig.Namespace = r.cfg.DeployedNamespace
 
-		reqLogger.Error(err, "could not uninstall deploymentconfig")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+	if err := r.Client.Delete(context.TODO(), deploymentConfig); err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 
-	foundDeploymentConfig.OwnerReferences = []metav1.OwnerReference{}
-
-	err = r.Client.Delete(context.TODO(), foundDeploymentConfig)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		reqLogger.Error(err, "could not uninstall deploymentconfig")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return nil
 }
 
-func (r *DeploymentConfigReconciler) uninstallService(reqLogger logr.Logger) *ExecResult {
-	foundFileServerService := &corev1.Service{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundFileServerService)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("catalog server service not found,skipping uninstall")
-			return &ExecResult{
-				Status: ActionResultStatus(Continue),
-			}
-		}
+func (r *DeploymentConfigReconciler) uninstallService() error {
+	fileServerService := &corev1.Service{}
+	fileServerService.Name = utils.DeploymentConfigName
+	fileServerService.Namespace = r.cfg.DeployedNamespace
 
-		reqLogger.Error(err, "could not uninstall catalog server service")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+	if err := r.Client.Delete(context.TODO(), fileServerService); err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 
-	foundFileServerService.OwnerReferences = []metav1.OwnerReference{}
-
-	err = r.Client.Delete(context.TODO(), foundFileServerService)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		reqLogger.Error(err, "could not uninstall catalog server service")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return nil
 }
 
-func (r *DeploymentConfigReconciler) uninstallImageStream(reqLogger logr.Logger) *ExecResult {
-	foundImageStream := &osimagev1.ImageStream{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("image stream not found,skipping uninstall")
-			return &ExecResult{
-				Status: ActionResultStatus(Continue),
-			}
-		}
+func (r *DeploymentConfigReconciler) uninstallImageStream() error {
+	imageStream := &osimagev1.ImageStream{}
+	imageStream.Name = utils.DeploymentConfigName
+	imageStream.Namespace = r.cfg.DeployedNamespace
 
-		reqLogger.Error(err, "could not uninstall image stream")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+	if err := r.Client.Delete(context.TODO(), imageStream); err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 
-	foundImageStream.OwnerReferences = []metav1.OwnerReference{}
-
-	err = r.Client.Delete(context.TODO(), foundImageStream)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		reqLogger.Error(err, "could not uninstall image stream")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return nil
 }
 
-func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *marketplacev1alpha1.MeterBase, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	gvk, err := apiutil.GVKForObject(instance, r.Scheme)
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
+func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *marketplacev1alpha1.MeterBase) error {
+
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		dc, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+		if err != nil {
+			return dc, err
 		}
+		r.factory.UpdateDeploymentConfigOnChange(dc)
+		return dc, nil
+	}); err != nil {
+		return err
 	}
 
-	// create owner ref object
-	ref := metav1.OwnerReference{
-		APIVersion:         gvk.GroupVersion().String(),
-		Kind:               gvk.Kind,
-		Name:               instance.GetName(),
-		UID:                instance.GetUID(),
-		BlockOwnerDeletion: pointer.BoolPtr(false),
-		Controller:         pointer.BoolPtr(false),
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.factory.NewMeterdefintionFileServerService()
+	}); err != nil {
+		return err
 	}
 
-	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("meterdef file server deployment config not found, creating")
-
-			newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-			err = r.Client.Create(context.TODO(), newDeploymentConfig)
-			if err != nil {
-				reqLogger.Error(err, "failed to create deploymentconfig")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("created new deploymentconfig")
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		is, err := r.factory.NewMeterdefintionFileServerImageStream()
+		if err != nil {
+			return is, err
 		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		r.factory.UpdateImageStreamOnChange(is)
+		return is, nil
+	}); err != nil {
+		return err
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
-		if updated {
-			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
-			if err != nil {
-				return err
-			}
-
-			reqLogger.Info("updated deploymentconfig")
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	foundfileServerService := &corev1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("meterdef file server service not found, creating")
-
-			newService, err := r.factory.NewMeterdefintionFileServerService()
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-			err = r.Client.Create(context.TODO(), newService)
-			if err != nil {
-				reqLogger.Error(err, "failed to create file server service")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("created new catalog server service")
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	foundImageStream := &osimagev1.ImageStream{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("image stream not found, creating")
-
-			newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-
-			err = r.Client.Create(context.TODO(), newImageStream)
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("created new image stream")
-		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		imageStreamUpdated := r.factory.UpdateImageStreamOnChange(foundImageStream)
-		if imageStreamUpdated {
-			err = r.Client.Update(context.TODO(), foundImageStream)
-			if err != nil {
-				return err
-			}
-
-			reqLogger.Info("updated ImageStream")
-
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		reqLogger.Error(err, "error on reconciliation of image stream")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return nil
 }
 
 /*

@@ -33,18 +33,13 @@ import (
 )
 
 var (
-	statusCode int
-	body       []byte
-	path       string
 	err        error
 	namespace         = "openshift-redhat-marketplace"
 	customerID string = "accountid"
 
-	secret                     *corev1.Secret
-	tokenString                string
-	server                     *ghttp.Server
-	marketplaceconfig          *marketplacev1alpha1.MarketplaceConfig
-	marketplaceconfigConnected *marketplacev1alpha1.MarketplaceConfig
+	secret      *corev1.Secret
+	tokenString string
+	server      *ghttp.Server
 )
 
 var _ = Describe("Testing MarketplaceConfig controller", func() {

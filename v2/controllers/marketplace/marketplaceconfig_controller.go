@@ -17,8 +17,6 @@ package marketplace
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"unicode/utf8"
@@ -57,11 +55,6 @@ import (
 const (
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 	IBM_CATALOG_SOURCE_FLAG         = true
-)
-
-var (
-	//log                      = logf.Log.WithName("controller_marketplaceconfig")
-	generateMetricsFlag = false
 )
 
 // blank assignment to verify that ReconcileMarketplaceConfig implements reconcile.Reconciler
@@ -225,12 +218,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	return reconcile.Result{}, nil
 }
 
-// labelsForMarketplaceConfig returs the labels for selecting the resources
-// belonging to the given marketplaceConfig custom resource name
-func labelsForMarketplaceConfig(name string) map[string]string {
-	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
-}
-
 func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 	request reconcile.Request,
 ) (reconcile.Result, error) {
@@ -354,19 +341,6 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 		}).
 		Complete(r)
-}
-
-// getOperatorGroup returns the associated OLM OperatorGroup
-func getOperatorGroup() (string, error) {
-	// OperatorGroupEnvVar is the constant for env variable OPERATOR_GROUP
-	// which is annotated as olm.operatorGroup
-	var operatorGroupEnvVar = "OPERATOR_GROUP"
-
-	og, found := os.LookupEnv(operatorGroupEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", operatorGroupEnvVar)
-	}
-	return og, nil
 }
 
 func (r *MarketplaceConfigReconciler) updateDeployedNamespaceLabels(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig) (reconcile.Result, error) {
