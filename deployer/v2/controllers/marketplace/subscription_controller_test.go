@@ -174,7 +174,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		reconcilerTest.TestAll(t,
 			// Reconcile to create obj
 			ReconcileStep(opts,
-				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
+				ReconcileWithExpectedResults(DoneResult)),
 			// List and check results
 			ListStep(opts,
 				ListWithObj(&olmv1.OperatorGroupList{}),
@@ -217,7 +217,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		reconcilerTest.TestAll(t,
 			// Reconcile to create obj
 			ReconcileStep(opts,
-				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
+				ReconcileWithExpectedResults(DoneResult)),
 			// List and check results
 			ListStep(opts,
 				ListWithObj(&olmv1.OperatorGroupList{}),
@@ -236,7 +236,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				})),
 			// Reconcile again to delete the extra operator group
 			ReconcileStep(opts,
-				ReconcileWithExpectedResults(RequeueResult, DoneResult)),
+				ReconcileWithExpectedResults(DoneResult)),
 			// Check to make sure we've deleted it
 			ListStep(opts,
 				ListWithObj(&olmv1.OperatorGroupList{}),
