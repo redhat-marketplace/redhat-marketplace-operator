@@ -664,11 +664,15 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 	}
 
 	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
 		is, err := r.factory.NewMeterdefintionFileServerImageStream()
 		if err != nil {
 			return is, err
 		}
+		reqLogger.Info("dacdebug 1", "is.Spec.Tags", is.Spec.Tags)
+
 		r.factory.UpdateImageStreamOnChange(is)
+		reqLogger.Info("dacdebug 2", "is.Spec.Tags", is.Spec.Tags)
 		return is, nil
 	}); err != nil {
 		return err
