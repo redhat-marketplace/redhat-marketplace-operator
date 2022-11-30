@@ -69,10 +69,11 @@ var catalogClient *catalog.CatalogClient
 var doneChan chan struct{}
 
 const (
-	imageStreamID     string = "rhm-meterdefinition-file-server:v1"
-	imageStreamTag    string = "v1"
-	listenerAddress   string = "127.0.0.1:2100"
-	operatorNamespace string = "openshift-redhat-marketplace"
+	imageStreamID                  string = "rhm-meterdefinition-file-server:v1"
+	imageStreamTag                 string = "v1"
+	listenerAddress                string = "127.0.0.1:2100"
+	operatorNamespace              string = "openshift-redhat-marketplace"
+	relatedImageMeterdefFileServer string = "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0"
 
 	timeout  = time.Second * 50
 	interval = time.Second * 5
@@ -92,6 +93,7 @@ var _ = BeforeSuite(func() {
 	os.Setenv("POD_NAMESPACE", operatorNamespace)
 	os.Setenv("IMAGE_STREAM_ID", imageStreamID)
 	os.Setenv("IMAGE_STREAM_TAG", imageStreamTag)
+	os.Setenv("RELATED_IMAGE_METERDEF_FILE_SERVER", relatedImageMeterdefFileServer)
 
 	dcControllerMockServerAddr := fmt.Sprintf("%s%s", "http://", listenerAddress)
 	os.Setenv("CATALOG_URL", dcControllerMockServerAddr)

@@ -20,7 +20,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	"github.com/imdario/mergo"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
@@ -50,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -665,34 +663,13 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 		return err
 	}
 
-	is, err := r.factory.NewMeterdefintionFileServerImageStream()
-	if err != nil {
-		return err
-	}
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, is, func() error {
-
-			// Generation is a required field, set on create, not update
-			if is.ObjectMeta.CreationTimestamp.IsZero() {
-				for i := range is.Spec.Tags {
-					is.Spec.Tags[i].Generation = pointer.Int64(1)
-				}
-			}
-
-			updateIs, err := r.factory.NewMeterdefintionFileServerImageStream()
-			if err != nil {
-				return err
-			}
-			r.factory.UpdateImageStreamOnChange(is)
-
-			controllerutil.SetControllerReference(instance, updateIs, r.Scheme)
-			if err != nil {
-				return err
-			}
-
-			return mergo.Merge(is, updateIs, mergo.WithOverride)
-		})
-		return err
+	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		is, err := r.factory.NewMeterdefintionFileServerImageStream()
+		if err != nil {
+			return is, err
+		}
+		r.factory.UpdateImageStreamOnChange(is)
+		return is, nil
 	}); err != nil {
 		return err
 	}

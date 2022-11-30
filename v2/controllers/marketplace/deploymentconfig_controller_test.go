@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/gotidy/ptr"
 
@@ -445,53 +444,55 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 	}
 
-	is := &osimagev1.ImageStream{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.DeploymentConfigName,
-			Namespace: operatorNamespace,
-		},
-		Spec: osimagev1.ImageStreamSpec{
-			LookupPolicy: osimagev1.ImageLookupPolicy{
-				Local: false,
+	/*
+		is := &osimagev1.ImageStream{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.DeploymentConfigName,
+				Namespace: operatorNamespace,
 			},
-			Tags: []osimagev1.TagReference{
-				{
-					Annotations: map[string]string{
-						"openshift.io/imported-from": "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+			Spec: osimagev1.ImageStreamSpec{
+				LookupPolicy: osimagev1.ImageLookupPolicy{
+					Local: false,
+				},
+				Tags: []osimagev1.TagReference{
+					{
+						Annotations: map[string]string{
+							"openshift.io/imported-from": "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+						},
+						From: &corev1.ObjectReference{
+							Name: "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+							Kind: "DockerImage",
+						},
+						ImportPolicy: osimagev1.TagImportPolicy{
+							Insecure:  true,
+							Scheduled: true,
+						},
+						Name: "v1",
+						ReferencePolicy: osimagev1.TagReferencePolicy{
+							Type: osimagev1.SourceTagReferencePolicy,
+						},
+						Generation: ptr.Int64(1),
 					},
-					From: &corev1.ObjectReference{
-						Name: "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
-						Kind: "DockerImage",
-					},
-					ImportPolicy: osimagev1.TagImportPolicy{
-						Insecure:  true,
-						Scheduled: true,
-					},
-					Name: "v1",
-					ReferencePolicy: osimagev1.TagReferencePolicy{
-						Type: osimagev1.SourceTagReferencePolicy,
-					},
-					Generation: ptr.Int64(1),
 				},
 			},
-		},
-	}
+		}
 
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.DeploymentConfigName,
-			Namespace: operatorNamespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "foo",
-					Port:       int32(8180),
-					TargetPort: intstr.FromString("foo"),
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.DeploymentConfigName,
+				Namespace: operatorNamespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "foo",
+						Port:       int32(8180),
+						TargetPort: intstr.FromString("foo"),
+					},
 				},
 			},
-		},
-	}
+		}
+	*/
 
 	BeforeEach(func() {
 		customListener, err := net.Listen("tcp", listenerAddress)
@@ -504,8 +505,8 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		dcControllerMockServer.Start()
 
 		Expect(k8sClient.Create(context.TODO(), dc.DeepCopy())).Should(Succeed(), "create test deploymentconfig")
-		Expect(k8sClient.Create(context.TODO(), is.DeepCopy())).Should(Succeed(), "create test image stream")
-		Expect(k8sClient.Create(context.TODO(), service.DeepCopy())).Should(Succeed(), "create file server service")
+		//Expect(k8sClient.Create(context.TODO(), is.DeepCopy())).Should(Succeed(), "create test image stream")
+		//Expect(k8sClient.Create(context.TODO(), service.DeepCopy())).Should(Succeed(), "create file server service")
 
 		communityMeterDefIndexLabelsBody, err = json.Marshal(communityMeterDefIndexLabelsMap)
 		if err != nil {
