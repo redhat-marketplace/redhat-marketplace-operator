@@ -688,6 +688,7 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 			}
 
 			// Generation is a required field
+			// This is automatically handled in OpenShift, but not necessarily in the test suite
 			for i := range is.Spec.Tags {
 				if is.Spec.Tags[i].Generation == nil {
 					is.Spec.Tags[i].Generation = pointer.Int64(1)

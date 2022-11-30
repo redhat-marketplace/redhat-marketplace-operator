@@ -28,7 +28,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.8.0
-	golang.org/x/net v0.0.0-20221004154528-8021a29435af
+	golang.org/x/net v0.1.0
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 	google.golang.org/grpc v1.49.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -114,10 +114,10 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd // indirect
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
-	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/term v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220920022843-2ce7c2934d45 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
