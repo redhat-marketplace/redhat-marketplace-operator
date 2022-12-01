@@ -25,18 +25,15 @@ import (
 
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
@@ -45,10 +42,6 @@ const (
 	watchTag         string = "razee/watch-resource"
 	olmCopiedFromTag string = "olm.copiedFrom"
 	olmNamespace     string = "olm.operatorNamespace"
-	ignoreTag        string = "marketplace.redhat.com/ignore"
-	ignoreTagValue   string = "2"
-	meterDefStatus   string = "marketplace.redhat.com/meterDefinitionStatus"
-	meterDefError    string = "marketplace.redhat.com/meterDefinitionError"
 )
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
@@ -65,7 +58,6 @@ type ClusterServiceVersionReconciler struct {
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=update;patch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and makes changes based on the state read
 // and what is in the ClusterServiceVersion.Spec
@@ -182,10 +174,5 @@ var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
 func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(clusterServiceVersionPredictates)).
-		Watches(
-			&source.Kind{Type: &marketplacev1beta1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
-				IsController: false,
-				OwnerType:    &olmv1alpha1.ClusterServiceVersion{},
-			}).
 		Complete(r)
 }

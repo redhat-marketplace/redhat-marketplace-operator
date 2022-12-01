@@ -143,7 +143,6 @@ rules:
   - operators.coreos.com
   resources:
   - clusterserviceversions
-  - subscriptions
   verbs:
   - get
   - list
@@ -151,13 +150,7 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
-  - operatorgroups
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - operators.coreos.com
-  resources:
+  - clusterserviceversions
   - subscriptions
   verbs:
   - get
