@@ -10,7 +10,7 @@ spec:
     spec:
       template:
         spec:
-          serviceAccount: redhat-marketplace-reporter
+          serviceAccount: metering-reporter
           restartPolicy: Never
           schedule: '*/10 * * * *'
           containers:
