@@ -186,7 +186,7 @@ spec:
         - configMap:
             name: metering-serving-certs-ca-bundle
           name: metering-serving-certs-ca-bundle
-      serviceAccountName: metering-operator
+      serviceAccountName: metering-data-service
   volumeClaimTemplates:
     - metadata:
         name: rhm-data-service
