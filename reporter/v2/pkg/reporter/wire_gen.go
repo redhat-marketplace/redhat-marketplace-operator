@@ -77,7 +77,7 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
-	marketplaceConfig, err := getMarketplaceConfig(ctx, clientCommandRunner)
+	marketplaceConfig, err := getMarketplaceConfig(ctx, clientCommandRunner, config)
 	if err != nil {
 		return nil, err
 	}

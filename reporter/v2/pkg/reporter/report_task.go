@@ -262,12 +262,13 @@ func getClientOptions() managers.ClientOptions {
 func getMarketplaceConfig(
 	ctx context.Context,
 	cc ClientCommandRunner,
+	cfg *Config,
 ) (config *marketplacev1alpha1.MarketplaceConfig, returnErr error) {
 	config = &marketplacev1alpha1.MarketplaceConfig{}
 
 	if result, _ := cc.Do(ctx,
 		GetAction(
-			types.NamespacedName{Namespace: "openshift-redhat-marketplace", Name: utils.MARKETPLACECONFIG_NAME}, config,
+			types.NamespacedName{Namespace: cfg.DeployedNamespace, Name: utils.MARKETPLACECONFIG_NAME}, config,
 		)); !result.Is(Continue) {
 		returnErr = errors.Wrap(result, "failed to get mkplc config")
 	}

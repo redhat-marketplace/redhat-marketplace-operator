@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"emperror.dev/errors"
 	dataservicev1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1"
@@ -348,7 +349,10 @@ func newGRPCConn(
 
 	options = append(options, grpc.WithBlock())
 
-	return grpc.DialContext(ctx, address, options...)
+	context, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	return grpc.DialContext(context, address, options...)
 }
 
 func createTlsConfig(caCert []byte) (*tls.Config, error) {
