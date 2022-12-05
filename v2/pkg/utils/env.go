@@ -68,12 +68,10 @@ const (
 	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
-	CLUSTER_ROLE              = "redhat-marketplace-operator"
-	CLUSTER_ROLE_BINDING      = "redhat-marketplace-operator"
-	OPERATOR_SERVICE_ACCOUNT  = "redhat-marketplace-operator"
-	RAZEE_SERVICE_ACCOUNT     = "redhat-marketplace-razeedeploy"
-	METERBASE_SERVICE_ACCOUNT = "redhat-marketplace-metering"
-	REPORTING_SERVICE_ACCOUNT = "redhat-marketplace-reporting"
+	OPERATOR_SERVICE_ACCOUNT     = "metering-operator"
+	RAZEE_SERVICE_ACCOUNT        = "redhat-marketplace-remoteresources3deployment"
+	METRIC_STATE_SERVICE_ACCOUNT = "metering-metric-state"
+	REPORTING_SERVICE_ACCOUNT    = "metering-reporter"
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"

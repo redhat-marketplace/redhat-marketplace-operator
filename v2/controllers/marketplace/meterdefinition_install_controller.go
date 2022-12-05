@@ -115,8 +115,6 @@ func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager)
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:urls=/get-community-meterdefs,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
-// +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
-// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and creates corresponding meter definitions if found
 func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {

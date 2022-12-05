@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -38,10 +39,10 @@ func NewAccessChecker(kubeClientSet clientset.Interface, ctx context.Context) Ac
 	}
 }
 
-func (a *AccessChecker) CheckAccess(group string, version string, kind string) (bool, error) {
+func (a *AccessChecker) CheckAccess(group string, version string, kind string, namespace string) (bool, error) {
 	sar := &authv1.SubjectAccessReview{
 		Spec: authv1.SubjectAccessReviewSpec{
-			User: "system:serviceaccount:openshift-redhat-marketplace:redhat-marketplace-metric-state",
+			User: "system:serviceaccount:" + namespace + ":" + utils.METRIC_STATE_SERVICE_ACCOUNT,
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Verb:     "list,watch",
 				Group:    group,
@@ -58,7 +59,7 @@ func (a *AccessChecker) CheckAccess(group string, version string, kind string) (
 	}
 
 	if !review.Status.Allowed {
-		return false, fmt.Errorf("%w metric-state serviceaccount does not have get/list/watch access to Kind: %s, group: %s, version: %s via clusterrole/view. Create a clusterrole with get/list/watch access and bind it to the metric-state serviceaccount, or create a clusterrole with get/list/watch access and add the annotation rbac.authorization.k8s.io/aggregate-to-view: 'true' to add access to clusterrole/view", AccessDeniedErr, kind, group, version)
+		return false, fmt.Errorf("%w serviceaccount/%s does not have get/list/watch access to Kind: %s, group: %s, version: %s via clusterrole/view. Create a clusterrole with get/list/watch access and bind it to serviceaccount/%s, or create a clusterrole with get/list/watch access and add the annotation rbac.authorization.k8s.io/aggregate-to-view: 'true' to add access to clusterrole/view", AccessDeniedErr, utils.METRIC_STATE_SERVICE_ACCOUNT, kind, group, version, utils.METRIC_STATE_SERVICE_ACCOUNT)
 	}
 
 	return true, nil

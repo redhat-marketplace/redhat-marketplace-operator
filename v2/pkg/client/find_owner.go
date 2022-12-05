@@ -66,7 +66,7 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		version = apiVersionSplit[1]
 	}
 
-	_, err = f.accessChecker.CheckAccess(group, version, lookupOwner.Kind)
+	_, err = f.accessChecker.CheckAccess(group, version, lookupOwner.Kind, namespace)
 	if err != nil {
 		return nil, err
 	}

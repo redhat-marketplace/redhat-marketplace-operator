@@ -178,8 +178,6 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:urls=/system-meterdef-index/*,verbs=get;
 // +kubebuilder:rbac:urls=/global-community-meterdef-index,verbs=get;
 // +kubebuilder:rbac:urls=/global-system-meterdef-index,verbs=get;
-// +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
-// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-meterdefinition-file-server,resources=services,verbs=update;patch;delete
 

@@ -65,7 +65,8 @@ func ProvideRunnables(
 		objectChannelProducer,
 		mdefChannelProducer,
 		statusProcessor,
-		serviceAnnotatorProcessor,
+		//This was for annotating ServiceMonitors for RHM prom selector, should no longer be necessary
+		//serviceAnnotatorProcessor,
 		prometheusProcessor,
 		prometheusMdefProcessor,
 		removalWatcher,
@@ -80,7 +81,8 @@ var RunnablesSet = wire.NewSet(
 	ProvideMeterDefinitionStoreRunnable,
 	ProvideMeterDefinitionDictionaryStoreRunnable,
 	processors.ProvideMeterDefinitionRemovalWatcher,
-	processors.ProvideServiceAnnotatorProcessor,
+	//This was for annotating ServiceMonitors for RHM prom selector, should no longer be necessary
+	//processors.ProvideServiceAnnotatorProcessor,
 	processors.ProvideStatusProcessor,
 	processors.ProvidePrometheusProcessor,
 	processors.ProvidePrometheusMdefProcessor,
