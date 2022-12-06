@@ -4,7 +4,7 @@ metadata:
   name: redhat-marketplace-operator
 build:
   artifacts:
-  - image: redhat-marketplace-operator
+  - image: redhat-marketplace-metering-operator
     context: .
     custom:
       buildCommand: ARCHS=amd64 make vet docker-build
@@ -116,9 +116,6 @@ deploy:
       - --post-renderer
       - config/helm-wrapper/kustomize
 portForward:
-- resourceType: StatefulSet
-  resourceName: prometheus-rhm-marketplaceconfig-meterbase
-  port: 9090
 - resourceType: Deployment
   resourceName: rhm-metric-state
   port: 8080
