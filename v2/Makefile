@@ -268,7 +268,7 @@ skaffold-build: skaffold
 INSTALL_DEBUG ?= false
 
 compile-helm: helm
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-metering-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -279,7 +279,7 @@ compile-helm: helm
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize compile-helm yq
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-metering-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -290,7 +290,7 @@ install: kustomize compile-helm yq
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-metering-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
