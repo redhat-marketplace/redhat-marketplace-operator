@@ -92,7 +92,7 @@ build:
 deploy:
   helm:
     releases:
-    - name: rhm-operator
+    - name: rhm-metering-operator
       chartPath: ./config/helm-wrapper
       valuesFiles:
       - ./config/helm-wrapper/values.yaml
