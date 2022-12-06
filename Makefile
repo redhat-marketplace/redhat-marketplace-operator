@@ -16,18 +16,6 @@ include utils.Makefile
 .PHONY: all
 all: svu fmt vet generate build
 
-skaffold-dev:
-	make operator/skaffold-dev
-	make deployer/skaffold-dev
-
-skaffold-run:
-	make operator/skaffold-run
-	make deployer/skaffold-run
-
-skaffold-build: vet fmt
-	make operator/skaffold-build
-	make deployer/skaffold-build
-
 .PHONY: build
 build:
 	$(MAKE) $(addsuffix /build,$(PROJECTS))
