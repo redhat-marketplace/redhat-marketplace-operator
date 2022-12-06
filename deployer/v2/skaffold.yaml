@@ -20,6 +20,19 @@ build:
         - Dockerfile
         ignore:
         - ./**/*_test.go
+  - image: redhat-marketplace-authcheck
+    context: ../../authchecker/v2
+    custom:
+      buildCommand: ARCHS=amd64 make vet docker-build
+      dependencies:
+        paths:
+        - go.mod
+        - go.sum
+        - cmd/**
+        - pkg/**
+        - Dockerfile
+        ignore:
+        - '**/*_test.go'        
   tagPolicy:
     customTemplate:
       template: '{{ .VERS }}-{{ .GC }}'
