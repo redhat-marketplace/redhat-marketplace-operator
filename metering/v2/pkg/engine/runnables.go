@@ -51,7 +51,7 @@ func ProvideRunnables(
 	meterDefinitionDictionary *MeterDefinitionDictionaryStoreRunnable,
 	mb *mailbox.Mailbox,
 	statusProcessor *processors.StatusProcessor,
-	serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
+	//serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
 	prometheusProcessor *processors.PrometheusProcessor,
 	prometheusMdefProcessor *processors.PrometheusMdefProcessor,
 	removalWatcher *processors.MeterDefinitionRemovalWatcher,

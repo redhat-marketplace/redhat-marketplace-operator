@@ -81,13 +81,12 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	meterDefinitionDictionaryStoreRunnable := ProvideMeterDefinitionDictionaryStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionDictionary, log)
 	mailboxMailbox := mailbox.ProvideMailbox(log)
 	statusProcessor := processors.ProvideStatusProcessor(log, clientClient, mailboxMailbox, statusFlushDuration, cacheIsStarted)
-	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(log, clientClient, mailboxMailbox, cacheIsStarted)
 	prometheusProcessor := processors.ProvidePrometheusProcessor(log, mailboxMailbox, scheme, prometheusData)
 	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(log, mailboxMailbox, scheme, prometheusData, cacheIsStarted)
 	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log, clientClient, namespaceWatcher)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, log)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, log)
-	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, namespaceWatcher)
+	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, mailboxMailbox, statusProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, namespaceWatcher)
 	engine := ProvideEngine(log, runnables)
 	return engine, nil
 }
