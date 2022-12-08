@@ -120,12 +120,6 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-      - delete
-      - get
-      - list
-      - update
-      - patch
-      - watch
   - apiGroups:
       - '*'
     resources:
@@ -152,12 +146,6 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-      - delete
-      - get
-      - list
-      - update
-      - patch
-      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
