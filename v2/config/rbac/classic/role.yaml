@@ -165,12 +165,6 @@ metadata:
   name: servicemonitor-metrics-reader
   namespace: system
 rules:
-  - apiGroups:
-      - ''
-    resources:
-      - nodes/metrics
-    verbs:
-      - get
   - nonResourceURLs:
     - /metrics
     verbs:
