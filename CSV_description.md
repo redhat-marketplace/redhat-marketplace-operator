@@ -65,7 +65,7 @@ The metering and deployment functionality have been seperated into two operators
 2. Install the Red Hat Marketplace Metering Operator
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
 
-    ```sh 
+    ```sh
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
     oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
