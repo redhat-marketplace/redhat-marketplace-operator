@@ -387,6 +387,10 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, err
 	}
 
+	if err := r.cleanup(); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if err := r.checkUWMDefaultStorageClassPrereq(instance); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -715,6 +719,54 @@ func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.
 	if err := r.Client.Delete(context.TODO(), operatorService); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
+	return nil
+}
+
+// Delete old resources no longer applicable after operator split
+func (r *MeterBaseReconciler) cleanup() error {
+
+	// ConfigMaps
+	pConfigMap, err := r.factory.PrometheusServingCertsCABundle()
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), pConfigMap); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	pkConfigMap, err := r.factory.PrometheusKubeletServingCABundle("")
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), pkConfigMap); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	// ServiceMonitors
+	ksmServiceMonitor, err := r.factory.KubeStateMetricsServiceMonitor()
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), ksmServiceMonitor); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	kServiceMonitor, err := r.factory.KubeletServiceMonitor()
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), kServiceMonitor); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	uwmServiceMonitor, err := r.factory.UserWorkloadMonitoringServiceMonitor()
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), uwmServiceMonitor); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
 	return nil
 }
 
