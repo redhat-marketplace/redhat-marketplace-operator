@@ -14,5 +14,5 @@
 
 package version
 
-const Version = "2.8.2"
-const LastVersion = "2.8.1"
+const Version = "2.9.0"
+const LastVersion = "2.8.2"

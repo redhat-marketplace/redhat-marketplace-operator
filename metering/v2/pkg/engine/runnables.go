@@ -17,7 +17,7 @@ package engine
 import (
 	"context"
 
-	"github.com/InVisionApp/go-health/v2"
+	// "github.com/InVisionApp/go-health/v2"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
@@ -39,12 +39,12 @@ type RunAndStop interface {
 	Runnable
 	Stoppable
 }
-
+/*
 type Recoverable interface {
 	RegisterHealthCheck(func([]*health.Config))
 	Recover()
 }
-
+*/
 func ProvideRunnables(
 	meterDefinitionStore *MeterDefinitionStoreRunnable,
 	meterDefinitionDictionary *MeterDefinitionDictionaryStoreRunnable,
