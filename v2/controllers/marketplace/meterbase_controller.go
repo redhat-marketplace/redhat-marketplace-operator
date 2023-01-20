@@ -79,8 +79,8 @@ const (
 	DEFAULT_CONFIGMAP_RELOAD       = "jimmidyson/configmap-reload:v0.3.0"
 	RELATED_IMAGE_PROM_SERVER      = "RELATED_IMAGE_PROM_SERVER"
 	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
-	
-	PROM_DEP_NEW_WARNING_MSG = "Use of redhat-marketplace-operator Prometheus is deprecated. Configuration of user workload monitoring is required https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
+
+	PROM_DEP_NEW_WARNING_MSG     = "Use of redhat-marketplace-operator Prometheus is deprecated. Configuration of user workload monitoring is required https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
 	PROM_DEP_UPGRADE_WARNING_MSG = "Use of redhat-marketplace-operator Prometheus is deprecated, and will be removed next release. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
 )
 
@@ -483,7 +483,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 			Do(r.checkUWMDefaultStorageClassPrereq(instance)...),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
-			Do(r.installUserWorkloadMonitoring(instance)...),
 		); !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result, "error in reconcile")
@@ -492,6 +491,10 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 
 			reqLogger.Info("returning result from openshift provides prometheus", "result", *result)
 			return result.Return()
+		}
+
+		if err := r.installUserWorkloadMonitoring(instance); err != nil {
+			return reconcile.Result{}, err
 		}
 
 		promStsNamespacedName = types.NamespacedName{
@@ -505,7 +508,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		// Decide by whether prometheus-operator deployment already exists
 		prometheusOperatorDeployment := &appsv1.Deployment{}
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_PROMETHEUS_OPERATOR_NAME, Namespace: request.Namespace}, prometheusOperatorDeployment)
-	    if err != nil && !kerrors.IsNotFound(err) {
+		if err != nil && !kerrors.IsNotFound(err) {
 			reqLogger.Error(err, "Failed to get prometheus-operator deployment")
 			return reconcile.Result{}, err
 		} else if kerrors.IsNotFound(err) { // Deployment does not exist, assume new installation
@@ -1043,34 +1046,22 @@ func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(
 		})}
 }
 
-func (r *MeterBaseReconciler) installUserWorkloadMonitoring(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
-	serviceMonitor := &monitoringv1.ServiceMonitor{}
-	meterDefinition := &marketplacev1beta1.MeterDefinition{}
+// Install the and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
+func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplacev1alpha1.MeterBase) error {
 
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:   instance,
-		Patcher: r.patcher,
+	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		return r.factory.UserWorkloadMonitoringServiceMonitor()
+	}); err != nil {
+		return err
 	}
 
-	actions := []ClientAction{
-		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor,
-			func() (client.Object, error) {
-				return r.factory.UserWorkloadMonitoringServiceMonitor()
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			meterDefinition,
-			func() (client.Object, error) {
-				return r.factory.UserWorkloadMonitoringMeterDefinition()
-			},
-			args,
-		),
+	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		return r.factory.UserWorkloadMonitoringMeterDefinition()
+	}); err != nil {
+		return err
 	}
-	return actions
+
+	return nil
 }
 
 func (r *MeterBaseReconciler) uninstallPrometheusOperator(
