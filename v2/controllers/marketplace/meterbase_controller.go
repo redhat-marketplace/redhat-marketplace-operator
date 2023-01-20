@@ -1017,9 +1017,11 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		actions = append(actions,
 			HandleResult(
 				GetAction(types.NamespacedName{Namespace: kubeStateMetricsServiceMonitor.Namespace, Name: kubeStateMetricsServiceMonitor.Name}, kubeStateMetricsServiceMonitor),
+				OnNotFound(ContinueResponse()),
 				OnContinue(DeleteAction(kubeStateMetricsServiceMonitor))),
 			HandleResult(
 				GetAction(types.NamespacedName{Namespace: kubeletServiceMonitor.Namespace, Name: kubeletServiceMonitor.Name}, kubeletServiceMonitor),
+				OnNotFound(ContinueResponse()),
 				OnContinue(DeleteAction(kubeletServiceMonitor))),
 		)
 	}
