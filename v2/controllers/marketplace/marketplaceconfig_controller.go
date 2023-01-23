@@ -85,7 +85,7 @@ type MarketplaceConfigReconciler struct {
 // and what is in the MarketplaceConfig.Spec
 func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling MarketplaceConfig 123")
+	reqLogger.Info("Reconciling MarketplaceConfig")
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
