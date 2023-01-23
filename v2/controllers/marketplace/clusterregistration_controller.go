@@ -71,13 +71,13 @@ type SecretInfo struct {
 }
 
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets;secrets/finalizers,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=metering-controller-manager
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
 // and what is in the ClusterRegistration.Spec
@@ -170,6 +170,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 	// Create a default MarketplaceConfig if a pull-secret is created, connected environment quickstart
 	if k8serrors.IsNotFound(err) {
+
 		marketplaceConfig.Name = utils.MARKETPLACECONFIG_NAME
 		marketplaceConfig.Namespace = r.cfg.DeployedNamespace
 
@@ -217,7 +218,14 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			Namespace: r.cfg.DeployedNamespace,
 		}, dep)
 		if err != nil {
-			return reconcile.Result{}, err
+			// make additional check for metering controller
+			err := r.Client.Get(context.TODO(), types.NamespacedName{
+				Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
+				Namespace: r.cfg.DeployedNamespace,
+			}, dep)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 		if err = controllerutil.SetControllerReference(dep, marketplaceConfig, r.Scheme); err != nil {
 			return reconcile.Result{}, err

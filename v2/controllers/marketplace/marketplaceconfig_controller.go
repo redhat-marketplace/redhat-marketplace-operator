@@ -79,13 +79,12 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-razeedeployment
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
 func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling MarketplaceConfig")
+	reqLogger.Info("Reconciling MarketplaceConfig 123")
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -480,6 +479,14 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 			Namespace: r.cfg.DeployedNamespace,
 		}, dep)
 		if err != nil {
+			// make additional check for metering controller
+			err := r.Client.Get(context.TODO(), types.NamespacedName{
+				Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
+				Namespace: r.cfg.DeployedNamespace,
+			}, dep)
+			if err != nil {
+				return err
+			}
 			return err
 		}
 		if err = controllerutil.SetControllerReference(dep, marketplaceConfig, r.Scheme); err != nil {
