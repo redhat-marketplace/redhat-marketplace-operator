@@ -476,7 +476,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		// Set the controller deployment as the controller-ref, since it owns the finalizer
 		dep := &appsv1.Deployment{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+			Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
 			Namespace: r.cfg.DeployedNamespace,
 		}, dep)
 		if err != nil {

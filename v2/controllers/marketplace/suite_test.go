@@ -157,7 +157,7 @@ var _ = BeforeSuite(func() {
 	replicas := int32(0)
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+			Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
 			Namespace: operatorNamespace,
 		},
 		Spec: appsv1.DeploymentSpec{

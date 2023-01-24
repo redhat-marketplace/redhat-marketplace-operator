@@ -219,22 +219,23 @@ rules:
 - apiGroups:
   - ""
   resourceNames:
-  - ibm-entitlement-key
-  - redhat-marketplace-pull-secret
-  - rhm-operator-secret
-  resources:
-  - secrets
-  verbs:
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resourceNames:
   - rhm-data-service-mtls
   resources:
   - secrets
   verbs:
   - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resourceNames:
+  - ibm-entitlement-key
+  - redhat-marketplace-pull-secret
+  - rhm-operator-secret
+  resources:
+  - secrets
+  - secrets/finalizers
+  verbs:
   - patch
   - update
 - apiGroups:
@@ -316,6 +317,18 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - metering-controller-manager
+  resources:
+  - deployments/finalizers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - apps
