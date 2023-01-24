@@ -15,6 +15,7 @@
 package manifests
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
@@ -46,8 +47,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/imdario/mergo"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -1532,4 +1537,28 @@ func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, 
 
 func init() {
 	mathrand.Seed(time.Now().UnixNano())
+}
+
+// Common reconcile pattern, create or update to match object from no-arg factory func
+func (f *Factory) CreateOrUpdate(c client.Client, owner metav1.Object, fn func() (client.Object, error)) error {
+
+	obj, err := fn()
+	if err != nil {
+		return err
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), c, obj, func() error {
+			updateObj, _ := fn()
+			if owner != nil {
+				controllerutil.SetControllerReference(owner, updateObj, f.scheme)
+			}
+			return mergo.Merge(obj, updateObj, mergo.WithOverride)
+		})
+		return err
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
