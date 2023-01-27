@@ -116,6 +116,7 @@ rules:
     - get
     - list
     - watch
+    - update
   - apiGroups:
       - authentication.k8s.io
     resources:
