@@ -109,6 +109,14 @@ rules:
       - get
       - list
   - apiGroups:
+    - monitoring.coreos.com
+    resources:
+    - servicemonitors
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
       - authentication.k8s.io
     resources:
       - tokenreviews
