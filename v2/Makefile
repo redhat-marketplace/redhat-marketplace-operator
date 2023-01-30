@@ -188,7 +188,9 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--set dqLiteImage=$(DQLITE_IMAGE) \
-	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	--post-renderer ./config/manifests/kustomize | \
+	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
+	--extra-service-accounts metering-reporter,metering-data-service,metering-metric-state,metering-servicemonitor-metrics-reader
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
@@ -196,6 +198,7 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
+	cp metric-state-view-binding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml bundle/manifests/
 	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
