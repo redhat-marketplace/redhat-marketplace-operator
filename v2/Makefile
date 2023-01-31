@@ -198,7 +198,6 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
-	cp metric-state-view-binding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml bundle/manifests/
 	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
