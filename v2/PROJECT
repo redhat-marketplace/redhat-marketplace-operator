@@ -1,3 +1,4 @@
+componentConfig: true
 domain: redhat.com
 projectName: redhat-marketplace-operator
 layout: go.kubebuilder.io/v3
@@ -84,6 +85,13 @@ resources:
     # TODO(user): Uncomment the below line if this resource's webhook implements a validating webhook, else delete it.
     # validation: true
     webhookVersion: v1beta1
+- api:
+    crdVersion: v1beta1
+  domain: redhat.com
+  group: marketplace
+  kind: ProjectConfig
+  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1
+  version: v1alpha1
 version: "3"
 plugins:
   manifests.sdk.operatorframework.io/v2: {}

@@ -23,12 +23,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/fsnotify/fsnotify"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/spf13/viper"
+	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"go.uber.org/zap/zapcore"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +41,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	runtimeconfigv1alpha1 "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -90,19 +93,25 @@ func init() {
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	utilruntime.Must(runtimeconfigv1alpha1.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	// var metricsAddr string
+	// var enableLeaderElection bool
+	// var probeAddr string
+	var projectConfigVar string
+	// flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	// flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	// flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	// 	"Enable leader election for controller manager. "+
+	// 		"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&projectConfigVar, "config", "",
+		"The controller will load its initial configuration from this file. "+
+			"Omit this flag to use the default configuration values. "+
+			"Command-line flags override configuration from this file.")
 	flag.Parse()
 
 	encoderConfig := func(ec *zapcore.EncoderConfig) {
@@ -176,12 +185,12 @@ func main() {
 	})
 
 	opts := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
-		NewCache:               newCacheFunc,
+		Scheme: scheme,
+		// MetricsBindAddress:     metricsAddr,
+		// HealthProbeBindAddress: probeAddr,
+		// LeaderElection:   enableLeaderElection,
+		LeaderElectionID: "8fbe3a23.marketplace.redhat.com",
+		NewCache:         newCacheFunc,
 	}
 
 	// Bug prevents limiting the namespaces
@@ -192,7 +201,53 @@ func main() {
 	// 	watchNamespacesSlice = append(watchNamespacesSlice, "openshift-monitoring")
 	// 	opts.NewCache = cache.MultiNamespacedCacheBuilder(watchNamespacesSlice)
 	// }
+	// var err error
+	// projectConfig := marketplacev1beta1.ProjectConfig{}
+	// if projectConfigVar != "" {
+	// 	opts, err = opts.AndFrom(ctrl.ConfigFile().AtPath(projectConfigVar).OfKind(&projectConfig))
+	// 	if err != nil {
+	// 		setupLog.Error(err, "unable to load the project config file")
+	// 		os.Exit(1)
+	// 	}
 
+	// 	utils.PrettyPrint(projectConfig)
+	// }
+	viper.SetConfigFile(projectConfigVar)
+	// viper.SetConfigName("controller_manager_config")
+	// viper.AddConfigPath("/config")
+	// viper.AddConfigPath(".")
+	// viper.AutomaticEnv()
+	// viper.SetConfigType("yaml")
+	// viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		setupLog.Error(err, "Error reading config file")
+	}
+
+	projectConfig := marketplacev1beta1.ProjectConfig{}
+	err := viper.Unmarshal(&projectConfig)
+	if err != nil {
+		setupLog.Error(err, "error unmarshaling")
+	}
+
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		// fmt.Println("Config file changed:", e.Name)
+		setupLog.Info("config file changed", "file", e.Name)
+		err := viper.Unmarshal(&projectConfig)
+		if err != nil {
+			setupLog.Error(err, "error unmarshaling")
+		}
+		utils.PrettyPrint(projectConfig)
+	})
+
+	utils.PrettyPrint(projectConfig)
+
+	// MetricsBindAddress:     metricsAddr,
+	// HealthProbeBindAddress: probeAddr,
+	// LeaderElection:   enableLeaderElection,
+	opts.MetricsBindAddress = projectConfig.Metrics.BindAddress
+	opts.HealthProbeBindAddress = projectConfig.Health.HealthProbeBindAddress
+	opts.LeaderElection = *projectConfig.LeaderElection.LeaderElect
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
 
 	if err != nil {
@@ -207,9 +262,10 @@ func main() {
 	}
 
 	if err = (&controllers.DeploymentConfigReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme: mgr.GetScheme(),
+		Client:                           mgr.GetClient(),
+		Log:                              ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme:                           mgr.GetScheme(),
+		ComponentConfigMarketplaceConfig: projectConfig.ComponentConfigMarketplaceConfigSpec,
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
 		os.Exit(1)
@@ -243,9 +299,10 @@ func main() {
 	}
 
 	if err = (&controllers.MarketplaceConfigReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
-		Scheme: mgr.GetScheme(),
+		Client:                           mgr.GetClient(),
+		Log:                              ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
+		Scheme:                           mgr.GetScheme(),
+		ComponentConfigMarketplaceConfig: projectConfig.ComponentConfigMarketplaceConfigSpec,
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MarketplaceConfig")
 		os.Exit(1)

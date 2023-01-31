@@ -1,0 +1,11 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: ProjectConfig
+metrics:
+  bindAddress: 127.0.0.1:8080
+leaderElection:
+  leaderElect: false
+health:
+  healthProbeBindAddress: ":8081"
+clusterName: test
+marketplaceConfigSpec:
+  enableMetering: true
