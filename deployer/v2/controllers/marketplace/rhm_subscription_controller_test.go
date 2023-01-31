@@ -18,7 +18,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

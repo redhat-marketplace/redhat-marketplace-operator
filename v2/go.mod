@@ -22,7 +22,7 @@ require (
 	github.com/imdario/mergo v0.3.12
 	github.com/jpillora/backoff v1.0.0
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
-	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.18.1
 	github.com/openshift/api v0.0.0-20220824124051-d72820206113
 	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20220930042853-58d1e5ad06f6
@@ -107,6 +107,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/onsi/ginkgo/v2 v2.0.0
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/openshift/library-go v0.0.0-20220525173854-9b950a41acdc // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect

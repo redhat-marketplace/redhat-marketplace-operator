@@ -23,7 +23,7 @@ import (
 	"os"
 
 	"github.com/foxcpp/go-mockdns"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	osconfigv1 "github.com/openshift/api/config/v1"
 	v1 "k8s.io/api/core/v1"

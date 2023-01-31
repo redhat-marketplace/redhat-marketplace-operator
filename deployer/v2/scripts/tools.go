@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build tools
 // +build tools
 
 // Place any runtime dependencies as imports in this file.
@@ -27,7 +28,7 @@ import (
 	_ "github.com/google/wire"
 	_ "github.com/launchdarkly/go-options"
 	_ "github.com/mikefarah/yq/v3"
-	_ "github.com/onsi/ginkgo/ginkgo"
+	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "github.com/spf13/cobra"
 	_ "github.com/tcnksm/ghr"
 	_ "github.com/wadey/gocovmerge"

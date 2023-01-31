@@ -15,7 +15,7 @@
 package marketplace
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

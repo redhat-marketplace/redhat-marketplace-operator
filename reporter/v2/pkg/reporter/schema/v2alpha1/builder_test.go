@@ -17,7 +17,7 @@ package v2alpha1
 import (
 	"encoding/json"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/test/v2alpha1buildertest"

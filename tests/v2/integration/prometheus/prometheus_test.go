@@ -25,7 +25,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/prometheus/client_golang/api"

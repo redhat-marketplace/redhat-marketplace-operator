@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -48,12 +47,10 @@ var (
 )
 
 func TestEnv(t *testing.T) {
-	logf.SetLogger(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	RegisterFailHandler(harness.PodFailHandler(testHarness))
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller EnvTest Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Controller EnvTest Suite")
 }
 
 var _ = BeforeSuite(func() {
