@@ -1,31 +1,17 @@
----
 # Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: reporter-binding
-  namespace: openshift-config
-subjects:
-- kind: ServiceAccount
-  name: reporter
-  namespace: system
-roleRef:
-  kind: Role
-  name: reporter
-  apiGroup: rbac.authorization.k8s.io
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: reporter-binding
+  name: metric-state-view-binding
   namespace: system
 subjects:
 - kind: ServiceAccount
-  name: reporter
+  name: metric-state
   namespace: system
 roleRef:
   kind: ClusterRole
-  name: reporter
+  name: view
   apiGroup: rbac.authorization.k8s.io
 ---
 kind: ClusterRoleBinding
@@ -40,46 +26,4 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: cluster-monitoring-view
-  apiGroup: rbac.authorization.k8s.io
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: metric-state-binding
-  namespace: openshift-config
-subjects:
-- kind: ServiceAccount
-  name: metric-state
-  namespace: system
-roleRef:
-  kind: ClusterRole
-  name: metric-state
-  apiGroup: rbac.authorization.k8s.io
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: data-service-binding
-  namespace: openshift-config
-subjects:
-- kind: ServiceAccount
-  name: data-service
-  namespace: system
-roleRef:
-  kind: ClusterRole
-  name: data-service
-  apiGroup: rbac.authorization.k8s.io
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: servicemonitor-metrics-reader-binding
-  namespace: system
-subjects:
-- kind: ServiceAccount
-  name: servicemonitor-metrics-reader
-  namespace: system
-roleRef:
-  kind: ClusterRole
-  name: servicemonitor-metrics-reader
   apiGroup: rbac.authorization.k8s.io
