@@ -116,7 +116,6 @@ jobs:
         - authchecker
         - metering
         - reporter
-        - tests
   images:
     name: Build Images
     runs-on: ubuntu-20.04

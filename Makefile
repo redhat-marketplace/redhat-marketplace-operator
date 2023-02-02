@@ -46,7 +46,7 @@ download-all:
 
 .PHONY: test
 test:
-	$(MAKE) $(addsuffix /test,$(PROJECTS) tests)
+	$(MAKE) $(addsuffix /test,$(PROJECTS))
 
 generate:
 	$(MAKE) $(addsuffix /generate,$(PROJECTS))

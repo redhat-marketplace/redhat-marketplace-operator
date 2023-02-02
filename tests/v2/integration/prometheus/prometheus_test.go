@@ -105,8 +105,8 @@ func (c *PrometheusDockerTest) Start() error {
 	path := filepath.Join(cwd, "..", "..", c.DataPath)
 	cmd, err := NewPrometheusDockerRun(DockerRunArgs{
 		Path:       path,
-		LocalPort:  9090,
-		RemotePort: 9090,
+		LocalPort:  8080,
+		RemotePort: 8080,
 	})
 
 	if err != nil {
@@ -156,7 +156,7 @@ var _ = Describe("MeterefQuery", func() {
 			end = MustTime("2021-02-13T00:00:00Z")
 
 			client, _ := api.NewClient(api.Config{
-				Address: "http://localhost:9090",
+				Address: "http://localhost:8080",
 			})
 
 			papi = PrometheusAPI{
