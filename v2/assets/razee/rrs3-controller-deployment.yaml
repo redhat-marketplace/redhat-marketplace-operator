@@ -10,6 +10,9 @@ spec:
     matchLabels:
       app: rhm-remoteresources3-controller
       owned-by: marketplace.redhat.com-razee
+      app.kubernetes.io/name: red-hat-marketplace-deploying
+      app.kubernetes.io/managed-by: ibm
+      app.kubernetes.io/instance: rhm-remoteresources3-controller
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -21,6 +24,9 @@ spec:
         app: rhm-remoteresources3-controller
         owned-by: marketplace.redhat.com-razee
         razee/watch-resource: lite
+        app.kubernetes.io/name: red-hat-marketplace-deploying
+        app.kubernetes.io/managed-by: ibm
+        app.kubernetes.io/instance: rhm-remoteresources3-controller
       name: rhm-remoteresources3-controller
     spec:
       securityContext: 

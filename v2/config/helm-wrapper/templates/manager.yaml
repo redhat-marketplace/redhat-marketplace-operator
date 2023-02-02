@@ -11,12 +11,18 @@ spec:
   selector:
     matchLabels:
       redhat.marketplace.com/name: metering-operator
+      app.kubernetes.io/name: red-hat-marketplace-metering
+      app.kubernetes.io/managed-by: ibm
+      app.kubernetes.io/instance: rhm-metering-operator
   replicas: 1
   template:
     metadata:
       labels:
         control-plane: controller-manager
         redhat.marketplace.com/name: metering-operator
+        app.kubernetes.io/name: red-hat-marketplace-metering
+        app.kubernetes.io/managed-by: ibm
+        app.kubernetes.io/instance: rhm-metering-operator
       annotations:
         productName: "Red Hat Marketplace Operator"
         productID: "36cdaba810c348c096b85800dd62bcf1"
