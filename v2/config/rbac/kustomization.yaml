@@ -22,5 +22,8 @@ resources:
   - reporter_role_binding.yaml
   - reporter_role.yaml
   - reporter_service_account.yaml
+  - servicemonitor-metrics-reader_service_account.yaml
+  - servicemonitor-metrics-reader_cluster_role.yaml
+  - servicemonitor-metrics-reader_cluster_role_binding.yaml
 configurations:
   - kustomizeconfig.yaml
