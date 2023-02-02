@@ -283,7 +283,7 @@ var _ = Describe("Reporter", func() {
 			defer r.Close()
 			_, err = uploader.UploadFile(context.TODO(), fileName, r)
 			Expect(err).To(Succeed())
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 	})
 
 	Context("without templates", func() {
@@ -535,6 +535,6 @@ var _ = Describe("Reporter", func() {
 			defer r.Close()
 			_, err = uploader.UploadFile(context.TODO(), fileName, r)
 			Expect(err).To(Succeed())
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 	})
 })

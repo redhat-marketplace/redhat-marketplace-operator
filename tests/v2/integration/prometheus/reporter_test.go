@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -104,6 +105,10 @@ var _ = Describe("Reporter", func() {
 			start = MustTime("2021-06-17T00:00:00Z")
 			end = MustTime("2021-06-18T00:00:00Z")
 
+			reporterConfig := reporter.Config{}
+			dataBuilder, _ := reporter.ProvideDataBuilder(&reporterConfig, logr.Discard())
+			reportWriter, _ := reporter.ProvideWriter(&reporterConfig, config, logr.Discard())
+
 			sut, _ = reporter.NewMarketplaceReporter(
 				cfg,
 				&marketplacev1alpha1.MeterReport{
@@ -116,6 +121,8 @@ var _ = Describe("Reporter", func() {
 				config,
 				&prometheus.PrometheusAPI{API: v1api},
 				refs,
+				dataBuilder,
+				reportWriter,
 			)
 
 			server = &PrometheusDockerTest{
@@ -180,7 +187,7 @@ var _ = Describe("Reporter", func() {
 					}))
 				}
 			}
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 	})
 
 	Context("licenseserver", func() {
@@ -235,6 +242,10 @@ var _ = Describe("Reporter", func() {
 			start = MustTime("2021-03-27T00:00:00Z")
 			end = MustTime("2021-03-28T00:00:00Z")
 
+			reporterConfig := reporter.Config{}
+			dataBuilder, _ := reporter.ProvideDataBuilder(&reporterConfig, logr.Discard())
+			reportWriter, _ := reporter.ProvideWriter(&reporterConfig, config, logr.Discard())
+
 			sut, _ = reporter.NewMarketplaceReporter(
 				cfg,
 				&marketplacev1alpha1.MeterReport{
@@ -247,6 +258,8 @@ var _ = Describe("Reporter", func() {
 				config,
 				&prometheus.PrometheusAPI{API: v1api},
 				refs,
+				dataBuilder,
+				reportWriter,
 			)
 
 			server = &PrometheusDockerTest{
@@ -337,6 +350,6 @@ var _ = Describe("Reporter", func() {
 					}))
 				}
 			}
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 	})
 })

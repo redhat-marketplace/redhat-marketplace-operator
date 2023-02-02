@@ -290,7 +290,7 @@ var _ = Describe("ReporterV2", func() {
 			defer r.Close()
 			_, err = uploader.UploadFile(context.TODO(), fileName, r)
 			Expect(err).To(Succeed())
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 	})
 
 	Context("without templates", func() {
@@ -517,7 +517,7 @@ var _ = Describe("ReporterV2", func() {
 			defer r.Close()
 			_, err = uploader.UploadFile(context.TODO(), fileName, r)
 			Expect(err).To(Succeed())
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 	})
 
 	Context("v1 & v2 schema match ids", func() {
@@ -728,7 +728,7 @@ var _ = Describe("ReporterV2", func() {
 
 			Expect(eventIds).Should(ContainElements(metricIds))
 
-		}, 20)
+		}, NodeTimeout(time.Duration.Seconds(20)))
 
 	})
 
