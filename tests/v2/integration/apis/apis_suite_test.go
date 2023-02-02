@@ -17,6 +17,7 @@ package apis_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,4 +54,4 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	testHarness.Stop()
-}, 60)
+}, NodeTimeout(time.Duration.Seconds(60)))
