@@ -2,7 +2,6 @@ apiVersion: marketplace.redhat.com/v1beta1
 kind: MeterDefinition
 metadata:
   name: rhm-prometheus-meterbase-uptime
-  namespace: openshift-redhat-marketplace
 spec:
   group: marketplace.redhat.com
   kind: Pod

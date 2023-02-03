@@ -23,6 +23,8 @@ spec:
         razee/watch-resource: lite
       name: rhm-remoteresources3-controller
     spec:
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - env:
             - name: POD_NAMESPACE
@@ -60,6 +62,14 @@ spec:
             requests:
               cpu: 10m
               memory: 12Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true   
           terminationMessagePolicy: FallbackToLogsOnError
         - env:
             - name: CRD_WATCH_TIMEOUT_SECONDS
@@ -89,6 +99,14 @@ spec:
             requests:
               cpu: 40m
               memory: 75Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /home/node/download-cache

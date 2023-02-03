@@ -24,9 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -52,11 +50,9 @@ type DataServiceReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	CC     ClientCommandRunner
 
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
-	patcher patch.Patcher
 }
 
 func (r *DataServiceReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -66,17 +62,6 @@ func (r *DataServiceReconciler) Inject(injector mktypes.Injectable) mktypes.Setu
 
 func (r *DataServiceReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	r.cfg = cfg
-	return nil
-}
-
-func (r *DataServiceReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
-	r.Log.Info("command runner")
-	r.CC = ccp
-	return nil
-}
-
-func (r *DataServiceReconciler) InjectPatch(p patch.Patcher) error {
-	r.patcher = p
 	return nil
 }
 
@@ -134,8 +119,7 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 
 	// Fetch the MeterBase instance
 	meterBase := &marketplacev1alpha1.MeterBase{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, meterBase)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, meterBase); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -149,159 +133,98 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 	}
 
 	if meterBase.Spec.IsDataServiceEnabled() { // Install the DataService
-		/* DataService mTLS certificate Secret */
+		/* DataService mTLS certificate Secret
+		Generate custom secret instead of using service.beta.openshift.io/serving-cert-secret-name
+		The CommonName needs a *.prefix for pod-to-pod communication
+		*/
 		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
 		if err != nil {
 			reqLogger.Error(err, "Generate Secret error: ")
 			return reconcile.Result{}, err
 		}
-		r.factory.SetControllerReference(meterBase, secret)
+		if err := r.factory.SetControllerReference(meterBase, secret); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		foundSecret := &corev1.Secret{}
 		err = r.Client.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, foundSecret)
-		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
+		if err != nil && errors.IsNotFound(err) { // not found: create
 			err = r.Client.Create(ctx, secret)
 			if err != nil {
 				reqLogger.Error(err, "Create Secret error: ")
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Get Secret error: ")
 			return reconcile.Result{}, err
 		}
 
 		/* DataService Service */
-		service, err := r.factory.NewDataServiceService()
-
-		if err != nil {
-			reqLogger.Error(err, "data service service error")
+		if err := r.factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.factory.NewDataServiceService()
+		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
-		r.factory.SetControllerReference(meterBase, service)
-
-		foundService := &corev1.Service{}
-		err = r.Client.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, foundService)
-		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
-			err = r.Client.Create(ctx, service)
-			if err != nil {
-				reqLogger.Error(err, "Create Service error: ")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Get Service error: ")
-			return reconcile.Result{}, err
-		} else { // found: enforce spec
-			r.factory.UpdateDataServiceService(foundService)
-			err = r.Client.Update(ctx, foundService)
-			if err != nil {
-				reqLogger.Error(err, "Patch Service error: ")
-				return reconcile.Result{}, err
-			}
-		}
 		/* DataService StatefulSet */
-		statefulSet, err := r.factory.NewDataServiceStatefulSet()
-
-		if err != nil {
-			reqLogger.Error(err, "data service statefulset error")
+		if err := r.factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.factory.NewDataServiceStatefulSet()
+		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
-		r.factory.SetControllerReference(meterBase, statefulSet)
-		foundStatefulSet := &appsv1.StatefulSet{}
-		err = r.Client.Get(ctx, types.NamespacedName{Name: statefulSet.Name, Namespace: statefulSet.Namespace}, foundStatefulSet)
-		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
-			err = r.Client.Create(ctx, statefulSet)
-			if err != nil {
-				reqLogger.Error(err, "Create StatefulSet error: ")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Get StatefulSet error: ")
-			return reconcile.Result{}, err
-		} else { // found: enforce spec
-			r.factory.UpdateDataServiceStatefulSet(foundStatefulSet)
-			err = r.Client.Update(ctx, foundStatefulSet)
-			if err != nil {
-				reqLogger.Error(err, "Update StatefulSet error: ")
-				return reconcile.Result{}, err
-			}
-		}
 		/* DataService Route */
-		route, err := r.factory.NewDataServiceRoute()
-
-		if err != nil {
-			reqLogger.Error(err, "data service route error")
+		if err := r.factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.factory.NewDataServiceRoute()
+		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
-		r.factory.SetControllerReference(meterBase, route)
-		foundRoute := &routev1.Route{}
-		err = r.Client.Get(ctx, types.NamespacedName{Name: route.Name, Namespace: route.Namespace}, foundRoute)
-		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
-			err = r.Client.Create(ctx, route)
-			if err != nil {
-				reqLogger.Error(err, "Create Route error: ")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Get Route error: ")
-			return reconcile.Result{}, err
-		} else { // found: enforce spec
-			r.factory.UpdateDataServiceRoute(foundRoute)
-			err = r.Client.Update(ctx, foundRoute)
-			if err != nil {
-				reqLogger.Error(err, "Update Route error: ")
-				return reconcile.Result{}, err
-			}
-		}
 	} else { // Remove the DataService
 		/* DataService Route*/
 		route, err := r.factory.NewDataServiceRoute()
-
 		if err != nil {
 			reqLogger.Error(err, "data service route error")
 			return reconcile.Result{}, err
 		}
 
-		err = r.Client.Delete(ctx, route)
-		if err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(ctx, route); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete Route error: ")
 			return reconcile.Result{}, err
 		}
+
 		/* DataService StatefulSet*/
 		statefulSet, err := r.factory.NewDataServiceStatefulSet()
-
 		if err != nil {
 			reqLogger.Error(err, "data service route error")
 			return reconcile.Result{}, err
 		}
 
-		err = r.Client.Delete(ctx, statefulSet)
-		if err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(ctx, statefulSet); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete StatefulSet error: ")
 			return reconcile.Result{}, err
 		}
+
 		/* DataService Service */
 		service, err := r.factory.NewDataServiceService()
-
 		if err != nil {
 			reqLogger.Error(err, "data service route error")
 			return reconcile.Result{}, err
 		}
 
-		err = r.Client.Delete(ctx, service)
-		if err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(ctx, service); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete Service error: ")
 			return reconcile.Result{}, err
 		}
+
 		/* DataService Secret */
 		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
-		err = r.Client.Delete(ctx, secret)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil {
+			reqLogger.Error(err, "data service secret error")
+			return reconcile.Result{}, err
+		}
+
+		if err = r.Client.Delete(ctx, secret); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete Secret error: ")
 			return reconcile.Result{}, err
 		}

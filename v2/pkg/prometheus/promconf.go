@@ -145,8 +145,8 @@ func getCredFromSecret(c client.Client, sel corev1.SecretKeySelector, namespace 
 	return extractCredKey(s, sel, cred)
 }
 
-func LoadBearerTokensFromSecrets(client client.Client, mons map[string]*monitoringv1.ServiceMonitor) (map[string]assets.BearerToken, error) {
-	tokens := map[string]assets.BearerToken{}
+func LoadBearerTokensFromSecrets(client client.Client, mons map[string]*monitoringv1.ServiceMonitor) (map[string]assets.Token, error) {
+	tokens := map[string]assets.Token{}
 	nsSecretCache := make(map[string]*corev1.Secret)
 
 	for _, mon := range mons {
@@ -170,7 +170,7 @@ func LoadBearerTokensFromSecrets(client client.Client, mons map[string]*monitori
 				)
 			}
 
-			tokens[fmt.Sprintf("serviceMonitor/%s/%s/%d", mon.Namespace, mon.Name, i)] = assets.BearerToken(token)
+			tokens[fmt.Sprintf("serviceMonitor/%s/%s/%d", mon.Namespace, mon.Name, i)] = assets.Token(token)
 		}
 	}
 

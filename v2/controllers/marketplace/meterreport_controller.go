@@ -25,13 +25,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,7 +53,6 @@ type MeterReportReconciler struct {
 	client.Client
 	Log     logr.Logger
 	Scheme  *runtime.Scheme
-	patcher patch.Patcher
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
 }
@@ -63,11 +60,6 @@ type MeterReportReconciler struct {
 func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
-}
-
-func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
-	r.patcher = p
-	return nil
 }
 
 func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
@@ -90,8 +82,6 @@ func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 		Complete(r)
 }
 
-const rerunTime = 1 * 24 * time.Hour // 1 day - reducing rerun time
-
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec
 
@@ -103,8 +93,7 @@ func (r *MeterReportReconciler) Reconcile(ctx context.Context, request reconcile
 
 	// Fetch the MeterReport instance
 	instance := &marketplacev1alpha1.MeterReport{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("MeterReport resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
@@ -118,34 +107,24 @@ func (r *MeterReportReconciler) Reconcile(ctx context.Context, request reconcile
 		instance.Status.Conditions = conds
 	}
 
-	job := batchv1.Job{}
-
 	// getting && deleting job; new process uses a single cronjob
 	if instance.Status.AssociatedJob != nil {
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Status.AssociatedJob.Name, Namespace: instance.Status.AssociatedJob.Namespace}, &job)
+		job := &batchv1.Job{}
+		job.Name = instance.Status.AssociatedJob.Name
+		job.Namespace = instance.Status.AssociatedJob.Namespace
 
-		if err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(context.TODO(), job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "Failed to delete job.")
 			return reconcile.Result{}, err
 		}
 
-		if err == nil {
-			err := r.Client.Delete(context.TODO(), &job, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Error(err, "Failed to delete job.")
-				return reconcile.Result{}, err
-			}
-		}
-
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			err = r.Client.Get(context.TODO(), request.NamespacedName, instance)
-			if err != nil {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 				return err
 			}
 			instance.Status.AssociatedJob = nil
 			return r.Client.Update(context.TODO(), instance)
-		})
-
-		if err != nil && !errors.IsNotFound(err) {
+		}); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "error updating MeterReport")
 			return reconcile.Result{Requeue: true}, err
 		}

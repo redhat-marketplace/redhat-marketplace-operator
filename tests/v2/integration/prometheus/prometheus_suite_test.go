@@ -17,7 +17,7 @@ package prometheus_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -25,7 +25,8 @@ import (
 )
 
 func TestPrometheus(t *testing.T) {
-	logf.SetLogger(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	// @dan zap.New() wasn't in the split operator code-is that intentional?
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Prometheus Suite")
 }

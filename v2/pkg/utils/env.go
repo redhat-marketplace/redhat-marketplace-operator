@@ -22,6 +22,7 @@ import (
 const (
 	/* Resource Names */
 	RHM_CONTROLLER_DEPLOYMENT_NAME         = "redhat-marketplace-controller-manager"
+	RHM_METERING_DEPLOYMENT_NAME           = "metering-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
@@ -57,7 +58,7 @@ const (
 	OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME         = "prometheus-user-workload"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME             = "prometheus-user-workload"
 	OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME            = "thanos-querier"
-	SERVING_CERTS_CA_BUNDLE_NAME                                = "serving-certs-ca-bundle"
+	SERVING_CERTS_CA_BUNDLE_NAME                                = "metering-serving-certs-ca-bundle"
 	KUBELET_SERVING_CA_BUNDLE_NAME                              = "kubelet-serving-ca-bundle"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_OPERATOR_SERVICE_ACCOUNT = "prometheus-operator"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_ACCOUNT          = "prometheus-user-workload"
@@ -68,12 +69,10 @@ const (
 	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
-	CLUSTER_ROLE              = "redhat-marketplace-operator"
-	CLUSTER_ROLE_BINDING      = "redhat-marketplace-operator"
-	OPERATOR_SERVICE_ACCOUNT  = "redhat-marketplace-operator"
-	RAZEE_SERVICE_ACCOUNT     = "redhat-marketplace-razeedeploy"
-	METERBASE_SERVICE_ACCOUNT = "redhat-marketplace-metering"
-	REPORTING_SERVICE_ACCOUNT = "redhat-marketplace-reporting"
+	OPERATOR_SERVICE_ACCOUNT     = "metering-operator"
+	RAZEE_SERVICE_ACCOUNT        = "redhat-marketplace-remoteresources3deployment"
+	METRIC_STATE_SERVICE_ACCOUNT = "metering-metric-state"
+	REPORTING_SERVICE_ACCOUNT    = "metering-reporter"
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
@@ -117,6 +116,7 @@ const (
 	LicenseServerTag = "marketplace.redhat.com/operator"
 	OperatorTag      = "marketplace.redhat.com/operator"
 	OperatorTagValue = "true"
+	UninstallTag     = "marketplace.redhat.com/uninstall"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"

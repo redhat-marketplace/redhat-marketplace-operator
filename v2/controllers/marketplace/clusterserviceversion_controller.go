@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -73,8 +72,7 @@ type ClusterServiceVersionReconciler struct {
 	Log    logr.Logger
 }
 
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=update;patch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and makes changes based on the state read
@@ -103,145 +101,28 @@ func (r *ClusterServiceVersionReconciler) Reconcile(ctx context.Context, request
 		annotations = make(map[string]string)
 	}
 
-	result, isRequeue, err := r.reconcileMeterDefAnnotation(CSV, annotations)
-
-	// check if err is instance of json.parsing error
-	// if yes -> add failiure annotation
-
-	if isRequeue {
-		return result, err
-	}
-	sub := &olmv1alpha1.SubscriptionList{}
-
-	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	hasMarketplaceSub := false
-	if len(sub.Items) > 0 {
-		reqLogger.V(4).Info("found Subscription in namespaces", "count", len(sub.Items))
-		// add razee watch label to CSV if subscription has rhm/operator label
-		for _, s := range sub.Items {
-			if value, ok := s.GetLabels()[operatorTag]; ok {
-				if value == "true" {
-					if len(s.Status.InstalledCSV) == 0 {
-						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
-						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-					}
-
-					if s.Status.InstalledCSV == request.NamespacedName.Name {
-						reqLogger.Info("found Subscription with installed CSV")
-						hasMarketplaceSub = true
-
-						if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
-							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-								err := r.Client.Get(context.TODO(),
-									types.NamespacedName{
-										Name:      CSV.GetName(),
-										Namespace: CSV.GetNamespace(),
-									},
-									CSV)
-
-								if err != nil {
-									return err
-								}
-
-								labels := CSV.GetLabels()
-
-								if labels == nil {
-									labels = make(map[string]string)
-								}
-
-								labels[watchTag] = "lite"
-								CSV.SetLabels(labels)
-
-								return r.Client.Update(context.TODO(), CSV)
-							})
-
-							if err != nil {
-								reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
-								return reconcile.Result{}, err
-							}
-							reqLogger.Info("Patched clusterserviceversion with razee/watch-resource: lite label")
-						} else {
-							reqLogger.Info("No patch needed on clusterserviceversion resource")
-						}
-					}
-				}
-			}
-		}
-	} else {
-		reqLogger.Info("Did not find Subscription in namespaces")
-	}
-
-	if !hasMarketplaceSub {
-		reqLogger.Info("Does not have marketplace sub, ignoring CSV for future")
-
-		if v, ok := CSV.GetAnnotations()[ignoreTag]; !ok || v != ignoreTagValue {
-			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				err := r.Client.Get(context.TODO(),
-					types.NamespacedName{
-						Name:      CSV.GetName(),
-						Namespace: CSV.GetNamespace(),
-					},
-					CSV)
-
-				if err != nil {
-					return err
-				}
-
-				annotations := CSV.GetAnnotations()
-
-				if annotations == nil {
-					annotations = make(map[string]string)
-				}
-
-				annotations[ignoreTag] = ignoreTagValue
-				CSV.SetAnnotations(annotations)
-
-				return r.Client.Update(context.TODO(), CSV)
-			})
-
-			if retryErr != nil {
-				reqLogger.Error(retryErr, "Failed to patch clusterserviceversion ignore tag")
-				return reconcile.Result{Requeue: true}, retryErr
-			}
-			reqLogger.V(4).Info("Patched clusterserviceversion with ignore tag")
-		} else {
-			reqLogger.V(4).Info("No patch needed on clusterserviceversion resource for ignore tag")
-		}
-	}
-
-	reqLogger.Info("reconciliation complete")
-	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
-}
-
-// reconcileMeterDefAnnotation checks the Annotations for the rhm CSV
-// If the CSV is new, we tag it and create a MeterDefinition
-// If the CSV is old, we check if the actual MeterDefinition matches the CSV (json) MeterDefinition
-func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1alpha1.ClusterServiceVersion, annotations map[string]string) (reconcile.Result, bool, error) {
-	var err error
-	reqLogger := r.Log.WithValues("CSV.Name", CSV.Name, "CSV.Namespace", CSV.Namespace)
+	//
+	// csvFilter checks the annotations, validate again
+	//
 
 	// checks if it is possible to build MeterDefinition from annotations of CSV
 	reqLogger.Info("retrieving MeterDefinition string from csv")
 	meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
 	if !ok || len(meterDefinitionString) == 0 {
 		reqLogger.Info("No value for ", "key: ", utils.CSV_METERDEFINITION_ANNOTATION)
-		delete(annotations, meterDefError)
-		delete(annotations, meterDefStatus)
-		return reconcile.Result{}, false, nil
+		return reconcile.Result{}, nil
 	}
 
+	//
 	ns, ok := CSV.GetAnnotations()[olmNamespace]
 	if ok && ns != CSV.GetNamespace() {
-		reqLogger.Info("MeterDef is global and this CSV is not the head")
-		return reconcile.Result{}, false, nil
+		reqLogger.Info("MeterDefinition is global and this CSV is not the head")
+		return reconcile.Result{}, nil
 	}
 
 	if !ok {
-		reqLogger.Info("olm.operatorNamespace is not set yet, requeuing")
-		return reconcile.Result{RequeueAfter: time.Second * 5}, true, nil
+		reqLogger.Info("olm.operatorNamespace annotation is not set yet, requeuing")
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// builds a meterdefinition from our string (from the annotation)
@@ -255,14 +136,14 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	meterDefinition := &marketplacev1beta1.MeterDefinition{}
 
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	_, objectKind, err := decode([]byte(meterDefinitionString), nil, nil)
+	_, objectKind, _ := decode([]byte(meterDefinitionString), nil, nil)
 
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefinitionString)), 100).Decode(unstructured)
 	if err == nil {
 		switch {
 		case objectKind.Version == "v1beta1":
 			reqLogger.Info("mdef is a v1beta1", "value", meterDefinitionBeta)
-			errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(
+			_ = meterDefinitionBeta.BuildMeterDefinitionFromString(
 				meterDefinitionString,
 				CSV.GetName(), CSV.GetNamespace(),
 				utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
@@ -291,16 +172,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	if err != nil {
 		reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
-		reqLogger.Info("Adding failiure annotation in csv file ")
-		annotations[meterDefStatus] = "error"
-		annotations[meterDefError] = err.Error()
-		CSV.SetAnnotations(annotations)
-		if err := r.Client.Update(context.TODO(), CSV); err != nil {
-			reqLogger.Error(err, "Failed to patch clusterserviceversion with MeterDefinition status")
-			return reconcile.Result{}, true, err
-		}
-		reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
-		return reconcile.Result{}, true, err
+		// Consider setting err Status on MarketplaceConfig
 	}
 	reqLogger.Info("marketplacev1beta1.MeterDefinitionList >>>> ")
 
@@ -310,7 +182,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	if err != nil {
 		reqLogger.Error(err, "Could not retrieve the existing MeterDefinition")
-		return reconcile.Result{}, true, err
+		return reconcile.Result{}, err
 	}
 	reqLogger.Info("marketplacev1beta1.MeterDefinitionList End --- ")
 	var actualMeterDefinition *marketplacev1beta1.MeterDefinition
@@ -332,7 +204,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		err := r.Client.Delete(context.TODO(), actualMeterDefinition)
 
 		if err != nil {
-			return reconcile.Result{}, true, err
+			return reconcile.Result{}, err
 		}
 
 		actualMeterDefinition = nil
@@ -346,23 +218,23 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 			patch, err := json.Marshal(meterDefinition)
 			if err != nil {
-				return reconcile.Result{}, true, err
+				return reconcile.Result{}, err
 			}
 			err = r.Client.Patch(context.TODO(), meterDefinition, client.RawPatch(types.MergePatchType, patch))
 			if err != nil {
-				return reconcile.Result{Requeue: true}, true, err
+				return reconcile.Result{Requeue: true}, err
 			}
 			reqLogger.Info("Patch to update MeterDefinition successful. Requeuing")
-			return reconcile.Result{Requeue: true}, true, nil
+			return reconcile.Result{Requeue: true}, nil
 		}
 		reqLogger.Info("meter definition matches")
-		return reconcile.Result{}, false, nil
+		return reconcile.Result{}, nil
 	}
 
 	// Case 2: The CSV is new: we must track it & we must create the Meter Definition
 	gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
 	if err != nil {
-		return reconcile.Result{}, true, err
+		return reconcile.Result{}, err
 	}
 
 	ref := metav1.OwnerReference{
@@ -378,7 +250,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	if err != nil {
 		reqLogger.Error(err, "Failed to create.", "obj", meterDefinition)
-		return reconcile.Result{}, true, err
+		return reconcile.Result{}, err
 	}
 
 	meterDefinition.ObjectMeta.Namespace = CSV.Namespace
@@ -386,51 +258,30 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	err = r.Client.Create(context.TODO(), meterDefinition)
 	if err != nil {
 		reqLogger.Error(err, "Could not create MeterDefinition", "mdef", meterDefinition)
-		reqLogger.Info("Adding failiure annotation in csv file ")
-		annotations[meterDefStatus] = "error"
-		annotations[meterDefError] = err.Error()
-		CSV.SetAnnotations(annotations)
-		if err := r.Client.Update(context.TODO(), CSV); err != nil {
-			reqLogger.Error(err, "Failed to patch clusterserviceversion with MeterDefinition status")
-			return reconcile.Result{}, true, err
-		}
-		reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
-		return reconcile.Result{}, true, err
+		// Consider setting err Status on MarketplaceConfig
+		return reconcile.Result{}, err
 	}
 
-	//Add success message annotation to csv
-	delete(annotations, meterDefError)
-	annotations[meterDefStatus] = "success"
-	CSV.SetAnnotations(annotations)
-	if err := r.Client.Update(context.TODO(), CSV); err != nil {
-		reqLogger.Error(err, "Failed to patch clusterserviceversion with MeterDefinition status")
-		return reconcile.Result{}, true, err
-	}
-	reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
-
-	return reconcile.Result{}, true, nil
+	return reconcile.Result{}, nil
 }
 
-func csvFilter(metaNew metav1.Object) int {
+// Has an annotation with a MeterDefinition and is is the head CSV (not a copy)
+func csvFilter(metaNew metav1.Object) bool {
 	ann := metaNew.GetAnnotations()
 	labels := metaNew.GetLabels()
 
-	//annotation values
-	ignoreVal, hasIgnoreTag := ann[ignoreTag]
 	_, hasCopiedFrom := labels[olmCopiedFromTag]
 	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
+	_, hasOlmNamespace := ann[olmNamespace]
 
-	switch {
-	case hasMeterDefinition && !hasCopiedFrom:
-		return 1
-	case !hasMeterDefinition && (!hasIgnoreTag || ignoreVal != ignoreTagValue):
-		return 2
-	default:
+	if hasOlmNamespace && hasMeterDefinition && !hasCopiedFrom {
+		return true
 	}
 
-	return 0
+	return false
 }
 
+// Update to MeterDefinition annotation which may not be a generation update
 func checkForUpdateToMdef(evt event.UpdateEvent) bool {
 	oldMeterDefVal, oldOk := evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
 	newMeterDefVal, newOk := evt.ObjectNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
@@ -439,13 +290,13 @@ func checkForUpdateToMdef(evt event.UpdateEvent) bool {
 
 var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(evt event.UpdateEvent) bool {
-		return csvFilter(evt.ObjectNew) > 0 && checkForUpdateToMdef(evt)
+		return csvFilter(evt.ObjectNew) && checkForUpdateToMdef(evt)
 	},
 	DeleteFunc: func(evt event.DeleteEvent) bool {
 		return false
 	},
 	CreateFunc: func(evt event.CreateEvent) bool {
-		return csvFilter(evt.Object) > 0
+		return csvFilter(evt.Object)
 	},
 	GenericFunc: func(evt event.GenericEvent) bool {
 		return false

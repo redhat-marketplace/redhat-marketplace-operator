@@ -37,19 +37,21 @@ import (
 // resulting in poor lookup time from repeated get requests
 
 type FindOwnerHelper struct {
-	client    *MetadataClient
-	informers *InformerMappings
-
+	client        *MetadataClient
+	informers     *InformerMappings
+	accessChecker AccessChecker
 	sync.Mutex
 }
 
 func NewFindOwnerHelper(
 	ctx context.Context,
 	metadataClient *MetadataClient,
+	accessChecker AccessChecker,
 ) *FindOwnerHelper {
 	return &FindOwnerHelper{
-		client:    metadataClient,
-		informers: NewInformerMappings(ctx, metadataClient),
+		client:        metadataClient,
+		informers:     NewInformerMappings(ctx, metadataClient),
+		accessChecker: accessChecker,
 	}
 }
 
@@ -62,6 +64,11 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 	} else {
 		group = apiVersionSplit[0]
 		version = apiVersionSplit[1]
+	}
+
+	_, err = f.accessChecker.CheckAccess(group, version, lookupOwner.Kind, namespace)
+	if err != nil {
+		return nil, err
 	}
 
 	mapping, err := f.client.restMapper.RESTMapping(schema.GroupKind{Group: group, Kind: lookupOwner.Kind}, version)

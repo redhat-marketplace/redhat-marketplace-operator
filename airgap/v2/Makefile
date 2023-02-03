@@ -50,7 +50,7 @@ vet:
 
 .PHONY: test
 test: fmt vet ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace ./...
 
 # Generate
 generate: buf

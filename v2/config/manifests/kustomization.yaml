@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: openshift-redhat-marketplace
+
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
@@ -7,30 +7,14 @@ namespace: openshift-redhat-marketplace
 # field above.
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  redhat.marketplace.com/name: redhat-marketplace-operator
 
 resources:
-  - ../crd
-  - ../rbac
-  - ../manager
-  #  - ../webhook-openshift
-  - ../prometheus
+  - ../default
   - ../samples
   - ../scorecard
+  - bases/redhat-marketplace-metering-operator.clusterserviceversion.yaml
 
-#patchesStrategicMerge:
-#- manager_auth_proxy_patch.yaml
-#- manager_webhook_patch.yaml
-
-configurations:
-  - kustomizeconfig.yaml
 vars:
-  # - name: SERVICE_NAME
-  #   objref:
-  #     kind: Service
-  #     version: v1
-  #     name: controller-manager-service
   - name: REPORTER_IMAGE_MARKER
     objref:
       kind: Deployment
