@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	. "github.com/onsi/gomega/gstruct"
@@ -64,7 +64,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 						{
 							Aggregation: "sum",
 							Period: &metav1.Duration{
-								Duration: time.Duration(time.Minute*15),
+								Duration: time.Duration(time.Minute * 15),
 							},
 							Query:        "kube_pod_info{} or on() vector(0)",
 							Metric:       "meterdef_controller_test_query",

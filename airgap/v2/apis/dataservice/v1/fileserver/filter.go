@@ -27,7 +27,6 @@ import (
 
 // a==b,a>b,a<b
 // ==,>=,<=,!==
-//
 type FilterOperator string
 
 const (

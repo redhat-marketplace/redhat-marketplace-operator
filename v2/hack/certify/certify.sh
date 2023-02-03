@@ -124,6 +124,8 @@ cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 
+git checkout v1.0.58
+
 # Patch for TLSVERIFY=false to use internal registry
 yq eval -i '(.spec.params[] | select(.name == "TLSVERIFY") | .default) = "false"' ansible/roles/operator-pipeline/templates/openshift/tasks/buildah.yml
 

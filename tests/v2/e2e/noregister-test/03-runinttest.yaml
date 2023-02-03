@@ -1,4 +1,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: cd ../../.. && ginkgo --progress --randomizeAllSpecs test/integration/controller
+  - script: cd ../../.. && ginkgo --progress --randomize-all test/integration/controller

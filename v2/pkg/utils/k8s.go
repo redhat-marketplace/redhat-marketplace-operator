@@ -183,7 +183,7 @@ func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			DisplayName:    "IBM Operator Catalog",
 			Publisher:      "IBM",
 			SourceType:     "grpc",
-			Image:          "docker.io/ibmcom/ibm-operator-catalog",
+			Image:          "icr.io/cpopen/ibm-operator-catalog",
 			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
 		},
 	}
@@ -203,7 +203,7 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			DisplayName:    "IBMCS Operators",
 			Publisher:      "IBM",
 			SourceType:     "grpc",
-			Image:          "docker.io/ibmcom/ibm-common-service-catalog",
+			Image:          "icr.io/cpopen/ibm-common-service-catalog",
 			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
 		},
 	}
