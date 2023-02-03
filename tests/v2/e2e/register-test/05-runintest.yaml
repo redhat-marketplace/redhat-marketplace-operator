@@ -1,5 +1,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: cd ../.. && ginkgo --progress --randomizeAllSpecs  integration/controller
+  - script: cd ../.. && ginkgo --progress --randomize-all  integration/controller
     timeout: 500

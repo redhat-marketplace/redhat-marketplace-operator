@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 	go func() {
 		k8scache.Start(ctx)
 	}()
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	cancel()
