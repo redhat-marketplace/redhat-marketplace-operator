@@ -17,6 +17,7 @@ package filter
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -81,7 +82,7 @@ var _ = Describe("namespace_watcher", func() {
 		sut.AddNamespace(item1, types1)
 		sut.AddNamespace(item2, types2)
 		sut.AddNamespace(item3, types3)
-	})
+	}, NodeTimeout(time.Duration.Seconds(60)))
 
 	AfterEach(func() {
 		cancel()
