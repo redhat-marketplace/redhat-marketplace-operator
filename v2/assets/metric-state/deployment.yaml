@@ -10,9 +10,10 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: controller
-      app.kubernetes.io/name: red-hat-marketplace-metering
-      app.kubernetes.io/managed-by: ibm
+      app.kubernetes.io/name: rhm-metric-state
       app.kubernetes.io/instance: rhm-metric-state
+      app.kubernetes.io/part-of: redhat-marketplace-metering
+      app.kubernetes.io/managed-by: operator
   template:
     metadata:
       labels:

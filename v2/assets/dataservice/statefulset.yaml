@@ -6,18 +6,16 @@ spec:
   selector:
     matchLabels:
       app: rhm-data-service
-      app.kubernetes.io/name: red-hat-marketplace-metering
-      app.kubernetes.io/managed-by: ibm
-      app.kubernetes.io/instance: rhm-data-service
   serviceName: rhm-data-service
   replicas: 3
   template:
     metadata:
       labels:
         app: rhm-data-service
-        app.kubernetes.io/name: red-hat-marketplace-metering
-        app.kubernetes.io/managed-by: ibm
+        app.kubernetes.io/name: rhm-data-service
         app.kubernetes.io/instance: rhm-data-service
+        app.kubernetes.io/part-of: redhat-marketplace-metering
+        app.kubernetes.io/managed-by: operator
     spec:
       affinity:
         podAntiAffinity:
