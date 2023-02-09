@@ -482,6 +482,8 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		if err != nil {
 			return err
 		}
+
+		marketplaceConfig.ObjectMeta.SetOwnerReferences(nil)
 		if err = controllerutil.SetControllerReference(dep, marketplaceConfig, r.Scheme); err != nil {
 			return err
 		}
