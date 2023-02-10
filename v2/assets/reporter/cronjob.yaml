@@ -9,6 +9,12 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: rhm-meter-report-upload
+            app.kubernetes.io/instance: rhm-meter-report-upload
+            app.kubernetes.io/part-of: redhat-marketplace-metering
+            app.kubernetes.io/managed-by: operator
         spec:
           affinity:
             nodeAffinity:

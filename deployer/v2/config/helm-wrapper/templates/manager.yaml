@@ -17,6 +17,10 @@ spec:
       labels:
         control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
+        app.kubernetes.io/name: controller-manager
+        app.kubernetes.io/instance: controller-manager
+        app.kubernetes.io/part-of: redhat-marketplace-deployer
+        app.kubernetes.io/managed-by: operator
       annotations:
         productName: "Red Hat Marketplace Operator"
         productID: "36cdaba810c348c096b85800dd62bcf1"

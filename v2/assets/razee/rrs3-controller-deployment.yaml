@@ -21,6 +21,10 @@ spec:
         app: rhm-remoteresources3-controller
         owned-by: marketplace.redhat.com-razee
         razee/watch-resource: lite
+        app.kubernetes.io/name: rhm-remoteresources3-controller
+        app.kubernetes.io/instance: rhm-remoteresources3-controller
+        app.kubernetes.io/part-of: redhat-marketplace-deployer
+        app.kubernetes.io/managed-by: operator
       name: rhm-remoteresources3-controller
     spec:
       securityContext: 
