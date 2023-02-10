@@ -234,6 +234,7 @@ jobs:
         - reporter
         - airgap
         - deployer
+        - datareporter
         include:
         - project: operator
         - project: authchecker
@@ -241,6 +242,7 @@ jobs:
         - project: reporter
         - project: airgap
         - project: deployer
+        - project: datareporter
   deploy:
     name: Deploy
     needs:
@@ -412,6 +414,32 @@ jobs:
       with:
         name: release-deployer-bundle-${{ steps.bundle.outputs.tag }}
         path: deployer/v2/bundle
+    - id: datareporter-bundle
+      name: Build datareporter bundle
+      run: |-
+        REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
+        echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
+        cd datareporter/v2
+        export TAG=$IMAGE_TAG
+        echo "::group::Make Stable Bundle"
+        make bundle-stable
+        echo "::endgroup::"
+        export VERSION=$IMAGE_TAG
+        echo "::group::Make Bundle Build"
+        make bundle-build
+        echo "::endgroup::"
+        echo "::group::Make Dev Index"
+        make bundle-dev-index-multiarch
+        echo "::endgroup::"
+        echo "::set-output name=isDev::$IS_DEV"
+        echo "::set-output name=version::$VERSION"
+        echo "::set-output name=tag::$TAG"
+      env:
+        IMAGE_TAG: ${{ steps.version.outputs.tag }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: release-datareporter-bundle-${{ steps.bundle.outputs.tag }}
+        path: datareporter/v2/bundle
     - uses: marocchino/sticky-pull-request-comment@v2
       with:
         header: devindex

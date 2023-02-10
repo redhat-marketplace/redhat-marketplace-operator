@@ -88,13 +88,13 @@ YQ=$(PROJECT_DIR)/bin/yq
 yq:
 	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION),$(YQ_VERSION))
 
-OPERATOR_SDK_VERSION=v1.14.0
+OPERATOR_SDK_VERSION=v1.27.0
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
 	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
 
-OPM_VERSION=v1.19.1
+OPM_VERSION=v1.23.0
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
