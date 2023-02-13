@@ -170,6 +170,17 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 #$(KUSTOMIZE): $(LOCALBIN)
 #	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
+BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
+
+opm-builder-base: opm
+	docker buildx build --push \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
+	--build-arg OPM_VERSION=$(OPM_VERSION) \
+	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))	 \
+	-f hack/opm-builder.Dockerfile -t "$(OPM_BASE_IMG):$(OPM_VERSION)" \
+	--progress plain \
+	.
+
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
@@ -178,10 +189,23 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+bundle-build:
+	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
+  --label com.redhat.delivery.operator.bundle=true \
+	--push \
+	.
 
-.PHONY: bundle-push
-bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+.PHONY: bundle-dev-index-multiarch
+ bundle-dev-index-multiarch: opm opm-builder-base
+	$(OPM) index add -u docker --generate --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" -d dev-index.Dockerfile
+	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
+	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
+	--build-arg OPM_VERSION=$(OPM_VERSION) \
+	.
+
+.PHONY: bundle-stable
+bundle-stable:
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
