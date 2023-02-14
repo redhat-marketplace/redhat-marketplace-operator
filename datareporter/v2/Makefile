@@ -67,7 +67,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 .PHONY: all
-all: build
+all: svu manager
 
 clean:
 	rm -f bundle/manifests/*.yaml bundle/metadata/*.yaml bundle/tests/*.yaml
@@ -121,6 +121,10 @@ test: manifests generate fmt vet envtest ## Run tests.
 .PHONY: build
 build:
 	$(call multiarch-build,data-reporter-operator)
+
+# Build manager binary
+manager: generate fmt vet
+	go build -o bin/manager main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
