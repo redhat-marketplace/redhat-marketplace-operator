@@ -213,3 +213,32 @@ bundle-build:
 bundle-stable:
 	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
+skaffold-build: skaffold
+	cd .. && $(MAKE) save-licenses
+	$(SKAFFOLD) build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+
+skaffold-dev: skaffold kustomize yq
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+
+skaffold-run: skaffold yq
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+
+skaffold-delete: skaffold yq
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) delete --default-repo $(IMAGE_REGISTRY)
+
+current-version:
+	@echo $(VERSION)
+
+# Pin images in bundle
+.PHONY: bundle-pin-images
+bundle-pin-images:
+	docker run \
+	--pull always \
+	-v ${HOME}/.docker:/dockercfg \
+	-v $(shell pwd)/bundle/manifests:/manifests quay.io/operator-framework/operator-manifest-tools:latest \
+	pinning pin -a /dockercfg/config.json /manifests
+
+# Run certification test
+.PHONY: test-certify
+test-certify: bundle bundle-pin-images
+	cd hack/certify && ./certify.sh
