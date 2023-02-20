@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -33,7 +34,11 @@ import (
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+
 	//+kubebuilder:scaffold:imports
+
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -59,11 +64,26 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	opts := zap.Options{
 		Development: true,
+		EncoderConfigOptions: []zap.EncoderConfigOption{
+			func(ec *zapcore.EncoderConfig) {
+				ec.EncodeTime = zapcore.ISO8601TimeEncoder
+			},
+		},
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eventEngine := events.NewEventEngine(ctx, ctrl.Log)
+	err := eventEngine.Start(ctx)
+	if err != nil {
+		setupLog.Error(err, "unable to start engine")
+		os.Exit(1)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,

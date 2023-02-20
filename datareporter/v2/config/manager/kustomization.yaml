@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: public-image-registry.apps-crc.testing/symposium/data-reporter-operator
-  newTag: 2.10.0
+  newName: image-registry.openshift-image-registry.svc:5000/openshift/data-reporter-operator
+  newTag: tag-1676919562
