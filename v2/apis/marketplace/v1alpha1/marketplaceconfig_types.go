@@ -138,7 +138,7 @@ const (
 	// ConditionSecretError means the redhat-marketplace-pull-secret or ibm-entitlement-key is missing in a connected env
 	ConditionSecretError status.ConditionType = "SecretError"
 
-	// ConditionRHMAccountExists means the customer does not have a RHM/Software Central account
+	// ConditionRHMAccountExists means the customer has a RHM/Software Central account
 	ConditionRHMAccountExists status.ConditionType = "RHMAccountExists"
 
 	// Reasons for install

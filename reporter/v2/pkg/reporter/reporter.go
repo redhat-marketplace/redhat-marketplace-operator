@@ -211,7 +211,6 @@ func (s *meterDefPromQuery) String() string {
 	return "[" + s.uid + " " + s.meterGroup + " " + s.meterKind + " " + s.label + "]"
 }
 
-// chenj: transform from MDR to queries
 func transformMeterDefinitionReference(
 	ref v1beta1.MeterDefinitionReference,
 	start, end time.Time,
