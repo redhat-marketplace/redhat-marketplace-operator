@@ -541,6 +541,36 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 			}
 		}
 
+		var rhmAccountExists bool
+		rhmAccountExists, err = r.checkRHMAccountStatus(request, secretFetcher)
+		if err != nil {
+			reqLogger.Error(err, "failed to check RHM/Software Central account existence")
+
+			if updated {
+				reqLogger.Info("updating marketplaceconfig status")
+				if err := r.Client.Status().Update(context.TODO(), marketplaceConfig); err != nil {
+					return err
+				}
+			}
+			return err
+		}
+
+		if rhmAccountExists {
+			updated = marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRHMAccountExists,
+				Message: "RHM/Software Central account exists",
+			}) || updated
+		} else {
+			updated = marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+				Status:  corev1.ConditionFalse,
+				Reason:  marketplacev1alpha1.ReasonRHMAccountNotExist,
+				Message: "RHM/Software Central account does not exist",
+			}) || updated
+		}
+
 		if updated {
 			reqLogger.Info("updating marketplaceconfig status")
 			return r.Client.Status().Update(context.TODO(), marketplaceConfig)
@@ -1001,4 +1031,42 @@ func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusFinished(
 	})
 
 	return reconcile.Result{}, err
+}
+
+func (r *MarketplaceConfigReconciler) checkRHMAccountStatus(
+	request reconcile.Request,
+	secretFetcher *utils.SecretFetcherBuilder) (bool, error) {
+	reqLogger := r.Log.WithValues("func", "checkRHMAccountStatus", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	si, err := secretFetcher.ReturnSecret()
+	if err != nil {
+		reqLogger.Error(err, "Fetching redhat-marketplace-pull-secret or ibm-entitlement-key secret failed")
+		return false, err
+	}
+
+	jwtToken, err := secretFetcher.ParseAndValidate(si)
+	if err != nil {
+		reqLogger.Error(err, "error validating secret", "secret", si.Name)
+		return false, err
+	}
+
+	if si.Name == utils.IBMEntitlementKeySecretName {
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(jwtToken, &marketplace.MarketplaceClaims{Env: si.Env})
+
+		if err != nil {
+			reqLogger.Error(err, "failed to build marketplaceclient")
+			return false, err
+		}
+
+		rhmAccountExists, err := mclient.RhmAccountExists()
+		if err != nil {
+			reqLogger.Error(err, "failed to check if rhm account exists")
+			return false, err
+		}
+
+		return rhmAccountExists, nil
+
+	} else {
+		return true, nil
+	}
 }

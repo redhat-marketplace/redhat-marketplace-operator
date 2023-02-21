@@ -211,9 +211,11 @@ func (s *meterDefPromQuery) String() string {
 	return "[" + s.uid + " " + s.meterGroup + " " + s.meterKind + " " + s.label + "]"
 }
 
+// chenj: transform from MDR to queries
 func transformMeterDefinitionReference(
 	ref v1beta1.MeterDefinitionReference,
 	start, end time.Time,
+	rhmAccountExists bool,
 ) ([]*meterDefPromQuery, error) {
 	slice := make([]*meterDefPromQuery, 0, 1)
 	labels, err := ref.ToPrometheusLabels()
@@ -224,6 +226,13 @@ func transformMeterDefinitionReference(
 	}
 
 	for _, labelStruct := range labels {
+
+		// if RHM/Software Central account does not exist,
+		// skip generating MeterReport for MeterDefinitions that are type license or billable
+		if !rhmAccountExists && (labelStruct.MetricType == marketplacecommon.MetricTypeBillable || labelStruct.MetricType == marketplacecommon.MetricTypeLicense) {
+			continue
+		}
+
 		labelMap, err := labelStruct.ToLabels()
 
 		if err != nil {
@@ -255,8 +264,16 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	definitionSet := make(map[types.NamespacedName][]*meterDefPromQuery)
 	start, end := r.report.Spec.StartTime.Time.UTC(), r.report.Spec.EndTime.Time.Add(-1*time.Second).UTC()
 
+	var rhmAccountExists bool
+	cond := r.MktConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
+	if cond != nil && cond.IsTrue() {
+		rhmAccountExists = true
+	} else {
+		rhmAccountExists = false
+	}
+
 	for _, ref := range meterDefinitions {
-		queries, err := transformMeterDefinitionReference(ref, start, end)
+		queries, err := transformMeterDefinitionReference(ref, start, end, rhmAccountExists)
 
 		if err != nil {
 			logger.Error(err, "error transforming meter definition references", "name", ref.Name, "namespace", ref.Namespace)

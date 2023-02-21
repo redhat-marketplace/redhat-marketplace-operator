@@ -40,8 +40,9 @@ var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	RegistrationEndpoint = "provisioning/v1/registered-clusters"
+	PullSecretEndpoint     = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	RegistrationEndpoint   = "provisioning/v1/registered-clusters"
+	AuthenticationEndpoint = "subscriptions/api/v1/keys/authentication"
 )
 
 const (
@@ -472,4 +473,40 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 			StatusCode:         resp.StatusCode,
 		}, err
 	}
+}
+
+func (m *MarketplaceClient) RhmAccountExists() (bool, error) {
+	u, err := buildQuery(m.endpoint, AuthenticationEndpoint)
+	if err != nil {
+		return false, err
+	}
+
+	logger.Info("query to check rhmAccount existence", "query", u.String())
+
+	requestBody, err := json.Marshal(map[string]bool{
+		"createAccount":              false,
+		"sendEmailOnAccountCreation": false,
+	})
+	if err != nil {
+		return false, errors.New("intenalError: json.Marshal")
+	}
+
+	requestBodyBuffer := bytes.NewBuffer(requestBody)
+	if err != nil {
+		return false, errors.New("intenalError: NewBuffer")
+	}
+
+	resp, err := m.httpClient.Post(u.String(), "application/json", requestBodyBuffer)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode == 200 {
+		return true, nil
+	}
+	if resp.StatusCode == 422 {
+		return false, nil
+	}
+
+	return false, errors.New("unexpected response status " + resp.Status)
 }
