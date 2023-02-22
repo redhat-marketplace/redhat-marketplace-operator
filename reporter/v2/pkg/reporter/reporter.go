@@ -214,7 +214,6 @@ func (s *meterDefPromQuery) String() string {
 func transformMeterDefinitionReference(
 	ref v1beta1.MeterDefinitionReference,
 	start, end time.Time,
-	rhmAccountExists bool,
 ) ([]*meterDefPromQuery, error) {
 	slice := make([]*meterDefPromQuery, 0, 1)
 	labels, err := ref.ToPrometheusLabels()
@@ -225,13 +224,6 @@ func transformMeterDefinitionReference(
 	}
 
 	for _, labelStruct := range labels {
-
-		// if RHM/Software Central account does not exist,
-		// skip generating MeterReport for MeterDefinitions that are type license or billable
-		if !rhmAccountExists && (labelStruct.MetricType == marketplacecommon.MetricTypeBillable || labelStruct.MetricType == marketplacecommon.MetricTypeLicense) {
-			continue
-		}
-
 		labelMap, err := labelStruct.ToLabels()
 
 		if err != nil {
@@ -272,7 +264,7 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	}
 
 	for _, ref := range meterDefinitions {
-		queries, err := transformMeterDefinitionReference(ref, start, end, rhmAccountExists)
+		queries, err := transformMeterDefinitionReference(ref, start, end)
 
 		if err != nil {
 			logger.Error(err, "error transforming meter definition references", "name", ref.Name, "namespace", ref.Namespace)
@@ -307,6 +299,14 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	for key, val := range definitionSet {
 		logger.V(4).Info("sending", "key", key)
 		for _, query := range val {
+			// if RHM/Software Central account does not exist,
+			// skip generating MeterReport for MeterDefinitions that are type license or billable
+			if rhmAccountExists &&
+				(query.query.MetricType == marketplacecommon.MetricTypeEmpty || // metricType empty is treated as MetricTypeLincense
+					query.query.MetricType == marketplacecommon.MetricTypeBillable ||
+					query.query.MetricType == marketplacecommon.MetricTypeLicense) {
+				continue
+			}
 			localQ := query
 			logger.V(4).Info("sending q", "q", localQ)
 			meterDefsChan <- localQ
