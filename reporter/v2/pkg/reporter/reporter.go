@@ -301,7 +301,7 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 		for _, query := range val {
 			// if RHM/Software Central account does not exist,
 			// skip generating MeterReport for MeterDefinitions that are type license or billable
-			if rhmAccountExists &&
+			if !rhmAccountExists &&
 				(query.query.MetricType == marketplacecommon.MetricTypeEmpty || // metricType empty is treated as MetricTypeLincense
 					query.query.MetricType == marketplacecommon.MetricTypeBillable ||
 					query.query.MetricType == marketplacecommon.MetricTypeLicense) {
