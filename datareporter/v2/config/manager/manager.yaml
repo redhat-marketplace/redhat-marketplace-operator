@@ -24,6 +24,7 @@ metadata:
     app.kubernetes.io/created-by: v2
     app.kubernetes.io/part-of: v2
     app.kubernetes.io/managed-by: kustomize
+    redhat.marketplace.com/name: data-reporter-operator
 spec:
   selector:
     matchLabels:
@@ -73,6 +74,9 @@ spec:
           capabilities:
             drop:
               - "ALL"
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
         livenessProbe:
           httpGet:
             path: /healthz

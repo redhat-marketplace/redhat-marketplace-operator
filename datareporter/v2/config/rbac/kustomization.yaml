@@ -16,3 +16,7 @@ resources:
 - auth_proxy_role.yaml
 - auth_proxy_role_binding.yaml
 - auth_proxy_client_clusterrole.yaml
+# servicemonitor for secured metrics endpoint
+- servicemonitor-metrics-reader_cluster_role_binding.yaml
+- servicemonitor-metrics-reader_cluster_role.yaml
+- servicemonitor-metrics-reader_service_account.yaml

@@ -15,12 +15,15 @@ metadata:
   namespace: system
 spec:
   endpoints:
-    - path: /metrics
+    - bearerTokenSecret:
+        key: token
+        name: data-reporter-operator-servicemonitor-metrics-reader
+      path: /metrics
       port: https
       scheme: https
-      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       tlsConfig:
         insecureSkipVerify: true
   selector:
     matchLabels:
       control-plane: controller-manager
+      redhat.marketplace.com/name: data-reporter-operator

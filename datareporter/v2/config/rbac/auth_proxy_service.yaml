@@ -1,6 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: data-reporter-operator-controller-manager-metrics-service-tls
   labels:
     control-plane: controller-manager
     app.kubernetes.io/name: service
@@ -19,3 +21,4 @@ spec:
     targetPort: https
   selector:
     control-plane: controller-manager
+    redhat.marketplace.com/name: data-reporter-operator

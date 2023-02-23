@@ -70,8 +70,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 
 	// dataReporter flags
-	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
-	flag.StringVar(&dataServiceCertFile, "dataServiceCertFile", "", "cert file for the data service")
+	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/var/run/secrets/kubernetes.io/serviceaccount/token", "token file for the data service")
+	flag.StringVar(&dataServiceCertFile, "dataServiceCertFile", "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt", "cert file for the data service")
 	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
 
 	opts := zap.Options{

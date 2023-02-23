@@ -5,6 +5,22 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
+- nonResourceURLs:
+  - /dataservice.v1.fileserver.FileServer/*
+  verbs:
+  - create
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
 - apiGroups:
   - marketplace.redhat.com
   resources:

@@ -33,6 +33,13 @@ type DataReporterConfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// data-service
+//+kubebuilder:rbac:urls=/dataservice.v1.fileserver.FileServer/*,verbs=create
+// kube-rbac-proxy
+//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+//+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+
+// controller CRDs
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/finalizers,verbs=update
