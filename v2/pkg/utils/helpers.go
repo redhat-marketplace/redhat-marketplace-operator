@@ -38,7 +38,6 @@ import (
 const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
 
 var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
-var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
 
 var ParsedVersion460, _ = semver.Make("4.6.0")
 var ParsedVersion480, _ = semver.Make("4.8.0")

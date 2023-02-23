@@ -16,9 +16,13 @@ package events
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 )
 
 // Must Start, Process and Send
@@ -41,6 +45,8 @@ type ProcessorSender struct {
 	sendReadyChan chan Key
 
 	eventAccumulator *EventAccumulator
+
+	config *Config
 }
 
 func (p *ProcessorSender) Start(ctx context.Context) error {
@@ -109,13 +115,58 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
 
 	// flush entries for this key
-	_ = p.eventAccumulator.Flush(key)
+	eventJsons := p.eventAccumulator.Flush(key)
 
-	// build the report
+	// EventReporter with current token
+	dataServiceConfig, err := provideDataServiceConfig(p.config)
+	if err != nil {
+		return err
+	}
 
-	// POST
+	reporter, err := NewEventReporter(p.log, dataServiceConfig)
+	if err != nil {
+		return err
+	}
 
-	p.log.Info("Send")
+	// Build and Send the report to dataSrvice
+	metadata := make(map[string]string)
+	metadata["test"] = "test"
+	if err := reporter.Report(metadata, eventJsons); err != nil {
+		return err
+	}
+
+	p.log.Info("Sent Report")
 
 	return nil
+}
+
+func provideDataServiceConfig(
+	config *Config,
+) (*dataservice.DataServiceConfig, error) {
+	namespace := config.Namespace
+	dataServiceTokenFile := config.DataServiceTokenFile
+	dataServiceCertFile := config.DataServiceCertFile
+
+	cert, err := os.ReadFile(dataServiceCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var serviceAccountToken = ""
+	if dataServiceTokenFile != "" {
+		content, err := os.ReadFile(dataServiceTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		serviceAccountToken = string(content)
+	}
+
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, namespace)
+
+	return &dataservice.DataServiceConfig{
+		Address:          dataServiceDNS,
+		DataServiceToken: serviceAccountToken,
+		DataServiceCert:  cert,
+		OutputPath:       config.OutputDirectory,
+	}, nil
 }

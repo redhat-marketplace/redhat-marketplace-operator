@@ -14,6 +14,14 @@
 
 package events
 
+// config needed to provideDataServiceConfig
+type Config struct {
+	OutputDirectory      string
+	DataServiceTokenFile string
+	DataServiceCertFile  string
+	Namespace            string
+}
+
 type Key string       // the api key the event was sent with
 type EventJson []byte // the json which should be already validated with json.Valid()
 

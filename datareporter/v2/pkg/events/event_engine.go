@@ -33,12 +33,14 @@ type EventEngine struct {
 func NewEventEngine(
 	ctx context.Context,
 	log logr.Logger,
+	config *Config,
 ) *EventEngine {
 	ee := &EventEngine{
 		log: log.WithValues("process", "EventEngine"),
 		ProcessorSender: &ProcessorSender{
 			log:           log,
 			digestersSize: 1,
+			config:        config,
 		},
 	}
 
