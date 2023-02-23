@@ -23,6 +23,7 @@ import (
 // MarketplaceConfigSpec defines the desired state of MarketplaceConfig
 // +k8s:openapi-gen=true
 type MarketplaceConfigSpec struct {
+
 	// RhmAccountID is the Red Hat Marketplace Account identifier
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Accound ID"
@@ -96,6 +97,17 @@ type MarketplaceConfigStatus struct {
 	MeterBaseSubConditions status.Conditions `json:"meterBaseSubConditions,omitempty"`
 }
 
+// MarketplaceConfigLicense defines license acceptance
+// +k8s:openapi-gen=true
+type MarketplaceConfigLicense struct {
+
+	// Accept license
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License Acceptance"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:checkbox"
+	Accept *bool `json:"features,omitempty"`
+}
+
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
 // By installing this product you accept the license terms https://ibm.biz/BdfaAY.
 // +kubebuilder:object:root=true
@@ -115,8 +127,9 @@ type MarketplaceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MarketplaceConfigSpec   `json:"spec,omitempty"`
-	Status MarketplaceConfigStatus `json:"status,omitempty"`
+	Spec    MarketplaceConfigSpec    `json:"spec,omitempty"`
+	License MarketplaceConfigLicense `json:"license,omitempty"`
+	Status  MarketplaceConfigStatus  `json:"status,omitempty"`
 }
 
 // These are valid conditions of a job.
