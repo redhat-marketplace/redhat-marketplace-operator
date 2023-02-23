@@ -75,6 +75,9 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Namespace LabelSelector"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
+
+	// License section
+	License MarketplaceConfigLicense `json:"license,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -127,9 +130,8 @@ type MarketplaceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    MarketplaceConfigSpec    `json:"spec,omitempty"`
-	License MarketplaceConfigLicense `json:"license,omitempty"`
-	Status  MarketplaceConfigStatus  `json:"status,omitempty"`
+	Spec   MarketplaceConfigSpec   `json:"spec,omitempty"`
+	Status MarketplaceConfigStatus `json:"status,omitempty"`
 }
 
 // These are valid conditions of a job.
