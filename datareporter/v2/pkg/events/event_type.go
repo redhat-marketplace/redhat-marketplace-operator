@@ -14,6 +14,10 @@
 
 package events
 
+import (
+	"encoding/json"
+)
+
 // config needed to provideDataServiceConfig
 type Config struct {
 	OutputDirectory      string
@@ -22,12 +26,25 @@ type Config struct {
 	Namespace            string
 }
 
-type Key string       // the api key the event was sent with
-type EventJson []byte // the json which should be already validated with json.Valid()
+type Key string // the api key the event was sent with
 
 type Event struct {
 	Key
-	EventJson
+	json.RawMessage
 }
+
 type Events []Event
-type EventJsons []EventJson
+
+type EventJsons []json.RawMessage
+
+type Metadata map[string]string
+
+type Manifest struct {
+	Type     string `json:"type,omitempty"`
+	Metadata `json:"metadata,omitempty"`
+}
+
+type ReportData struct {
+	Metadata   Metadata          `json:"metadata,omitempty"`
+	EventJsons []json.RawMessage `json:"data"`
+}

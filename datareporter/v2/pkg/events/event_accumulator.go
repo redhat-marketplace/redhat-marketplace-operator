@@ -26,7 +26,7 @@ type EventAccumulator struct {
 func (e *EventAccumulator) Add(event Event) int {
 	e.mu.Lock()
 	eventJsons := e.eventMap[event.Key]
-	aEventJsons := append(eventJsons, event.EventJson)
+	aEventJsons := append(eventJsons, event.RawMessage)
 	e.eventMap[event.Key] = aEventJsons
 	length := len(aEventJsons)
 	e.mu.Unlock()

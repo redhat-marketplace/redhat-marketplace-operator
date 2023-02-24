@@ -18,8 +18,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -70,7 +72,7 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 
 	// dataReporter flags
-	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/var/run/secrets/kubernetes.io/serviceaccount/token", "token file for the data service")
+	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/etc/data-service-sa/data-service-token", "token file for the data service")
 	flag.StringVar(&dataServiceCertFile, "dataServiceCertFile", "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt", "cert file for the data service")
 	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
 
@@ -145,6 +147,16 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+
+	go func() {
+		eventjson := json.RawMessage(`{"event":"one"}`)
+		eventone := events.Event{Key: "one", RawMessage: eventjson}
+		for i := 0; i < 60; i++ {
+			setupLog.Info("sending event")
+			eventEngine.EventChan <- eventone
+			time.Sleep(1 * time.Second)
+		}
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

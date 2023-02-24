@@ -16,6 +16,7 @@ package events
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,8 +48,7 @@ var _ = Describe("EngineTest", func() {
 
 		ctx, cancel = context.WithCancel(context.Background())
 
-		eventone = Event{"one", []byte("{\"event\":\"one\"}")}
-		//eventtwo = Event{"two", []byte("{\"event\":\"two\"}")}
+		eventone = Event{"one", json.RawMessage(`{"event":"one"}`)}
 
 		// Pass ComponentConfig that sets the mock server where we can read the request
 		engine = NewEventEngine(ctx, logf.Log, cfg)

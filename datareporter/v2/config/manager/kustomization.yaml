@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: image-registry.openshift-image-registry.svc:5000/openshift/data-reporter-operator
-  newTag: tag-1677180839
+  newTag: tag-1677266117

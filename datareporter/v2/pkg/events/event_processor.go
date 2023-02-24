@@ -118,7 +118,7 @@ func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
 	eventJsons := p.eventAccumulator.Flush(key)
 
 	// EventReporter with current token
-	dataServiceConfig, err := provideDataServiceConfig(p.config)
+	dataServiceConfig, err := p.provideDataServiceConfig()
 	if err != nil {
 		return err
 	}
@@ -140,33 +140,27 @@ func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
 	return nil
 }
 
-func provideDataServiceConfig(
-	config *Config,
-) (*dataservice.DataServiceConfig, error) {
-	namespace := config.Namespace
-	dataServiceTokenFile := config.DataServiceTokenFile
-	dataServiceCertFile := config.DataServiceCertFile
-
-	cert, err := os.ReadFile(dataServiceCertFile)
+func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceConfig, error) {
+	cert, err := os.ReadFile(p.config.DataServiceCertFile)
 	if err != nil {
 		return nil, err
 	}
 
 	var serviceAccountToken = ""
-	if dataServiceTokenFile != "" {
-		content, err := os.ReadFile(dataServiceTokenFile)
+	if p.config.DataServiceTokenFile != "" {
+		content, err := os.ReadFile(p.config.DataServiceTokenFile)
 		if err != nil {
 			return nil, err
 		}
 		serviceAccountToken = string(content)
 	}
 
-	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, namespace)
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, p.config.Namespace)
 
 	return &dataservice.DataServiceConfig{
 		Address:          dataServiceDNS,
 		DataServiceToken: serviceAccountToken,
 		DataServiceCert:  cert,
-		OutputPath:       config.OutputDirectory,
+		OutputPath:       p.config.OutputDirectory,
 	}, nil
 }

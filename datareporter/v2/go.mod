@@ -5,6 +5,7 @@ go 1.19
 require (
 	emperror.dev/errors v0.8.1
 	github.com/go-logr/logr v1.2.3
+	github.com/google/uuid v1.2.0
 	github.com/onsi/ginkgo/v2 v2.8.1
 	github.com/onsi/gomega v1.26.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 v2.0.0-00010101000000-000000000000
@@ -46,7 +47,6 @@ require (
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/uuid v1.2.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gotidy/ptr v1.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.6.0 // indirect

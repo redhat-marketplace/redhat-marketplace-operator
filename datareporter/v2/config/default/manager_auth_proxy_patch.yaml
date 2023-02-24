@@ -34,6 +34,9 @@ spec:
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
             name: data-reporter-operator-serving-certs-ca-bundle
             readOnly: false
+          - mountPath: /etc/data-service-sa
+            name: data-service-token-vol
+            readOnly: true
       - name: kube-rbac-proxy
         image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.11
         args:
@@ -74,6 +77,13 @@ spec:
         - name: data-reporter-operator-controller-manager-metrics-service-tls
           secret:
             secretName: data-reporter-operator-controller-manager-metrics-service-tls
-        - configMap:
+        - name: data-reporter-operator-serving-certs-ca-bundle
+          configMap:
             name: data-reporter-operator-serving-certs-ca-bundle
-          name: data-reporter-operator-serving-certs-ca-bundle
+        - name: data-service-token-vol
+          projected:
+            sources:
+            - serviceAccountToken:
+                path: data-service-token
+                expirationSeconds: 3600
+                audience: rhm-data-service
