@@ -1,0 +1,41 @@
+apiVersion: skaffold/v2beta28
+kind: Config
+metadata:
+  name: data-reporter-operator
+build:
+  artifacts:
+  - image: data-reporter-operator
+    context: .
+    custom:
+      buildCommand: ARCHS=amd64 make vet docker-build
+      dependencies:
+        paths:
+        - go.mod
+        - go.sum
+        - main.go
+        - ../../v2/apis/**
+        - controllers/**
+        - ../../v2/pkg/**
+        - ../../v2/assets/**
+        - Dockerfile
+        ignore:
+        - ./**/*_test.go     
+  tagPolicy:
+    customTemplate:
+      template: '{{ .VERS }}-{{ .GC }}'
+      components:
+      - name: VERS
+        envTemplate:
+          template: '{{.VERSION}}'
+      - name: GC
+        gitCommit:
+          variant: AbbrevCommitSha
+  local:
+    useBuildkit: true
+    concurrency: 2
+manifests:
+  kustomize:
+    paths: 
+    - config
+deploy:
+  kubectl:
