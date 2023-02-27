@@ -109,7 +109,7 @@ type MarketplaceConfigLicense struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Accept Licence"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:checkbox"
-	Accept *bool `json:"features,omitempty"`
+	Accept *bool `json:"accept,omitempty"`
 }
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
