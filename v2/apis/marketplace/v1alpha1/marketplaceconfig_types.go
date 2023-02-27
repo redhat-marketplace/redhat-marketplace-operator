@@ -76,7 +76,8 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
 
-	// License section
+	// License information is required
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License"
 	License MarketplaceConfigLicense `json:"license,omitempty"`
 }
 
@@ -104,9 +105,9 @@ type MarketplaceConfigStatus struct {
 // +k8s:openapi-gen=true
 type MarketplaceConfigLicense struct {
 
-	// Accept license
+	// By installing this product you accept the license terms https://ibm.biz/BdfaAY
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License Acceptance"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Accept Licence"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:checkbox"
 	Accept *bool `json:"features,omitempty"`
 }
