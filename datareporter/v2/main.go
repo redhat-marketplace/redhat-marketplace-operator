@@ -158,6 +158,8 @@ func main() {
 		}
 	}()
 
+	//TODO: add server startup
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
