@@ -13,6 +13,7 @@ spec:
       period: 1h
       query: avg_over_time(up{job="prometheus-user-workload"}[5m])
       workloadType: Pod
+      metricType: infrastructure
   resourceFilters:
     - label:
         labelSelector:

@@ -184,11 +184,11 @@ type MeterWorkload struct {
 	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
 	WorkloadType common.WorkloadType `json:"workloadType"`
 
-	// MetricType identifies the type of metric this meter definition reports. Currently "billable", "license", or "adoption".
+	// MetricType identifies the type of metric this meter definition reports. Currently "billable", "license", "adoption", or "infrastructure".
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:adoption,urn:alm:descriptor:com.tectonic.ui:select:billable,urn:alm:descriptor:com.tectonic.ui:select:license"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:adoption,urn:alm:descriptor:com.tectonic.ui:select:billable,urn:alm:descriptor:com.tectonic.ui:select:license,urn:alm:descriptor:com.tectonic.ui:select:infrastructure"
 	// +optional
-	// +kubebuilder:validation:Enum:=billable;license;adoption
+	// +kubebuilder:validation:Enum:=billable;license;adoption;infrastructure
 	MetricType common.MetricType `json:"metricType,omitempty"`
 
 	// Group is the set of label fields returned by query to aggregate on.
