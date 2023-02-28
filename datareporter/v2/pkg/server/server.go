@@ -26,7 +26,7 @@ func NewDataReporterHandler() *DataReporterHandler {
 func (s *DataReporterHandler) Serve(host string, port int) {
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
 
-	log.Info("Starting metrics server", "listenAddress", listenAddress)
+	log.Info("Starting data reporter api handler", "listenAddress", listenAddress)
 
 	mux := http.NewServeMux()
 
@@ -35,7 +35,7 @@ func (s *DataReporterHandler) Serve(host string, port int) {
 
 	err := http.ListenAndServe(listenAddress, mux)
 	if err != nil {
-		log.Error(err, "failing to listen and serve")
+		log.Error(err, "failing to start data reporter api handler")
 		panic(err)
 	}
 }

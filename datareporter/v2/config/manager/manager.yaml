@@ -68,7 +68,7 @@ spec:
         #   type: RuntimeDefault
       containers:
       - name: manager
-        image: controller:latest
+        image: data-reporter-operator:latest
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
