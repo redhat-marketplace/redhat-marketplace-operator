@@ -1,4 +1,4 @@
-apiVersion: skaffold/v4beta2
+apiVersion: skaffold/v3
 kind: Config
 metadata:
   name: data-reporter-operator
@@ -36,6 +36,6 @@ build:
 manifests:
   kustomize:
     paths: 
-    - config
+    - config/default
 deploy:
   kubectl: {}
