@@ -92,14 +92,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := &events.Config{
+	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
 		DataServiceTokenFile: dataServiceTokenFile,
 		DataServiceCertFile:  dataServiceCertFile,
 		Namespace:            namespace,
 	}
 
-	eventEngine := events.NewEventEngine(ctx, ctrl.Log, cfg)
+	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config)
 	err := eventEngine.Start(ctx)
 	if err != nil {
 		setupLog.Error(err, "unable to start engine")
@@ -133,6 +133,7 @@ func main() {
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Config: config,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)

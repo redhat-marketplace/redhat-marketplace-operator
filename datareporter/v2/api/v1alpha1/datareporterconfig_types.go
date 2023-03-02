@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,8 +29,14 @@ type DataReporterConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of DataReporterConfig. Edit datareporterconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	ApiKeys []ApiKey `json:"apiKeys,omitempty"`
+}
+
+type ApiKey struct {
+	// Required.
+	SecretReference *corev1.SecretReference `json:"secretRef,omitempty"`
+	// +optional
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // DataReporterConfigStatus defines the observed state of DataReporterConfig
