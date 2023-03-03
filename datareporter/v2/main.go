@@ -18,25 +18,27 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"os"
-	"time"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/fsnotify/fsnotify"
+	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
+	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 
 	//+kubebuilder:scaffold:imports
 
@@ -50,7 +52,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(datareporterv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -64,6 +66,7 @@ func main() {
 	var namespace string
 	var dataServiceCertFile string
 	var dataServiceTokenFile string
+	var componentConfigVar string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -75,6 +78,12 @@ func main() {
 	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/etc/data-service-sa/data-service-token", "token file for the data service")
 	flag.StringVar(&dataServiceCertFile, "dataServiceCertFile", "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt", "cert file for the data service")
 	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
+
+	// componentconfig path
+	flag.StringVar(&componentConfigVar, "config", "",
+		"The controller will load its initial configuration from this file. "+
+			"Omit this flag to use the default configuration values. "+
+			"Command-line flags override configuration from this file.")
 
 	opts := zap.Options{
 		Development: true,
@@ -99,8 +108,34 @@ func main() {
 		Namespace:            namespace,
 	}
 
+	setupLog.Info("componentConfigVar", "file", componentConfigVar)
+	viper.SetConfigFile(componentConfigVar)
+
+	if err := viper.ReadInConfig(); err != nil {
+		setupLog.Error(err, "Error reading config file")
+	}
+
+	projectConfig := datareporterv1alpha1.ComponentConfig{}
+	err := viper.Unmarshal(&projectConfig)
+	if err != nil {
+		setupLog.Error(err, "error unmarshaling")
+	}
+
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		// fmt.Println("Config file changed:", e.Name)
+		setupLog.Info("config file changed", "file", e.Name)
+		err = viper.Unmarshal(&projectConfig)
+		if err != nil {
+			setupLog.Error(err, "error unmarshaling")
+		}
+		utils.PrettyPrint(projectConfig)
+	})
+
+	utils.PrettyPrintWithLog(projectConfig, "project config:")
+
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, cfg)
-	err := eventEngine.Start(ctx)
+	err = eventEngine.Start(ctx)
 	if err != nil {
 		setupLog.Error(err, "unable to start engine")
 		os.Exit(1)
@@ -137,6 +172,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -148,17 +184,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	go func() {
-		eventjson := json.RawMessage(`{"event":"one"}`)
-		eventone := events.Event{Key: "one", RawMessage: eventjson}
-		for i := 0; i < 60; i++ {
-			setupLog.Info("sending event")
-			eventEngine.EventChan <- eventone
-			time.Sleep(1 * time.Second)
-		}
-	}()
+	// go func() {
+	// 	eventjson := json.RawMessage(`{"event":"one"}`)
+	// 	eventone := events.Event{Key: "one", RawMessage: eventjson}
+	// 	for i := 0; i < 3; i++ {
+	// 		setupLog.Info("sending event", "event", eventone)
+	// 		eventEngine.EventChan <- eventone
+	// 		time.Sleep(1 * time.Second)
+	// 	}
+	// }()
 
-	//TODO: add server startup
+	h := server.NewDataReporterHandler(eventEngine)
+
+	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
+		setupLog.Error(err, "unable to set up pprof")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

@@ -16,6 +16,7 @@ build:
         - ../../v2/apis/**
         - controllers/**
         - ../../v2/pkg/**
+        - pkg/**
         - ../../v2/assets/**
         - Dockerfile
         ignore:

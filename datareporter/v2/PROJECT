@@ -1,3 +1,4 @@
+componentConfig: true
 domain: redhat.com
 layout:
 - go.kubebuilder.io/v3
@@ -14,6 +15,14 @@ resources:
   domain: redhat.com
   group: marketplace
   kind: DataReporterConfig
+  path: github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: redhat.com
+  group: marketplace
+  kind: ComponentConfig
   path: github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1
   version: v1alpha1
 version: "3"

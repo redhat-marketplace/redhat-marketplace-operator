@@ -1,51 +1,73 @@
 package server
 
 import (
-	"net"
+	"encoding/json"
+	"io"
+	golangLog "log"
 	"net/http"
-	"strconv"
-	"time"
+	// "github.com/gorilla/mux"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var log = logf.Log.WithName("meteric_generator")
 
-type DataReporterHandler struct {
-	WriteTimeout time.Duration
-	ReadTimeout  time.Duration
-}
+// type DataReporterHandler struct {
+// 	WriteTimeout time.Duration
+// 	ReadTimeout  time.Duration
+// }
 
-func NewDataReporterHandler() *DataReporterHandler {
-	return &DataReporterHandler{
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 30,
+//	func NewDataReporterHandler() *DataReporterHandler {
+//		return &DataReporterHandler{
+//			WriteTimeout: time.Second * 30,
+//			ReadTimeout:  time.Second * 30,
+//		}
+//	}
+
+func NewDataReporterHandler(eventEngine *events.EventEngine) *http.ServeMux {
+	router := http.NewServeMux()
+
+	if eventEngine == nil {
+		golangLog.Fatal("eventEngine is nil")
 	}
+
+	router.HandleFunc("/v1/event", func(w http.ResponseWriter, r *http.Request) {
+		EventHandler(eventEngine, w, r)
+	})
+	router.HandleFunc("/v1/status", StatusHandler)
+	return router
 }
 
-func (s *DataReporterHandler) Serve(host string, port int) {
-	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
+func EventHandler(eventEngine *events.EventEngine, w http.ResponseWriter, r *http.Request) {
+	apiKey := r.Header.Get("apiKey")
 
-	log.Info("Starting data reporter api handler", "listenAddress", listenAddress)
-
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/v1/event", eventHandler)
-	mux.HandleFunc("/v1/status", statusHandler)
-
-	err := http.ListenAndServe(listenAddress, mux)
+	eventKeyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Error(err, "failing to start data reporter api handler")
-		panic(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-}
 
-func eventHandler(w http.ResponseWriter, r *http.Request) {
+	if !json.Valid(eventKeyBytes) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	rawMessage := json.RawMessage(eventKeyBytes)
+	event := events.Event{Key: events.Key(apiKey), RawMessage: rawMessage}
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	eventEngine.EventChan <- event
+
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("event handler"))
+	out, _ := json.Marshal(event)
+	w.Write(out)
 }
 
-func statusHandler(w http.ResponseWriter, r *http.Request) {
+func StatusHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
