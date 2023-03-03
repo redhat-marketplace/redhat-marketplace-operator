@@ -128,9 +128,9 @@ func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
 		return err
 	}
 
-	// Build and Send the report to dataSrvice
-	metadata := make(map[string]string)
-	metadata["test"] = "test"
+	// Build and Send the report to dataService
+	// There is a case where if an ApiKey is removed, the metadata will no longer be available when the Report it sent
+	metadata := p.config.ApiKeys.GetMetadata(key)
 	if err := reporter.Report(metadata, eventJsons); err != nil {
 		return err
 	}

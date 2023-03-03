@@ -5,6 +5,7 @@ import (
 	"io"
 	golangLog "log"
 	"net/http"
+
 	// "github.com/gorilla/mux"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
@@ -25,7 +26,7 @@ var log = logf.Log.WithName("meteric_generator")
 //		}
 //	}
 
-func NewDataReporterHandler(eventEngine *events.EventEngine) *http.ServeMux {
+func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config) *http.ServeMux {
 	router := http.NewServeMux()
 
 	if eventEngine == nil {
@@ -33,14 +34,19 @@ func NewDataReporterHandler(eventEngine *events.EventEngine) *http.ServeMux {
 	}
 
 	router.HandleFunc("/v1/event", func(w http.ResponseWriter, r *http.Request) {
-		EventHandler(eventEngine, w, r)
+		EventHandler(eventEngine, eventConfig, w, r)
 	})
-	router.HandleFunc("/v1/status", StatusHandler)
+
 	return router
 }
 
-func EventHandler(eventEngine *events.EventEngine, w http.ResponseWriter, r *http.Request) {
-	apiKey := r.Header.Get("apiKey")
+func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
+	headerAPIKey := r.Header.Get("apiKey")
+
+	if !eventConfig.ApiKeys.HasKey(events.Key(headerAPIKey)) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	eventKeyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -54,7 +60,7 @@ func EventHandler(eventEngine *events.EventEngine, w http.ResponseWriter, r *htt
 	}
 
 	rawMessage := json.RawMessage(eventKeyBytes)
-	event := events.Event{Key: events.Key(apiKey), RawMessage: rawMessage}
+	event := events.Event{Key: events.Key(headerAPIKey), RawMessage: rawMessage}
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

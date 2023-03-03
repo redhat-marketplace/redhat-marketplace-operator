@@ -16,6 +16,8 @@ package events
 
 import (
 	"encoding/json"
+	"reflect"
+	"sync"
 )
 
 // config needed to provideDataServiceConfig
@@ -24,6 +26,50 @@ type Config struct {
 	DataServiceTokenFile string
 	DataServiceCertFile  string
 	Namespace            string
+	ApiKeys              ApiKeys
+}
+
+type ApiKey struct {
+	Key      Key // Decoded X-API-KEY
+	Metadata Metadata
+}
+
+type ApiKeys struct {
+	apiKeys []ApiKey
+	mu      sync.RWMutex
+}
+
+func (a *ApiKeys) HasKey(key Key) bool {
+	a.mu.RLock()
+	for _, apiKey := range a.apiKeys {
+		if apiKey.Key == key {
+			return true
+		}
+	}
+	a.mu.RUnlock()
+	return false
+}
+
+func (a *ApiKeys) SetApiKeys(apiKeys []ApiKey) {
+	a.mu.Lock()
+
+	if !reflect.DeepEqual(apiKeys, a.apiKeys) {
+		a.apiKeys = apiKeys
+	}
+
+	a.mu.Unlock()
+}
+
+func (a *ApiKeys) GetMetadata(key Key) Metadata {
+	metadata := make(Metadata)
+	a.mu.RLock()
+	for _, apiKey := range a.apiKeys {
+		if apiKey.Key == key {
+			metadata = apiKey.Metadata
+		}
+	}
+	a.mu.RUnlock()
+	return metadata
 }
 
 type Key string // the api key the event was sent with

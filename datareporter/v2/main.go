@@ -101,7 +101,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := &events.Config{
+	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
 		DataServiceTokenFile: dataServiceTokenFile,
 		DataServiceCertFile:  dataServiceCertFile,
@@ -115,8 +115,8 @@ func main() {
 		setupLog.Error(err, "Error reading config file")
 	}
 
-	projectConfig := datareporterv1alpha1.ComponentConfig{}
-	err := viper.Unmarshal(&projectConfig)
+	componentConfig := datareporterv1alpha1.ComponentConfig{}
+	err := viper.Unmarshal(&componentConfig)
 	if err != nil {
 		setupLog.Error(err, "error unmarshaling")
 	}
@@ -125,16 +125,16 @@ func main() {
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		// fmt.Println("Config file changed:", e.Name)
 		setupLog.Info("config file changed", "file", e.Name)
-		err = viper.Unmarshal(&projectConfig)
+		err = viper.Unmarshal(&componentConfig)
 		if err != nil {
 			setupLog.Error(err, "error unmarshaling")
 		}
-		utils.PrettyPrint(projectConfig)
+		utils.PrettyPrint(componentConfig)
 	})
 
-	utils.PrettyPrintWithLog(projectConfig, "project config:")
+	utils.PrettyPrintWithLog(componentConfig, "project config:")
 
-	eventEngine := events.NewEventEngine(ctx, ctrl.Log, cfg)
+	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config)
 	err = eventEngine.Start(ctx)
 	if err != nil {
 		setupLog.Error(err, "unable to start engine")
@@ -168,6 +168,7 @@ func main() {
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Config: config,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)
@@ -194,7 +195,7 @@ func main() {
 	// 	}
 	// }()
 
-	h := server.NewDataReporterHandler(eventEngine)
+	h := server.NewDataReporterHandler(eventEngine, config)
 
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
 		setupLog.Error(err, "unable to set up pprof")
