@@ -1,4 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: ComponentConfig
 spec:
-  timeout: "60secs"
+  handlerTimeout: "3s"
+  memoryLimit: "test"
+  MaxFlushTimeout: "3s"
+  MaxEventEntries: 50

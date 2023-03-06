@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"io"
-	golangLog "log"
 	"net/http"
 
 	// "github.com/gorilla/mux"
@@ -28,10 +27,6 @@ var log = logf.Log.WithName("meteric_generator")
 
 func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config) *http.ServeMux {
 	router := http.NewServeMux()
-
-	if eventEngine == nil {
-		golangLog.Fatal("eventEngine is nil")
-	}
 
 	router.HandleFunc("/v1/event", func(w http.ResponseWriter, r *http.Request) {
 		EventHandler(eventEngine, eventConfig, w, r)

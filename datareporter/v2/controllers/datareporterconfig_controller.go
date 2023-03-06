@@ -56,7 +56,7 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch
 
 func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)

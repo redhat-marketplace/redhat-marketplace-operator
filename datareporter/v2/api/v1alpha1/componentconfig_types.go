@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,8 +30,17 @@ type ComponentConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// AccMemoryLimit is the event accumulator memory limit
+	AccMemoryLimit string `json:"memoryLimit,omitempty"`
+
+	// MaxFlushTimeout is the max time before events are flushed
+	MaxFlushTimeout time.Duration `json:"maxFlushTimeout,omitempty"`
+
+	// MaxEventEntries is the max entries per key allowed in the event accumulator
+	MaxEventEntries int `json:"maxEventEntries,omitempty"`
+
 	// Foo is an example field of ComponentConfig. Edit componentconfig_types.go to remove/update
-	Timeout string `json:"timeout,omitempty"`
+	HandlerTimeout time.Duration `json:"handlerTimeout,omitempty"`
 }
 
 // ComponentConfigStatus defines the observed state of ComponentConfig
