@@ -12,7 +12,7 @@ resources:
   - ../default
   - ../samples
   - ../scorecard
-  - bases/redhat-marketplace-metering-operator.clusterserviceversion.yaml
+  - bases/redhat-marketplace-metrics-operator.clusterserviceversion.yaml
 
 vars:
   - name: REPORTER_IMAGE_MARKER

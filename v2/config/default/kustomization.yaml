@@ -1,4 +1,4 @@
-namePrefix: metering-
+namePrefix: metrics-
 
 # Adds namespace to all resources.
 namespace: openshift-redhat-marketplace
@@ -10,7 +10,7 @@ namespace: openshift-redhat-marketplace
 
 # Labels to add to all resources and selectors.
 commonLabels:
-  redhat.marketplace.com/name: metering-operator
+  redhat.marketplace.com/name: metrics-operator
 
 configurations:
   - kustomizeconfig.yaml

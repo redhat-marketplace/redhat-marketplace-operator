@@ -20,22 +20,22 @@ spec:
             [
               'report',
               '--cafile',
-              '/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt',
+              '/etc/configmaps/metrics-serving-certs-ca-bundle/service-ca.crt',
               '--tokenfile',
               '/etc/auth-service-account/token',
             ]
           runAsUser:
           volumeMounts:
-            - mountPath: /etc/configmaps/metering-serving-certs-ca-bundle
-              name: metering-serving-certs-ca-bundle
+            - mountPath: /etc/configmaps/metrics-serving-certs-ca-bundle
+              name: metrics-serving-certs-ca-bundle
               readOnly: true
             - mountPath: /etc/auth-service-account
               name: token-vol
               readOnly: true
       volumes:
         - configMap:
-            name: metering-serving-certs-ca-bundle
-          name: metering-serving-certs-ca-bundle
+            name: metrics-serving-certs-ca-bundle
+          name: metrics-serving-certs-ca-bundle
         - name: token-vol
           projected:
             sources:

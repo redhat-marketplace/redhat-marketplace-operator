@@ -533,9 +533,9 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 	f.UpdateEnvVar(container, isDisconnected)
 
 	dataServiceArgs := []string{
-		"--dataServiceCertFile=/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt",
+		"--dataServiceCertFile=/etc/configmaps/metrics-serving-certs-ca-bundle/service-ca.crt",
 		"--dataServiceTokenFile=/etc/data-service-sa/data-service-token",
-		"--cafile=/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt",
+		"--cafile=/etc/configmaps/metrics-serving-certs-ca-bundle/service-ca.crt",
 	}
 
 	if userWorkloadEnabled {
@@ -559,8 +559,8 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 
 	dataServiceVolumeMounts := []v1.VolumeMount{
 		{
-			Name:      "metering-serving-certs-ca-bundle",
-			MountPath: "/etc/configmaps/metering-serving-certs-ca-bundle",
+			Name:      "metrics-serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/metrics-serving-certs-ca-bundle",
 			ReadOnly:  false,
 		},
 		{
@@ -574,11 +574,11 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 
 	dataServiceTokenVols := []v1.Volume{
 		{
-			Name: "metering-serving-certs-ca-bundle",
+			Name: "metrics-serving-certs-ca-bundle",
 			VolumeSource: v1.VolumeSource{
 				ConfigMap: &v1.ConfigMapVolumeSource{
 					LocalObjectReference: v1.LocalObjectReference{
-						Name: "metering-serving-certs-ca-bundle",
+						Name: "metrics-serving-certs-ca-bundle",
 					},
 				},
 			},
@@ -934,7 +934,7 @@ func (f *Factory) ReporterJob(
 	}
 
 	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/metrics-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
 
 		container.Args = append(container.Args, dataServiceArgs...)
 
@@ -945,8 +945,8 @@ func (f *Factory) ReporterJob(
 				MountPath: "/etc/data-service-sa",
 			},
 			{
-				Name:      "metering-serving-certs-ca-bundle",
-				MountPath: "/etc/configmaps/metering-serving-certs-ca-bundle",
+				Name:      "metrics-serving-certs-ca-bundle",
+				MountPath: "/etc/configmaps/metrics-serving-certs-ca-bundle",
 				ReadOnly:  false,
 			},
 		}
@@ -955,11 +955,11 @@ func (f *Factory) ReporterJob(
 
 		dataServiceTokenVols := []v1.Volume{
 			{
-				Name: "metering-serving-certs-ca-bundle",
+				Name: "metrics-serving-certs-ca-bundle",
 				VolumeSource: v1.VolumeSource{
 					ConfigMap: &v1.ConfigMapVolumeSource{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: "metering-serving-certs-ca-bundle",
+							Name: "metrics-serving-certs-ca-bundle",
 						},
 					},
 				},
