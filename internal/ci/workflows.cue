@@ -647,7 +647,7 @@ branch_build: _#bashWorkflow & {
                 namespace: openshift-marketplace
               spec:
                 displayName: RHM Metering Test
-                image: quay.io/rh-marketplace/redhat-marketplace-metrics-dev-index:${{ env.TAG }}
+                image: quay.io/rh-marketplace/metrics-operator-dev-index:${{ env.TAG }}
                 publisher: ''
                 sourceType: grpc
               ---

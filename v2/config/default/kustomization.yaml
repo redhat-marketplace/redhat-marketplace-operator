@@ -1,4 +1,4 @@
-namePrefix: metrics-
+namePrefix: metrics-operator-
 
 # Adds namespace to all resources.
 namespace: openshift-redhat-marketplace

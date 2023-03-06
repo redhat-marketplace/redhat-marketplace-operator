@@ -4,7 +4,7 @@ metadata:
   name: redhat-marketplace-operator
 build:
   artifacts:
-  - image: redhat-marketplace-metrics-operator
+  - image: metrics-operator
     context: .
     custom:
       buildCommand: ARCHS=amd64 make vet docker-build
@@ -101,7 +101,7 @@ deploy:
         authCheckImage: redhat-marketplace-authcheck
         dqLiteImage: redhat-marketplace-data-service
         metricStateImage: redhat-marketplace-metric-state
-        operatorImage: redhat-marketplace-metrics-operator
+        operatorImage: metrics-operator
         reporterImage: redhat-marketplace-reporter
       namespace: openshift-redhat-marketplace
       setValueTemplates:

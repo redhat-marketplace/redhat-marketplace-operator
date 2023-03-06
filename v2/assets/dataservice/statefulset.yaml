@@ -136,7 +136,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metrics-serving-certs-ca-bundle
+              name: metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -174,7 +174,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metrics-serving-certs-ca-bundle
+              name: metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -188,9 +188,9 @@ spec:
           secret:
             secretName: rhm-data-service-mtls
         - configMap:
-            name: metrics-serving-certs-ca-bundle
-          name: metrics-serving-certs-ca-bundle
-      serviceAccountName: metrics-data-service
+            name: metrics-operator-serving-certs-ca-bundle
+          name: metrics-operator-serving-certs-ca-bundle
+      serviceAccountName: metrics-operator-data-service
   volumeClaimTemplates:
     - metadata:
         name: rhm-data-service

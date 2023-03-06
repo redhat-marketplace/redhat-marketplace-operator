@@ -41,10 +41,10 @@ spec:
         - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
         volumeMounts:
           - mountPath: /etc/tls/private
-            name: metrics-controller-manager-metrics-service-tls
+            name: metrics-operator-controller-manager-metrics-service-tls
             readOnly: false
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
-            name: metrics-serving-certs-ca-bundle
+            name: metrics-operator-serving-certs-ca-bundle
             readOnly: false
         ports:
         - containerPort: 8443
@@ -66,9 +66,9 @@ spec:
             cpu: 10m
             memory: 20Mi
       volumes:
-        - name: metrics-controller-manager-metrics-service-tls
+        - name: metrics-operator-controller-manager-metrics-service-tls
           secret:
-            secretName: metrics-controller-manager-metrics-service-tls
+            secretName: metrics-operator-controller-manager-metrics-service-tls
         - configMap:
-            name: metrics-serving-certs-ca-bundle
-          name: metrics-serving-certs-ca-bundle
+            name: metrics-operator-serving-certs-ca-bundle
+          name: metrics-operator-serving-certs-ca-bundle

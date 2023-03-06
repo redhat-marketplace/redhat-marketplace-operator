@@ -22,7 +22,7 @@ import (
 const (
 	/* Resource Names */
 	RHM_CONTROLLER_DEPLOYMENT_NAME         = "redhat-marketplace-controller-manager"
-	RHM_METERING_DEPLOYMENT_NAME           = "metrics-controller-manager"
+	RHM_METERING_DEPLOYMENT_NAME           = "metrics-operator-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
@@ -58,7 +58,7 @@ const (
 	OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME         = "prometheus-user-workload"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME             = "prometheus-user-workload"
 	OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME            = "thanos-querier"
-	SERVING_CERTS_CA_BUNDLE_NAME                                = "metrics-serving-certs-ca-bundle"
+	SERVING_CERTS_CA_BUNDLE_NAME                                = "metrics-operator-serving-certs-ca-bundle"
 	KUBELET_SERVING_CA_BUNDLE_NAME                              = "kubelet-serving-ca-bundle"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_OPERATOR_SERVICE_ACCOUNT = "prometheus-operator"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_ACCOUNT          = "prometheus-user-workload"
@@ -69,10 +69,10 @@ const (
 	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
-	OPERATOR_SERVICE_ACCOUNT     = "metrics-operator"
+	OPERATOR_SERVICE_ACCOUNT     = "metrics-operator-controller-manager"
 	RAZEE_SERVICE_ACCOUNT        = "redhat-marketplace-remoteresources3deployment"
-	METRIC_STATE_SERVICE_ACCOUNT = "metrics-metric-state"
-	REPORTING_SERVICE_ACCOUNT    = "metrics-reporter"
+	METRIC_STATE_SERVICE_ACCOUNT = "metrics-operator-metric-state"
+	REPORTING_SERVICE_ACCOUNT    = "metrics-operator-reporter"
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"

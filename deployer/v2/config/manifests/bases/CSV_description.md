@@ -11,7 +11,7 @@ The metering and deployment functionality have been seperated into two operators
     - ClusterServiceVersion/redhat-marketplace-operator
   - The metering functionality is included in the Red Hat Marketplace Metering Operator
     - Admin level functionality and permissions are removed from the metering operator
-    - ClusterServiceVersion/redhat-marketplace-metrics-operator
+    - ClusterServiceVersion/metrics-operator
 
 
 ### Prerequisites

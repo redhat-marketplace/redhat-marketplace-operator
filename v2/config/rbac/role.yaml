@@ -321,7 +321,7 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - metrics-controller-manager
+  - metrics-operator-controller-manager
   resources:
   - deployments/finalizers
   verbs:

@@ -4,13 +4,13 @@ A set of instructions for onboarding is provided here. For more detailed onboard
 
 ### **Upgrade Notice**
 
-The metering and deployment functionality have been seperated into two operators.
-  - The metering functionality is included in this Red Hat Marketplace Metering Operator
-    - Admin level functionality and permissions are removed from the metering operator
-    - ClusterServiceVersion/redhat-marketplace-metrics-operator
-  - The deployment functionality remains as part of the Red Hat Marketplace Operator
-    - The Red Hat Marketplace Operator prerequisites the Red Hat Marketplace Metering Operator
-    - Admin level functionality and permissions are required for deployment functionality
+The metering and deployment functionalities have been seperated into two operators.
+  - The metering functionality is included in this Metering Operator
+    - Admin level functionality and permissions are removed from the Metering Operator
+    - ClusterServiceVersion/metrics-operator
+  - The deployment functionality remains as part of the Red Hat Marketplace Deployment Operator
+    - The Red Hat Marketplace Deployment Operator prerequisites the Metering Operator
+    - Some admin level RBAC permissions are required for deployment functionality
     - ClusterServiceVersion/redhat-marketplace-operator
 
 ### Prerequisites

@@ -2,7 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 namespace: openshift-redhat-marketplace
-operatorImage: quay.io/rh-marketplace/redhat-marketplace-metrics-operator:latest
+operatorImage: quay.io/rh-marketplace/metrics-operator:latest
 reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
 authCheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:latest
