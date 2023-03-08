@@ -16,10 +16,9 @@ package events
 
 import (
 	"encoding/json"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"sync"
-
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 )
 
 // config needed to provideDataServiceConfig
@@ -29,7 +28,9 @@ type Config struct {
 	DataServiceCertFile  string
 	Namespace            string
 	ApiKeys              ApiKeys
-	EventEngineConfig    *marketplacev1alpha1.EventEngineConfig
+	AccMemoryLimit       string
+	MaxFlushTimeout      metav1.Duration
+	MaxEventEntries      int
 }
 
 type ApiKey struct {

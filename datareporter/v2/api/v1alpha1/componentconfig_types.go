@@ -35,6 +35,10 @@ type EventEngineConfig struct {
 
 	// MaxEventEntries is the max entries per key allowed in the event accumulator
 	MaxEventEntries int `json:"maxEventEntries,omitempty"`
+
+	DataServiceTokenFile string `json:"dataServiceTokenFile,omitempty"`
+
+	DataServiceCertFile string `json:"dataServiceCertFile,omitempty"`
 }
 
 type ManagerConfig struct {

@@ -59,15 +59,9 @@ func init() {
 
 func main() {
 
-	// dataReporter flags
 	var namespace string
-	var dataServiceCertFile string
-	var dataServiceTokenFile string
 	var componentConfigVar string
 
-	// dataReporter flags
-	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/etc/data-service-sa/data-service-token", "token file for the data service")
-	flag.StringVar(&dataServiceCertFile, "dataServiceCertFile", "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt", "cert file for the data service")
 	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
 
 	// componentconfig path
@@ -114,10 +108,12 @@ func main() {
 
 	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
-		DataServiceTokenFile: dataServiceTokenFile,
-		DataServiceCertFile:  dataServiceCertFile,
+		DataServiceTokenFile: cc.DataServiceTokenFile,
+		DataServiceCertFile:  cc.DataServiceCertFile,
 		Namespace:            namespace,
-		EventEngineConfig:    &cc.EventEngineConfig,
+		AccMemoryLimit:       cc.AccMemoryLimit,
+		MaxFlushTimeout:      cc.MaxFlushTimeout,
+		MaxEventEntries:      cc.MaxEventEntries,
 	}
 
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config)
