@@ -1,7 +1,18 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: ComponentConfig
-spec:
+apiHandlerConfig:
   handlerTimeout: "3s"
+eventHandlerConfig:
   memoryLimit: "test"
-  MaxFlushTimeout: "3s"
-  MaxEventEntries: 50
+  maxFlushTimeout: "3s"
+  maxEventEntries: 50
+managerConfig:
+  leaderElectionId: "datareporter.marketplace.redhat.com"
+  health:
+    healthProbeBindAddress: :8081
+  metrics:
+    bindAddress: 127.0.0.1:8080
+  webhook:
+    port: 9443
+  leaderElection:
+    leaderElect: false

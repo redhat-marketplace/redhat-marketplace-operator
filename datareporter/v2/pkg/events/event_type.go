@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"sync"
 
-	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 )
 
 // config needed to provideDataServiceConfig
@@ -29,7 +29,7 @@ type Config struct {
 	DataServiceCertFile  string
 	Namespace            string
 	ApiKeys              ApiKeys
-	datareporterv1alpha1.ComponentConfigSpec
+	EventEngineConfig    *marketplacev1alpha1.EventEngineConfig
 }
 
 type ApiKey struct {

@@ -24,16 +24,14 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	"github.com/fsnotify/fsnotify"
-	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
-	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -55,27 +53,17 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(datareporterv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
 
 	// dataReporter flags
 	var namespace string
 	var dataServiceCertFile string
 	var dataServiceTokenFile string
 	var componentConfigVar string
-
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
 
 	// dataReporter flags
 	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/etc/data-service-sa/data-service-token", "token file for the data service")
@@ -104,38 +92,33 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	setupLog.Info("componentConfigVar", "file", componentConfigVar)
+
+	content, err := os.ReadFile(componentConfigVar)
+	if err != nil {
+		setupLog.Error(err, "os.ReadFile")
+	}
+
+	codecs := serializer.NewCodecFactory(scheme)
+
+	cc := &marketplacev1alpha1.ComponentConfig{}
+	if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, cc); err != nil {
+		setupLog.Error(err, "could not decode file into runtime.Object")
+	}
+
+	utils.PrettyPrintWithLog(cc, "config from decoder:")
+	if err != nil {
+		setupLog.Error(err, "unable to load the config file")
+		os.Exit(1)
+	}
+
 	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
 		DataServiceTokenFile: dataServiceTokenFile,
 		DataServiceCertFile:  dataServiceCertFile,
 		Namespace:            namespace,
+		EventEngineConfig:    &cc.EventEngineConfig,
 	}
-
-	setupLog.Info("componentConfigVar", "file", componentConfigVar)
-	viper.SetConfigFile(componentConfigVar)
-
-	if err := viper.ReadInConfig(); err != nil {
-		setupLog.Error(err, "Error reading config file")
-	}
-
-	componentConfig := datareporterv1alpha1.ComponentConfig{}
-	err := viper.Unmarshal(&componentConfig)
-	if err != nil {
-		setupLog.Error(err, "error unmarshaling")
-	}
-
-	viper.WatchConfig()
-	viper.OnConfigChange(func(e fsnotify.Event) {
-		// fmt.Println("Config file changed:", e.Name)
-		setupLog.Info("config file changed", "file", e.Name)
-		err = viper.Unmarshal(&componentConfig)
-		if err != nil {
-			setupLog.Error(err, "error unmarshaling")
-		}
-		utils.PrettyPrint(componentConfig)
-	})
-
-	utils.PrettyPrintWithLog(componentConfig, "component config:")
 
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config)
 	err = eventEngine.Start(ctx)
@@ -154,11 +137,11 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     cc.Metrics.BindAddress,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "datareporter.marketplace.redhat.com",
+		HealthProbeBindAddress: cc.ManagerConfig.Health.HealthProbeBindAddress,
+		LeaderElection:         *cc.ManagerConfig.LeaderElection.LeaderElect,
+		LeaderElectionID:       cc.ManagerConfig.LeaderElectionID,
 		NewCache:               newCacheFunc,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -172,6 +155,7 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
+
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -181,6 +165,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Config: config,
+		Log:    ctrl.Log.WithName("controllers").WithName("DataReporterConfigController"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)
@@ -197,17 +182,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// go func() {
-	// 	eventjson := json.RawMessage(`{"event":"one"}`)
-	// 	eventone := events.Event{Key: "one", RawMessage: eventjson}
-	// 	for i := 0; i < 3; i++ {
-	// 		setupLog.Info("sending event", "event", eventone)
-	// 		eventEngine.EventChan <- eventone
-	// 		time.Sleep(1 * time.Second)
-	// 	}
-	// }()
-
-	h := server.NewDataReporterHandler(eventEngine, config)
+	h := server.NewDataReporterHandler(eventEngine, config, cc.ApiHandlerConfig)
 
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
 		setupLog.Error(err, "unable to set up pprof")

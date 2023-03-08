@@ -17,30 +17,30 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cfg "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type ApiHandlerConfig struct {
+	// HandlerTimeout is the timeout for the datareporter operator api handler
+	HandlerTimeout metav1.Duration `json:"handlerTimeout,omitempty"`
+}
 
-// ComponentConfigSpec defines the desired state of ComponentConfig
-type ComponentConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
+type EventEngineConfig struct {
 	// AccMemoryLimit is the event accumulator memory limit
 	AccMemoryLimit string `json:"memoryLimit,omitempty"`
 
 	// MaxFlushTimeout is the max time before events are flushed
-	MaxFlushTimeout time.Duration `json:"maxFlushTimeout,omitempty"`
+	MaxFlushTimeout metav1.Duration `json:"maxFlushTimeout,omitempty"`
 
 	// MaxEventEntries is the max entries per key allowed in the event accumulator
 	MaxEventEntries int `json:"maxEventEntries,omitempty"`
+}
 
-	// Foo is an example field of ComponentConfig. Edit componentconfig_types.go to remove/update
-	HandlerTimeout time.Duration `json:"handlerTimeout,omitempty"`
+type ManagerConfig struct {
+	LeaderElectionID string `json:"leaderElectionId,omitempty"`
+
+	cfg.ControllerManagerConfigurationSpec `json:",inline"`
 }
 
 // ComponentConfigStatus defines the observed state of ComponentConfig
@@ -57,8 +57,10 @@ type ComponentConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ComponentConfigSpec   `json:"spec,omitempty"`
-	Status ComponentConfigStatus `json:"status,omitempty"`
+	ApiHandlerConfig  `json:"apiHandlerConfig,omitempty"`
+	EventEngineConfig `json:"eventHandlerConfig,omitempty"`
+	ManagerConfig     `json:"managerConfig,omitempty"`
+	Status            ComponentConfigStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
