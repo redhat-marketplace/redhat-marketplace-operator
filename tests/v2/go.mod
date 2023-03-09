@@ -23,15 +23,15 @@ require (
 	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.13.0
+	sigs.k8s.io/controller-runtime v0.13.1
 )
 
 require (
-	cloud.google.com/go v0.93.3 // indirect
+	cloud.google.com/go v0.97.0 // indirect
 	emperror.dev/errors v0.8.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.24 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.18 // indirect
+	github.com/Azure/go-autorest/autorest v0.11.27 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.20 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
@@ -85,7 +85,7 @@ require (
 	github.com/spf13/cobra v1.4.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
+	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
@@ -126,17 +126,19 @@ require (
 	github.com/onsi/ginkgo/v2 v2.8.0
 )
 
+require github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+
 replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/prometheus/common => github.com/prometheus/common v0.26.0
-	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
+	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.41.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ./
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.24.7
-	k8s.io/apimachinery => k8s.io/apimachinery v0.24.7
-	k8s.io/client-go => k8s.io/client-go v0.24.7
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.12.3
+	k8s.io/api => k8s.io/api v0.25.0
+	k8s.io/apimachinery => k8s.io/apimachinery v0.25.0
+	k8s.io/client-go => k8s.io/client-go v0.25.0
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
 )
