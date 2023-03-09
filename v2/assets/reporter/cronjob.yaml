@@ -29,7 +29,7 @@ spec:
                           - s390x
           securityContext: 
             runAsNonRoot: true              
-          serviceAccount: metrics-reporter
+          serviceAccount: metrics-operator-reporter
           restartPolicy: Never
           schedule: '*/10 * * * *'
           containers:
