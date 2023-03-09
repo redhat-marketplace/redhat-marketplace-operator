@@ -1,24 +1,24 @@
-The Red Hat Marketplace Operator provides cluster and operator management for Red Hat Marketplace customers.
+The Red Hat Marketplace Deployment Operator provides cluster and operator management for Red Hat Marketplace customers.
 ### **Important Note**
 A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).
 
 ### **Upgrade Notice**
 
-The metering and deployment functionality have been seperated into two operators.
-  - The deployment functionality remains as part of this Red Hat Marketplace Operator
-    - The Red Hat Marketplace Operator prerequisites the Red Hat Marketplace Metering Operator
+The Red Hat Marketplace Operator metering and deployment functionality have been seperated into two operators.
+  - The deployment functionality remains as part of this Red Hat Marketplace Deployment Operator
+    - The Red Hat Marketplace Deployment Operator prerequisites the Metering Operator
     - Admin level functionality and permissions are required for deployment functionality
     - ClusterServiceVersion/redhat-marketplace-operator
-  - The metering functionality is included in the Red Hat Marketplace Metering Operator
-    - Admin level functionality and permissions are removed from the metering operator
+  - The metering functionality is included in the Metering Operator
+    - Admin level functionality and permissions are removed from the Metering Operator
     - ClusterServiceVersion/metrics-operator
 
 
 ### Prerequisites
 
-1. The Red Hat Markeplace Operator prerequisites the Red Hat Marketplace Metering Operator. Installing the Red Hat Markeplace Operator with Automatic approval will also install the Red Hat Marketplace Metering Operator automatically. If performing an install with Manual approval, install the Red Hat Marketplace Metering Operator first.
+1. The Red Hat Markeplace Deployment Operator prerequisites the Metering Operator. Installing the Red Hat Markeplace Deployment Operator with Automatic approval on the Subscription will also install the Metering Operator automatically. If performing an install with Manual approval, install the Metering Operator first.
 
-#### The Red Hat Marketplace Metering Operator prequisites the following
+#### The Metering Operator prequisites the following
 
 1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
 2. Edit the cluster-monitoring-config ConfigMap object:
@@ -68,7 +68,7 @@ The metering and deployment functionality have been seperated into two operators
 
 ### Installation
 1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
-2. Install the Red Hat Marketplace Metering Operator
+2. Install the Metering Operator and Red Hat Marketplace Deployment Operator
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
 
     ```sh
@@ -93,7 +93,7 @@ The metering and deployment functionality have been seperated into two operators
     ```
 
 ### Why is a global pull secret required?
-In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html).
+In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html).
 
 
 ### Cluster permission requirements
