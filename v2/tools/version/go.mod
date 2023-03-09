@@ -17,5 +17,5 @@ replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
-	k8s.io/client-go => k8s.io/client-go v0.22.2
+	k8s.io/client-go => k8s.io/client-go v0.23.0
 )

@@ -1,0 +1,15 @@
+go 1.19
+
+use (
+	./airgap/v2
+	./authchecker/v2
+	./cue.mod
+	./metering/v2
+	./reporter/v2
+	./tests/v2
+	./v2
+	./v2/scripts
+	./v2/tools/connect
+	./v2/tools/skaffold-tdd-tool
+	./v2/tools/version
+)
