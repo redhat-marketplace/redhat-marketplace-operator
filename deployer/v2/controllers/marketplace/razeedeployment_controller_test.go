@@ -188,7 +188,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		setup = func(r *ReconcilerTest) error {
 			var log = logf.Log.WithName("razee_controller")
-			r.SetClient(fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...))
+			// r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
+			r.SetClient(fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()))
 			cfg, err := config.GetConfig()
 			Expect(err).To(Succeed())
 
