@@ -21,7 +21,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -100,7 +99,6 @@ func main() {
 		setupLog.Error(err, "could not decode file into runtime.Object")
 	}
 
-	utils.PrettyPrintWithLog(cc, "config from decoder:")
 	if err != nil {
 		setupLog.Error(err, "unable to load the config file")
 		os.Exit(1)

@@ -8,6 +8,7 @@ import (
 	emperror "emperror.dev/errors"
 	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -20,12 +21,17 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 		EventHandler(eventEngine, eventConfig, w, r)
 	})
 
-	muxWithMiddleware := http.TimeoutHandler(router, handlerConfig.HandlerTimeout.Duration, "Call has timed out")
+	router.HandleFunc("/v1/status", func(w http.ResponseWriter, r *http.Request) {
+		StatusHandler(w, r)
+	})
+
+	muxWithMiddleware := http.TimeoutHandler(router, handlerConfig.HandlerTimeout.Duration, "timeout exceeded")
 
 	return muxWithMiddleware
 }
 
 func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
+	log.Info("v1/event")
 	headerAPIKey := r.Header.Get("apiKey")
 
 	if !eventConfig.ApiKeys.HasKey(events.Key(headerAPIKey)) {
@@ -61,7 +67,22 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w
 	w.Write(out)
 }
 
+type StatusResponse struct {
+	Name    string
+	Version string
+}
+
 func StatusHandler(w http.ResponseWriter, r *http.Request) {
+	log.Info("v1/status")
+
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
+
+	statusRes := StatusResponse{
+		Name:    "Data Reporter Operator",
+		Version: version.Version,
+	}
+
+	statusString, _ := json.Marshal(statusRes)
+
+	w.Write([]byte(statusString))
 }

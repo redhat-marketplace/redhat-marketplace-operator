@@ -4,8 +4,8 @@ apiHandlerConfig:
   handlerTimeout: "3s"
 eventHandlerConfig:
   memoryLimit: "test"
-  maxFlushTimeout: "3s"
-  maxEventEntries: 50
+  maxFlushTimeout: "300s"
+  maxEventEntries: 10
   dataServiceTokenFile: "/etc/data-service-sa/data-service-token"
   dataServiceCertFile: "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt"
 managerConfig:
