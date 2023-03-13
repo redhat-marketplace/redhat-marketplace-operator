@@ -54,7 +54,6 @@ var _ = Describe("MeterDefinitionController", func() {
 	var setup = func(r *ReconcilerTest) error {
 		log := ctrl.Log.WithName("controllers").WithName("MeterDefinitionController")
 		r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-		// r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
 		r.Reconciler = &MeterDefinitionReconciler{
 			Client: r.Client,
 			Scheme: k8sScheme,

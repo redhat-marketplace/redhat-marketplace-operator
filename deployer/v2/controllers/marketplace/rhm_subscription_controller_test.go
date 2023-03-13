@@ -62,7 +62,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		var setup = func(r *ReconcilerTest) error {
 			var log = logf.Log.WithName("rhm_sub")
-			// r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
 			r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
 			r.Reconciler = &RHMSubscriptionController{Client: r.Client, Scheme: k8sScheme, Log: log}
 			return nil
