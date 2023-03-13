@@ -145,7 +145,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),Deployment Operator,./deployer/v2/,./,redhat-marketplace-operator,../..)
+	$(call docker-templated-build,$(IMAGE),"Deployment Operator",./deployer/v2/,./,redhat-marketplace-operator,../..)
 
 # Push the docker image
 docker-push:

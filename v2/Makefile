@@ -162,7 +162,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),Metering Operator,./v2/,./,redhat-marketplace-operator,..)
+	$(call docker-templated-build,$(IMAGE),"Metering Operator",./v2/,./,redhat-marketplace-operator,..)
 
 # Push the docker image
 docker-push:
