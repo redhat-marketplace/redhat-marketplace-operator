@@ -8,9 +8,9 @@ resources:
   # the auth proxy (https://github.com/brancz/kube-rbac-proxy)
   # which protects your /metrics endpoint.
   - auth_proxy_service.yaml
-  - auth_proxy_role.yaml
-  - auth_proxy_role_binding.yaml
-  - classic/role_binding.yaml
+  # - auth_proxy_role.yaml
+  # - auth_proxy_role_binding.yaml
+  # - classic/role_binding.yaml
   - data-service_cluster_role_binding.yaml
   - data-service_cluster_role.yaml
   - data-service_service_account.yaml

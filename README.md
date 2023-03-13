@@ -70,9 +70,9 @@ The Operators and their components support running under the OpenShift Container
 
 ### Installation Namespace and ClusterRoleBinding requirements
 
-The Metrics Operator components require specific ClusterRoleBindings
-The metric-state component requires a ClusterRoleBinding for the the `view` ClusterRole. 
-The reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view` ClusterRole. 
+The Metrics Operator components require specific ClusterRoleBindings.
+- The metric-state component requires a ClusterRoleBinding for the the `view` ClusterRole. 
+- The reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view` ClusterRole. 
 
 Due to limitations of Operator Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically for arbitrary installation target namespaces.
 
