@@ -41,8 +41,8 @@ LABEL name="Red Hat Marketplace ${name}" \
   maintainer="rhmoper@us.ibm.com" \
   vendor="Red Hat Marketplace" \
   release="1" \
-  summary="Red Hat Marketplace ${name} Image" \
-  description="Container for the Red Hat Marketplace ${name}" \
+  summary="Red Hat Marketplace ${name} Container Image" \
+  description="Container Image for the Red Hat Marketplace ${name}" \
   version="${app_version}" \
   quay.expires-after=${quay_expiration}
 
