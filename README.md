@@ -42,7 +42,7 @@ Minimum system resources required:
 
 | Operator                | Memory (MB) | CPU (cores) | Disk (GB) | Nodes |
 | ----------------------- | ----------- | ----------- | --------- | ----- |
-| **Metering**   |        750  |     0.25    | 3x1       |    3  |
+| **Metrics**   |        750  |     0.25    | 3x1       |    3  |
 | **Deployment** |        250  |     0.25    | -         |    1  |
 
 | Prometheus Provider  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |

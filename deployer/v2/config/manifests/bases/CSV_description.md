@@ -20,7 +20,7 @@ The Red Hat Marketplace Operator metering and deployment functionality have been
 
 #### The Metrics Operator prequisites the following
 
-1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
+1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
 2. Edit the cluster-monitoring-config ConfigMap object:
 
    ```sh
