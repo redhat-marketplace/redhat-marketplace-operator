@@ -10,7 +10,7 @@ spec:
   endpoints:
     - bearerTokenSecret:
         key: token
-        name: metrics-servicemonitor-metrics-reader
+        name: redhat-marketplace-servicemonitor-metrics-reader
       path: /metrics
       port: https
       scheme: https
@@ -19,4 +19,4 @@ spec:
   selector:
     matchLabels:
       control-plane: controller-manager
-      redhat.marketplace.com/name: metrics-operator
+      redhat.marketplace.com/name: redhat-marketplace-operator
