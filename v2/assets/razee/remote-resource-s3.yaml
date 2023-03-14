@@ -43,7 +43,7 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
           terminationMessagePolicy: FallbackToLogsOnError
-        - image: 'us.icr.io/armada-master/remoteresources3:0.11.2_082c995'
+        - image: 'us.icr.io/armada-master/remoteresources3:0.11.2_958d130'
           resources:
             limits:
               memory: 200Mi
