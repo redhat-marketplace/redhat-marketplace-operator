@@ -10,7 +10,7 @@ spec:
   endpoints:
     - bearerTokenSecret:
         key: token
-        name: metrics-servicemonitor-metrics-reader
+        name: metrics-operator-servicemonitor-metrics-reader
       honorLabels: true
       interval: 2m
       port: https
