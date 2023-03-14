@@ -1,4 +1,4 @@
-namePrefix: metering-
+namePrefix: metrics-operator-
 
 # Adds namespace to all resources.
 namespace: openshift-redhat-marketplace
@@ -10,13 +10,14 @@ namespace: openshift-redhat-marketplace
 
 # Labels to add to all resources and selectors.
 commonLabels:
-  redhat.marketplace.com/name: metering-operator
+  redhat.marketplace.com/name: metrics-operator
 
 configurations:
   - kustomizeconfig.yaml
 resources:
   - ../crd
   - ../rbac
+  - ../rbac_classic
   - ../manager
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
   # crd/kustomization.yaml

@@ -14,7 +14,7 @@ spec:
         app: rhm-data-service
         app.kubernetes.io/name: rhm-data-service
         app.kubernetes.io/instance: rhm-data-service
-        app.kubernetes.io/part-of: redhat-marketplace-metering
+        app.kubernetes.io/part-of: metrics-operator
         app.kubernetes.io/managed-by: operator
     spec:
       affinity:
@@ -136,7 +136,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metering-serving-certs-ca-bundle
+              name: metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -174,7 +174,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metering-serving-certs-ca-bundle
+              name: metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -188,9 +188,9 @@ spec:
           secret:
             secretName: rhm-data-service-mtls
         - configMap:
-            name: metering-serving-certs-ca-bundle
-          name: metering-serving-certs-ca-bundle
-      serviceAccountName: metering-data-service
+            name: metrics-operator-serving-certs-ca-bundle
+          name: metrics-operator-serving-certs-ca-bundle
+      serviceAccountName: metrics-operator-data-service
   volumeClaimTemplates:
     - metadata:
         name: rhm-data-service

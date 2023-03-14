@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: metering-controller-manager-metrics-service-tls
+    service.beta.openshift.io/serving-cert-secret-name: metrics-operator-controller-manager-metrics-service-tls
   labels:
     control-plane: controller-manager
   name: controller-manager-metrics-service

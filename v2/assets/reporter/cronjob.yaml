@@ -13,7 +13,7 @@ spec:
           labels:
             app.kubernetes.io/name: rhm-meter-report-upload
             app.kubernetes.io/instance: rhm-meter-report-upload
-            app.kubernetes.io/part-of: redhat-marketplace-metering
+            app.kubernetes.io/part-of: metrics-operator
             app.kubernetes.io/managed-by: operator
         spec:
           affinity:
@@ -29,7 +29,7 @@ spec:
                           - s390x
           securityContext: 
             runAsNonRoot: true              
-          serviceAccount: metering-reporter
+          serviceAccount: metrics-operator-reporter
           restartPolicy: Never
           schedule: '*/10 * * * *'
           containers:

@@ -423,11 +423,11 @@ jobs:
           apiVersion: operators.coreos.com/v1alpha1
           kind: CatalogSource
           metadata:
-            name: rhm-metering-operator-test
+            name: rhm-metrics-operator-test
             namespace: openshift-marketplace
           spec:
-            displayName: RHM Metering Operator Test
-            image: quay.io/rh-marketplace/redhat-marketplace-metering-operator-dev-index:${{ env.TAG }}
+            displayName: RHM Metrics Operator Test
+            image: quay.io/rh-marketplace/metrics-operator-dev-index:${{ env.TAG }}
             publisher: ''
             sourceType: grpc
           ---

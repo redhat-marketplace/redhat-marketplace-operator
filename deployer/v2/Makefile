@@ -145,7 +145,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),Deployer,./deployer/v2/,./,redhat-marketplace-operator,../..)
+	$(call docker-templated-build,$(IMAGE),"Deployment Operator",./deployer/v2/,./,redhat-marketplace-operator,../..)
 
 # Push the docker image
 docker-push:
@@ -172,8 +172,6 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)

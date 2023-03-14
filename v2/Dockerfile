@@ -37,12 +37,12 @@ ARG app_version
 ARG path
 ARG quay_expiration
 
-LABEL name="Red Hat Marketplace ${name}" \
+LABEL name="${name}" \
   maintainer="rhmoper@us.ibm.com" \
   vendor="Red Hat Marketplace" \
   release="1" \
-  summary="Red Hat Marketplace ${name} Image" \
-  description="Container for the Red Hat Marketplace ${name}" \
+  summary="${name} Container Image" \
+  description="Container Image for the ${name}" \
   version="${app_version}" \
   quay.expires-after=${quay_expiration}
 
@@ -52,7 +52,7 @@ RUN microdnf install yum procps-ng \
   && microdnf clean all
 
 ENV USER_UID=1001 \
-  USER_NAME=redhat-marketplace-operator \
+  USER_NAME=metrics-operator \
   BINFILE=${bin}
 
 # install operator binary

@@ -1,0 +1,200 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Full Lifecycle
+    categories: Developer Tools
+    certified: "true"
+    description: The Metrics Operator provides workload metering and reporting for
+      IBM and Red Hat Marketplace customers.
+    olm.skipRange: '>=1.0.0 <2.2.0'
+    operatorframework.io/suggested-namespace: redhat-marketplace
+    operators.operatorframework.io/builder: operator-sdk-v1.2.0
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
+    repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
+    support: IBM Corporation
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/arch.s390x: supported
+    operatorframework.io/os.linux: supported
+  name: metrics-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
+        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
+      displayName: Marketplace Config
+      kind: MarketplaceConfig
+      name: marketplaceconfigs.marketplace.redhat.com
+      version: v1alpha1
+    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+        This is an internal resource not meant to be modified directly.
+      displayName: Meter Base
+      kind: MeterBase
+      name: meterbases.marketplace.redhat.com
+      version: v1alpha1
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
+      displayName: Meter Definition
+      kind: MeterDefinition
+      name: meterdefinitions.marketplace.redhat.com
+      version: v1beta1
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
+      displayName: Meter Definition
+      kind: MeterDefinition
+      name: meterdefinitions.marketplace.redhat.com
+      version: v1alpha1
+    - description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
+      displayName: Razee Deployment
+      kind: RazeeDeployment
+      name: razeedeployments.marketplace.redhat.com
+      version: v1alpha1
+    - description: RemoteResourceS3 is the Schema for the remoteresources3s API
+      displayName: Remote Resource S3
+      kind: RemoteResourceS3
+      name: remoteresources3s.marketplace.redhat.com
+      version: v1alpha1
+  description: "The Metrics Operator provides workload metering and reporting for
+    IBM and Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions
+    for onboarding is provided here. For more detailed onboarding instructions or
+    information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).\n\n###
+    **Upgrade Notice**\n\nThe Redhat Marketplace Operator metering and deployment
+    functionalities have been seperated into two operators.\n  - The metering functionality
+    is included in this Metrics Operator\n    - Admin level functionality and permissions
+    are removed from the Metrics Operator\n    - ClusterServiceVersion/metrics-operator\n
+    \ - The deployment functionality remains as part of the Red Hat Marketplace Deployment
+    Operator\n    - The Red Hat Marketplace Deployment Operator prerequisites the
+    Metrics Operator\n    - Some admin level RBAC permissions are required for deployment
+    functionality\n    - ClusterServiceVersion/redhat-marketplace-operator\n\n###
+    Prerequisites\n1. Installations are required to [enable monitoring for user-defined
+    projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
+    \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
+    \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
+    \   apiVersion: v1\n    kind: ConfigMap\n    metadata:\n      name: cluster-monitoring-config\n
+    \       namespace: openshift-monitoring\n    data:\n      config.yaml: |\n        enableUserWorkload:
+    true\n    ```\n\n4. Configure the user-workload-monitoring-config ConfigMap object:\n\n
+    \   ```sh\n    $ oc -n openshift-user-workload-monitoring edit configmap user-workload-monitoring-config\n
+    \   ```\n\n5. Configure a minimum retention time of 168h and minimum storage capacity
+    of 40Gi\n  \n    ```sh\n    apiVersion: v1\n    kind: ConfigMap\n    metadata:\n
+    \     name: user-workload-monitoring-config\n      namespace: openshift-user-workload-monitoring\n\n
+    \   data:\n      config.yaml: |\n        prometheus:\n          retention: 168h\n
+    \         volumeClaimTemplate:\n            spec:\n              resources:\n
+    \               requests:\n                  storage: 40Gi\n    ```\n\n### Installation\n1.
+    Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
+    Install the Metrics Operator\n3. Create a Kubernetes secret in the installed namespace
+    with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the
+    value of the Red hat Marketplace Pull Secret.\n\n    ```sh\n    # Replace ${PULL_SECRET}
+    with your secret from Red Hat Marketplace\n    oc create secret generic redhat-marketplace-pull-secret
+    -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}\n    ```\n\n4.
+    Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.\n\n
+    \   These steps require `oc`, `jq`, and `base64` to be available on your machine.\n\n
+    \   ```sh\n    # Create the docker pull secret file using your PULL_SECRET from
+    Red Hat Marketplace.\n    # Store it in a file called entitledregistryconfigjson.\n
+    \   oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com
+    --docker-username \"cp\" --docker-password \"${PULL_SECRET}\" --dry-run=client
+    --output=\"jsonpath={.data.\\.dockerconfigjson}\" | base64 --decode > entitledregistryconfigjson\n
+    \   # Get the current global secrets on the cluster and store it as a file named
+    dockerconfigjson\n    oc get secret pull-secret -n openshift-config --output=\"jsonpath={.data.\\.dockerconfigjson}\"
+    | base64 --decode > dockerconfigjson\n    # Merge the two dockerconfigs together
+    into a file called dockerconfigjson-merged.\n    jq -s '.[0] * .[1]' dockerconfigjson
+    entitledregistryconfigjson > dockerconfigjson-merged\n    # Set the cluster's
+    dockerconfig file to the new merged version.\n    oc set data secret/pull-secret
+    -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged\n    ```\n\n###
+    Why is a global pull secret required?\nIn order to successfully install the Red
+    Hat Marketplace products, you will need to make the pull secret available across
+    the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret
+    as a [global pull secret](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
+    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
+    SecurityContextConstraints requirements\n\nThe Operators and their components
+    support running under the OpenShift Container Platform default restricted and
+    restricted-v2 security context constraints.\n\n### Installation Namespace and
+    ClusterRoleBinding requirements\n\nThe Metrics Operator components require specific
+    ClusterRoleBindings.\n- The metric-state component requires a ClusterRoleBinding
+    for the the `view` ClusterRole. \n- The reporter component requires a ClusterRoleBinding
+    for the the `cluster-monitoring-view` ClusterRole. \n\nDue to limitations of Operator
+    Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically
+    for arbitrary installation target namespaces.\n\nA ClusterRoleBinding is included
+    for installation to the default namespace of `redhat-marketplace`, and namespaces
+    `openshift-redhat-marketplace`, `ibm-common-services`.\n\nTo update the ClusterRoleBindings
+    for installation to an alternate namespace\n```\noc patch clusterrolebinding metrics-operator-metric-state-view-binding
+    --type='json' -p='[{\"op\": \"add\", \"path\": \"/subjects/1\", \"value\": {\"kind\":
+    \"ServiceAccount\", \"name\": \"metrics-operator-metric-state\",\"namespace\":
+    \"NAMESPACE\" }}]'\n\noc patch clusterrolebinding metrics-operator-reporter-cluster-monitoring-binding
+    --type='json' -p='[{\"op\": \"add\", \"path\": \"/subjects/1\", \"value\": {\"kind\":
+    \"ServiceAccount\", \"name\": \"metrics-operator-reporter\",\"namespace\": \"NAMESPACE\"
+    }}]'\n```\n\n### Metric State scoping requirements\nThe metric-state Deployment
+    obtains `get/list/watch` access to metered resources via the `view` ClusterRole.
+    For operators deployed using Operator Lifecycle Manager (OLM), permissions are
+    added to `clusterrole/view` dynamically via a generated and annotated `-view`
+    ClusterRole. If you wish to meter an operator, and its Custom Resource Definitions
+    (CRDs) are not deployed through OLM, one of two options are required\n1. Add the
+    following label to a clusterrole that has get/list/watch access to your CRD: `rbac.authorization.k8s.io/aggregate-to-view:
+    \"true\"`, thereby dynamically adding it to `clusterrole/view`\n2. Create a ClusterRole
+    that has get/list/watch access to your CRD, and create a ClusterRoleBinding for
+    the metric-state ServiceAccount\n\nAttempting to meter a resource with a MeterDefinition
+    without the required permissions will log an `AccessDeniedError` in metric-state.\n\n###
+    Cluster permission requirements\n\n|API group             |Resources              |Verbs
+    \                                    |\n|----------------------|-----------------------|------------------------------------------|\n|apps
+    \                 |statefulsets           |get;list;watch                            |\n|authentication.k8s.io
+    |tokenreviews           |create                                    |\n|authorization.k8s.io
+    \ |subjectaccessreviews   |create                                    |\n|config.openshift.io
+    \  |clusterversions        |get;list;watch                            |\n|marketplace.redhat.com|meterdefinitions
+    \      |get;list;watch;create;update;patch;delete |\n|operators.coreos.com  |clusterserviceversions
+    |get;list;watch                            |\n|operators.coreos.com  |subscriptions
+    \         |get;list;watch                            |\n|operators.coreos.com
+    \ |operatorgroups         |get;list                                  |\n|storage.k8s.io
+    \       |storageclasses         |get;list;watch                            |\n|
+    \                     |namespaces             |get;list;watch                            |\n|
+    \                     |configmaps             |get;list;watch                            |\n|
+    \                     |services               |get;list;watch                            |\n|
+    \                     |**clusterrole/view**   |                                          |\n\n\n###
+    Documentation\nYou can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)\n\n###
+    Getting help\nIf you encounter any issues while using Red Hat Marketplace operator,
+    you can create an issue on our [Github\nrepo](https://github.com/redhat-marketplace/redhat-marketplace-operator)
+    for bugs, enhancements, or other requests. You can also visit our main page and\nreview
+    our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).\n\n###
+    Readme\nYou can find our readme [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/README.md)\n\n###
+    License information\nYou can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)\n"
+  displayName: Metrics Operator
+  icon:
+  - base64data: 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
+    mediatype: image/png
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: true
+    type: MultiNamespace
+  - supported: false
+    type: AllNamespaces
+  keywords:
+  - red hat marketplace
+  - operators
+  - buy
+  links:
+  - name: Visit the marketplace!
+    url: https://marketplace.redhat.com
+  - name: About
+    url: https://marketplace.redhat.com/en-us/about
+  - name: Support
+    url: https://marketplace.redhat.com/en-us/support
+  maintainers:
+  - email: rhmoper@us.ibm.com
+    name: RHM Operator Team
+  maturity: stable
+  provider:
+    name: Red Hat Marketplace
+  version: 0.0.0
