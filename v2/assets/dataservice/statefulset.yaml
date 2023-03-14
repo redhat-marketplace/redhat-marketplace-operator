@@ -14,7 +14,7 @@ spec:
         app: rhm-data-service
         app.kubernetes.io/name: rhm-data-service
         app.kubernetes.io/instance: rhm-data-service
-        app.kubernetes.io/part-of: redhat-marketplace-metering
+        app.kubernetes.io/part-of: metrics-operator
         app.kubernetes.io/managed-by: operator
     spec:
       affinity:

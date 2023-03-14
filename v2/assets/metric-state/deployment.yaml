@@ -17,7 +17,7 @@ spec:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: rhm-metric-state
         app.kubernetes.io/instance: rhm-metric-state
-        app.kubernetes.io/part-of: redhat-marketplace-metering
+        app.kubernetes.io/part-of: metrics-operator
         app.kubernetes.io/managed-by: operator
       annotations:
         productName: 'Red Hat Marketplace Operator'

@@ -77,7 +77,7 @@ const (
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
 	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresources3:0.11.2_082c995"
-	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.7.13_082c995"
+	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a"
 	IBM_COS_READER_KEY_FIELD                  = "IBM_COS_READER_KEY"
 	BUCKET_NAME_FIELD                         = "BUCKET_NAME"
 	IBM_COS_URL_FIELD                         = "IBM_COS_URL"

@@ -19,7 +19,7 @@ spec:
         redhat.marketplace.com/name: metrics-operator
         app.kubernetes.io/name: controller-manager
         app.kubernetes.io/instance: controller-manager
-        app.kubernetes.io/part-of: redhat-marketplace-metering
+        app.kubernetes.io/part-of: metrics-operator
         app.kubernetes.io/managed-by: operator
       annotations:
         productName: "Red Hat Marketplace Operator"
