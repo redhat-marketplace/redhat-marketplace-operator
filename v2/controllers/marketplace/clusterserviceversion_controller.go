@@ -274,23 +274,30 @@ func csvFilter(metaNew metav1.Object) bool {
 	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 	_, hasOlmNamespace := ann[olmNamespace]
 
-	if hasOlmNamespace && hasMeterDefinition && !hasCopiedFrom {
-		return true
-	}
-
-	return false
+	return (hasOlmNamespace && hasMeterDefinition && !hasCopiedFrom)
 }
 
 // Update to MeterDefinition annotation which may not be a generation update
 func checkForUpdateToMdef(evt event.UpdateEvent) bool {
-	oldMeterDefVal, oldOk := evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
-	newMeterDefVal, newOk := evt.ObjectNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
-	return oldOk && newOk && oldMeterDefVal != newMeterDefVal
+
+	oldMeterDef, _ := evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	newMeterDef, newMeterDefOk := evt.ObjectNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+
+	oldOlmCopied, _ := evt.ObjectOld.GetAnnotations()[olmCopiedFromTag]
+	newOlmCopied, newOlmCopiedOk := evt.ObjectNew.GetAnnotations()[olmCopiedFromTag]
+
+	oldOlmNamespace, _ := evt.ObjectOld.GetAnnotations()[olmNamespace]
+	newOlmNamespace, newOlmNamespaceOk := evt.ObjectNew.GetAnnotations()[olmNamespace]
+
+	// If all required annotations are present, and one of them changed, then reconcile
+	return (newMeterDefOk && newOlmCopiedOk && newOlmNamespaceOk) && ((oldMeterDef != newMeterDef) ||
+		(oldOlmCopied != newOlmCopied) ||
+		(oldOlmNamespace != newOlmNamespace))
 }
 
 var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(evt event.UpdateEvent) bool {
-		return csvFilter(evt.ObjectNew) && checkForUpdateToMdef(evt)
+		return checkForUpdateToMdef(evt)
 	},
 	DeleteFunc: func(evt event.DeleteEvent) bool {
 		return false
