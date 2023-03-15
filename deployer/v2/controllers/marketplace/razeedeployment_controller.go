@@ -1221,6 +1221,8 @@ func (r *RazeeDeploymentReconciler) createCatalogSource(instance *marketplacev1a
 			}
 		} else {
 			// Delete catalog source.
+			catalogSrc.Name = catalogName
+			catalogSrc.Namespace = utils.OPERATOR_MKTPLACE_NS
 			if err := r.Client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !errors.IsNotFound(err) {
 				reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
 				return err
