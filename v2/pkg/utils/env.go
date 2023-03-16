@@ -49,6 +49,14 @@ const (
 	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
 	RHM_COS_UPLOADER_SECRET                = "rhm-cos-uploader-secret"
+	METRICS_OP_METRICS_READER_SECRET       = "metrics-operator-servicemonitor-metrics-reader"
+	METRICS_OP_CA_BUNDLE_CONFIGMAP         = "metrics-operator-serving-certs-ca-bundle"
+	METRICS_OP_SERVICE_MONITOR             = "metrics-operator-controller-manager-metrics-monitor"
+	METRICS_OP_METRICS_SERVICE             = "metrics-operator-controller-manager-metrics-service"
+	RHM_OP_METRICS_READER_SECRET           = "redhat-marketplace-operator-servicemonitor-metrics-reader"
+	RHM_OP_CA_BUNDLE_CONFIGMAP             = "redhat-marketplace-operator-serving-certs-ca-bundle"
+	RHM_OP_SERVICE_MONITOR                 = "redhat-marketplace-operator-controller-manager-metrics-monitor"
+	RHM_OP_METRICS_SERVICE                 = "redhat-marketplace-operator-controller-manager-metrics-service"
 
 	/* RHOS Monitoring Resource Names */
 	OPENSHIFT_MONITORING_NAMESPACE                              = "openshift-monitoring"
