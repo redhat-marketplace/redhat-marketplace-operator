@@ -289,8 +289,8 @@ func checkForUpdateToMdef(evt event.UpdateEvent) bool {
 	oldOlmNamespace, _ := evt.ObjectOld.GetAnnotations()[olmNamespace]
 	newOlmNamespace, newOlmNamespaceOk := evt.ObjectNew.GetAnnotations()[olmNamespace]
 
-	// If all required annotations are present, and one of them changed, then reconcile
-	return (newMeterDefOk && newOlmCopiedOk && newOlmNamespaceOk) && ((oldMeterDef != newMeterDef) ||
+	// If all expected annotations are set, and one of them changed, then reconcile
+	return (newMeterDefOk && !newOlmCopiedOk && newOlmNamespaceOk) && ((oldMeterDef != newMeterDef) ||
 		(oldOlmCopied != newOlmCopied) ||
 		(oldOlmNamespace != newOlmNamespace))
 }
