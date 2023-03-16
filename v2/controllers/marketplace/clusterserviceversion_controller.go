@@ -283,8 +283,8 @@ func checkForUpdateToMdef(evt event.UpdateEvent) bool {
 	oldMeterDef, _ := evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
 	newMeterDef, newMeterDefOk := evt.ObjectNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
 
-	oldOlmCopied, _ := evt.ObjectOld.GetAnnotations()[olmCopiedFromTag]
-	newOlmCopied, newOlmCopiedOk := evt.ObjectNew.GetAnnotations()[olmCopiedFromTag]
+	oldOlmCopied, _ := evt.ObjectOld.GetLabels()[olmCopiedFromTag]
+	newOlmCopied, newOlmCopiedOk := evt.ObjectNew.GetLabels()[olmCopiedFromTag]
 
 	oldOlmNamespace, _ := evt.ObjectOld.GetAnnotations()[olmNamespace]
 	newOlmNamespace, newOlmNamespaceOk := evt.ObjectNew.GetAnnotations()[olmNamespace]
