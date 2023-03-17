@@ -134,6 +134,21 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 			}
 		})
 
+	var pDeployment predicate.Funcs = predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew.GetName() == utils.RHM_CONTROLLER_DEPLOYMENT_NAME
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == utils.RHM_CONTROLLER_DEPLOYMENT_NAME
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetName() == utils.RHM_CONTROLLER_DEPLOYMENT_NAME
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+	}
+
 	pConfigMap := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return e.ObjectNew.GetName() == utils.RHM_OP_CA_BUNDLE_CONFIGMAP
@@ -195,7 +210,7 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&appsv1.Deployment{}, builder.WithPredicates(clusterServiceVersionPredictates)).
+		For(&appsv1.Deployment{}, builder.WithPredicates(pDeployment)).
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pConfigMap)).
