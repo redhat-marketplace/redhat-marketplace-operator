@@ -128,7 +128,7 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 		func(obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
-					Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
+					Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
 					Namespace: obj.GetNamespace(),
 				}},
 			}
