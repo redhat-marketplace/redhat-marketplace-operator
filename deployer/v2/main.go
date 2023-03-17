@@ -44,6 +44,7 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"net/http"
@@ -80,6 +81,7 @@ func init() {
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -113,6 +115,9 @@ func main() {
 			&corev1.Secret{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
+			&corev1.Service{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
 			&corev1.ServiceAccount{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
@@ -132,6 +137,9 @@ func main() {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&marketplacev1alpha1.RemoteResourceS3{}: {
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&monitoringv1.ServiceMonitor{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
@@ -210,6 +218,15 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SubscriptionReconciler")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.DeploymentReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentReconciler")
 		os.Exit(1)
 	}
 

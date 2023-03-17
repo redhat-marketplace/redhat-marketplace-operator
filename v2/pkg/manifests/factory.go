@@ -97,6 +97,18 @@ const (
 	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
 	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
 	MeterdefinitionFileServerImageStream      = "catalog-server/image-stream.yaml"
+
+	// metrics-operator olm manifests
+	MOServiceMonitorMetricsReaderSecret = "metrics-operator/servicemonitor-metrics-reader-secret.yaml"
+	MOMetricsServiceMonitor             = "metrics-operator/metrics-service-monitor.yaml"
+	MOMetricsService                    = "metrics-operator/metrics-service.yaml"
+	MOCABundleConfigMap                 = "metrics-operator/metrics-ca-bundle-configmap.yaml"
+
+	// redhat-marketplace-operator olm manifests
+	RHMOServiceMonitorMetricsReaderSecret = "redhat-marketplace-operator/servicemonitor-metrics-reader-secret.yaml"
+	RHMOMetricsServiceMonitor             = "redhat-marketplace-operator/metrics-service-monitor.yaml"
+	RHMOMetricsService                    = "redhat-marketplace-operator/metrics-service.yaml"
+	RHMOCABundleConfigMap                 = "redhat-marketplace-operator/metrics-ca-bundle-configmap.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -1459,6 +1471,38 @@ func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, 
 	s.Data["tls.key"] = serverCertPEM
 
 	return s, nil
+}
+
+func (f *Factory) NewMOServiceMonitorMetricsReaderSecret() (*v1.Secret, error) {
+	return f.NewSecret(MustAssetReader(MOServiceMonitorMetricsReaderSecret))
+}
+
+func (f *Factory) NewMOMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	return f.NewServiceMonitor(MustAssetReader(MOMetricsServiceMonitor))
+}
+
+func (f *Factory) NewMOMetricsService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(MOMetricsService))
+}
+
+func (f *Factory) NewMOCABundleConfigMap() (*corev1.ConfigMap, error) {
+	return f.NewConfigMap(MustAssetReader(MOCABundleConfigMap))
+}
+
+func (f *Factory) NewRHMOServiceMonitorMetricsReaderSecret() (*v1.Secret, error) {
+	return f.NewSecret(MustAssetReader(RHMOServiceMonitorMetricsReaderSecret))
+}
+
+func (f *Factory) NewRHMOMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	return f.NewServiceMonitor(MustAssetReader(RHMOMetricsServiceMonitor))
+}
+
+func (f *Factory) NewRHMOMetricsService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(RHMOMetricsService))
+}
+
+func (f *Factory) NewRHMOCABundleConfigMap() (*corev1.ConfigMap, error) {
+	return f.NewConfigMap(MustAssetReader(RHMOCABundleConfigMap))
 }
 
 func init() {
