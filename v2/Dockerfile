@@ -52,7 +52,7 @@ RUN microdnf install yum procps-ng \
   && microdnf clean all
 
 ENV USER_UID=1001 \
-  USER_NAME=metrics-operator \
+  USER_NAME=ibm-metrics-operator \
   BINFILE=${bin}
 
 # install operator binary

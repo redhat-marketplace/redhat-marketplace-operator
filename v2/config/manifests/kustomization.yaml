@@ -12,7 +12,7 @@ resources:
   - ../default
   - ../samples
   - ../scorecard
-  - bases/metrics-operator.clusterserviceversion.yaml
+  - bases/ibm-metrics-operator.clusterserviceversion.yaml
 
 vars:
   - name: REPORTER_IMAGE_MARKER

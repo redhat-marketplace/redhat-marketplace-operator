@@ -1,4 +1,4 @@
-# IBM&reg; Metrics Operator
+# IBM&reg; IBM Metrics Operator
 
 | Branch  |                                                                                                            Builds                                                                                                             |
 | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
@@ -7,6 +7,6 @@
 
 ## Description
 
-The Metrics Operator is used to meter workload usage on an Openshift cluster, and report it through Red Hat Marketplace.
+The IBM Metrics Operator is used to meter workload usage on an Openshift cluster, and report it through Red Hat Marketplace.
 
 Please visit [https://marketplace.redhat.com](https://marketplace.redhat.com) for more info.

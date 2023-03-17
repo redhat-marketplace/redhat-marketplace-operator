@@ -4,5 +4,5 @@ metadata:
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
   labels:
-    redhat.marketplace.com/name: metrics-operator
-  name: metrics-operator-serving-certs-ca-bundle
+    redhat.marketplace.com/name: ibm-metrics-operator
+  name: ibm-metrics-operator-serving-certs-ca-bundle

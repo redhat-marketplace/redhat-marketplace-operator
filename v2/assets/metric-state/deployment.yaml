@@ -17,7 +17,7 @@ spec:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: rhm-metric-state
         app.kubernetes.io/instance: rhm-metric-state
-        app.kubernetes.io/part-of: metrics-operator
+        app.kubernetes.io/part-of: ibm-metrics-operator
         app.kubernetes.io/managed-by: operator
       annotations:
         productName: 'Red Hat Marketplace Operator'
@@ -136,13 +136,13 @@ spec:
               name: rhm-metric-state-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metrics-operator-serving-certs-ca-bundle
+              name: ibm-metrics-operator-serving-certs-ca-bundle
               readOnly: false
       nodeSelector:
         beta.kubernetes.io/os: linux
         node-role.kubernetes.io/master: ''
       priorityClassName: system-cluster-critical
-      serviceAccountName: metrics-operator-metric-state
+      serviceAccountName: ibm-metrics-operator-metric-state
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
@@ -152,5 +152,5 @@ spec:
           secret:
             secretName: rhm-metric-state-tls
         - configMap:
-            name: metrics-operator-serving-certs-ca-bundle
-          name: metrics-operator-serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle

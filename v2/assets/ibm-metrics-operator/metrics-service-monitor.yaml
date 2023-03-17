@@ -3,13 +3,13 @@ kind: ServiceMonitor
 metadata:
   labels:
     control-plane: controller-manager
-    redhat.marketplace.com/name: metrics-operator
-  name: metrics-operator-controller-manager-metrics-monitor
+    redhat.marketplace.com/name: ibm-metrics-operator
+  name: ibm-metrics-operator-controller-manager-metrics-monitor
 spec:
   endpoints:
   - bearerTokenSecret:
       key: token
-      name: metrics-operator-servicemonitor-metrics-reader
+      name: ibm-metrics-operator-servicemonitor-metrics-reader
     path: /metrics
     port: https
     scheme: https
@@ -18,4 +18,4 @@ spec:
   selector:
     matchLabels:
       control-plane: controller-manager
-      redhat.marketplace.com/name: metrics-operator
+      redhat.marketplace.com/name: ibm-metrics-operator

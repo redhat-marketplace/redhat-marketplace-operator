@@ -70,7 +70,7 @@ func (r *DeploymentReconciler) InjectFactory(f *manifests.Factory) error {
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=servicemonitors,verbs=get;list;watch;create;patch;update
 
 // Enforce the loose operator bundle manifests. OLM applies these once and does not reconcile their state
-// assets/metrics-operator should match the bundle/manifests
+// assets/ibm-metrics-operator should match the bundle/manifests
 func (r *DeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling Deployment")
@@ -123,7 +123,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, request reconcile.
 
 func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 
-	// This mapFn will queue deployment/metrics-operator-controller-manager
+	// This mapFn will queue deployment/ibm-metrics-operator-controller-manager
 	mapFn := handler.MapFunc(
 		func(obj client.Object) []reconcile.Request {
 			return []reconcile.Request{

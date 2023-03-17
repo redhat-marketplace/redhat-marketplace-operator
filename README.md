@@ -7,11 +7,11 @@
 
 ## Description
 
-The [Metrics Operator](v2/README.md) and [Red Hat Marketplace Deployment Operator](deployer/v2/README.md) Operator are the OpenShift client side tools for the Red Hat Marketplace. 
+The [IBM Metrics Operator](v2/README.md) and [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md) are the OpenShift client side tools for the Red Hat Marketplace. 
 
-The [Metrics Operator](v2/README.md) is used to meter and report workload usage on an OpenShift cluster, and report it through Red Hat Marketplace.
+The [IBM Metrics Operator](v2/README.md) is used to meter and report workload usage on an OpenShift cluster, and report it through Red Hat Marketplace.
 
-The [Red Hat Marketplace Deployment Operator](deployer/v2/README.md) operator is used for cluster and operator subscription management on an OpenShift cluster with the Red Hat Marketplace.
+The [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md) is used for cluster and operator subscription management on an OpenShift cluster with the Red Hat Marketplace.
 
 Please visit [https://marketplace.redhat.com](https://marketplace.redhat.com) for more info.
 
@@ -21,11 +21,11 @@ Please visit [https://marketplace.redhat.com](https://marketplace.redhat.com) fo
 ### **Upgrade Notice**
 
 The Red Hat Marketplace Operator metering and deployment functionalities have been seperated into two operators.
-  - The metering functionality is included in the Metrics Operator
-    - Admin level functionality and permissions are removed from the Metrics Operator
-    - ClusterServiceVersion/metrics-operator
+  - The metering functionality is included in the IBM Metrics Operator
+    - Admin level functionality and permissions are removed from the IBM Metrics Operator
+    - ClusterServiceVersion/ibm-metrics-operator
   - The deployment functionality remains as part of the Red Hat Marketplace Deployment Operator
-    - The Red Hat Marketplace Deployment Operator prerequisites the Metrics Operator
+    - The Red Hat Marketplace Deployment Operator prerequisites the IBM Metrics Operator
     - Some admin level RBAC permissions are required for deployment functionality
     - ClusterServiceVersion/redhat-marketplace-operator
 
@@ -53,9 +53,9 @@ Multiple nodes are required to provide pod scheduling for high availability for 
 
 ### Storage
 
-The Metrics Operator creates 3 x 1GB dynamic persistent volumes to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+The IBM Metrics Operator creates 3 x 1GB dynamic persistent volumes to store reports as part of the data service, with _ReadWriteOnce_ access mode.
 
-The Metrics Operator requires User Workload Monitoring to be configured with 40Gi persistent volumes at minimum.
+The IBM Metrics Operator requires User Workload Monitoring to be configured with 40Gi persistent volumes at minimum.
 
 ### Installing
 
@@ -70,7 +70,7 @@ The Operators and their components support running under the OpenShift Container
 
 ### Installation Namespace and ClusterRoleBinding requirements
 
-The Metrics Operator components require specific ClusterRoleBindings.
+The IBM Metrics Operator components require specific ClusterRoleBindings.
 - The metric-state component requires a ClusterRoleBinding for the the `view` ClusterRole. 
 - The reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view` ClusterRole. 
 
@@ -80,9 +80,9 @@ A ClusterRoleBinding is included for installation to the default namespace of `r
 
 To update the ClusterRoleBindings for installation to an alternate namespace
 ```
-oc patch clusterrolebinding metrics-operator-metric-state-view-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "metrics-operator-metric-state","namespace": "NAMESPACE" }}]'
+oc patch clusterrolebinding ibm-metrics-operator-metric-state-view-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "ibm-metrics-operator-metric-state","namespace": "NAMESPACE" }}]'
 
-oc patch clusterrolebinding metrics-operator-reporter-cluster-monitoring-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "metrics-operator-reporter","namespace": "NAMESPACE" }}]'
+oc patch clusterrolebinding ibm-metrics-operator-reporter-cluster-monitoring-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "ibm-metrics-operator-reporter","namespace": "NAMESPACE" }}]'
 ```
 
 ### Metric State scoping requirements
@@ -94,9 +94,9 @@ Attempting to meter a resource with a MeterDefinition without the required permi
 
 ### Cluster permission requirements
 
-|Metrics Operator                                               |API group             |Resources                 |Verbs                                     |Description                                                                                                                                             |
+|IBM Metrics Operator                                               |API group             |Resources                 |Verbs                                     |Description                                                                                                                                             |
 |----------------------------------------------------------------|----------------------|--------------------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-|ServiceAcount: metrics-operator                                |                      |                          |                                          |                                                                                                                                                        |
+|ServiceAcount: ibm-metrics-operator                                |                      |                          |                                          |                                                                                                                                                        |
 |ClusterRole:metrics-manager-role                               |                      |                          |                                          |                                                                                                                                                        |
 |                                                                |                      |                          |                                          |                                                                                                                                                        |
 |Controller                                                      |                      |                          |                                          |                                                                                                                                                        |
@@ -122,8 +122,8 @@ Attempting to meter a resource with a MeterDefinition without the required permi
 |                                                                |authentication.k8s.io |tokenreviews              |create                                    |Servicemonitor kube-rbac-proxy protect metrics endpoint for operator and metric-state                                                                   |
 |                                                                |authorization.k8s.io  |subjectaccessreviews      |create                                    |Servicemonitor kube-rbac-proxy protect metrics endpoint for operator and metric-state                                                                   |
 |                                                                |                      |                          |                                          |                                                                                                                                                        |
-|ServiceAccount: metrics-operator-metric-state                           |                      |                          |                                          |                                                                                                                                                        |
-|ClusterRole: metrics-operator-metric-state                              |                      |                          |                                          |                                                                                                                                                        |
+|ServiceAccount: ibm-metrics-operator-metric-state                           |                      |                          |                                          |                                                                                                                                                        |
+|ClusterRole: ibm-metrics-operator-metric-state                              |                      |                          |                                          |                                                                                                                                                        |
 |metric-state                                                    |marketplace.redhat.com|meterdefinitions          |get;list;watch                            |read meterdefinitions to associate metered workloads                                                                                                    |
 |                                                                |                      |services                  |get;list;watch                            |get userworkloadmonitoring prometheus service                                                                                                           |
 |                                                                |marketplace.redhat.com|meterdefinitions/status   |get;list;watch;update                     |update status on meterdefinitions                                                                                                                       |
@@ -133,8 +133,8 @@ Attempting to meter a resource with a MeterDefinition without the required permi
 |                                                                |authorization.k8s.io  |subjectaccessreviews      |create;delete;get;list;update;patch;watch |kube-rbac-proxy, protect metrics endpoint                                                                                                               |
 |                                                                |                      |clusterrole/view          |                                          |Cluster-wide reader (non-sensitive) to track usage via resource filters. https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles|
 |                                                                |                      |                          |                                          |                                                                                                                                                        |
-|ServiceAcount: metrics-operator-data-service                            |                      |                          |                                          |                                                                                                                                                        |
-|ClusterRole: metrics-operator-data-service                              |                      |                          |                                          |                                                                                                                                                        |
+|ServiceAcount: ibm-metrics-operator-data-service                            |                      |                          |                                          |                                                                                                                                                        |
+|ClusterRole: ibm-metrics-operator-data-service                              |                      |                          |                                          |                                                                                                                                                        |
 |data-service                                                    |authentication.k8s.io |tokenreviews              |create                                    |authchecker                                                                                                                                             |
 |                                                                |authorization.k8s.io  |subjectaccessreviews      |create                                    |authchecker                                                                                                                                             |
 

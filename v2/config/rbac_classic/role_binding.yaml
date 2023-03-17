@@ -6,13 +6,13 @@ metadata:
   name: metric-state-view-binding
 subjects:
 - kind: ServiceAccount
-  name: metrics-operator-metric-state
+  name: ibm-metrics-operator-metric-state
   namespace: openshift-redhat-marketplace
 - kind: ServiceAccount
-  name: metrics-operator-metric-state
+  name: ibm-metrics-operator-metric-state
   namespace: redhat-marketplace
 - kind: ServiceAccount
-  name: metrics-operator-metric-state
+  name: ibm-metrics-operator-metric-state
   namespace: ibm-common-services
 roleRef:
   kind: ClusterRole
@@ -25,13 +25,13 @@ metadata:
   name: reporter-cluster-monitoring-binding
 subjects:
 - kind: ServiceAccount
-  name: metrics-operator-reporter
+  name: ibm-metrics-operator-reporter
   namespace: openshift-redhat-marketplace
 - kind: ServiceAccount
-  name: metrics-operator-reporter
+  name: ibm-metrics-operator-reporter
   namespace: redhat-marketplace
 - kind: ServiceAccount
-  name: metrics-operator-reporter
+  name: ibm-metrics-operator-reporter
   namespace: ibm-common-services
 roleRef:
   kind: ClusterRole
