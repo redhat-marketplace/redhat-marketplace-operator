@@ -6,8 +6,8 @@ metadata:
     capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
-    description: The IBM Metrics Operator provides workload metering and reporting for
-      IBM and Red Hat Marketplace customers.
+    description: The IBM Metrics Operator provides workload metering and reporting
+      for IBM and Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
@@ -61,18 +61,18 @@ spec:
       kind: RemoteResourceS3
       name: remoteresources3s.marketplace.redhat.com
       version: v1alpha1
-  description: "The IBM Metrics Operator provides workload metering and reporting for
-    IBM and Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions
+  description: "The IBM Metrics Operator provides workload metering and reporting
+    for IBM and Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions
     for onboarding is provided here. For more detailed onboarding instructions or
     information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).\n\n###
     **Upgrade Notice**\n\nThe Redhat Marketplace Operator metering and deployment
     functionalities have been seperated into two operators.\n  - The metering functionality
-    is included in this IBM Metrics Operator\n    - Admin level functionality and permissions
-    are removed from the IBM Metrics Operator\n    - ClusterServiceVersion/ibm-metrics-operator\n
+    is included in this IBM Metrics Operator\n    - Admin level functionality and
+    permissions are removed from the IBM Metrics Operator\n    - ClusterServiceVersion/ibm-metrics-operator\n
     \ - The deployment functionality remains as part of the Red Hat Marketplace Deployment
     Operator\n    - The Red Hat Marketplace Deployment Operator prerequisites the
-    IBM Metrics Operator\n    - Some admin level RBAC permissions are required for deployment
-    functionality\n    - ClusterServiceVersion/redhat-marketplace-operator\n\n###
+    IBM Metrics Operator\n    - Some admin level RBAC permissions are required for
+    deployment functionality\n    - ClusterServiceVersion/redhat-marketplace-operator\n\n###
     Prerequisites\n1. Installations are required to [enable monitoring for user-defined
     projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
@@ -89,15 +89,15 @@ spec:
     \         volumeClaimTemplate:\n            spec:\n              resources:\n
     \               requests:\n                  storage: 40Gi\n    ```\n\n### Installation\n1.
     Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
-    Install the IBM Metrics Operator\n3. Create a Kubernetes secret in the installed namespace
-    with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the
-    value of the Red hat Marketplace Pull Secret.\n\n    ```sh\n    # Replace ${PULL_SECRET}
-    with your secret from Red Hat Marketplace\n    oc create secret generic redhat-marketplace-pull-secret
-    -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}\n    ```\n\n4.
-    Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.\n\n
-    \   These steps require `oc`, `jq`, and `base64` to be available on your machine.\n\n
-    \   ```sh\n    # Create the docker pull secret file using your PULL_SECRET from
-    Red Hat Marketplace.\n    # Store it in a file called entitledregistryconfigjson.\n
+    Install the IBM Metrics Operator\n3. Create a Kubernetes secret in the installed
+    namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET`
+    with the value of the Red hat Marketplace Pull Secret.\n\n    ```sh\n    # Replace
+    ${PULL_SECRET} with your secret from Red Hat Marketplace\n    oc create secret
+    generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}\n
+    \   ```\n\n4. Install the Red Hat Marketplace pull secret as a global pull secret
+    on the cluster.\n\n    These steps require `oc`, `jq`, and `base64` to be available
+    on your machine.\n\n    ```sh\n    # Create the docker pull secret file using
+    your PULL_SECRET from Red Hat Marketplace.\n    # Store it in a file called entitledregistryconfigjson.\n
     \   oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com
     --docker-username \"cp\" --docker-password \"${PULL_SECRET}\" --dry-run=client
     --output=\"jsonpath={.data.\\.dockerconfigjson}\" | base64 --decode > entitledregistryconfigjson\n
@@ -116,8 +116,8 @@ spec:
     SecurityContextConstraints requirements\n\nThe Operators and their components
     support running under the OpenShift Container Platform default restricted and
     restricted-v2 security context constraints.\n\n### Installation Namespace and
-    ClusterRoleBinding requirements\n\nThe IBM Metrics Operator components require specific
-    ClusterRoleBindings.\n- The metric-state component requires a ClusterRoleBinding
+    ClusterRoleBinding requirements\n\nThe IBM Metrics Operator components require
+    specific ClusterRoleBindings.\n- The metric-state component requires a ClusterRoleBinding
     for the the `view` ClusterRole. \n- The reporter component requires a ClusterRoleBinding
     for the the `cluster-monitoring-view` ClusterRole. \n\nDue to limitations of Operator
     Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically
@@ -129,11 +129,11 @@ spec:
     \"ServiceAccount\", \"name\": \"ibm-metrics-operator-metric-state\",\"namespace\":
     \"NAMESPACE\" }}]'\n\noc patch clusterrolebinding ibm-metrics-operator-reporter-cluster-monitoring-binding
     --type='json' -p='[{\"op\": \"add\", \"path\": \"/subjects/1\", \"value\": {\"kind\":
-    \"ServiceAccount\", \"name\": \"ibm-metrics-operator-reporter\",\"namespace\": \"NAMESPACE\"
-    }}]'\n```\n\n### Metric State scoping requirements\nThe metric-state Deployment
-    obtains `get/list/watch` access to metered resources via the `view` ClusterRole.
-    For operators deployed using Operator Lifecycle Manager (OLM), permissions are
-    added to `clusterrole/view` dynamically via a generated and annotated `-view`
+    \"ServiceAccount\", \"name\": \"ibm-metrics-operator-reporter\",\"namespace\":
+    \"NAMESPACE\" }}]'\n```\n\n### Metric State scoping requirements\nThe metric-state
+    Deployment obtains `get/list/watch` access to metered resources via the `view`
+    ClusterRole. For operators deployed using Operator Lifecycle Manager (OLM), permissions
+    are added to `clusterrole/view` dynamically via a generated and annotated `-view`
     ClusterRole. If you wish to meter an operator, and its Custom Resource Definitions
     (CRDs) are not deployed through OLM, one of two options are required\n1. Add the
     following label to a clusterrole that has get/list/watch access to your CRD: `rbac.authorization.k8s.io/aggregate-to-view:
@@ -165,7 +165,7 @@ spec:
     License information\nYou can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)\n"
   displayName: IBM Metrics Operator
   icon:
-  - base64data: iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAUKADAAQAAAABAAAAUAAAAAASKG51AAAJFUlEQVR4Ae2cCWxURRjHvy3UlqutIAi0SAtylRtsOApqmqAIGiKpgkhCIKKREEAxSIwGQ4wBDyRBxARjApiIBpFEhKhgJYYqh5Rw34cYRDl6gNDS0vqbbR+8bru7b9/O292W9yXTmTfzzcw3//fNN9/Mm66ISy4CLgIuAi4CLgIuAi4CLgIuAi4CLgKRRsAT6Q6t9lcokg7vm4RuhHNVIr81FdmaJHKE57uHikQGXRHZDCAXif8mbCRvAoA08YcCPCNr+KtI1wrkHyNvEXF/f/UbTT5A5TLQcl8Qap7PUjaXkGIMGFDjeJ5NuOmnTi0w4TkA75xikdZGG5GOHZvCgNelUqSAASUFGhQCwCYnCGcBMJM4NRB/fWW0UUbdb4hX3ivyS308TuU5BiCa8QWDet4pwQO0ezBO5KNk+lfABuDTUuQIgNfRIiQ/DYDxWqS018h5BvcB9mEFcam9JoLX4mXpJ8CbHmXw1KA6IsMSZsIJwjTSjiiLI40i8DEEVu5HLFE+2jIZjTytUyjtGsiKmBWD4CnMhiPXHuQbGtMAsqRGY+GwhAkAptwSWU8c0DOw1FgNk1YNRLA4woRQBIgCbwdMjNrhaCGtADI9cpCqvRbJnG1kkq7mtQKI9mkTTNcA/bSTihYO8FMWUrY2AAEvgTA+pN6jyzxSR/faAGTrNgaBknUIFYk2eNnZOvrRBiDCPKdDoAi2oQVALY40b7MFNuUig28WQQB0dNWZY5w/w2lIiwYeEhnbAMFTB5Jha6EWANeLPBbOW4xWXZz+sAHUMYV7snLsOC1SARBRO9i08xIY/F7ODwfaqWvU0aGBL+FAJy0QOWw02oDivtjvVuHIa0kDOTpPhnEQHWXQYXvSHUirHUfbB0R6XxW5TwmxjtPgHJFHVbqhEBo0ihOaLXbl5UNXXQIkD6AMZeOtPv6MBrDuKs/gJO0lNG+fAZ7KyBV55AeRbVnE1Ryx/5exKDtoG8A6Uxh3ZBzhEAYtn8Zn03gP4tvgmSH5S6TE/Eza8zjgfSfys09+LD+GtZDcBhCQWjJVNxNvYLQ9rYyYk2cWsro0hUOF10W2U3Ktbmls5TDeoQS/n1iDSesFUNk4tO4nmEcHq2AuTwd087M5vZKpMULkn/9EDprzYzDdim1oX7tyeQHkz7s0EPJJbRs6vl/kX3+d42B3zcB+otJqSpf644t2/hmRh+zKEAf6XVDh6XYaoF78Uj5uB6qLLY2fxpQexq0EkN4ViDdaZXtFetntW2lgrgLCbgPM+WwM5qlg9Y/iAsGXxXF1ASbjj2D8kSz/qtpFs9WlOoLvbqtmTSXqJ+RxfaO5xQUDQzvwQZHBCsjLsQFkST7y9K6+FREyFEoDGU94lICrs0NkP05ludWWFJB89xz8LNupIyK/Ui8qK/ZavtThi7VaIbKcmbEYv7at1TEoPgUg9cKnVJFhGLhdoYCoesWDHTCc21hppBcA5AX21TidmE7n6RiuFo5utuoJ2RUW89CA03gkbzGzLJk1NYWP6xK1M99eD7M7SbHxUrgO0nIZQGaKDOkhcvlTkbxz3AnE0QRT7VS4im0nC9twAPMClXfnNL0FmCwERPUNeUiwnj0wjqPChmCMoZQj1KknuKK2x6JDHqztdA49xxBos7y/SBt2/2p3hOUIiUovscP6ElOxhLuFgJNsrt2ZF1Xg80VRzQT6eYUjpo/NvOa0B4YmgHiWzFRzgYZ06WdMkXnVnzqRRR8x1yo64qRjvC+hrVeZ/hWAWolXX0XsucF0xGXyEJoQ4vdzzEbIwC5gYeqnXmCwXQQc6yV1be5lBsHxQG3yDgwA1ZxfWLtIzxMGuuBpjvp5u3gxsUsTRXZ/EsChBqhVmKapxEB1h5ThVFdEP6QgqC93p5r1VBKrLduQrhu534zWnLdeM7KcU0Uww/4J1KYUiSz15QC3aqIwB4O91Xh2KC7dzSnPiwB6xv90cahr/812YDvKhp13LYn+uapL0LhnULh1Bt9tAFXGFZH3iV4zCp2K6bQcm5T/AnYXVwJTFj1iJSrDDz2SbPHSOrIXsmxnYm+93kEtAFFTD5r4NXFuJIZE57fYjRSs4VyRZa4P6XaR6NfoA00qYuE4igYGdVeMOipG7mUsKrNq0uYir4VMZFHZQm527RJnnxCqnBVzz+ciN/AB++Fm4D04RywaO/E70zgIxDSHRshahhamKy0kXZfQwBZo4rfEo+qWOp+DUDcB8NA+rApvsumPDJJp1oWevYueXQnQuCuYjQOvoukYu3C9ghm8YXX/un4CvHvQxNWUTqifI7K5CFp4SeTkXpFiDH4ctjPxOIafZT3lGml8v2Y3iUFY+YTXWBGuZwBYFtOU+VlB3AYA+zAulE4LbQLAsX4BVF3QWRya8A7xfEJAXi0ihdkIAlYqmcNsxlJ1+jqOHexuCRRWZ4X0GoSjjks1CJSggcmW3haM31NpEOF3F77bCFxVKUsAKkZU7wwhG02cy2NAr13xN3YCB68faBlABQiVKgFxCZX6kc5r7CAFGd9hVR4SgEaDrGYnATKHyhMB8oyRfzfFjHujGi9xeMTCklDMv5yyj36DlvAeGj8B2k3G3Y61odiWBpohorEyNHJxUw4IyF9E8BpXM08jTH+swFPjClsDfcEpYr3h7cwhfxYx2DYuAjD8eemGCWOoDgBowAV4SfQwjecZpLsZ+Q05BrwqpuwkTm7WGuPQroFGw0YMeJ4SrgBjI2eSN4bnsM2G0XYU4plM3eXmfh0H0NwZzmMn9quTAHMy+X3MZbGcVppHmI89es9XzogCaO6cg4r+aONkBBhP3MVcFktp5LuIfFPRPLUbq0NRA9AsCct2Jp+7nkIzn0SgYQis68TE3E1IaeQoowJHk/K2sWDU10BMAGgWDN+gNUCOAMSRCPcwZYNI4yVFhujzLD2t5sB0eUs+nQbrNeYA9BUY8NThLsd53h/a6UvcjzzuAklzX16bz6WAsJO621jdNrHChnRgEvMA1gcKAKof6ElDLTuRNkIavMw2aU5ecwam4kSey0mr35VRQBUSq2P4C+Sfwk4c4vD1BM91PphT7pKLgIuAi4CLgIuAi4CLgIuAi4CLgItAjCLwP2B4Lh7396HRAAAAAElFTkSuQmCC
+  - base64data: PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MS44IiBoZWlnaHQ9IjE5LjMzIiB2aWV3Qm94PSIwIDAgNTEuOCAxOS4zMyI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOiM0MjZhYjM7fTwvc3R5bGU+PC9kZWZzPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTM4Ljc2LDkuMiwzOC4zLDcuODZIMzAuNjFWOS4yWm0uOSwyLjU3LS40Ny0xLjM1SDMwLjYxdjEuMzVabTUuNzEsMTUuMzdoNi43MVYyNS44SDQ1LjM3djEuMzRabTAtMi41Nmg2LjcxVjIzLjIzSDQ1LjM3djEuMzVabTAtMi41N2g0VjIwLjY3aC00VjIyWm00LTMuOWgtNHYxLjM0aDRWMTguMTFabS00LTEuMjJoNFYxNS41NUg0MS43M2wtLjM4LDEuMDhMNDEsMTUuNTVIMzMuM3YxLjM0aDRWMTUuNjZsLjQ0LDEuMjNoNy4xOGwuNDMtMS4yM3YxLjIzWm00LTMuOUg0Mi42MmwtLjQ3LDEuMzRINDkuNFYxM1pNMzMuMywxOS40NWg0VjE4LjExaC00djEuMzRabTAsMi41Nmg0VjIwLjY3aC00VjIyWm0tMi42OSwyLjU3aDYuNzFWMjMuMjNIMzAuNjF2MS4zNVptMCwyLjU2aDYuNzFWMjUuOEgzMC42MXYxLjM0Wk00NC40LDcuODYsNDMuOTMsOS4yaDguMTVWNy44NlpNNDMsMTEuNzdoOVYxMC40Mkg0My41MUw0MywxMS43N1pNMzMuMywxNC4zM2g3LjI1TDQwLjA4LDEzSDMzLjN2MS4zNFptNS4zNSw1LjEySDQ0bC40Ny0xLjM0SDM4LjE4bC40NywxLjM0Wm0uOSwyLjU2aDMuNTlsLjQ3LTEuMzRIMzkuMDhMMzkuNTUsMjJabS45LDIuNTdoMS43OWwuNDctMS4zNUg0MGwuNDcsMS4zNVptLjksMi41Ni40Ni0xLjM0aC0uOTNsLjQ3LDEuMzRabS0yNi44NCwwaDkuODhhNS4xMSw1LjExLDAsMCwwLDMuNDYtMS4zNEgxNC41MXYxLjM0Wk0yNSwyMC42N1YyMmg0LjUxYTUuNDEsNS40MSwwLDAsMC0uMTctMS4zNFpNMTcuMTksMjJoNFYyMC42N2gtNFYyMlpNMjUsMTQuMzNoNC4zNEE1LjQxLDUuNDEsMCwwLDAsMjkuNTEsMTNIMjV2MS4zNFptLTcuODEsMGg0VjEzaC00djEuMzRabTcuMi02LjQ3SDE0LjUxVjkuMkgyNy44NWE1LjEzLDUuMTMsMCwwLDAtMy40Ni0xLjM0Wm00LjQ0LDIuNTZIMTQuNTF2MS4zNUgyOS4zN2E1LjMsNS4zLDAsMCwwLS41NC0xLjM1Wk0xNy4xOSwxNS41NXYxLjM0SDI3LjcxYTUuMzYsNS4zNiwwLDAsMCwxLjEyLTEuMzRabTEwLjUyLDIuNTZIMTcuMTl2MS4zNEgyOC44M2E1LjM2LDUuMzYsMCwwLDAtMS4xMi0xLjM0Wm0tMTMuMiw2LjQ3SDI4LjgzYTUuMyw1LjMsMCwwLDAsLjU0LTEuMzVIMTQuNTF2MS4zNVpNMy43Nyw5LjJoOS40VjcuODZIMy43N1Y5LjJabTAsMi41N2g5LjRWMTAuNDJIMy43N3YxLjM1Wk0xMC40OCwxM2gtNHYxLjM0aDRWMTNabS00LDMuOWg0VjE1LjU1aC00djEuMzRabTAsMi41Nmg0VjE4LjExaC00djEuMzRabTAsMi41Nmg0VjIwLjY3aC00VjIyWk0zLjc3LDI0LjU4aDkuNFYyMy4yM0gzLjc3djEuMzVabTAsMS4yMmg5LjR2MS4zNEgzLjc3VjI1LjhabTUwLjgyLjMyYy4wOSwwLC4xMywwLC4xMy0uMTJ2LS4wN2MwLS4wOCwwLS4xMi0uMTMtLjEySDU0LjR2LjMxWm0tLjE5LjU2aC0uMjZWMjUuNjFoLjQ5QS4zMi4zMiwwLDAsMSw1NSwyNmEuMzIuMzIsMCwwLDEtLjIuMzJsLjI1LjQxaC0uMjlsLS4yLS4zN0g1NC40di4zN1ptLjk0LS40OHYtLjEzYS43OS43OSwwLDAsMC0xLjU3LDB2LjEzYS43OS43OSwwLDAsMCwxLjU3LDBabS0xLjgxLS4wNmExLDEsMCwxLDEsMSwxLjA1LDEsMSwwLDAsMS0xLTEuMDVaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMy43NyAtNy44NikiLz48L3N2Zz4=
     mediatype: image/png
   install:
     spec:
