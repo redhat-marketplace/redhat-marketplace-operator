@@ -20,7 +20,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = metrics-operator
+OPERATOR_IMAGE_NAME = ibm-metrics-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
@@ -40,10 +40,10 @@ DQLITE_IMAGE_NAME ?= redhat-marketplace-data-service
 DQLITE_IMAGE_TAG ?= $(TAG)
 DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
 
-BUNDLE_NAME ?= metrics-operator-manifest
+BUNDLE_NAME ?= ibm-metrics-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= metrics-operator-dev-index
+DEV_INDEX_NAME ?= ibm-metrics-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
@@ -162,7 +162,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),"Metrics Operator",./v2/,./,redhat-marketplace-operator,..)
+	$(call docker-templated-build,$(IMAGE),"IBM Metrics Operator",./v2/,./,redhat-marketplace-operator,..)
 
 # Push the docker image
 docker-push:
@@ -173,8 +173,8 @@ docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
 
-CSV_YAML_CONFIG_FILE=config/manifests/bases/metrics-operator.clusterserviceversion.yaml
-CSV_YAML_BUNDLE_FILE=bundle/manifests/metrics-operator.clusterserviceversion.yaml
+CSV_YAML_CONFIG_FILE=config/manifests/bases/ibm-metrics-operator.clusterserviceversion.yaml
+CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-metrics-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
@@ -190,7 +190,7 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	--set dqLiteImage=$(DQLITE_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | \
 	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
-	--extra-service-accounts metrics-operator-reporter,metrics-operator-data-service,metrics-operator-metric-state,metrics-operator-servicemonitor-metrics-reader
+	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
@@ -256,10 +256,10 @@ bundle-dev-index: opm
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
-	- kubectl delete catalogsources.operators.coreos.com metrics-operator-catalog
+	- kubectl delete catalogsources.operators.coreos.com ibm-metrics-operator-catalog
 	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/metrics-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/metrics-operator.openshift-redhat-marketplace
+	- kubectl delete subscription -l operators.coreos.com/ibm-metrics-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/ibm-metrics-operator.openshift-redhat-marketplace
 
 skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses
@@ -268,7 +268,7 @@ skaffold-build: skaffold
 INSTALL_DEBUG ?= false
 
 compile-helm: helm
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-metrics-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -279,7 +279,7 @@ compile-helm: helm
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize compile-helm yq
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-metrics-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -290,7 +290,7 @@ install: kustomize compile-helm yq
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-metrics-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \

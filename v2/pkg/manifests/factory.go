@@ -98,11 +98,11 @@ const (
 	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
 	MeterdefinitionFileServerImageStream      = "catalog-server/image-stream.yaml"
 
-	// metrics-operator olm manifests
-	MOServiceMonitorMetricsReaderSecret = "metrics-operator/servicemonitor-metrics-reader-secret.yaml"
-	MOMetricsServiceMonitor             = "metrics-operator/metrics-service-monitor.yaml"
-	MOMetricsService                    = "metrics-operator/metrics-service.yaml"
-	MOCABundleConfigMap                 = "metrics-operator/metrics-ca-bundle-configmap.yaml"
+	// ibm-metrics-operator olm manifests
+	MOServiceMonitorMetricsReaderSecret = "ibm-metrics-operator/servicemonitor-metrics-reader-secret.yaml"
+	MOMetricsServiceMonitor             = "ibm-metrics-operator/metrics-service-monitor.yaml"
+	MOMetricsService                    = "ibm-metrics-operator/metrics-service.yaml"
+	MOCABundleConfigMap                 = "ibm-metrics-operator/metrics-ca-bundle-configmap.yaml"
 
 	// redhat-marketplace-operator olm manifests
 	RHMOServiceMonitorMetricsReaderSecret = "redhat-marketplace-operator/servicemonitor-metrics-reader-secret.yaml"
@@ -545,9 +545,9 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 	f.UpdateEnvVar(container, isDisconnected)
 
 	dataServiceArgs := []string{
-		"--dataServiceCertFile=/etc/configmaps/metrics-operator-serving-certs-ca-bundle/service-ca.crt",
+		"--dataServiceCertFile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt",
 		"--dataServiceTokenFile=/etc/data-service-sa/data-service-token",
-		"--cafile=/etc/configmaps/metrics-operator-serving-certs-ca-bundle/service-ca.crt",
+		"--cafile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt",
 	}
 
 	if userWorkloadEnabled {
@@ -571,8 +571,8 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 
 	dataServiceVolumeMounts := []v1.VolumeMount{
 		{
-			Name:      "metrics-operator-serving-certs-ca-bundle",
-			MountPath: "/etc/configmaps/metrics-operator-serving-certs-ca-bundle",
+			Name:      "ibm-metrics-operator-serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle",
 			ReadOnly:  false,
 		},
 		{
@@ -586,11 +586,11 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 
 	dataServiceTokenVols := []v1.Volume{
 		{
-			Name: "metrics-operator-serving-certs-ca-bundle",
+			Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 			VolumeSource: v1.VolumeSource{
 				ConfigMap: &v1.ConfigMapVolumeSource{
 					LocalObjectReference: v1.LocalObjectReference{
-						Name: "metrics-operator-serving-certs-ca-bundle",
+						Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 					},
 				},
 			},
@@ -946,7 +946,7 @@ func (f *Factory) ReporterJob(
 	}
 
 	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/metrics-operator-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
 
 		container.Args = append(container.Args, dataServiceArgs...)
 
@@ -957,8 +957,8 @@ func (f *Factory) ReporterJob(
 				MountPath: "/etc/data-service-sa",
 			},
 			{
-				Name:      "metrics-operator-serving-certs-ca-bundle",
-				MountPath: "/etc/configmaps/metrics-operator-serving-certs-ca-bundle",
+				Name:      "ibm-metrics-operator-serving-certs-ca-bundle",
+				MountPath: "/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle",
 				ReadOnly:  false,
 			},
 		}
@@ -967,11 +967,11 @@ func (f *Factory) ReporterJob(
 
 		dataServiceTokenVols := []v1.Volume{
 			{
-				Name: "metrics-operator-serving-certs-ca-bundle",
+				Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 				VolumeSource: v1.VolumeSource{
 					ConfigMap: &v1.ConfigMapVolumeSource{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: "metrics-operator-serving-certs-ca-bundle",
+							Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 						},
 					},
 				},
