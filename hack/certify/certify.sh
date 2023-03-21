@@ -7,6 +7,11 @@ CERT_NAMESPACE="${CERT_NAMESPACE:-rhm-certification}"
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
 SUBMIT="${SUBMIT:-false}"
 
+# certified operator name: redhat-marketplace-operator, ibm-metrics-operator
+OP_NAME=$1
+
+BRANCH="${OP_NAME}-${VERSION}"
+
 # Check Subscriptions: subscription-name, namespace
 checksub () {
 	echo "Waiting for Subscription $1 InstallPlan to complete."
@@ -75,7 +80,25 @@ if [ -z ${PYXIS_API_KEY+x} ]; then echo "PYXIS_API_KEY is unset"; exit 1; fi
 if [ ${SUBMIT} == "true" ] && [ -z ${GITHUB_TOKEN+x} ]; then echo "GITHUB_TOKEN is unset for SUBMIT=true"; exit 1; fi
 
 # Install Subscription
-oc apply -f sub.yaml
+cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-redhat-marketplace
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-pipelines-operator-rh
+  namespace: openshift-operators
+spec:
+  channel: latest
+  installPlanApproval: Automatic
+  name: openshift-pipelines-operator-rh
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+EOF
+
 
 # Verify Subscriptions
 checksub openshift-pipelines-operator-rh openshift-operators
@@ -117,20 +140,26 @@ oc import-image redhat-marketplace-index \
 
 CWD=$(pwd)
 TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'cptmpdir')
-OP_DIR=$CWD/../..
+OP_DIR=$CWD
 
 # Install the Certification Pipeline
 cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 
-git checkout v1.0.58
+git checkout v1.0.75
+
+# Create a new SCC
+oc apply -f ansible/roles/operator-pipeline/templates/openshift/openshift-pipelines-custom-scc.yml
+# Add SCC to a pipeline service account
+oc adm policy add-scc-to-user pipelines-custom-scc -z pipeline
 
 # Patch for TLSVERIFY=false to use internal registry
-yq eval -i '(.spec.params[] | select(.name == "TLSVERIFY") | .default) = "false"' ansible/roles/operator-pipeline/templates/openshift/tasks/buildah.yml
+# yq eval -i '(.spec.params[] | select(.name == "TLSVERIFY") | .default) = "false"' ansible/roles/operator-pipeline/templates/openshift/tasks/buildah.yml
 
-oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/pipelines
-oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/tasks
+# Workaround some files that fail webhook validation
+oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/pipelines || true
+oc apply -R -f ansible/roles/operator-pipeline/templates/openshift/tasks || true
 
 # Add bundle to the fork on version branch
 cd $TMP_DIR
@@ -141,49 +170,52 @@ cd certified-operators
 git pull https://github.com/redhat-marketplace/certified-operators.git main
 git push origin main
 
-git checkout -B $VERSION
+git checkout -B $BRANCH
 
 # Cleanup previous manifests, metadata, and create version dir
-rm -rf operators/redhat-marketplace-operator/$VERSION/manifests
-rm -rf operators/redhat-marketplace-operator/$VERSION/metadata
-mkdir -p operators/redhat-marketplace-operator/$VERSION
+rm -rf operators/${OP_NAME}/$VERSION/manifests
+rm -rf operators/${OP_NAME}/$VERSION/metadata
+mkdir -p operators/${OP_NAME}/$VERSION
 
 # Copy the manifests to the branch
-cp -r $OP_DIR/bundle/manifests operators/redhat-marketplace-operator/$VERSION/
-cp -r $OP_DIR/bundle/metadata operators/redhat-marketplace-operator/$VERSION/
+cp -r $OP_DIR/bundle/manifests operators/${OP_NAME}/$VERSION/
+cp -r $OP_DIR/bundle/metadata operators/${OP_NAME}/$VERSION/
 
 # The operator service account should be ommited in the bundle
 # It will fail certification
 # The service account will be created by OLM
 # kustomize questionable capability to remove the service account
-rm -Rf operators/redhat-marketplace-operator/$VERSION/manifests/redhat-marketplace-operator_v1_serviceaccount.yaml
+rm -Rf operators/${OP_NAME}/$VERSION/manifests/${OP_NAME}_v1_serviceaccount.yaml
 
 # Set our organization, should be default
 # echo "organization: certified-operators" > config.yaml
 
-# This should automatically be present 
-# echo "cert_project_id: 5f68c9457115dbd1183ccab6" > operators/redhat-marketplace-operator/ci.yaml
+# This should automatically be present
+# redhat-marketplace-operator
+# echo "cert_project_id: 5f68c9457115dbd1183ccab6" > operators/${OP_NAME}/ci.yaml
+# ibm-metrics-operator
+# echo "cert_project_id: 6419c8987cadbe946d0e0594" > operators/${OP_NAME}/ci.yaml
 
 # Commit and push the changes to the branch
 git add --all
-git commit -m $VERSION
-git push -f origin $VERSION
+git commit -m $BRANCH
+git push -f origin $BRANCH
 
 
 # Run the Pipeline
 
 cd $TMP_DIR/operator-pipelines
-curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/0.19.1/tkn-linux-amd64-0.19.1.tar.gz | tar -xz 
+curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
 
 GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators.git
-BUNDLE_PATH=operators/redhat-marketplace-operator/$VERSION
+BUNDLE_PATH=operators/${OP_NAME}/$VERSION
 
 if [ "$SUBMIT" == "true" ]; then
     oc create secret generic github-api-token --from-literal GITHUB_TOKEN=$GITHUB_TOKEN
     ./tkn pipeline start operator-ci-pipeline \
     --use-param-defaults \
     --param git_repo_url=$GIT_REPO_URL \
-    --param git_branch=$VERSION \
+    --param git_branch=$BRANCH \
     --param bundle_path=$BUNDLE_PATH \
     --param upstream_repo_name=redhat-openshift-ecosystem/certified-operators \
     --param submit=true \
@@ -195,7 +227,7 @@ else
     ./tkn pipeline start operator-ci-pipeline \
     --use-param-defaults \
     --param git_repo_url=$GIT_REPO_URL \
-    --param git_branch=$VERSION \
+    --param git_branch=$BRANCH \
     --param bundle_path=$BUNDLE_PATH \
     --param env=prod \
     --workspace name=pipeline,volumeClaimTemplateFile=templates/workspace-template.yml \

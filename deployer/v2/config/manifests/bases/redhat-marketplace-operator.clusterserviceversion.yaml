@@ -6,8 +6,8 @@ metadata:
     capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
-    description: The Red Hat Marketplace Deployment Operator by IBM provides cluster management,
-      metering and operator installation for Red Hat Marketplace customers.
+    description: The Red Hat Marketplace Deployment Operator by IBM provides cluster
+      management, metering and operator installation for Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
@@ -43,10 +43,10 @@ spec:
       kind: RemoteResourceS3
       name: remoteresources3s.marketplace.redhat.com
       version: v1alpha1
-  description: "The Red Hat Marketplace Deployment Operator by IBM provides cluster and operator
-    management for Red Hat Marketplace customers.\n### **Important Note**\nA set of
-    instructions for onboarding is provided here. For more detailed onboarding instructions
-    or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).\n\n###
+  description: "The Red Hat Marketplace Deployment Operator by IBM provides cluster
+    and operator management for Red Hat Marketplace customers.\n### **Important Note**\nA
+    set of instructions for onboarding is provided here. For more detailed onboarding
+    instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).\n\n###
     **Upgrade Notice**\n\nThe Red Hat Marketplace Operator metering and deployment
     functionality have been seperated into two operators.\n  - The deployment functionality
     remains as part of this Red Hat Marketplace Deployment Operator\n    - The Red
@@ -56,11 +56,11 @@ spec:
     is included in the IBM Metrics Operator\n    - Admin level functionality and permissions
     are removed from the IBM Metrics Operator\n    - ClusterServiceVersion/ibm-metrics-operator\n\n\n###
     Prerequisites\n\n1. The Red Hat Markeplace Deployment Operator prerequisites the
-    IBM Metrics Operator. Installing the Red Hat Markeplace Deployment Operator with Automatic
-    approval on the Subscription will also install the IBM Metrics Operator automatically.
-    If performing an install with Manual approval, install the IBM Metrics Operator first.\n\n####
-    The IBM Metrics Operator prequisites the following\n\n1. Installations are required
-    to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    IBM Metrics Operator. Installing the Red Hat Markeplace Deployment Operator with
+    Automatic approval on the Subscription will also install the IBM Metrics Operator
+    automatically. If performing an install with Manual approval, install the IBM
+    Metrics Operator first.\n\n#### The IBM Metrics Operator prequisites the following\n\n1.
+    Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
@@ -75,8 +75,8 @@ spec:
     \         volumeClaimTemplate:\n            spec:\n              resources:\n
     \               requests:\n                  storage: 40Gi\n    ```\n\n### Installation\n1.
     Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
-    Install the IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n3. Create
-    a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret`
+    Install the IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n3.
+    Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret`
     and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.\n\n
     \   ```sh\n    # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace\n
     \   oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace

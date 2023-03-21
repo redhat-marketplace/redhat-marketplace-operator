@@ -333,4 +333,4 @@ bundle-pin-images:
 # Run certification test
 .PHONY: test-certify
 test-certify: bundle bundle-pin-images
-	cd hack/certify && ./certify.sh
+	./../hack/certify/certify.sh ibm-metrics-operator
