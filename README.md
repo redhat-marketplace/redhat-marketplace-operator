@@ -29,6 +29,7 @@ The Red Hat Marketplace Operator metering and deployment functionalities have be
     - Some admin level RBAC permissions are required for deployment functionality
     - ClusterServiceVersion/redhat-marketplace-operator
 
+Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Prerequisites
 * User with **Cluster Admin** role

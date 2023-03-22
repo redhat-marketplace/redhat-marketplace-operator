@@ -13,6 +13,8 @@ The Redhat Marketplace Operator metering and deployment functionalities have bee
     - Some admin level RBAC permissions are required for deployment functionality
     - ClusterServiceVersion/redhat-marketplace-operator
 
+Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+
 ### Prerequisites
 1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
 2. Edit the cluster-monitoring-config ConfigMap object:

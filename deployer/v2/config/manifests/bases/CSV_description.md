@@ -13,6 +13,7 @@ The Red Hat Marketplace Operator metering and deployment functionality have been
     - Admin level functionality and permissions are removed from the IBM Metrics Operator
     - ClusterServiceVersion/ibm-metrics-operator
 
+Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Prerequisites
 
