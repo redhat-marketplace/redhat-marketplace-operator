@@ -272,6 +272,14 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	if !instance.Spec.Enabled {
 		reqLogger.Info("Razee not enabled")
 
+		if err := r.removeWatchkeeperDeployment(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if err := r.removeRazeeDeployments(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 				return err
