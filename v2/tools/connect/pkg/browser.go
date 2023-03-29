@@ -279,8 +279,8 @@ func BindCmd(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "password for PC")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "print logs")
 
-	PublishCommand.Flags().StringArrayVar(&images, "images", []string{}, "list comma seperated image vars to publish")
-	GetPublishStatusCommand.Flags().StringArrayVar(&images, "images", []string{}, "list comma seperated image vars to publish")
+	PublishCommand.Flags().StringArrayVar(&images, "images", []string{}, "list comma separated image vars to publish")
+	GetPublishStatusCommand.Flags().StringArrayVar(&images, "images", []string{}, "list comma separated image vars to publish")
 
 	GetPublishStatusCommand.Flags().Var(
 		enumflag.New(&pageSize, "page-size", ListSizeIds, enumflag.EnumCaseInsensitive),

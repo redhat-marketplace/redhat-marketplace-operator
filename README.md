@@ -20,7 +20,7 @@ Please visit [https://marketplace.redhat.com](https://marketplace.redhat.com) fo
 
 ### **Upgrade Notice**
 
-The Red Hat Marketplace Operator metering and deployment functionalities have been seperated into two operators.
+The Red Hat Marketplace Operator metering and deployment functionalities have been separated into two operators.
   - The metering functionality is included in the IBM Metrics Operator
     - Admin level functionality and permissions are removed from the IBM Metrics Operator
     - ClusterServiceVersion/ibm-metrics-operator

@@ -4,7 +4,7 @@ A set of instructions for onboarding is provided here. For more detailed onboard
 
 ### **Upgrade Notice**
 
-The Redhat Marketplace Operator metering and deployment functionalities have been seperated into two operators.
+The Red Hat Marketplace Operator metering and deployment functionalities have been separated into two operators.
   - The metering functionality is included in this IBM Metrics Operator
     - Admin level functionality and permissions are removed from the IBM Metrics Operator
     - ClusterServiceVersion/ibm-metrics-operator

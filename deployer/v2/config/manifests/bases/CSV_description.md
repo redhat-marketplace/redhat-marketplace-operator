@@ -4,7 +4,7 @@ A set of instructions for onboarding is provided here. For more detailed onboard
 
 ### **Upgrade Notice**
 
-The Red Hat Marketplace Operator metering and deployment functionality have been seperated into two operators.
+The Red Hat Marketplace Operator metering and deployment functionality have been separated into two operators.
   - The deployment functionality remains as part of this Red Hat Marketplace Deployment Operator
     - The Red Hat Marketplace Deployment Operator prerequisites the IBM Metrics Operator
     - Admin level functionality and permissions are required for deployment functionality
