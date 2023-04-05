@@ -3,7 +3,7 @@ kind: ComponentConfig
 apiHandlerConfig:
   handlerTimeout: "3s"
 eventHandlerConfig:
-  memoryLimit: "test"
+  memoryLimit: "50Mi"
   maxFlushTimeout: "300s"
   maxEventEntries: 10
   dataServiceTokenFile: "/etc/data-service-sa/data-service-token"

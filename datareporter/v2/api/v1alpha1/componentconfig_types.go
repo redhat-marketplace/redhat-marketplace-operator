@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cfg "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 )
@@ -28,7 +29,7 @@ type ApiHandlerConfig struct {
 
 type EventEngineConfig struct {
 	// AccMemoryLimit is the event accumulator memory limit
-	AccMemoryLimit string `json:"memoryLimit,omitempty"`
+	AccMemoryLimit resource.Quantity `json:"memoryLimit,omitempty"`
 
 	// MaxFlushTimeout is the max time before events are flushed
 	MaxFlushTimeout metav1.Duration `json:"maxFlushTimeout,omitempty"`
