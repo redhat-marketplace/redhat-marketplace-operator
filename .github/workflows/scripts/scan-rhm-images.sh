@@ -14,6 +14,7 @@ declare -a IMAGE_NAMES=("redhat-marketplace-operator"
 # Read the array values with space
 for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
 	REPORT_NAME=`basename $IMAGE_NAME`.json
+    echo "running $REPORT_NAME"
 
 	# Must get child digest
 	IMAGE_DIGEST=`skopeo inspect -n --raw docker://$IMAGE_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG | jq -r '.manifests | .[] | select(.platform.architecture | contains("amd64")) | .digest'`
