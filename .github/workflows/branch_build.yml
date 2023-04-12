@@ -75,6 +75,7 @@ jobs:
         fi
     - name: Clair Image Scan
       run: .github/workflows/scripts/scan_images.sh
+      shell: bash
   matrix-test:
     name: Matrix Test
     runs-on: ubuntu-20.04
