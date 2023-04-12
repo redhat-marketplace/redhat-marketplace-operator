@@ -74,7 +74,7 @@ jobs:
           java -jar wss-unified-agent.jar
         fi
     - name: Clair Image Scan
-      run: .github/workflows/scripts/scan_images.sh
+      run: .github/workflows/scripts/scan-rhm-images.sh
       shell: bash
   matrix-test:
     name: Matrix Test
