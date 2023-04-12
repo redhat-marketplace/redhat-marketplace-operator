@@ -73,9 +73,6 @@ jobs:
           echo Starting WhiteSource Scan
           java -jar wss-unified-agent.jar
         fi
-    - name: Clair Image Scan
-      run: chmod +x .github/workflows/scripts/scan-rhm-images.sh
-      shell: bash
   matrix-test:
     name: Matrix Test
     runs-on: ubuntu-20.04
@@ -445,3 +442,6 @@ jobs:
             publisher: ''
             sourceType: grpc
           ```
+    - name: Clair Image Scan
+      run: chmod +x .github/workflows/scripts/scan-rhm-images.sh
+      shell: bash
