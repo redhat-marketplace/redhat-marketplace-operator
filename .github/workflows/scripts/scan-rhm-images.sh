@@ -11,13 +11,15 @@ declare -a IMAGE_NAMES=("redhat-marketplace-operator"
 	"ibm-metrics-operator"
 )
 
+SKOPEO_VERSION=$(skopeo --version)
+echo ${SKOPEO_VERSION}
+JQ_VERSION=$(jq --version)
+echo ${JQ_VERSION}
+echo ${IMAGE_TAG}
+
 # Read the array values with space
 for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
 	REPORT_NAME=`basename $IMAGE_NAME`.json
-	SKOPEO_VERSION=$(skopeo --version)
-	echo ${SKOPEO_VERSION}
-	JQ_VERSION=$(jq --version)
-	echo ${JQ_VERSION}
     echo "running $REPORT_NAME"
 
 	# Must get child digest
