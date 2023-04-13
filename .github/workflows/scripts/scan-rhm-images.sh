@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 IMAGE_REGISTRY="quay.io"
 IMAGE_REPO="rh-marketplace"
 IMAGE_TAG="2.10.0-1426"
