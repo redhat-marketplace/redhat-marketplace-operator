@@ -21,7 +21,7 @@ for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
     echo "running $REPORT_NAME"
 
 	# Must get child digest
-	IMAGE_DIGEST=`skopeo inspect --no-tags --raw docker://$IMAGE_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG | jq -r '.manifests | .[] | select(.platform.architecture | contains("amd64")) | .digest'`
+	IMAGE_DIGEST=`skopeo inspect --raw docker://$IMAGE_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG | jq -r '.manifests | .[] | select(.platform.architecture | contains("amd64")) | .digest'`
 	
 	echo "$IMAGE_NAME: $IMAGE_DIGEST"
 	
