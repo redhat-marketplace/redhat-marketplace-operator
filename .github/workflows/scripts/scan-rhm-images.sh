@@ -15,7 +15,7 @@ declare -a IMAGE_NAMES=("redhat-marketplace-operator"
 for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
 	REPORT_NAME=`basename $IMAGE_NAME`.json
 	VERSION=$(skopeo --version)
-	echo %{VERSION}
+	echo ${VERSION}
     echo "running $REPORT_NAME"
 
 	# Must get child digest
