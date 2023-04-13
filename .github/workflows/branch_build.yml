@@ -73,10 +73,6 @@ jobs:
           echo Starting WhiteSource Scan
           java -jar wss-unified-agent.jar
         fi
-    - name: Clair Image Scan
-      id: clair
-      run: .github/workflows/scripts/scan-rhm-images.sh
-      shell: bash
   matrix-test:
     name: Matrix Test
     runs-on: ubuntu-20.04
@@ -390,6 +386,10 @@ jobs:
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
+    - name: Clair Image Scan
+      id: clair
+      run: .github/workflows/scripts/scan-rhm-images.sh
+      shell: bash
     - id: deployer-bundle
       name: Build deployer bundle
       run: |-
