@@ -17,7 +17,7 @@ SKOPEO_VERSION=$(skopeo --version)
 echo ${SKOPEO_VERSION}
 JQ_VERSION=$(jq --version)
 echo ${JQ_VERSION}
-echo ${IMAGE_TAG}
+echo ${TARGET_TAG}
 
 # Read the array values with space
 for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
@@ -25,7 +25,7 @@ for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
     echo "running $REPORT_NAME"
 
 	# Must get child digest
-	IMAGE_DIGEST=`skopeo inspect --raw docker://$TARGET_REGISTRY/$TARGET_REPO/$IMAGE_NAME:$IMAGE_TAG | jq -r '.manifests | .[] | select(.platform.architecture | contains("amd64")) | .digest'`
+	IMAGE_DIGEST=`skopeo inspect --raw docker://$TARGET_REGISTRY/$TARGET_REPO/$IMAGE_NAME:$TARGET_TAG | jq -r '.manifests | .[] | select(.platform.architecture | contains("amd64")) | .digest'`
 	
 	echo "$IMAGE_NAME: $IMAGE_DIGEST"
 	
