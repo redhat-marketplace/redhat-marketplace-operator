@@ -386,10 +386,6 @@ jobs:
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
-    - name: Clair Image Scan
-      id: clair
-      run: .github/workflows/scripts/scan-rhm-images.sh
-      shell: bash
     - id: deployer-bundle
       name: Build deployer bundle
       run: |-
@@ -412,6 +408,10 @@ jobs:
         echo "::set-output name=tag::$TAG"
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
+    - name: Clair Image Scan
+      id: clair
+      run: .github/workflows/scripts/scan-rhm-images.sh
+      shell: bash
     - uses: actions/upload-artifact@v2
       with:
         name: release-deployer-bundle-${{ steps.bundle.outputs.tag }}
