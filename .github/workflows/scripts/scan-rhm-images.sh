@@ -13,9 +13,9 @@ declare -a IMAGE_NAMES=("redhat-marketplace-operator"
 	"ibm-metrics-operator"
 )
 
-echo `target registry: ${TARGET_REGISTRY}`
-echo `target repo: ${TARGET_REPO}`
-echo `target tag: ${TARGET_TAG}`
+echo "target registry: ${TARGET_REGISTRY}"
+echo "target repo: ${TARGET_REPO}"
+echo "target tag: ${TARGET_TAG}"
 
 # Read the array values with space
 for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
