@@ -12,12 +12,10 @@ declare -a IMAGE_NAMES=("redhat-marketplace-operator"
 	"redhat-marketplace-metric-state"
 	"ibm-metrics-operator"
 )
-echo ${IMAGE_REPO}
-SKOPEO_VERSION=$(skopeo --version)
-echo ${SKOPEO_VERSION}
-JQ_VERSION=$(jq --version)
-echo ${JQ_VERSION}
-echo ${TARGET_TAG}
+
+echo `target registry: ${TARGET_REGISTRY}`
+echo `target repo: ${TARGET_REPO}`
+echo `target tag: ${TARGET_TAG}`
 
 # Read the array values with space
 for IMAGE_NAME in "${IMAGE_NAMES[@]}"; do
