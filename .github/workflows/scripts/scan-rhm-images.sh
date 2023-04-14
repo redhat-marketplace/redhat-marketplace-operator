@@ -3,7 +3,7 @@ IMAGE_REGISTRY_PATH=${IMAGE_REGISTRY}
 TEMP=(${IMAGE_REGISTRY_PATH//// })
 TARGET_REGISTRY="${TEMP[0]}"
 TARGET_REPO="${TEMP[1]}"
-TARGET_TAG="{$TAG}"
+TARGET_TAG="${TAG}"
 
 declare -a IMAGE_NAMES=("redhat-marketplace-operator"
 	"redhat-marketplace-reporter"
