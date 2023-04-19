@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"reflect"
 	"sync"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // config needed to provideDataServiceConfig
@@ -27,6 +30,9 @@ type Config struct {
 	DataServiceCertFile  string
 	Namespace            string
 	ApiKeys              ApiKeys
+	AccMemoryLimit       resource.Quantity
+	MaxFlushTimeout      metav1.Duration
+	MaxEventEntries      int
 }
 
 type ApiKey struct {
