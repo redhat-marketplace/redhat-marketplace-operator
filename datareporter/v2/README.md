@@ -1,4 +1,4 @@
-# data-reporter-operator
+# ibm-data-reporter-operator
 // TODO(user): Add simple overview of use/purpose
 
 ## Description

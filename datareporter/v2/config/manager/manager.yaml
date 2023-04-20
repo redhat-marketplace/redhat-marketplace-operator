@@ -24,7 +24,7 @@ metadata:
     app.kubernetes.io/created-by: v2
     app.kubernetes.io/part-of: v2
     app.kubernetes.io/managed-by: kustomize
-    redhat.marketplace.com/name: data-reporter-operator
+    redhat.marketplace.com/name: ibm-data-reporter-operator
 spec:
   selector:
     matchLabels:
@@ -68,7 +68,7 @@ spec:
         #   type: RuntimeDefault
       containers:
       - name: manager
-        image: data-reporter-operator:latest
+        image: ibm-data-reporter-operator:latest
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

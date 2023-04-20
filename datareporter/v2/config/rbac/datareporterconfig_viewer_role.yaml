@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: datareporterconfig-viewer-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: data-reporter-operator
-    app.kubernetes.io/part-of: data-reporter-operator
+    app.kubernetes.io/created-by: ibm-data-reporter-operator
+    app.kubernetes.io/part-of: ibm-data-reporter-operator
     app.kubernetes.io/managed-by: kustomize
   name: datareporterconfig-viewer-role
 rules:

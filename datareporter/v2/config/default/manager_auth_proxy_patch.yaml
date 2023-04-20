@@ -32,7 +32,7 @@ spec:
         - "--leader-elect"
         volumeMounts:
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
-            name: data-reporter-operator-serving-certs-ca-bundle
+            name: ibm-data-reporter-operator-serving-certs-ca-bundle
             readOnly: false
           - mountPath: /etc/data-service-sa
             name: data-service-token-vol
@@ -49,10 +49,10 @@ spec:
         - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
         volumeMounts:
           - mountPath: /etc/tls/private
-            name: data-reporter-operator-controller-manager-metrics-service-tls
+            name: ibm-data-reporter-operator-metrics-service-tls
             readOnly: false
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
-            name: data-reporter-operator-serving-certs-ca-bundle
+            name: ibm-data-reporter-operator-serving-certs-ca-bundle
             readOnly: false
         ports:
         - containerPort: 8443
@@ -74,12 +74,12 @@ spec:
             cpu: 10m
             memory: 20Mi
       volumes:
-        - name: data-reporter-operator-controller-manager-metrics-service-tls
+        - name: ibm-data-reporter-operator-metrics-service-tls
           secret:
-            secretName: data-reporter-operator-controller-manager-metrics-service-tls
-        - name: data-reporter-operator-serving-certs-ca-bundle
+            secretName: ibm-data-reporter-operator-metrics-service-tls
+        - name: ibm-data-reporter-operator-serving-certs-ca-bundle
           configMap:
-            name: data-reporter-operator-serving-certs-ca-bundle
+            name: ibm-data-reporter-operator-serving-certs-ca-bundle
         - name: data-service-token-vol
           projected:
             sources:

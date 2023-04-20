@@ -21,14 +21,14 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = data-reporter-operator
+OPERATOR_IMAGE_NAME = ibm-data-reporter-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
-BUNDLE_NAME ?= data-reporter-operator-manifest
+BUNDLE_NAME ?= ibm-data-reporter-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= data-reporter-operator-dev-index
+DEV_INDEX_NAME ?= ibm-data-reporter-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
@@ -120,7 +120,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: build
 build:
-	$(call multiarch-build,data-reporter-operator)
+	$(call multiarch-build,ibm-data-reporter-operator)
 
 # Build manager binary
 manager: generate fmt vet
@@ -135,7 +135,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(call docker-templated-build,$(IMAGE),DataReporter,./datareporter/v2/,./,data-reporter-operator,../..)
+	$(call docker-templated-build,$(IMAGE),DataReporter,./datareporter/v2/,./,ibm-data-reporter-operator,../..)
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

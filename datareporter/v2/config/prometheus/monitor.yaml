@@ -8,8 +8,8 @@ metadata:
     app.kubernetes.io/name: servicemonitor
     app.kubernetes.io/instance: controller-manager-metrics-monitor
     app.kubernetes.io/component: metrics
-    app.kubernetes.io/created-by: data-reporter-operator
-    app.kubernetes.io/part-of: data-reporter-operator
+    app.kubernetes.io/created-by: ibm-data-reporter-operator
+    app.kubernetes.io/part-of: ibm-data-reporter-operator
     app.kubernetes.io/managed-by: kustomize
   name: controller-manager-metrics-monitor
   namespace: system
@@ -17,7 +17,7 @@ spec:
   endpoints:
     - bearerTokenSecret:
         key: token
-        name: data-reporter-operator-servicemonitor-metrics-reader
+        name: ibm-data-reporter-operator-servicemonitor-metrics-reader
       path: /metrics
       port: https
       scheme: https
@@ -26,4 +26,4 @@ spec:
   selector:
     matchLabels:
       control-plane: controller-manager
-      redhat.marketplace.com/name: data-reporter-operator
+      redhat.marketplace.com/name: ibm-data-reporter-operator
