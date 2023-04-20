@@ -48,3 +48,15 @@ func (e *EventAccumulator) IsEmpty(key Key) bool {
 	e.mu.Unlock()
 	return length == 0
 }
+
+func (e *EventAccumulator) GetKeys() []Key {
+	e.mu.Lock()
+	i := 0
+	keys := make([]Key, len(e.eventMap))
+	for k := range e.eventMap {
+		keys[i] = k
+		i++
+	}
+	e.mu.Unlock()
+	return keys
+}

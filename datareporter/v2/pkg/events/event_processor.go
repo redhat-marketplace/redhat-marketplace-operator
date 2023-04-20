@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
@@ -50,7 +51,8 @@ type ProcessorSender struct {
 }
 
 func (p *ProcessorSender) Start(ctx context.Context) error {
-	// consider what the deadline for proces or send should be
+	ticker := time.NewTicker(p.config.MaxFlushTimeout.Duration)
+	defer ticker.Stop()
 
 	p.EventChan = make(chan Event)
 	p.sendReadyChan = make(chan Key)
@@ -88,6 +90,22 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 		}()
 	}
 
+	go func() {
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				keys := p.eventAccumulator.GetKeys()
+				for _, localKey := range keys {
+					p.log.Info("Timer expired. Send ready.", "key", localKey)
+					p.sendReadyChan <- localKey
+				}
+			}
+		}
+	}()
+
 	<-ctx.Done()
 	p.log.Info("processor is shutting down")
 	close(p.EventChan)
@@ -103,7 +121,7 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 	len := p.eventAccumulator.Add(event)
 
 	// If we are at event max, signal to send
-	if len > 50 {
+	if len >= p.config.MaxEventEntries {
 		p.sendReadyChan <- event.Key
 	}
 
