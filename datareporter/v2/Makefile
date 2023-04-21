@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.8-v4.12
+OPENSHIFT_VERSIONS ?= v4.9-v4.12
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -175,6 +175,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 #	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
+VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 opm-builder-base: opm
 	docker buildx build --push \
