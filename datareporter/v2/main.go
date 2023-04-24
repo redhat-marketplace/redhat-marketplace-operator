@@ -27,6 +27,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
@@ -124,7 +125,12 @@ func main() {
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
 			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&v1alpha1.DataReporterConfig{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
 	})

@@ -77,10 +77,10 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	for _, apiKey := range dataReporterConfig.Spec.ApiKeys {
 		// only handle namespace local secrets
-		if apiKey.SecretReference.Namespace == dataReporterConfig.GetNamespace() || apiKey.SecretReference.Namespace != "" {
+		if apiKey.SecretReference.Namespace == dataReporterConfig.GetNamespace() || apiKey.SecretReference.Namespace == "" {
 			secret := &corev1.Secret{}
 			// If we don't find the secret, log an error and continue
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: apiKey.SecretReference.Name}, secret); errors.IsNotFound(err) {
+			if err := r.Client.Get(ctx, types.NamespacedName{Name: apiKey.SecretReference.Name, Namespace: dataReporterConfig.GetNamespace()}, secret); errors.IsNotFound(err) {
 				reqLogger.Error(err, fmt.Sprintf("secret/%s referenced in datareporterconfig not found", apiKey.SecretReference.Name))
 			} else if err != nil {
 				reqLogger.Error(err, "Failed to get secret")
@@ -136,13 +136,10 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.DataReporterConfig{}).
+		For(&v1alpha1.DataReporterConfig{},
+			builder.WithPredicates(predicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn)).
-		Watches(
-			&source.Kind{Type: &v1alpha1.DataReporterConfig{}},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(predicate)).
 		Complete(r)
 }

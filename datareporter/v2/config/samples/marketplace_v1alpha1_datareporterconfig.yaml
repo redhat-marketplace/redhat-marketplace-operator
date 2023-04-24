@@ -7,6 +7,16 @@ metadata:
     app.kubernetes.io/part-of: ibm-data-reporter-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: ibm-data-reporter-operator
-  name: datareporterconfig-sample
+  name: datareporterconfig
 spec:
-  # TODO(user): Add fields here
+  apiKeys:
+  - metadata:
+      metaA: metadataA
+      metaB: metadataB
+    secretRef:
+      name: mysecret1
+  - metadata:
+      metaC: metadataC
+      metaD: metadataD
+    secretRef:
+      name: mysecret2
