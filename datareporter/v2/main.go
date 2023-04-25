@@ -27,6 +27,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
@@ -53,6 +54,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -129,6 +131,10 @@ func main() {
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&v1alpha1.DataReporterConfig{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&routev1.Route{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
