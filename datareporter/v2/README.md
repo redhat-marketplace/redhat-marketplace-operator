@@ -1,80 +1,48 @@
 # ibm-data-reporter-operator
-// TODO(user): Add simple overview of use/purpose
+The IBM Data Reporter Operator accepts events and transforms them into Reports submitted to the Data Service of the IBM Metrics Operator.
 
 ## Description
 // TODO(user): An in-depth paragraph about your project and overview of use
 
 ## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+### Prerequisites
+- Install IBM Metrics Operator
+  - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per the instructions
+  - `rhm-data-service` has started
 
-```sh
-kubectl apply -f config/samples/
+### Install & Configuration
+
+- Install the IBM Data Reporter Operator
+- Set your context to the IBM Data Reporter Operator namespace
+  - `oc project redhat-marketplace`
+- Create a secret containing an X-API-KEY used for posting events
+  - `oc create secret generic mysecret1 --from-literal=X-API-KEY=123abc`
+- Create the DataReporterConfig named `datareporterconfig` as per the sample `config/samples/marketplace_v1alpha1_datareporterconfig.yaml`
+  - Reference the secret name containing the X-API-KEY
+  - Optionally provide any metadata that will be attached to events submitted by this X-API-KEY
+- Apply the ClusterRole, ServiceAccount and Secret that will be used to authorize access to the IBM Data Reporter service
+  - `oc apply -f hack/role/role.yaml`
+- Create the CluterRoleBinding
+    ```
+    NAMESPACE=$(oc config view --minify -o jsonpath='{..namespace}') && \
+    oc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-data-reporter-operator-api --serviceaccount=${NAMESPACE}:ibm-data-reporter-operator-api
+    oc label clusterrolebinding/ibm-data-reporter-operator-api redhat.marketplace.com/name=ibm-data-reporter-operator
+    ```
+
+### Usage
+
+#### Get the Status
+
+```
+DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
+DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
+curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
 ```
 
-2. Build and push your image to the location specified by `IMG`:
-	
-```sh
-make docker-build docker-push IMG=<some-registry>/v2:tag
-```
-	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+#### Post an Event
 
-```sh
-make deploy IMG=<some-registry>/v2:tag
-```
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
-
-```sh
-make uninstall
-```
-
-### Undeploy controller
-UnDeploy the controller to the cluster:
-
-```sh
-make undeploy
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
 ## License
 

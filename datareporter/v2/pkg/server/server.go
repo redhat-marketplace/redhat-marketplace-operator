@@ -45,12 +45,19 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 }
 
 func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
-	log.Info("v1/event")
-	headerAPIKey := r.Header.Get("apiKey")
+	log.WithName("events_api_handler v1/event")
+
+	headerAPIKey := r.Header.Get("X-API-KEY")
+	if headerAPIKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		err := emperror.New("request received without X-API-KEY header")
+		log.Error(err, "error with request header")
+		return
+	}
 
 	if !eventConfig.ApiKeys.HasKey(events.Key(headerAPIKey)) {
 		w.WriteHeader(http.StatusBadRequest)
-		err := emperror.New("api key not found on DataReporterConfig cr")
+		err := emperror.New("no X-API-KEY matching secrets in datareporterconfig secretRefs")
 		log.Error(err, "error validating api key")
 		return
 	}
@@ -87,7 +94,7 @@ type StatusResponse struct {
 }
 
 func StatusHandler(w http.ResponseWriter, r *http.Request) {
-	log.Info("v1/status")
+	log.WithName("events_api_handler v1/status")
 
 	w.WriteHeader(http.StatusOK)
 
