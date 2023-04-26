@@ -8,6 +8,11 @@ metadata:
   namespace: system
 spec:
   template:
+    metadata:
+        annotations:
+          productName: "Red Hat Marketplace Operator"
+          productID: "36cdaba810c348c096b85800dd62bcf1"
+          productMetric: "FREE"
     spec:
       affinity:
         nodeAffinity:
@@ -23,7 +28,7 @@ spec:
                 - key: kubernetes.io/os
                   operator: In
                   values:
-                    - linux
+                    - linux                    
       containers:
       - name: manager
         args:
