@@ -97,7 +97,7 @@ func main() {
 
 	codecs := serializer.NewCodecFactory(scheme)
 
-	cc := &marketplacev1alpha1.ComponentConfig{}
+	cc := marketplacev1alpha1.NewComponentConfig()
 	if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, cc); err != nil {
 		setupLog.Error(err, "could not decode file into runtime.Object")
 	}

@@ -17,8 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
+	"github.com/gotidy/ptr"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	cfg "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 )
 
@@ -79,4 +83,44 @@ type ComponentConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&ComponentConfig{}, &ComponentConfigList{})
+}
+
+func NewComponentConfig() *ComponentConfig {
+	handlerDuration, _ := time.ParseDuration("3s")
+	accMemLimit, _ := resource.ParseQuantity("50mi")
+	maxFlushTimeout, _ := time.ParseDuration("300s")
+
+	controllerManagerSpec := cfg.ControllerManagerConfigurationSpec{
+		Health: cfg.ControllerHealth{
+			HealthProbeBindAddress: ":8081",
+		},
+		Metrics: cfg.ControllerMetrics{
+			BindAddress: "127.0.0.1:8080",
+		},
+		Webhook: cfg.ControllerWebhook{
+			Port: ptr.Int(9443),
+		},
+		LeaderElection: &configv1alpha1.LeaderElectionConfiguration{
+			LeaderElect: ptr.Bool(true),
+		},
+	}
+
+	cc := &ComponentConfig{
+		ApiHandlerConfig: ApiHandlerConfig{
+			HandlerTimeout: metav1.Duration{Duration: handlerDuration},
+		},
+		EventEngineConfig: EventEngineConfig{
+			AccMemoryLimit:       accMemLimit,
+			MaxFlushTimeout:      metav1.Duration{Duration: maxFlushTimeout},
+			MaxEventEntries:      50,
+			DataServiceTokenFile: "/etc/data-service-sa/data-service-token",
+			DataServiceCertFile:  "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt",
+		},
+		ManagerConfig: ManagerConfig{
+			LeaderElectionID:                   "datareporter.marketplace.redhat.com",
+			ControllerManagerConfigurationSpec: controllerManagerSpec,
+		},
+	}
+
+	return cc
 }
