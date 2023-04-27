@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,8 +42,11 @@ type ApiKey struct {
 
 // DataReporterConfigStatus defines the observed state of DataReporterConfig
 type DataReporterConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions represent the latest available observations of an object's stateconfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
