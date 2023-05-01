@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/pprof"
+	"os"
 
 	emperror "emperror.dev/errors"
 	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
@@ -38,6 +40,15 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 	router.HandleFunc("/v1/status", func(w http.ResponseWriter, r *http.Request) {
 		StatusHandler(w, r)
 	})
+
+	// if debug enabled
+	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+		router.HandleFunc("/debug/pprof/", pprof.Index)
+		router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		router.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	muxWithMiddleware := http.TimeoutHandler(router, handlerConfig.HandlerTimeout.Duration, "timeout exceeded")
 

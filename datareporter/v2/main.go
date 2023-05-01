@@ -20,8 +20,10 @@ import (
 	"context"
 	"flag"
 	"os"
+	"runtime/debug"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
@@ -87,6 +89,12 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	quantity, err := resource.ParseQuantity(os.Getenv("LIMITSMEMORY"))
+	if err == nil {
+		setupLog.Info("setting memory limit from container resources.limits.memory", "downwardAPIEnv", "LIMITSMEMORY", "GOMEMLIMIT", quantity.String())
+		debug.SetMemoryLimit(quantity.Value())
+	}
 
 	setupLog.Info("componentConfigVar", "file", componentConfigVar)
 
@@ -191,7 +199,7 @@ func main() {
 	h := server.NewDataReporterHandler(eventEngine, config, cc.ApiHandlerConfig)
 
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
-		setupLog.Error(err, "unable to set up pprof")
+		setupLog.Error(err, "unable to set up data reporter handler")
 		os.Exit(1)
 	}
 

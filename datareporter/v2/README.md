@@ -42,7 +42,11 @@ curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status
 
 #### Post an Event
 
-
+```
+DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
+DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
+curl -k -H "Authorization: Bearer ${DRTOKEN}" -H "X-API-KEY: 123abc" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
+```
 
 ## License
 

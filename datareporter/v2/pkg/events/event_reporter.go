@@ -25,33 +25,30 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 )
 
 type EventReporter struct {
-	log               logr.Logger
-	dataServiceConfig *dataservice.DataServiceConfig
-	dataService       *dataservice.DataService
+	log         logr.Logger
+	config      *Config
+	tarGzipPool TarGzipPool
 }
 
 func NewEventReporter(
 	log logr.Logger,
-	dataServiceConfig *dataservice.DataServiceConfig,
-) (*EventReporter, error) {
-
-	dataService, err := dataservice.NewDataService(dataServiceConfig)
-	if err != nil {
-		return nil, err
-	}
+	config *Config,
+) *EventReporter {
 
 	return &EventReporter{
-		log:               log.WithValues("process", "EventReporter"),
-		dataServiceConfig: dataServiceConfig,
-		dataService:       dataService,
-	}, nil
+		log:         log.WithValues("process", "EventReporter"),
+		config:      config,
+		tarGzipPool: TarGzipPool{},
+	}
 }
 
 func (r *EventReporter) Report(metadata Metadata, eventJsons EventJsons) error {
-	dir, err := os.MkdirTemp(r.dataServiceConfig.OutputPath, "datareporter-")
+
+	dir, err := os.MkdirTemp(r.config.OutputDirectory, "datareporter-")
 	if err != nil {
 		return err
 	}
@@ -108,13 +105,8 @@ func (r *EventReporter) writeReport(dir string, metadata Metadata, eventJsons Ev
 
 	// Create the archive
 	archiveFilePath := filepath.Join(dir, fmt.Sprintf("data-reporter-%s.tar.gz", uuid.New()))
-	f, err := os.Create(archiveFilePath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
 
-	if err := Tar(filesDir, f); err != nil {
+	if err = r.tarGzipPool.TarGzip(filesDir, archiveFilePath); err != nil {
 		return "", err
 	}
 
@@ -127,10 +119,46 @@ func (r *EventReporter) uploadReport(archiveFilePath string) error {
 	if err != nil {
 		return err
 	}
+	defer archiveFile.Close()
+
+	dataServiceConfig, err := r.provideDataServiceConfig()
+	if err != nil {
+		return err
+	}
+
+	dataService, err := dataservice.NewDataService(dataServiceConfig)
+	if err != nil {
+		return err
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	r.dataService.UploadFile(ctx, archiveFilePath, archiveFile)
+	dataService.UploadFile(ctx, archiveFilePath, archiveFile)
 	return nil
+}
+
+func (r *EventReporter) provideDataServiceConfig() (*dataservice.DataServiceConfig, error) {
+	cert, err := os.ReadFile(r.config.DataServiceCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var serviceAccountToken = ""
+	if r.config.DataServiceTokenFile != "" {
+		content, err := os.ReadFile(r.config.DataServiceTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		serviceAccountToken = string(content)
+	}
+
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, r.config.Namespace)
+
+	return &dataservice.DataServiceConfig{
+		Address:          dataServiceDNS,
+		DataServiceToken: serviceAccountToken,
+		DataServiceCert:  cert,
+		OutputPath:       r.config.OutputDirectory,
+	}, nil
 }

@@ -47,6 +47,8 @@ type ProcessorSender struct {
 
 	eventAccumulator *EventAccumulator
 
+	eventReporter *EventReporter
+
 	config *Config
 }
 
@@ -59,6 +61,8 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 
 	p.eventAccumulator = &EventAccumulator{}
 	p.eventAccumulator.eventMap = make(map[Key]EventJsons)
+
+	p.eventReporter = NewEventReporter(p.log, p.config)
 
 	var processWaitGroup sync.WaitGroup
 	var sendWaitGroup sync.WaitGroup
@@ -97,11 +101,20 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				keys := p.eventAccumulator.GetKeys()
-				for _, localKey := range keys {
-					p.log.Info("Timer expired. Send ready.", "key", localKey)
-					p.sendReadyChan <- localKey
+				p.log.Info("Timer expired. SendAll.")
+				if err := p.SendAll(ctx); err != nil {
+					p.log.Error(err, "error sending event data")
 				}
+
+				/*
+					case <-ticker.C:
+						keys := p.eventAccumulator.GetKeys()
+						for _, localKey := range keys {
+							p.log.Info("Timer expired. Send ready.", "key", localKey)
+							p.sendReadyChan <- localKey
+						}
+				*/
+
 			}
 		}
 	}()
@@ -135,25 +148,35 @@ func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
 	// flush entries for this key
 	eventJsons := p.eventAccumulator.Flush(key)
 
-	// EventReporter with current token
-	dataServiceConfig, err := p.provideDataServiceConfig()
-	if err != nil {
-		return err
-	}
-
-	reporter, err := NewEventReporter(p.log, dataServiceConfig)
-	if err != nil {
-		return err
-	}
-
 	// Build and Send the report to dataService
 	// There is a case where if an ApiKey is removed, the metadata will no longer be available when the Report it sent
 	metadata := p.config.ApiKeys.GetMetadata(key)
-	if err := reporter.Report(metadata, eventJsons); err != nil {
+	if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
 		return err
 	}
 
 	p.log.Info("Sent Report")
+
+	return nil
+}
+
+func (p *ProcessorSender) SendAll(ctx context.Context) error {
+
+	// flush entire map
+	eventMap := p.eventAccumulator.FlushAll()
+
+	for key := range eventMap {
+		eventJsons := eventMap[key]
+
+		// Build and Send the report to dataService
+		// There is a case where if an ApiKey is removed, the metadata will no longer be available when the Report it sent
+		metadata := p.config.ApiKeys.GetMetadata(key)
+		if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
+			return err
+		}
+
+		p.log.Info("Sent Report")
+	}
 
 	return nil
 }

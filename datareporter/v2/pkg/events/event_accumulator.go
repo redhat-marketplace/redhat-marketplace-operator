@@ -14,7 +14,9 @@
 
 package events
 
-import "sync"
+import (
+	"sync"
+)
 
 // EventAccumulator collects events associated with a key
 type EventAccumulator struct {
@@ -37,9 +39,18 @@ func (e *EventAccumulator) Add(event Event) int {
 func (e *EventAccumulator) Flush(key Key) EventJsons {
 	e.mu.Lock()
 	flushedEvents := e.eventMap[key]
-	e.eventMap[key] = nil
+	delete(e.eventMap, key)
 	e.mu.Unlock()
 	return flushedEvents
+}
+
+// Flush EventMap and reset to clear memory accumulation
+func (e *EventAccumulator) FlushAll() map[Key]EventJsons {
+	e.mu.Lock()
+	flushedEventMap := e.eventMap
+	e.eventMap = make(map[Key]EventJsons)
+	e.mu.Unlock()
+	return flushedEventMap
 }
 
 func (e *EventAccumulator) IsEmpty(key Key) bool {
