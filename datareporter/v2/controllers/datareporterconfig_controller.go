@@ -18,15 +18,17 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 	routev1 "github.com/openshift/api/route/v1"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -62,14 +64,14 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 
 func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
 	dataReporterConfig := &v1alpha1.DataReporterConfig{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dataReporterConfig); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("datareporterconfig resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
@@ -85,23 +87,37 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// only handle namespace local secrets
 		if apiKey.SecretReference.Namespace == dataReporterConfig.GetNamespace() || apiKey.SecretReference.Namespace == "" {
 			secret := &corev1.Secret{}
-			// If we don't find the secret, log an error and continue
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: apiKey.SecretReference.Name, Namespace: dataReporterConfig.GetNamespace()}, secret); errors.IsNotFound(err) {
-				reqLogger.Error(err, fmt.Sprintf("secret/%s referenced in datareporterconfig not found", apiKey.SecretReference.Name))
-			} else if err != nil {
-				reqLogger.Error(err, "Failed to get secret")
-			} else {
-				// Verify the secret has an X-API-KEY, and append to apiKeys
-				reqLogger.Info(fmt.Sprintf("secret/%s found", secret.Name))
-				keyBytes, ok := secret.Data["X-API-KEY"]
-				key := events.Key(string(keyBytes))
-				if ok {
-					apiKeys = append(apiKeys, events.ApiKey{Key: key, Metadata: apiKey.Metadata})
-				} else {
-					reqLogger.Error(err, fmt.Sprintf("No X-API-KEY in secret/%s referenced in datareporterconfig", apiKey.SecretReference.Name))
+			// If we don't find the secret, generate a new secret with an X-API-KEY
+			if err := r.Client.Get(ctx, types.NamespacedName{Name: apiKey.SecretReference.Name, Namespace: dataReporterConfig.GetNamespace()}, secret); k8serrors.IsNotFound(err) {
+				reqLogger.Info("secret referenced in datareporterconfig not found, generating new secret with random X-API-KEY", "secret", apiKey.SecretReference.Name)
+
+				secret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      apiKey.SecretReference.Name,
+						Namespace: dataReporterConfig.GetNamespace(),
+					},
+					Data: map[string][]byte{
+						"X-API-KEY": []byte(generateKey()),
+					},
 				}
+
+				if err := r.Client.Create(ctx, secret); err != nil {
+					return ctrl.Result{}, err
+				}
+
+			} else if err != nil {
+				return ctrl.Result{}, err
 			}
 
+			// Verify the secret has an X-API-KEY, and append to apiKeys
+			reqLogger.Info("secret found", "secret", secret.Name)
+			keyBytes, ok := secret.Data["X-API-KEY"]
+			key := events.Key(string(keyBytes))
+			if ok {
+				apiKeys = append(apiKeys, events.ApiKey{Key: key, Metadata: apiKey.Metadata})
+			} else {
+				reqLogger.Error(errors.New("no X-API-KEY found in secret"), secret.Name)
+			}
 		}
 	}
 	// Set the X-API-KEY secret and the metadata pairs in the event Config
@@ -189,4 +205,10 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 				IsController: true,
 				OwnerType:    &v1alpha1.DataReporterConfig{}}).
 		Complete(r)
+}
+
+func generateKey() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }
