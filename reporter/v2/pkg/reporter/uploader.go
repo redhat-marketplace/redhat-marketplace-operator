@@ -70,6 +70,13 @@ func ProvideUploaders(
 				return uploaders, err
 			}
 
+			// Set Token
+			opts, err := dataservice.ProvideGRPCCallOptions(reporterConfig.DataServiceTokenFile)
+			if err != nil {
+				return uploaders, err
+			}
+			uploader.SetCallOpts(opts...)
+
 			uploaders = append(uploaders, uploader)
 		case *u.COSS3Uploader:
 			cosS3Config, err := provideCOSS3Config(ctx, cc, reporterConfig.DeployedNamespace, log)

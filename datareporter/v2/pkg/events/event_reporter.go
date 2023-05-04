@@ -32,18 +32,35 @@ type EventReporter struct {
 	log         logr.Logger
 	config      *Config
 	tarGzipPool TarGzipPool
+	dataService *dataservice.DataService
 }
 
 func NewEventReporter(
 	log logr.Logger,
 	config *Config,
-) *EventReporter {
+) (*EventReporter, error) {
+
+	dataServiceConfig, err := provideDataServiceConfig(
+		config.DataServiceCertFile,
+		config.DataServiceTokenFile,
+		config.Namespace,
+		config.OutputDirectory,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	dataService, err := dataservice.NewDataService(dataServiceConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	return &EventReporter{
 		log:         log.WithValues("process", "EventReporter"),
 		config:      config,
 		tarGzipPool: TarGzipPool{},
-	}
+		dataService: dataService,
+	}, nil
 }
 
 func (r *EventReporter) Report(metadata Metadata, eventJsons EventJsons) error {
@@ -121,20 +138,24 @@ func (r *EventReporter) uploadReport(archiveFilePath string) error {
 	}
 	defer archiveFile.Close()
 
-	dataServiceConfig, err := r.provideDataServiceConfig()
-	if err != nil {
-		return err
-	}
-
-	dataService, err := dataservice.NewDataService(dataServiceConfig)
-	if err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	dataService.UploadFile(ctx, archiveFilePath, archiveFile)
+	// The token rotates
+	// Set these opts on a per call basis (NewStream), instead of per connection
+	opts, err := dataservice.ProvideGRPCCallOptions(r.config.DataServiceTokenFile)
+	if err != nil {
+		return err
+	}
+
+	r.dataService.SetCallOpts(opts...)
+
+	id, err := r.dataService.UploadFile(ctx, archiveFilePath, archiveFile)
+	if err != nil {
+		return err
+	}
+	r.log.Info("Uploaded file", "id", id)
+
 	return nil
 }
 
@@ -160,5 +181,36 @@ func (r *EventReporter) provideDataServiceConfig() (*dataservice.DataServiceConf
 		DataServiceToken: serviceAccountToken,
 		DataServiceCert:  cert,
 		OutputPath:       r.config.OutputDirectory,
+	}, nil
+}
+
+func provideDataServiceConfig(
+	dataServiceCertFile string,
+	dataServiceTokenFile string,
+	namespace string,
+	outputDir string,
+) (*dataservice.DataServiceConfig, error) {
+
+	cert, err := os.ReadFile(dataServiceCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var serviceAccountToken = ""
+	if dataServiceTokenFile != "" {
+		content, err := os.ReadFile(dataServiceTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		serviceAccountToken = string(content)
+	}
+
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, namespace)
+
+	return &dataservice.DataServiceConfig{
+		Address:          dataServiceDNS,
+		DataServiceToken: serviceAccountToken,
+		DataServiceCert:  cert,
+		OutputPath:       outputDir,
 	}, nil
 }

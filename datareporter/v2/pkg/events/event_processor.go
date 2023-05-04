@@ -62,7 +62,11 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 	p.eventAccumulator = &EventAccumulator{}
 	p.eventAccumulator.eventMap = make(map[Key]EventJsons)
 
-	p.eventReporter = NewEventReporter(p.log, p.config)
+	eventReporter, err := NewEventReporter(p.log, p.config)
+	if err != nil {
+		return err
+	}
+	p.eventReporter = eventReporter
 
 	var processWaitGroup sync.WaitGroup
 	var sendWaitGroup sync.WaitGroup
