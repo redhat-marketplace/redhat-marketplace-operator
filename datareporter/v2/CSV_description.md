@@ -10,31 +10,16 @@ The IBM Data Reporter Operator accepts events and transforms them into Reports s
 
 The IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data to the IBM Data Service.
 
-### Usage
-
-#### Get the Status
-
-```SHELL
-DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
-DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
-curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
-```
-
-#### Post an Event
-
-```SHELL
-DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
-DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
-curl -k -H "Authorization: Bearer ${DRTOKEN}" -H "X-API-KEY: 123abc" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
-```
-
 ## Prerequisites
 
+- OpenShift Container Platform, major version 4 with any available supported minor version
 - Install IBM Metrics Operator
   - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per the instructions
   - `rhm-data-service` has started
 
 ## SecurityContextConstraints Requirements
+
+- The operator runs under Red Hat restricted SCC
 
 ## Resources Required
 
@@ -123,6 +108,24 @@ type: kubernetes.io/service-account-token
     oc label clusterrolebinding/ibm-data-reporter-operator-api redhat.marketplace.com/name=ibm-data-reporter-operator
     ```
 
+## Usage
+
+### Get the Status
+
+```SHELL
+DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
+DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
+curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
+```
+
+### Post an Event
+
+```SHELL
+DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
+DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
+curl -k -H "Authorization: Bearer ${DRTOKEN}" -H "X-API-KEY: 123abc" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
+```
+
 ## Storage
 
 - The operator temporarily stores events in pod memory.
@@ -130,6 +133,8 @@ type: kubernetes.io/service-account-token
 ## Limitations
 
 ## License
+
+- The operator runs on the following architectures: amd64 ppc64le s390x arm64
 
 Copyright 2023.
 
