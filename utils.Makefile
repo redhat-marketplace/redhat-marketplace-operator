@@ -120,7 +120,7 @@ pc-tool:
 	}
 
 SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
-SKAFFOLD_VERSION=v2.1.0
+SKAFFOLD_VERSION=v2.3.1
 skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 
