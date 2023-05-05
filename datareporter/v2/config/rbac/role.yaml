@@ -48,6 +48,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - route.openshift.io
   resources:
   - routes

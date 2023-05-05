@@ -23,10 +23,13 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
 	routev1 "github.com/openshift/api/route/v1"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,6 +66,7 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 
@@ -82,6 +86,25 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// decoded secret/metadata pairs
 	apiKeys := []events.ApiKey{}
+
+	// prerequisite marketplaceconfig, otherwise deny events by denying all api keys
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: req.Namespace}, marketplaceConfig); err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("marketplaceconfig resource not found. IBM Metrics Operator prerequisite required.")
+			r.Config.ApiKeys.SetApiKeys(apiKeys)
+			return ctrl.Result{}, nil
+		}
+		reqLogger.Error(err, "Failed to get marketplaceconfig")
+		return ctrl.Result{}, err
+	}
+
+	// must accept license, otherwise deny events by denying all api keys
+	if ptr.ToBool(marketplaceConfig.Spec.License.Accept) != true {
+		r.Config.ApiKeys.SetApiKeys(apiKeys)
+		reqLogger.Info("license must be accepted in marketplaceconfig to receive events.")
+		return ctrl.Result{}, nil
+	}
 
 	for _, apiKey := range dataReporterConfig.Spec.ApiKeys {
 		// only handle namespace local secrets

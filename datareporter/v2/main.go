@@ -31,10 +31,10 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -57,6 +57,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -105,7 +106,7 @@ func main() {
 
 	codecs := serializer.NewCodecFactory(scheme)
 
-	cc := marketplacev1alpha1.NewComponentConfig()
+	cc := v1alpha1.NewComponentConfig()
 	if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, cc); err != nil {
 		setupLog.Error(err, "could not decode file into runtime.Object")
 	}
@@ -143,6 +144,10 @@ func main() {
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&routev1.Route{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.MarketplaceConfig{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
