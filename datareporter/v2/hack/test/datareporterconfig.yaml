@@ -9,74 +9,34 @@ metadata:
     app.kubernetes.io/created-by: ibm-data-reporter-operator
   name: datareporterconfig
 spec:
-  apiKeys:
+  userConfig:
   - metadata:
       ameta1: ametadata1
       bmeta1: bmetadata1
       cmeta1: cmetadata1
       dmeta1: dmetadata1
-    secretRef:
-      name: ibm-data-reporter-secret-1
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-1
   - metadata:
-      ameta2: ametadata2
-      bmeta2: bmetadata2
-      cmeta2: cmetadata2
-      dmeta2: dmetadata2
-    secretRef:
-      name: ibm-data-reporter-secret-2
+      ameta1: ametadata2
+      bmeta1: bmetadata2
+      cmeta1: cmetadata2
+      dmeta1: dmetadata2
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-2
   - metadata:
-      ameta3: ametadata3
-      bmeta3: bmetadata3
-      cmeta3: cmetadata3
-      dmeta3: dmetadata3
-    secretRef:
-      name: ibm-data-reporter-secret-3
+      ameta1: ametadata3
+      bmeta1: bmetadata3
+      cmeta1: cmetadata3
+      dmeta1: dmetadata3
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-3
   - metadata:
-      ameta4: ametadata4
-      bmeta4: bmetadata4
-      cmeta4: cmetadata4
-      dmeta4: dmetadata4
-    secretRef:
-      name: ibm-data-reporter-secret-4
+      ameta1: ametadata4
+      bmeta1: bmetadata4
+      cmeta1: cmetadata4
+      dmeta1: dmetadata4
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-4
   - metadata:
-      ameta5: ametadata5
-      bmeta5: bmetadata5
-      cmeta5: cmetadata5
-      dmeta5: dmetadata5
-    secretRef:
-      name: ibm-data-reporter-secret-5
-  - metadata:
-      ameta6: ametadata6
-      bmeta6: bmetadata6
-      cmeta6: cmetadata6
-      dmeta6: dmetadata6
-    secretRef:
-      name: ibm-data-reporter-secret-6
-  - metadata:
-      ameta7: ametadata7
-      bmeta7: bmetadata7
-      cmeta7: cmetadata7
-      dmeta7: dmetadata7
-    secretRef:
-      name: ibm-data-reporter-secret-7
-  - metadata:
-      ameta8: ametadata8
-      bmeta8: bmetadata8
-      cmeta8: cmetadata8
-      dmeta8: dmetadata8
-    secretRef:
-      name: ibm-data-reporter-secret-8
-  - metadata:
-      ameta9: ametadata9
-      bmeta9: bmetadata9
-      cmeta9: cmetadata9
-      dmeta9: dmetadata9
-    secretRef:
-      name: ibm-data-reporter-secret-9
-  - metadata:
-      ameta10: ametadata10
-      bmeta10: bmetadata10
-      cmeta10: cmetadata10
-      dmeta10: dmetadata10
-    secretRef:
-      name: ibm-data-reporter-secret-10
+      ameta1: ametadata5
+      bmeta1: bmetadata5
+      cmeta1: cmetadata5
+      dmeta1: dmetadata5
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-5

@@ -58,18 +58,18 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
 	log.WithName("events_api_handler v1/event")
 
-	headerAPIKey := r.Header.Get("X-API-KEY")
-	if headerAPIKey == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		err := emperror.New("request received without X-API-KEY header")
-		log.Error(err, "error with request header")
+	if eventConfig.LicenseAccept != true {
+		w.WriteHeader(http.StatusInternalServerError)
+		err := emperror.New("license has not been accepted in marketplaceconfig. event handler will not accept events.")
+		log.Error(err, "error with configuration")
 		return
 	}
 
-	if !eventConfig.ApiKeys.HasKey(events.Key(headerAPIKey)) {
+	headerUser := r.Header.Get("x-remote-user")
+	if headerUser == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		err := emperror.New("no X-API-KEY matching secrets in datareporterconfig secretRefs")
-		log.Error(err, "error validating api key")
+		err := emperror.New("request received without x-remote-user header")
+		log.Error(err, "error with request header")
 		return
 	}
 
@@ -88,7 +88,7 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w
 	}
 
 	rawMessage := json.RawMessage(eventKeyBytes)
-	event := events.Event{Key: events.Key(headerAPIKey), RawMessage: rawMessage}
+	event := events.Event{User: headerUser, RawMessage: rawMessage}
 
 	eventEngine.EventChan <- event
 

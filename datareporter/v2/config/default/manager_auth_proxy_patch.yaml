@@ -52,6 +52,7 @@ spec:
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+        - --auth-header-fields-enabled
         volumeMounts:
           - mountPath: /etc/tls/private
             name: ibm-data-reporter-operator-metrics-service-tls

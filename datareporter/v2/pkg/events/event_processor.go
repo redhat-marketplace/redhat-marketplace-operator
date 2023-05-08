@@ -30,7 +30,7 @@ import (
 type EventProcessorSender interface {
 	Start(ctx context.Context) error
 	Process(context.Context, Event) error
-	Send(context.Context, Key) error
+	Send(context.Context, string) error
 }
 
 // Process events on the Event Channel and send when conditions are met
@@ -43,7 +43,7 @@ type ProcessorSender struct {
 
 	EventProcessorSender
 
-	sendReadyChan chan Key
+	sendReadyChan chan string
 
 	eventAccumulator *EventAccumulator
 
@@ -57,10 +57,10 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 	defer ticker.Stop()
 
 	p.EventChan = make(chan Event)
-	p.sendReadyChan = make(chan Key)
+	p.sendReadyChan = make(chan string)
 
 	p.eventAccumulator = &EventAccumulator{}
-	p.eventAccumulator.eventMap = make(map[Key]EventJsons)
+	p.eventAccumulator.eventMap = make(map[string]EventJsons)
 
 	eventReporter, err := NewEventReporter(p.log, p.config)
 	if err != nil {
@@ -139,7 +139,7 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 
 	// If we are at event max, signal to send
 	if len >= p.config.MaxEventEntries {
-		p.sendReadyChan <- event.Key
+		p.sendReadyChan <- event.User
 	}
 
 	// If the map is at maximum size, signal to send
@@ -147,14 +147,14 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 	return nil
 }
 
-func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
+func (p *ProcessorSender) Send(ctx context.Context, user string) error {
 
 	// flush entries for this key
-	eventJsons := p.eventAccumulator.Flush(key)
+	eventJsons := p.eventAccumulator.Flush(user)
 
 	// Build and Send the report to dataService
-	// There is a case where if an ApiKey is removed, the metadata will no longer be available when the Report it sent
-	metadata := p.config.ApiKeys.GetMetadata(key)
+	// There is a case where if an Userkey is removed, the metadata will no longer be available when the Report it sent
+	metadata := p.config.UserConfigs.GetMetadata(user)
 	if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
 		return err
 	}
@@ -173,8 +173,8 @@ func (p *ProcessorSender) SendAll(ctx context.Context) error {
 		eventJsons := eventMap[key]
 
 		// Build and Send the report to dataService
-		// There is a case where if an ApiKey is removed, the metadata will no longer be available when the Report it sent
-		metadata := p.config.ApiKeys.GetMetadata(key)
+		// There is a case where if an Userkey is removed, the metadata will no longer be available when the Report it sent
+		metadata := p.config.UserConfigs.GetMetadata(key)
 		if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
 			return err
 		}

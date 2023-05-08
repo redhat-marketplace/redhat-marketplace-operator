@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,26 +30,22 @@ type Config struct {
 	DataServiceTokenFile string
 	DataServiceCertFile  string
 	Namespace            string
-	ApiKeys              ApiKeys
+	UserConfigs          UserConfigs
 	AccMemoryLimit       resource.Quantity
 	MaxFlushTimeout      metav1.Duration
 	MaxEventEntries      int
+	LicenseAccept        bool
 }
 
-type ApiKey struct {
-	Key      Key // Decoded X-API-KEY
-	Metadata Metadata
+type UserConfigs struct {
+	userConfigs []v1alpha1.UserConfig
+	mu          sync.RWMutex
 }
 
-type ApiKeys struct {
-	apiKeys []ApiKey
-	mu      sync.RWMutex
-}
-
-func (a *ApiKeys) HasKey(key Key) bool {
+func (a *UserConfigs) HasUser(userName string) bool {
 	a.mu.RLock()
-	for _, apiKey := range a.apiKeys {
-		if apiKey.Key == key {
+	for _, userConfig := range a.userConfigs {
+		if userConfig.UserName == userName {
 			return true
 		}
 	}
@@ -56,32 +53,30 @@ func (a *ApiKeys) HasKey(key Key) bool {
 	return false
 }
 
-func (a *ApiKeys) SetApiKeys(apiKeys []ApiKey) {
+func (a *UserConfigs) SetUserConfigs(userConfigs []v1alpha1.UserConfig) {
 	a.mu.Lock()
 
-	if !reflect.DeepEqual(apiKeys, a.apiKeys) {
-		a.apiKeys = apiKeys
+	if !reflect.DeepEqual(userConfigs, a.userConfigs) {
+		a.userConfigs = userConfigs
 	}
 
 	a.mu.Unlock()
 }
 
-func (a *ApiKeys) GetMetadata(key Key) Metadata {
+func (a *UserConfigs) GetMetadata(userName string) Metadata {
 	metadata := make(Metadata)
 	a.mu.RLock()
-	for _, apiKey := range a.apiKeys {
-		if apiKey.Key == key {
-			metadata = apiKey.Metadata
+	for _, userConfig := range a.userConfigs {
+		if userConfig.UserName == userName {
+			metadata = userConfig.Metadata
 		}
 	}
 	a.mu.RUnlock()
 	return metadata
 }
 
-type Key string // the api key the event was sent with
-
 type Event struct {
-	Key
+	User string // x-remote-user the Event was posted by
 	json.RawMessage
 }
 

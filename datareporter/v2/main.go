@@ -22,7 +22,6 @@ import (
 	"os"
 	"runtime/debug"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -135,10 +134,6 @@ func main() {
 
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
-			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{
-					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
 			&v1alpha1.DataReporterConfig{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),

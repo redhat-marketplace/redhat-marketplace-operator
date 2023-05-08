@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,12 +28,12 @@ type DataReporterConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	ApiKeys []ApiKey `json:"apiKeys,omitempty"`
+	UserConfigs []UserConfig `json:"userConfig,omitempty"`
 }
 
-type ApiKey struct {
+type UserConfig struct {
 	// Required.
-	SecretReference *corev1.SecretReference `json:"secretRef,omitempty"`
+	UserName string `json:"userName,omitempty"`
 	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
 }

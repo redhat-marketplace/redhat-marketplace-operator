@@ -21,16 +21,14 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
 	routev1 "github.com/openshift/api/route/v1"
-	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,83 +66,41 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 
 func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
+	// prerequisite marketplaceconfig, otherwise deny events by denying all api keys
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: req.Namespace}, marketplaceConfig); err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Error(err, "marketplaceconfig resource not found. IBM Metrics Operator prerequisite required.")
+		}
+	} else {
+		r.Config.LicenseAccept = ptr.ToBool(marketplaceConfig.Spec.License.Accept)
+		if r.Config.LicenseAccept != true {
+			reqLogger.Info("license has not been accepted in marketplaceconfig. event handler will not accept events.")
+		}
+	}
+
+	// if datareporterconfig is not found, create a default so we can set status
 	dataReporterConfig := &v1alpha1.DataReporterConfig{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dataReporterConfig); err != nil {
 		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("datareporterconfig resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
+			reqLogger.Info("datareporterconfig resource not found, creating.")
+			dataReporterConfig.Name = "datareporterconfig"
+			dataReporterConfig.Namespace = req.Namespace
+			if err := r.Client.Create(ctx, dataReporterConfig); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		reqLogger.Error(err, "Failed to get datareporterconfig")
 		return ctrl.Result{}, err
 	}
 	reqLogger.Info("datareporterconfig found")
 
-	// decoded secret/metadata pairs
-	apiKeys := []events.ApiKey{}
-
-	// prerequisite marketplaceconfig, otherwise deny events by denying all api keys
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: req.Namespace}, marketplaceConfig); err != nil {
-		if k8serrors.IsNotFound(err) {
-			reqLogger.Info("marketplaceconfig resource not found. IBM Metrics Operator prerequisite required.")
-			r.Config.ApiKeys.SetApiKeys(apiKeys)
-			return ctrl.Result{}, nil
-		}
-		reqLogger.Error(err, "Failed to get marketplaceconfig")
-		return ctrl.Result{}, err
-	}
-
-	// must accept license, otherwise deny events by denying all api keys
-	if ptr.ToBool(marketplaceConfig.Spec.License.Accept) != true {
-		r.Config.ApiKeys.SetApiKeys(apiKeys)
-		reqLogger.Info("license must be accepted in marketplaceconfig to receive events.")
-		return ctrl.Result{}, nil
-	}
-
-	for _, apiKey := range dataReporterConfig.Spec.ApiKeys {
-		// only handle namespace local secrets
-		if apiKey.SecretReference.Namespace == dataReporterConfig.GetNamespace() || apiKey.SecretReference.Namespace == "" {
-			secret := &corev1.Secret{}
-			// If we don't find the secret, generate a new secret with an X-API-KEY
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: apiKey.SecretReference.Name, Namespace: dataReporterConfig.GetNamespace()}, secret); k8serrors.IsNotFound(err) {
-				reqLogger.Info("secret referenced in datareporterconfig not found, generating new secret with random X-API-KEY", "secret", apiKey.SecretReference.Name)
-
-				secret = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      apiKey.SecretReference.Name,
-						Namespace: dataReporterConfig.GetNamespace(),
-					},
-					Data: map[string][]byte{
-						"X-API-KEY": []byte(generateKey()),
-					},
-				}
-
-				if err := r.Client.Create(ctx, secret); err != nil {
-					return ctrl.Result{}, err
-				}
-
-			} else if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			// Verify the secret has an X-API-KEY, and append to apiKeys
-			reqLogger.Info("secret found", "secret", secret.Name)
-			keyBytes, ok := secret.Data["X-API-KEY"]
-			key := events.Key(string(keyBytes))
-			if ok {
-				apiKeys = append(apiKeys, events.ApiKey{Key: key, Metadata: apiKey.Metadata})
-			} else {
-				reqLogger.Error(errors.New("no X-API-KEY found in secret"), secret.Name)
-			}
-		}
-	}
-	// Set the X-API-KEY secret and the metadata pairs in the event Config
-	r.Config.ApiKeys.SetApiKeys(apiKeys)
+	// Set the updated UserConfig for the Event Processor
+	r.Config.UserConfigs.SetUserConfigs(dataReporterConfig.Spec.UserConfigs)
 
 	// Enforce the Service configuration for ibm-data-reporter-operator-controller-manager-metrics-service
 	// TODO
@@ -187,7 +143,6 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 }
 
 // SetupWithManager sets up the controller with the Manager.
-// reconcile only datareporterconfig, and when Secrets change in the namespace
 func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	drcPred := predicate.Funcs{
@@ -202,6 +157,21 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return e.Object.GetName() == "datareporterconfig"
+		},
+	}
+
+	mpcPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew.GetName() == utils.MARKETPLACECONFIG_NAME
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == utils.MARKETPLACECONFIG_NAME
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetName() == utils.MARKETPLACECONFIG_NAME
 		},
 	}
 
@@ -220,8 +190,9 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		For(&v1alpha1.DataReporterConfig{},
 			builder.WithPredicates(drcPred)).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(mapFn)).
+			&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(mpcPred)).
 		Watches(
 			&source.Kind{Type: &routev1.Route{}},
 			&handler.EnqueueRequestForOwner{
