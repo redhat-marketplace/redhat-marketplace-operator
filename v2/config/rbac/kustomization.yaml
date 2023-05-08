@@ -1,20 +1,28 @@
-namePrefix: redhat-marketplace-
 resources:
   - role.yaml
   - role_binding.yaml
+  - service_account.yaml
   - leader_election_role.yaml
   - leader_election_role_binding.yaml
-  - meterdefinition_editor_role.yaml
-  - meterdefinition_viewer_role.yaml
   # Comment the following 4 lines if you want to disable
   # the auth proxy (https://github.com/brancz/kube-rbac-proxy)
   # which protects your /metrics endpoint.
-  - auth_proxy_service.yaml
   - auth_proxy_role.yaml
   - auth_proxy_role_binding.yaml
-  - auth_proxy_client_clusterrole.yaml
-  - classic/service_account.yaml
-  - classic/role.yaml
-  - classic/role_binding.yaml
+  - auth_proxy_service.yaml
+  - data-service_cluster_role_binding.yaml
+  - data-service_cluster_role.yaml
+  - data-service_service_account.yaml
+  - metric-state_cluster_role_binding.yaml
+  - metric-state_cluster_role.yaml
+  - metric-state_service_account.yaml
+  - reporter_cluster_role_binding.yaml
+  - reporter_cluster_role.yaml
+  - reporter_role_binding.yaml
+  - reporter_role.yaml
+  - reporter_service_account.yaml
+  - servicemonitor-metrics-reader_service_account.yaml
+  - servicemonitor-metrics-reader_cluster_role.yaml
+  - servicemonitor-metrics-reader_cluster_role_binding.yaml
 configurations:
   - kustomizeconfig.yaml

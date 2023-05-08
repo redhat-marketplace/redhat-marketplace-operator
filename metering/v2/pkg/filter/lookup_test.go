@@ -19,7 +19,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
@@ -28,6 +28,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 )
 
@@ -39,9 +40,11 @@ var _ = Describe("lookup", func() {
 		metadataInterface, _ := metadata.NewForConfig(cfg)
 		metadataClient := client.NewMetadataClient(metadataInterface, restMapper)
 
+		ac := client.NewAccessChecker(&kubernetes.Clientset{}, context.TODO())
+
 		sut = &MeterDefinitionLookupFilter{
 			client:    k8sClient,
-			findOwner: client.NewFindOwnerHelper(context.TODO(), metadataClient),
+			findOwner: client.NewFindOwnerHelper(context.TODO(), metadataClient, ac),
 		}
 		sut.log = logr.Discard()
 	})

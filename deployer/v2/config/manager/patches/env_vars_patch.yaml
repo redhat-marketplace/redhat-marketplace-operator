@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: us.icr.io/armada-master/remoteresources3:0.11.2_958d130
+            - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+              value: us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a

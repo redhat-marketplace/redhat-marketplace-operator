@@ -12,4 +12,4 @@ cat <&0 > ../manager/manager.yaml
 
 ${KUSTOMIZE} build .
 
-popd &> /dev/null
+#popd &> /dev/null

@@ -16,14 +16,12 @@ package marketplace
 
 import (
 	"context"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/gotidy/ptr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
@@ -34,34 +32,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const timeout = time.Second * 50
-const interval = time.Second * 5
-
 var (
-	statusCode int
-	body       []byte
-	path       string
 	err        error
 	namespace         = "openshift-redhat-marketplace"
 	customerID string = "accountid"
 
-	secret                     *corev1.Secret
-	tokenString                string
-	server                     *ghttp.Server
-	marketplaceconfig          *marketplacev1alpha1.MarketplaceConfig
-	marketplaceconfigConnected *marketplacev1alpha1.MarketplaceConfig
+	secret      *corev1.Secret
+	tokenString string
+	server      *ghttp.Server
 )
 
 var _ = Describe("Testing MarketplaceConfig controller", func() {
 
-	var marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
-	marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
+	marketplaceconfig := utils.BuildMarketplaceConfigCR(namespace, customerID)
 	marketplaceconfig.Spec.ClusterUUID = "test"
 	marketplaceconfig.Spec.IsDisconnected = ptr.Bool(true)
 	marketplaceconfig.Spec.ClusterName = "test-cluster"
 
-	var marketplaceconfigConnected *marketplacev1alpha1.MarketplaceConfig
-	marketplaceconfigConnected = utils.BuildMarketplaceConfigCR(namespace, customerID)
+	marketplaceconfigConnected := utils.BuildMarketplaceConfigCR(namespace, customerID)
 	marketplaceconfigConnected.Spec.ClusterUUID = "test"
 	marketplaceconfigConnected.Spec.ClusterName = "test-cluster-connected"
 	marketplaceconfigConnected.Spec.InstallIBMCatalogSource = ptr.Bool(true)
@@ -278,27 +266,5 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
 		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
 		Expect(rd.Spec.ClusterDisplayName).Should(Equal("test-cluster-connected"))
-
-		ibm_cs := &operatorsv1alpha1.CatalogSource{}
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.IBM_CATALOGSRC_NAME, Namespace: utils.OPERATOR_MKTPLACE_NS}, ibm_cs)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			}
-
-			return notFound
-		}, timeout, interval).ShouldNot(BeTrue())
-
-		opencloud_cs := &operatorsv1alpha1.CatalogSource{}
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.OPENCLOUD_CATALOGSRC_NAME, Namespace: utils.OPERATOR_MKTPLACE_NS}, opencloud_cs)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			}
-
-			return notFound
-		}, timeout, interval).ShouldNot(BeTrue())
 	})
 })

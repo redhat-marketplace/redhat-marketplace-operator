@@ -1,4 +1,3 @@
-
 # Prometheus Monitor Service (Metrics)
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -9,8 +8,15 @@ metadata:
   namespace: system
 spec:
   endpoints:
-    - path: /metrics
+    - bearerTokenSecret:
+        key: token
+        name: ibm-metrics-operator-servicemonitor-metrics-reader
+      path: /metrics
       port: https
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
   selector:
     matchLabels:
       control-plane: controller-manager
+      redhat.marketplace.com/name: ibm-metrics-operator

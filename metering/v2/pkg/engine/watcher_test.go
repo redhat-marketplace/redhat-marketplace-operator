@@ -17,9 +17,10 @@ package engine
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/stretchr/testify/mock"
@@ -63,7 +64,7 @@ var _ = Describe("NamespacedCacheLister", func() {
 		By("Starting namedcachelister")
 		Expect(sut.Start(ctx)).To(Succeed())
 		By("Started namedcachelister")
-	}, 10)
+	}, NodeTimeout(time.Duration.Seconds(10)))
 
 	AfterEach(func() {
 		cancel()
@@ -90,7 +91,7 @@ var _ = Describe("NamespacedCacheLister", func() {
 		}, 5).Should(Equal(8))
 
 		mock.AssertExpectationsForObjects(GinkgoT(), listWatcher1, listWatcher2)
-	}, 30)
+	}, NodeTimeout(time.Duration.Seconds(30)))
 
 	It("should add and remove watchers by namespace (2)", func() {
 		argType := "*context.cancelCtx"
@@ -116,7 +117,7 @@ var _ = Describe("NamespacedCacheLister", func() {
 
 		Expect(listWatcher2.Calls).Should(HaveLen(0))
 		mock.AssertExpectationsForObjects(GinkgoT(), listWatcher1, listWatcher2)
-	}, 30)
+	}, NodeTimeout(time.Duration.Seconds(30)))
 
 })
 

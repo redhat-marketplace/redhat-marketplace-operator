@@ -20,7 +20,6 @@ package reporter
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
@@ -41,7 +40,7 @@ func NewTask(
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideSimpleClientSet,
 		wire.Struct(new(Task), "*"),
-		wire.InterfaceValue(new(logr.Logger), logger),
+		wire.Value(logger),
 		ProvideUploaders,
 		ProvideUploader,
 		provideScheme,
@@ -70,7 +69,7 @@ func NewReporter(
 		providePrometheusSetup,
 		prometheus.NewPrometheusAPIForReporter,
 		reconcileutils.CommandRunnerProviderSet,
-		wire.InterfaceValue(new(logr.Logger), logger),
+		wire.Value(logger),
 		getMarketplaceReport,
 		getPrometheusService,
 		getPrometheusPort,
@@ -98,7 +97,7 @@ func NewUploadTask(
 		dataservice.NewDataService,
 		provideDataServiceConfig,
 		wire.Struct(new(UploadTask), "*"),
-		wire.InterfaceValue(new(logr.Logger), logger),
+		wire.Value(logger),
 		wire.Bind(new(UploadRun), new(*UploadTask)),
 		reconcileutils.CommandRunnerProviderSet,
 	))
@@ -119,6 +118,6 @@ func NewReconcileTask(
 		provideScheme,
 		provideReporterEventRecorder,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
-		wire.InterfaceValue(new(logr.Logger), logger),
+		wire.Value(logger),
 	))
 }

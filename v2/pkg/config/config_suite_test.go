@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -33,16 +33,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Config Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Config Suite")
 }
 
 var cfg *rest.Config
@@ -99,7 +96,7 @@ var _ = BeforeSuite(func() {
 	go func() {
 		k8scache.Start(ctx)
 	}()
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	cancel()

@@ -121,10 +121,15 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 		if err != nil && k8serrors.IsNotFound(err) {
 			return false, nil
 		}
-		if err != nil {
+		if err != nil && !errors.Is(err, rhmclient.AccessDeniedErr) {
 			filterLogger.Error(err, "filter failed", "key", key, "filters", workloadFilters, "i", i)
 			return false, err
 		}
+
+		if errors.Is(err, rhmclient.AccessDeniedErr) {
+			return false, err
+		}
+
 		if ans {
 			return ans, nil
 		}

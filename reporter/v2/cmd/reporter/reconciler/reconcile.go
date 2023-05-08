@@ -130,13 +130,13 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
 	ReconcileCmd.Flags().StringVar(&dataServiceCertFile, "dataServiceCertFile", "", "cert file for the data service")
 
-	ReconcileCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-marketplace"}, "comma seperated list of targets to upload to")
+	ReconcileCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-marketplace"}, "comma separated list of targets to upload to")
 	ReconcileCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReconcileCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReconcileCmd.Flags().StringVar(&isDisconnected, "isDisconnected", os.Getenv("IS_DISCONNECTED"), "is the reporter running in a disconnected environment")
 	ReconcileCmd.Flags().IntVar(&retry, "retry", 24, "number of retries")
-	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
+	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", os.Getenv("POD_NAMESPACE"), "namespace where the rhm operator is deployed")
 
 	ReconcileCmd.Flags().StringVar(&prometheusService, "prometheus-service", "rhm-prometheus-meterbase", "token file for the data service")
 	ReconcileCmd.Flags().StringVar(&prometheusNamespace, "prometheus-namespace", "openshift-redhat-marketplace", "cert file for the data service")

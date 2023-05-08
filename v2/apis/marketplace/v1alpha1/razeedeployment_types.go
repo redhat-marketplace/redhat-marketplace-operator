@@ -105,6 +105,12 @@ type RazeeDeploymentSpec struct {
 	// +optional
 	LegacyUninstallHasRun *bool `json:"legacyUninstallHasRun,omitempty"`
 
+	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
+
 	// The features that can be enabled or disabled
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Features"
@@ -232,4 +238,118 @@ const (
 	ReasonRhmRemoteResourceS3DeploymentInstalled status.ConditionReason = "FinishedRemoteResourceS3DeploymentInstall"
 	ReasonRhmRemoteResourceS3DeploymentEnabled   status.ConditionReason = "EnabledRemoteResourceS3DeploymentInstall"
 	ReasonRhmRegistrationWatchkeeperEnabled      status.ConditionReason = "EnabledRegistrationWatchkeeperInstall"
+)
+
+var (
+	ConditionWatchKeeperNonNamespacedInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperNonNamespacedInstalled,
+		Message: "watch-keeper-non-namespaced install finished",
+	}
+
+	ConditionWatchKeeperLimitPollInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperLimitPollInstalled,
+		Message: "watch-keeper-limit-poll install finished",
+	}
+
+	ConditionRazeeClusterMetaDataInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeClusterMetaDataInstalled,
+		Message: "Razee cluster meta data install finished",
+	}
+
+	ConditionWatchKeeperConfigInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperConfigInstalled,
+		Message: "watch-keeper-config install finished",
+	}
+
+	ConditionWatchKeeperSecretInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonWatchKeeperSecretInstalled,
+		Message: "watch-keeper-secret install finished",
+	}
+
+	ConditionCosReaderKeyInstalled = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonCosReaderKeyInstalled,
+		Message: "Cos-reader-key install finished",
+	}
+
+	ConditionRazeeInstallFinished = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "Razee install complete",
+	}
+
+	ConditionRazeeInstallComplete = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "Razee install complete",
+	}
+
+	ConditionRazeeNotEnabled = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "Razee not enabled",
+	}
+
+	ConditionRazeeNameMismatch = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeInstallFinished,
+		Message: "RazeeDeploy Resource name does not match expected",
+	}
+
+	ConditionRazeeStartInstall = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRazeeStartInstall,
+		Message: "Razee Install starting",
+	}
+
+	ConditionResourceS3DeploymentDisabled = status.Condition{
+		Type:    ConditionDeploymentEnabled,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonRhmRemoteResourceS3DeploymentEnabled,
+		Message: "Deployment feature is disabled. RemoteResourceS3 deployment disabled. Operator deployment will be unavailable on marketplace.redhat.com",
+	}
+
+	ConditionRhmRegistrationWatchkeeperDisabled = status.Condition{
+		Type:    ConditionRegistrationEnabled,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonRhmRegistrationWatchkeeperEnabled,
+		Message: "Registration feature is disabled. WatchKeeper disabled. Registration status will be unavailable on marketplace.redhat.com",
+	}
+
+	ConditionRhmRemoteResourceS3DeploymentEnabled = status.Condition{
+		Type:    ConditionDeploymentEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRhmRemoteResourceS3DeploymentEnabled,
+		Message: "RemoteResourceS3 deployment enabled",
+	}
+
+	ConditionRhmRegistrationWatchkeeperEnabled = status.Condition{
+		Type:    ConditionRegistrationEnabled,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonRhmRegistrationWatchkeeperEnabled,
+		Message: "Registration deployment enabled",
+	}
+
+	ConditionParentRRS3Installed = status.Condition{
+		Type:    ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonParentRRS3Installed,
+		Message: "ParentRRS3 install finished",
+	}
 )

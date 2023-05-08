@@ -1,5 +1,5 @@
-PROJECTS = operator authchecker metering reporter airgap
-PROJECT_FOLDERS = . authchecker metering reporter airgap
+PROJECTS = operator authchecker metering reporter airgap deployer
+PROJECT_FOLDERS = . authchecker metering reporter airgap deployer
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -15,15 +15,6 @@ include utils.Makefile
 
 .PHONY: all
 all: svu fmt vet generate build
-
-skaffold-dev:
-	make operator/skaffold-dev
-
-skaffold-run:
-	make operator/skaffold-run
-
-skaffold-build: vet fmt
-	make operator/skaffold-build
 
 .PHONY: build
 build:
@@ -55,7 +46,7 @@ download-all:
 
 .PHONY: test
 test:
-	$(MAKE) $(addsuffix /test,$(PROJECTS) tests)
+	$(MAKE) $(addsuffix /test,$(PROJECTS))
 
 generate:
 	$(MAKE) $(addsuffix /generate,$(PROJECTS))
@@ -104,6 +95,7 @@ wicked:
 	@cd ./metering/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-metering -s ./vendor -o ../../.wicked-report
 	@cd ./authchecker/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-authchecker -s ./vendor -o ../../.wicked-report
 	@cd ./airgap/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-airgap -s ./vendor -o ../../.wicked-report
+	@cd ./deployer/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-deployer -s ./vendor -o ../../.wicked-report
 
 # -- Release
 
@@ -133,6 +125,9 @@ authchecker/%:
 
 airgap/%:
 	@cd ./airgap/v2 && $(MAKE) $(@F)
+
+deployer/%:
+	@cd ./deployer/v2 && $(MAKE) $(@F)
 
 tests/%:
 	@cd ./tests/v2 && $(MAKE) $(@F)

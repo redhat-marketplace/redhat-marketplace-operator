@@ -1,0 +1,239 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - catalogsources
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resourceNames:
+  - ibm-operator-catalog
+  - opencloud-operators
+  resources:
+  - catalogsources
+  verbs:
+  - delete
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: manager-role
+  namespace: system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - razee-cluster-metadata
+  - watch-keeper-config
+  - watch-keeper-limit-poll
+  - watch-keeper-non-namespaced
+  resources:
+  - configmaps
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - clustersubscription
+  - rhm-cos-reader-key
+  - rhm-operator-secret
+  - watch-keeper-secret
+  resources:
+  - secrets
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - rhm-remoteresources3-controller
+  - rhm-watch-keeper
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  - razeedeployments/finalizers
+  - razeedeployments/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - child
+  - parent
+  resources:
+  - remoteresources3s
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  - remoteresources3s/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch

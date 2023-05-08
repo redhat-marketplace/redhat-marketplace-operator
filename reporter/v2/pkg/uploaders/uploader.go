@@ -65,8 +65,9 @@ func (u *MarketplaceUploader) Name() string {
 
 func MustParseUploaderTarget(s string) UploaderTarget {
 	switch s {
-	case UploaderTargetRedHatInsights.Name():
-		return UploaderTargetRedHatInsights
+	//  Disable redhat-insights uploader option. Motivation: requires cluster secret read.
+	//	case UploaderTargetRedHatInsights.Name():
+	//		return UploaderTargetRedHatInsights
 	case UploaderTargetLocalPath.Name():
 		return UploaderTargetLocalPath
 	case UploaderTargetNoOp.Name():

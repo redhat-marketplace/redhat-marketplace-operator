@@ -79,27 +79,35 @@ spec:
           requests:
             cpu: 10m
             memory: 20Mi
-        securityContext: {}
+        securityContext: 
+          runAsNonRoot: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
           - mountPath: /etc/tls/private
             name: rhm-meterdefinition-file-server-tls
             readOnly: false  
           - mountPath: /etc/configmaps/serving-certs-ca-bundle
-            name: serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
             readOnly: false        
       volumes:
         - name: rhm-meterdefinition-file-server-tls
           secret:
             secretName: rhm-meterdefinition-file-server-tls
         - configMap:
-            name: serving-certs-ca-bundle
-          name: serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle
       serviceAccountName: redhat-marketplace-operator
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true 
       terminationGracePeriodSeconds: 30
   test: false
   triggers:

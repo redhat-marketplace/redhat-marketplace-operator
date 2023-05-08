@@ -499,7 +499,7 @@ branch_build: _#bashWorkflow & {
 				GO_VERSION: _#goVersion
 			}
 			strategy: matrix: {
-				project: ["operator", "authchecker", "metering", "reporter", "airgap"]
+				project: ["operator", "authchecker", "metering", "reporter", "airgap", "deployer"]
 				include: [
 					{
 						project: "operator"
@@ -515,6 +515,9 @@ branch_build: _#bashWorkflow & {
 					},
 					{
 						project: "airgap"
+					},
+					{
+						project: "deployer"
 					},
 				]
 			}
@@ -601,6 +604,34 @@ branch_build: _#bashWorkflow & {
 					}
 				},
 				_#step & {
+					id:   "deployer-bundle"
+					name: "Build deployer bundle"
+					env: "IMAGE_TAG": "${{ steps.version.outputs.tag }}"
+					run: """
+						REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
+						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
+
+						cd deployer/v2
+						export TAG=$IMAGE_TAG
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
+
+						export VERSION=$IMAGE_TAG
+						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
+
+						echo "::set-output name=isDev::$IS_DEV"
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
+						"""
+				},
+				_#step & {
+					uses: "actions/upload-artifact@v2"
+					with: {
+						name: "release-deployer-bundle-${{ steps.bundle.outputs.tag }}"
+						path: "deployer/v2/bundle"
+					}
+				},				
+				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
 					with: {
 						header:   "devindex"
@@ -612,10 +643,21 @@ branch_build: _#bashWorkflow & {
               apiVersion: operators.coreos.com/v1alpha1
               kind: CatalogSource
               metadata:
-                name: rhm-test
+                name: ibm-metrics-operator-test
                 namespace: openshift-marketplace
               spec:
-                displayName: RHM Test
+                displayName: IBM Metrics Operator Test
+                image: quay.io/rh-marketplace/ibm-metrics-operator-dev-index:${{ env.TAG }}
+                publisher: ''
+                sourceType: grpc
+              ---
+              apiVersion: operators.coreos.com/v1alpha1
+              kind: CatalogSource
+              metadata:
+                name: rhm-operator-test
+                namespace: openshift-marketplace
+              spec:
+                displayName: RHM Operator Test
                 image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
                 publisher: ''
                 sourceType: grpc

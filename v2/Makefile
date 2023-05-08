@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.8-v4.10
+OPENSHIFT_VERSIONS ?= v4.9-v4.12
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -20,7 +20,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = redhat-marketplace-operator
+OPERATOR_IMAGE_NAME = ibm-metrics-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
@@ -40,10 +40,10 @@ DQLITE_IMAGE_NAME ?= redhat-marketplace-data-service
 DQLITE_IMAGE_TAG ?= $(TAG)
 DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
 
-BUNDLE_NAME ?= redhat-marketplace-operator-manifest
+BUNDLE_NAME ?= ibm-metrics-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
+DEV_INDEX_NAME ?= ibm-metrics-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
@@ -77,11 +77,11 @@ clean:
 # Run tests
 .PHONY: test
 test: fmt vet ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --v ./pkg ./cmd ./internal ./apis ./controllers
+	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal ./apis ./controllers
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
-	$(GINKGO) -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --v ./pkg ./cmd ./internal ./apis ./controllers
+	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal ./apis ./controllers
 	cat cover-unit.out | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 KUTTL_INT_TESTS ?= "(^register-test$$|^features-test$$)"
@@ -162,7 +162,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),Operator,./v2/,./,redhat-marketplace-operator,..)
+	$(call docker-templated-build,$(IMAGE),"IBM Metrics Operator",./v2/,./,redhat-marketplace-operator,..)
 
 # Push the docker image
 docker-push:
@@ -173,8 +173,8 @@ docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 	docker manifest push $(IMAGE)
 
-CSV_YAML_CONFIG_FILE=config/manifests/bases/redhat-marketplace-operator.clusterserviceversion.yaml
-CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+CSV_YAML_CONFIG_FILE=config/manifests/bases/ibm-metrics-operator.clusterserviceversion.yaml
+CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-metrics-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
@@ -182,16 +182,16 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	export NAMESPACE=$(namespace) && $(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--set dqLiteImage=$(DQLITE_IMAGE) \
-	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	--post-renderer ./config/manifests/kustomize | \
+	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
+	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
@@ -207,7 +207,7 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 .PHONY: bundle-build
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.6" \
+	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
   --label com.redhat.delivery.operator.bundle=true \
 	--push \
 	.
@@ -256,10 +256,10 @@ bundle-dev-index: opm
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
-	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
+	- kubectl delete catalogsources.operators.coreos.com ibm-metrics-operator-catalog
 	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete subscription -l operators.coreos.com/ibm-metrics-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/ibm-metrics-operator.openshift-redhat-marketplace
 
 skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses
@@ -268,7 +268,7 @@ skaffold-build: skaffold
 INSTALL_DEBUG ?= false
 
 compile-helm: helm
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -279,7 +279,7 @@ compile-helm: helm
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize compile-helm yq
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -290,7 +290,7 @@ install: kustomize compile-helm yq
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
-	cd config && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-operator ./helm-wrapper \
+	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
@@ -333,4 +333,4 @@ bundle-pin-images:
 # Run certification test
 .PHONY: test-certify
 test-certify: bundle bundle-pin-images
-	cd hack/certify && ./certify.sh
+	./../hack/certify/certify.sh ibm-metrics-operator

@@ -116,7 +116,6 @@ jobs:
         - authchecker
         - metering
         - reporter
-        - tests
   images:
     name: Build Images
     runs-on: ubuntu-20.04
@@ -234,12 +233,14 @@ jobs:
         - metering
         - reporter
         - airgap
+        - deployer
         include:
         - project: operator
         - project: authchecker
         - project: metering
         - project: reporter
         - project: airgap
+        - project: deployer
   deploy:
     name: Deploy
     needs:
@@ -385,6 +386,32 @@ jobs:
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
+    - id: deployer-bundle
+      name: Build deployer bundle
+      run: |-
+        REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
+        echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
+        cd deployer/v2
+        export TAG=$IMAGE_TAG
+        echo "::group::Make Stable Bundle"
+        make bundle-stable
+        echo "::endgroup::"
+        export VERSION=$IMAGE_TAG
+        echo "::group::Make Bundle Build"
+        make bundle-build
+        echo "::endgroup::"
+        echo "::group::Make Dev Index"
+        make bundle-dev-index-multiarch
+        echo "::endgroup::"
+        echo "::set-output name=isDev::$IS_DEV"
+        echo "::set-output name=version::$VERSION"
+        echo "::set-output name=tag::$TAG"
+      env:
+        IMAGE_TAG: ${{ steps.version.outputs.tag }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: release-deployer-bundle-${{ steps.bundle.outputs.tag }}
+        path: deployer/v2/bundle
     - uses: marocchino/sticky-pull-request-comment@v2
       with:
         header: devindex
@@ -396,10 +423,21 @@ jobs:
           apiVersion: operators.coreos.com/v1alpha1
           kind: CatalogSource
           metadata:
-            name: rhm-test
+            name: ibm-metrics-operator-test
             namespace: openshift-marketplace
           spec:
-            displayName: RHM Test
+            displayName: IBM Metrics Operator Test
+            image: quay.io/rh-marketplace/ibm-metrics-operator-dev-index:${{ env.TAG }}
+            publisher: ''
+            sourceType: grpc
+          ---
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: CatalogSource
+          metadata:
+            name: rhm-operator-test
+            namespace: openshift-marketplace
+          spec:
+            displayName: RHM Operator Test
             image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
             publisher: ''
             sourceType: grpc

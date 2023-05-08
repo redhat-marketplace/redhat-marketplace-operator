@@ -33,7 +33,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -72,13 +71,13 @@ type SecretInfo struct {
 }
 
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets;secrets/finalizers,resourceNames=redhat-marketplace-pull-secret;ibm-entitlement-key;rhm-operator-secret,verbs=update;patch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=ibm-metrics-operator-controller-manager
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=ibm-metrics-operator-controller-manager
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
 // and what is in the ClusterRegistration.Spec
@@ -97,18 +96,34 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 	reqLogger.Info("found secret", "secret", si.Name)
 
-	annotations := si.Secret.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
 	jwtToken, err := secretFetcher.ParseAndValidate(si)
 	if err != nil {
-		reqLogger.Error(err, "error validating secret")
+		reqLogger.Error(err, "error validating secret", "secret", si.Name)
 		if errors.Is(err, utils.TokenFieldMissingOrEmpty) {
-			return r.updateSecretWithMessage(si, annotations, reqLogger)
-		}
+			reqLogger.Info("Missing token field in secret", "secret", si.Name)
 
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				si, err := secretFetcher.ReturnSecret()
+				if err != nil {
+					return err
+				}
+
+				annotations := si.Secret.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations[si.StatusKey] = "error"
+				annotations[si.MessageKey] = si.MissingMsg
+
+				si.Secret.SetAnnotations(annotations)
+
+				reqLogger.Info("Updating secret annotations with status on failure", "secret", si.Name)
+				return r.Client.Update(context.TODO(), si.Secret)
+			}); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, err
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -121,13 +136,27 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	tokenClaims, err := marketplace.GetJWTTokenClaim(jwtToken)
 	if err != nil {
 		reqLogger.Error(err, "Token is missing account id")
-		annotations[si.StatusKey] = "error"
-		annotations[si.MessageKey] = "Account id is not available in provided token, please generate token from RH Marketplace again"
-		si.Secret.SetAnnotations(annotations)
-		if err := r.Client.Update(context.TODO(), si.Secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			si, err := secretFetcher.ReturnSecret()
+			if err != nil {
+				return err
+			}
+
+			annotations := si.Secret.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[si.StatusKey] = "error"
+			annotations[si.MessageKey] = "Account id is not available in provided token, please generate token from RH Marketplace again"
+
+			si.Secret.SetAnnotations(annotations)
+
+			reqLogger.Info("Updating secret annotations with status on failure", "secret", si.Name)
+			return r.Client.Update(context.TODO(), si.Secret)
+		}); err != nil {
+			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Secret updated with account id missing error")
 		return reconcile.Result{}, err
 	}
 
@@ -184,7 +213,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		// Set the controller deployment as the controller-ref, since it owns the finalizer
 		dep := &appsv1.Deployment{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+			Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
 			Namespace: r.cfg.DeployedNamespace,
 		}, dep)
 		if err != nil {
@@ -224,14 +253,31 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		newOptSecretObj, err := mclient.GetMarketplaceSecret()
 		if err != nil {
 			reqLogger.Error(err, "failed to get operator secret from marketplace")
-			annotations[si.StatusKey] = "error"
-			annotations[si.MessageKey] = err.Error()
-			si.Secret.SetAnnotations(annotations)
-			if err := r.Client.Update(context.TODO(), si.Secret); err != nil {
-				reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				si, err := secretFetcher.ReturnSecret()
+				if err != nil {
+					return err
+				}
+
+				annotations := si.Secret.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations[si.StatusKey] = "error"
+				annotations[si.MessageKey] = err.Error()
+
+				si.Secret.SetAnnotations(annotations)
+
+				reqLogger.Info("Updating secret annotations with status on failure", "secret", si.Name)
+				return r.Client.Update(context.TODO(), si.Secret)
+			}); err != nil {
+				return reconcile.Result{}, err
 			}
 			return reconcile.Result{}, err
 		}
+
+		// Secret comes back with namespace "redhat-marketplace-operator", set to request namespace
+		newOptSecretObj.Namespace = request.Namespace
 
 		//Fetch the Secret with name rhm-operator-secret
 		secretKeyname := types.NamespacedName{
@@ -339,6 +385,11 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 				if err != nil {
 					return err
 				}
+				annotations := si.Secret.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+
 				//Update secret with status
 				if annotations[si.SecretKey] != "success" {
 					reqLogger.Info("Updating secret with success status")
@@ -367,35 +418,6 @@ func (r *ClusterRegistrationReconciler) Inject(injector mktypes.Injectable) mkty
 
 func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
-	return nil
-}
-
-func (r *ClusterRegistrationReconciler) updateSecretWithMessage(si *utils.SecretInfo, annotations map[string]string, reqLogger logr.Logger) (reconcile.Result, error) {
-	reqLogger.Info("Missing token field in secret")
-	annotations[si.StatusKey] = "error"
-	annotations[si.MessageKey] = si.MissingMsg
-	si.Secret.SetAnnotations(annotations)
-	err := r.Client.Update(context.TODO(), si.Secret)
-	if err != nil {
-		reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-	}
-	reqLogger.Info("Secret updated with status on failiure")
-	return reconcile.Result{}, err
-}
-
-func (r *ClusterRegistrationReconciler) setControllerReference(controlled metav1.Object) error {
-	// Set the controller deployment as the controller-ref, since it owns the finalizer
-	dep := &appsv1.Deployment{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
-		Namespace: r.cfg.DeployedNamespace,
-	}, dep)
-	if err != nil {
-		return err
-	}
-	if err = controllerutil.SetControllerReference(dep, controlled, r.Scheme); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -507,7 +529,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 					marketplaceConfigOld, oldOk := e.ObjectOld.(*marketplacev1alpha1.MarketplaceConfig)
 
 					if newOk && oldOk {
-						if ptr.ToBool(marketplaceConfigNew.Spec.IsDisconnected) == false && ptr.ToBool(marketplaceConfigOld.Spec.IsDisconnected) == true {
+						if !ptr.ToBool(marketplaceConfigNew.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfigOld.Spec.IsDisconnected) {
 							return true
 						}
 

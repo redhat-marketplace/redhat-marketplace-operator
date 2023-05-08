@@ -371,7 +371,7 @@ test-ci: test-ci test-ci-unit test-join
 
 .PHONY: test-ci-unit
 test-ci-unit: ## test-ci-unit runs all tests for CI builds
-	ginkgo -r -coverprofile=cover-unit.out --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --v ./pkg ./cmd ./internal
+	ginkgo -r -coverprofile=cover-unit.out --randomize-suites --randomize-all --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal
 	cat cover-unit.out | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
@@ -567,8 +567,9 @@ testbin/kubectl:
 testbin/kube-apiserver:
 	make install-envtest
 
-K8S_VERSION = v1.18.2
-ETCD_VERSION = v3.4.3
+# Openshift 4.11
+K8S_VERSION = v1.24.0
+ETCD_VERSION = v3.5.5
 install-envtest: testbin
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver

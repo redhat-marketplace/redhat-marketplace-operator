@@ -1,0 +1,22 @@
+resources:
+  - auth_proxy_role_binding.yaml
+  - auth_proxy_role.yaml
+  - auth_proxy_service.yaml
+  - leader_election_role_binding.yaml
+  - leader_election_role.yaml
+  - remoteresources3deployment_cluster_role_binding.yaml
+  - remoteresources3deployment_cluster_role.yaml
+  - remoteresources3deployment_role_binding.yaml
+  - remoteresources3deployment_role.yaml
+  - remoteresources3deployment_service_account.yaml
+  - role_binding.yaml
+  - role.yaml
+  - service_account.yaml
+  - servicemonitor-metrics-reader_cluster_role_binding.yaml
+  - servicemonitor-metrics-reader_cluster_role.yaml
+  - servicemonitor-metrics-reader_service_account.yaml
+  - watch-keeper_cluster_role_binding.yaml
+  - watch-keeper_cluster_role.yaml
+  - watch-keeper_service_account.yaml
+configurations:
+  - kustomizeconfig.yaml

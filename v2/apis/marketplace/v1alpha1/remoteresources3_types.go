@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//Auth allows you authenticate to remote storage locations using either HMAC or IAM authentication schemes.
+// Auth allows you authenticate to remote storage locations using either HMAC or IAM authentication schemes.
 type Auth struct {
 	// Hmac is the credentials to access the storage location.
 	// +optional
@@ -30,7 +30,7 @@ type Auth struct {
 	Iam *Iam `json:"iam,omitempty"`
 }
 
-//Hmac allows you to connect to s3 buckets using an HMAC key/id pair.
+// Hmac allows you to connect to s3 buckets using an HMAC key/id pair.
 type Hmac struct {
 	// AccessKeyID is a unique identifier for an AWS account and is used by AWS to look up your Secret Access Key
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -50,7 +50,7 @@ type Hmac struct {
 	SecretAccessKeyRef SecretAccessKeyRef `json:"secretAccessKeyRef,omitempty"`
 }
 
-//Iam Allows you to connect to s3 buckets using an IAM provider and api key.
+// Iam Allows you to connect to s3 buckets using an IAM provider and api key.
 type Iam struct {
 	// ResponseType specifies which grant type your application is requesting. ResponseType for IAM will usually be "cloud_iam"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -87,7 +87,7 @@ type AccesKeyIDRef struct {
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
 }
 
-//APIKeyRef holds the location of the api key used to authenticate to a cloud object storage instance
+// APIKeyRef holds the location of the api key used to authenticate to a cloud object storage instance
 type APIKeyRef struct {
 	// ValueFrom is the pointer to the secret key ref
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -95,7 +95,7 @@ type APIKeyRef struct {
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
 }
 
-//ValueFrom holds source for the environment variable's value. Cannot be used if value is not empty.
+// ValueFrom holds source for the environment variable's value. Cannot be used if value is not empty.
 type ValueFrom struct {
 	// SecretKeyRef is the pointer to the secret key ref
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -123,7 +123,7 @@ type Request struct {
 	Message string `json:"message,omitempty"`
 }
 
-//Options holds the options object which will be passed as-is to the http request. Allows you to specify things like headers for authentication.
+// Options holds the options object which will be passed as-is to the http request. Allows you to specify things like headers for authentication.
 type S3Options struct {
 	// URL of the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -220,3 +220,18 @@ type RemoteResourceS3List struct {
 func init() {
 	SchemeBuilder.Register(&RemoteResourceS3{}, &RemoteResourceS3List{})
 }
+
+var (
+	ConditionFailedRequest = status.Condition{
+		Type:   ResourceInstallError,
+		Status: corev1.ConditionTrue,
+		Reason: FailedRequest,
+	}
+
+	ConditionNoBadRequest = status.Condition{
+		Type:    ResourceInstallError,
+		Status:  corev1.ConditionFalse,
+		Message: "No error found",
+		Reason:  NoBadRequest,
+	}
+)

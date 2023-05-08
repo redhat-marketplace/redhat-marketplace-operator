@@ -10,13 +10,17 @@ metadata:
 spec:
   selector:
     matchLabels:
-      redhat.marketplace.com/name: redhat-marketplace-operator
+      redhat.marketplace.com/name: ibm-metrics-operator
   replicas: 1
   template:
     metadata:
       labels:
         control-plane: controller-manager
-        redhat.marketplace.com/name: redhat-marketplace-operator
+        redhat.marketplace.com/name: ibm-metrics-operator
+        app.kubernetes.io/name: controller-manager
+        app.kubernetes.io/instance: controller-manager
+        app.kubernetes.io/part-of: ibm-metrics-operator
+        app.kubernetes.io/managed-by: operator
       annotations:
         productName: "Red Hat Marketplace Operator"
         productID: "36cdaba810c348c096b85800dd62bcf1"
@@ -35,7 +39,9 @@ spec:
                   values:
                     - amd64
                     - ppc64le
-                    - s390x    
+                    - s390x
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - name: manager
           args:
@@ -110,6 +116,6 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true   
+            runAsNonRoot: true
       terminationGracePeriodSeconds: 10
-      serviceAccountName: operator
+      serviceAccountName: ibm-metrics-operator-controller-manager

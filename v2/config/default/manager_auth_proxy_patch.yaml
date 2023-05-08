@@ -8,6 +8,21 @@ metadata:
 spec:
   template:
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - amd64
+                    - ppc64le
+                    - s390x
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                    - linux
       containers:
       - name: manager
         args:
@@ -15,14 +30,25 @@ spec:
         - "--metrics-addr=127.0.0.1:8080"
         - "--enable-leader-election"
       - name: kube-rbac-proxy
-        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.9
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.11
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
         - "--logtostderr=true"
         - "--v=10"
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: ibm-metrics-operator-controller-manager-metrics-service-tls
+            readOnly: false
+          - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+            readOnly: false
         ports:
         - containerPort: 8443
+          protocol: TCP
           name: https
         securityContext:
           allowPrivilegeEscalation: false
@@ -39,3 +65,10 @@ spec:
           requests:
             cpu: 10m
             memory: 20Mi
+      volumes:
+        - name: ibm-metrics-operator-controller-manager-metrics-service-tls
+          secret:
+            secretName: ibm-metrics-operator-controller-manager-metrics-service-tls
+        - configMap:
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle

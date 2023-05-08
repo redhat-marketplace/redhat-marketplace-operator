@@ -21,8 +21,14 @@ spec:
         app: rhm-watch-keeper
         owned-by: marketplace.redhat.com-razee
         razee/watch-resource: lite
+        app.kubernetes.io/name: rhm-watch-keeper
+        app.kubernetes.io/instance: rhm-watch-keeper
+        app.kubernetes.io/part-of: redhat-marketplace-operator
+        app.kubernetes.io/managed-by: operator
       name: rhm-watch-keeper
     spec:
+      securityContext: 
+        runAsNonRoot: true    
       containers:
         - env:
             - name: POD_NAMESPACE
@@ -59,6 +65,14 @@ spec:
             limits:
               cpu: 15m
               memory: 20Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true                 
           terminationMessagePolicy: FallbackToLogsOnError
         - env:
             - name: NAMESPACE
@@ -86,6 +100,14 @@ spec:
             requests:
               cpu: 50m
               memory: 100Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /home/node/envs/watch-keeper-config

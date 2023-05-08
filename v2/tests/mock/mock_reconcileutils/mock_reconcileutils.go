@@ -6,35 +6,36 @@ package mock_reconcileutils
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	reconcileutils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	reflect "reflect"
 )
 
-// MockClientCommandRunner is a mock of ClientCommandRunner interface
+// MockClientCommandRunner is a mock of ClientCommandRunner interface.
 type MockClientCommandRunner struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientCommandRunnerMockRecorder
 }
 
-// MockClientCommandRunnerMockRecorder is the mock recorder for MockClientCommandRunner
+// MockClientCommandRunnerMockRecorder is the mock recorder for MockClientCommandRunner.
 type MockClientCommandRunnerMockRecorder struct {
 	mock *MockClientCommandRunner
 }
 
-// NewMockClientCommandRunner creates a new mock instance
+// NewMockClientCommandRunner creates a new mock instance.
 func NewMockClientCommandRunner(ctrl *gomock.Controller) *MockClientCommandRunner {
 	mock := &MockClientCommandRunner{ctrl: ctrl}
 	mock.recorder = &MockClientCommandRunnerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClientCommandRunner) EXPECT() *MockClientCommandRunnerMockRecorder {
 	return m.recorder
 }
 
-// Do mocks base method
+// Do mocks base method.
 func (m *MockClientCommandRunner) Do(arg0 context.Context, arg1 ...reconcileutils.ClientAction) (*reconcileutils.ExecResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
@@ -47,14 +48,14 @@ func (m *MockClientCommandRunner) Do(arg0 context.Context, arg1 ...reconcileutil
 	return ret0, ret1
 }
 
-// Do indicates an expected call of Do
+// Do indicates an expected call of Do.
 func (mr *MockClientCommandRunnerMockRecorder) Do(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Do", reflect.TypeOf((*MockClientCommandRunner)(nil).Do), varargs...)
 }
 
-// Exec mocks base method
+// Exec mocks base method.
 func (m *MockClientCommandRunner) Exec(arg0 context.Context, arg1 reconcileutils.ClientAction) (*reconcileutils.ExecResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exec", arg0, arg1)
@@ -63,7 +64,7 @@ func (m *MockClientCommandRunner) Exec(arg0 context.Context, arg1 reconcileutils
 	return ret0, ret1
 }
 
-// Exec indicates an expected call of Exec
+// Exec indicates an expected call of Exec.
 func (mr *MockClientCommandRunnerMockRecorder) Exec(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockClientCommandRunner)(nil).Exec), arg0, arg1)

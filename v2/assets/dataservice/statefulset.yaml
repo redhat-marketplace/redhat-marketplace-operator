@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: rhm-data-service
+        app.kubernetes.io/name: rhm-data-service
+        app.kubernetes.io/instance: rhm-data-service
+        app.kubernetes.io/part-of: ibm-metrics-operator
+        app.kubernetes.io/managed-by: operator
     spec:
       affinity:
         podAntiAffinity:
@@ -28,6 +32,8 @@ spec:
                 topologyKey: kubernetes.io/hostname
               weight: 100
       terminationGracePeriodSeconds: 45
+      securityContext: 
+        runAsNonRoot: true
       containers:
         - command: ['/bin/sh']
           args:
@@ -70,6 +76,14 @@ spec:
             requests:
               cpu: 25m
               memory: 50Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           volumeMounts:
             - name: rhm-data-service
               mountPath: /data
@@ -108,14 +122,21 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
+              name: ibm-metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -139,14 +160,21 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
+              name: ibm-metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -160,9 +188,9 @@ spec:
           secret:
             secretName: rhm-data-service-mtls
         - configMap:
-            name: serving-certs-ca-bundle
-          name: serving-certs-ca-bundle
-      serviceAccountName: redhat-marketplace-operator
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle
+      serviceAccountName: ibm-metrics-operator-data-service
   volumeClaimTemplates:
     - metadata:
         name: rhm-data-service

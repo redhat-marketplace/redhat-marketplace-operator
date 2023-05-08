@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: razeedeployments.marketplace.redhat.com
 spec:
@@ -92,6 +91,7 @@ spec:
                     required:
                     - key
                     type: object
+                    x-kubernetes-map-type: atomic
                   ibmCosUrl:
                     description: Base url for the instance of IBM COS
                     type: string
@@ -113,6 +113,7 @@ spec:
                     required:
                     - key
                     type: object
+                    x-kubernetes-map-type: atomic
                   razeeDashUrl:
                     description: Url used by the razee install to post data
                     type: string
@@ -143,6 +144,10 @@ spec:
                       watchkeeper deployment, defaults to true when not set
                     type: boolean
                 type: object
+              installIBMCatalogSource:
+                description: InstallIBMCatalogSource is the flag that indicates if
+                  the IBM Catalog Source is installed
+                type: boolean
               legacyUninstallHasRun:
                 description: Flag used by the RazeeDeployment Controller to decide
                   whether to run legacy uninstall job Used internally by the Operator
@@ -300,8 +305,8 @@ spec:
                     type: integer
                   ready:
                     description: "The number of pods which have a Ready condition.
-                      \n This field is alpha-level. The job controller populates the
-                      field when the feature gate JobReadyPods is enabled (disabled
+                      \n This field is beta-level. The job controller populates the
+                      field when the feature gate JobReadyPods is enabled (enabled
                       by default)."
                     format: int32
                     type: integer
@@ -325,8 +330,8 @@ spec:
                       the controller does three steps to account for it in the job
                       status: (1) Add the pod UID to the arrays in this field. (2)
                       Remove the pod finalizer. (3) Remove the pod UID from the arrays
-                      while increasing the corresponding     counter. \n This field
-                      is beta-level. The job controller only makes use of this field
+                      while increasing the corresponding counter. \n This field is
+                      beta-level. The job controller only makes use of this field
                       when the feature gate JobTrackingWithFinalizers is enabled (enabled
                       by default). Old jobs might not be tracked using this field,
                       in which case the field remains null."
@@ -406,9 +411,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

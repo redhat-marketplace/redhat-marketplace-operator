@@ -24,6 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -89,8 +90,16 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 		lookupOk, err := localLookup.Matches(obj)
 
 		if err != nil {
-			def.log.Error(err, "error finding matches")
-			return err
+			if errors.Is(err, rhmclient.AccessDeniedErr) {
+				def.log.Info("skipping object", "error", err.Error())
+				continue
+			}
+
+			if !errors.Is(err, rhmclient.AccessDeniedErr) {
+				def.log.Error(err, "error finding matches")
+				return err
+			}
+
 		}
 
 		if lookupOk {
