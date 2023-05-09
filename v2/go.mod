@@ -54,6 +54,8 @@ require (
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
 )
 
+require github.com/google/subcommands v1.0.1 // indirect
+
 require (
 	cloud.google.com/go/compute v1.3.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect

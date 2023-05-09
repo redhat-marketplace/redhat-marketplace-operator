@@ -303,4 +303,5 @@ bundle-pin-images:
 # Run certification test
 .PHONY: test-certify
 test-certify: bundle bundle-pin-images
-	cd hack/certify && ./certify.sh
+	./../../hack/certify/catsource.sh && \
+	./../../hack/certify/certify.sh redhat-marketplace-operator

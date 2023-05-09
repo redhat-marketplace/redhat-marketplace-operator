@@ -1,17 +1,19 @@
-The Metrics Operator provides workload metering and reporting for IBM and Red Hat Marketplace customers.
+The IBM Metrics Operator provides workload metering and reporting for IBM and Red Hat Marketplace customers.
 ### **Important Note**
 A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).
 
 ### **Upgrade Notice**
 
-The Redhat Marketplace Operator metering and deployment functionalities have been seperated into two operators.
-  - The metering functionality is included in this Metrics Operator
-    - Admin level functionality and permissions are removed from the Metrics Operator
-    - ClusterServiceVersion/metrics-operator
-  - The deployment functionality remains as part of the Red Hat Marketplace Deployment Operator
-    - The Red Hat Marketplace Deployment Operator prerequisites the Metrics Operator
+The Red Hat Marketplace Operator metering and deployment functionalities have been separated into two operators.
+  - The metering functionality is included in this IBM Metrics Operator
+    - Admin level functionality and permissions are removed from the IBM Metrics Operator
+    - ClusterServiceVersion/ibm-metrics-operator
+  - The deployment functionality remains as part of the Red Hat Marketplace Deployment Operator by IBM
+    - The Red Hat Marketplace Deployment Operator prerequisites the IBM Metrics Operator
     - Some admin level RBAC permissions are required for deployment functionality
     - ClusterServiceVersion/redhat-marketplace-operator
+
+Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Prerequisites
 1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
@@ -62,7 +64,7 @@ The Redhat Marketplace Operator metering and deployment functionalities have bee
 
 ### Installation
 1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
-2. Install the Metrics Operator
+2. Install the IBM Metrics Operator
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
 
     ```sh
@@ -96,7 +98,7 @@ The Operators and their components support running under the OpenShift Container
 
 ### Installation Namespace and ClusterRoleBinding requirements
 
-The Metrics Operator components require specific ClusterRoleBindings.
+The IBM Metrics Operator components require specific ClusterRoleBindings.
 - The metric-state component requires a ClusterRoleBinding for the the `view` ClusterRole. 
 - The reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view` ClusterRole. 
 
@@ -106,9 +108,9 @@ A ClusterRoleBinding is included for installation to the default namespace of `r
 
 To update the ClusterRoleBindings for installation to an alternate namespace
 ```
-oc patch clusterrolebinding metrics-operator-metric-state-view-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "metrics-operator-metric-state","namespace": "NAMESPACE" }}]'
+oc patch clusterrolebinding ibm-metrics-operator-metric-state-view-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "ibm-metrics-operator-metric-state","namespace": "NAMESPACE" }}]'
 
-oc patch clusterrolebinding metrics-operator-reporter-cluster-monitoring-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "metrics-operator-reporter","namespace": "NAMESPACE" }}]'
+oc patch clusterrolebinding ibm-metrics-operator-reporter-cluster-monitoring-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "ibm-metrics-operator-reporter","namespace": "NAMESPACE" }}]'
 ```
 
 ### Metric State scoping requirements
