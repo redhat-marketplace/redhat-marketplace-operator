@@ -9,14 +9,10 @@ metadata:
     app.kubernetes.io/created-by: ibm-data-reporter-operator
   name: datareporterconfig
 spec:
-  apiKeys:
+  userConfig:
   - metadata:
-      metaA: metadataA
-      metaB: metadataB
-    secretRef:
-      name: mysecret1
-  - metadata:
-      metaC: metadataC
-      metaD: metadataD
-    secretRef:
-      name: mysecret2
+      ameta1: ametadata1
+      bmeta1: bmetadata1
+      cmeta1: cmetadata1
+      dmeta1: dmetadata1
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api

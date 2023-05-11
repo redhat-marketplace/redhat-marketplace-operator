@@ -16,11 +16,9 @@ The IBM Data Reporter Operator accepts events and transforms them into Reports s
 - Install the IBM Data Reporter Operator
 - Set your context to the IBM Data Reporter Operator namespace
   - `oc project redhat-marketplace`
-- Create a secret containing an X-API-KEY used for posting events
-  - `oc create secret generic mysecret1 --from-literal=X-API-KEY=123abc`
-- Create the DataReporterConfig named `datareporterconfig` as per the sample `config/samples/marketplace_v1alpha1_datareporterconfig.yaml`
-  - Reference the secret name containing the X-API-KEY
-  - Optionally provide any metadata that will be attached to events submitted by this X-API-KEY
+- Create or Configure the DataReporterConfig named `datareporterconfig` as per the sample `config/samples/marketplace_v1alpha1_datareporterconfig.yaml`
+  - Reference the service account in the format example `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`
+  - Optionally provide any metadata that will be attached to events submitted by this user
 - Apply the ClusterRole, ServiceAccount and Secret that will be used to authorize access to the IBM Data Reporter service
   - `oc apply -f hack/role/role.yaml`
 - Create the CluterRoleBinding
@@ -32,11 +30,20 @@ The IBM Data Reporter Operator accepts events and transforms them into Reports s
 
 ### Usage
 
+#### Create a Token
+
+Create a (time-bound) token to be used to authenticate to the Data Reporter service
+
+```
+export DRTOKEN=$(kubectl create token ibm-data-reporter-operator-api --namespace redhat-marketplace --duration 2160h)
+```
+
+For more information about service account tokens, refer to the [kubernetes documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-an-api-token-for-a-serviceaccount).
+
 #### Get the Status
 
 ```
 DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
-DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
 curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
 ```
 
@@ -44,9 +51,17 @@ curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status
 
 ```
 DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
-DRTOKEN=$(oc get secret/ibm-data-reporter-operator-api -o jsonpath='{.data.token}' | base64 --decode) && \
-curl -k -H "Authorization: Bearer ${DRTOKEN}" -H "X-API-KEY: 123abc" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
+curl -k -H "Authorization: Bearer ${DRTOKEN}" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
 ```
+
+#### Troubleshooting
+
+If you recieve a response such as the following, then a clusterrolebinding for the serviceaccount was probbaly not created in the [Install & Configuration](README.md#install--configuration) step.
+```
+Forbidden (user=system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api, verb=get, resource=, subresource=)
+```
+
+
 
 ## License
 
