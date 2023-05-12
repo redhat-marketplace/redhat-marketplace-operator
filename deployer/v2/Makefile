@@ -37,7 +37,7 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-namespace ?= openshift-redhat-marketplace
+namespace ?= redhat-marketplace
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(OPERATOR_IMAGE)

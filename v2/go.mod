@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.8.0
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/banzaicloud/k8s-objectmatcher v0.0.0-00010101000000-000000000000
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/foxcpp/go-mockdns v0.0.0-20210729171921-fb145fc6f897
@@ -53,6 +53,8 @@ require (
 	go.uber.org/zap v1.19.1
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
 )
+
+require github.com/blang/semver/v4 v4.0.0
 
 require (
 	cloud.google.com/go/compute v1.3.0 // indirect

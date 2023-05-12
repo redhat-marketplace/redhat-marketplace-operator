@@ -69,7 +69,7 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
 
     ```sh
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-    oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+    oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
 
 4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
@@ -104,7 +104,7 @@ The IBM Metrics Operator components require specific ClusterRoleBindings.
 
 Due to limitations of Operator Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically for arbitrary installation target namespaces.
 
-A ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `openshift-redhat-marketplace`, `ibm-common-services`.
+A ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `redhat-marketplace`, `ibm-common-services`.
 
 To update the ClusterRoleBindings for installation to an alternate namespace
 ```

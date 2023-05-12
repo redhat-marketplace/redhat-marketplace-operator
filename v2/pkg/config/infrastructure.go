@@ -17,7 +17,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
