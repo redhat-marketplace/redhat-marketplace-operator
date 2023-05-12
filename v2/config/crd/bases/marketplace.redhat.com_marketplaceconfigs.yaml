@@ -89,6 +89,14 @@ spec:
                 description: IsDisconnected represents the installation of operator
                   in disconnected mode
                 type: boolean
+              license:
+                description: License information is required
+                properties:
+                  accept:
+                    description: By installing this product you accept the license
+                      terms https://ibm.biz/BdfaAY
+                    type: boolean
+                type: object
               namespaceLabelSelector:
                 description: NamespaceLabelSelector is a LabelSelector that overrides
                   the default LabelSelector used to build the OperatorGroup Namespace

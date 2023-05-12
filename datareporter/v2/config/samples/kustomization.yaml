@@ -1,0 +1,5 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- marketplace_v1alpha1_datareporterconfig.yaml
+- marketplace_v1alpha1_componentconfig.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

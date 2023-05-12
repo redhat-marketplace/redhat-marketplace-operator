@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        args:
+        - "--config=/config/component_config.yaml"
+        volumeMounts:
+        - name: component-config
+          mountPath: /config/component_config.yaml
+          subPath: component_config.yaml
+          readOnly: false
+      volumes:
+      - name: component-config
+        configMap:
+          name: component-config

@@ -1,5 +1,5 @@
-PROJECTS = operator authchecker metering reporter airgap deployer
-PROJECT_FOLDERS = . authchecker metering reporter airgap deployer
+PROJECTS = operator authchecker metering reporter airgap deployer datareporter
+PROJECT_FOLDERS = . authchecker metering reporter airgap deployer datareporter
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -96,6 +96,8 @@ wicked:
 	@cd ./authchecker/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-authchecker -s ./vendor -o ../../.wicked-report
 	@cd ./airgap/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-airgap -s ./vendor -o ../../.wicked-report
 	@cd ./deployer/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-deployer -s ./vendor -o ../../.wicked-report
+	@cd ./datareporter/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p data-reporter -s ./vendor -o ../../.wicked-report
+
 
 # -- Release
 
@@ -128,6 +130,9 @@ airgap/%:
 
 deployer/%:
 	@cd ./deployer/v2 && $(MAKE) $(@F)
+
+datareporter/%:
+	@cd ./datareporter/v2 && $(MAKE) $(@F)
 
 tests/%:
 	@cd ./tests/v2 && $(MAKE) $(@F)
