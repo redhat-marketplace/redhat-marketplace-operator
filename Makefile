@@ -28,7 +28,7 @@ vet:
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
-TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 tests/v2 v2 v2/scripts v2/tools/connect v2/tools/skaffold-tdd-tool v2/tools/version
+TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 tests/v2 v2 v2/scripts v2/tools/connect v2/tools/skaffold-tdd-tool v2/tools/version deployer/v2 datareporter/v2
 
 .PHONY: tidy-all
 tidy-all:
