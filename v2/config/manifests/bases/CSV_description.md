@@ -69,7 +69,7 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
 
     ```sh
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-    oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+    oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
 
 4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.

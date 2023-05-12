@@ -49,7 +49,7 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-namespace ?= openshift-redhat-marketplace
+namespace ?= redhat-marketplace
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(OPERATOR_IMAGE)
@@ -88,7 +88,7 @@ KUTTL_INT_TESTS ?= "(^register-test$$|^features-test$$)"
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	SKIP_DEPLOY=true kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
+	SKIP_DEPLOY=true kubectl kuttl test --namespace $(namespace) --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
@@ -216,14 +216,14 @@ bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
 bundle-run: operator-sdk
-	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace openshift-redhat-marketplace
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace $(namespace)
 
 bundle-run-install:
 	$(MAKE) skaffold-build bundle bundle-build bundle-deploy bundle-run
 
 bundle-run-uninstall:
 	for NAME in marketplaceconfigs.marketplace.redhat.com subscriptions.operators.coreos.com csv operatorgroup catalogsources.operators.coreos.com ; do \
-		kubectl delete $$NAME --all -n openshift-redhat-marketplace ; \
+		kubectl delete $$NAME --all -n $(namespace) ; \
 	done
 
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
@@ -258,8 +258,8 @@ bundle-dev-index: opm
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com ibm-metrics-operator-catalog
 	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/ibm-metrics-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/ibm-metrics-operator.openshift-redhat-marketplace
+	- kubectl delete subscription -l operators.coreos.com/ibm-metrics-operator.$(namespace)
+	- kubectl delete csv -l operators.coreos.com/ibm-metrics-operator.$(namespace)
 
 skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses
