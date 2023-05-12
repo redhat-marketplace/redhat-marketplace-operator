@@ -354,6 +354,8 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 		},
 	}
 
+	versionZeroZeroOne := semver.MustParse("0.0.1")
+
 	csvOnCluster := olmv1alpha1.ClusterServiceVersion{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csvName,
@@ -366,11 +368,7 @@ var _ = Describe("DeploymentConfig Controller Test", func() {
 				},
 			},
 			Version: version.OperatorVersion{
-				Version: semver.Version{
-					Major: 0,
-					Minor: 0,
-					Patch: 1,
-				},
+				Version: versionZeroZeroOne,
 			},
 		},
 		Status: olmv1alpha1.ClusterServiceVersionStatus{},
