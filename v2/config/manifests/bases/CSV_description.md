@@ -104,7 +104,7 @@ The IBM Metrics Operator components require specific ClusterRoleBindings.
 
 Due to limitations of Operator Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically for arbitrary installation target namespaces.
 
-A ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `redhat-marketplace`, `ibm-common-services`.
+A ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `openshift-redhat-marketplace`, `ibm-common-services`.
 
 To update the ClusterRoleBindings for installation to an alternate namespace
 ```
