@@ -50,7 +50,7 @@ spec:
                 key: RAZEEDASH_ORG_KEY
           - name: NODE_ENV
             value: "production"
-        image: "us.icr.io/armada-master/watch-keeper:0.7.13_082c995"
+        image: "us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a"
         imagePullPolicy: Always
         name: watch-keeper
         resources:

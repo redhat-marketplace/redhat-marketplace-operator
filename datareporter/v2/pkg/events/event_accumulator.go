@@ -14,45 +14,56 @@
 
 package events
 
-import "sync"
+import (
+	"sync"
+)
 
 // EventAccumulator collects events associated with a key
 type EventAccumulator struct {
-	eventMap map[Key]EventJsons
+	eventMap map[string]EventJsons
 	mu       sync.Mutex
 }
 
 // Add an Event for a Key
 func (e *EventAccumulator) Add(event Event) int {
 	e.mu.Lock()
-	eventJsons := e.eventMap[event.Key]
+	eventJsons := e.eventMap[event.User]
 	aEventJsons := append(eventJsons, event.RawMessage)
-	e.eventMap[event.Key] = aEventJsons
+	e.eventMap[event.User] = aEventJsons
 	length := len(aEventJsons)
 	e.mu.Unlock()
 	return length
 }
 
 // Flush all Events for a Key
-func (e *EventAccumulator) Flush(key Key) EventJsons {
+func (e *EventAccumulator) Flush(user string) EventJsons {
 	e.mu.Lock()
-	flushedEvents := e.eventMap[key]
-	e.eventMap[key] = nil
+	flushedEvents := e.eventMap[user]
+	delete(e.eventMap, user)
 	e.mu.Unlock()
 	return flushedEvents
 }
 
-func (e *EventAccumulator) IsEmpty(key Key) bool {
+// Flush EventMap and reset to clear memory accumulation
+func (e *EventAccumulator) FlushAll() map[string]EventJsons {
 	e.mu.Lock()
-	length := len(e.eventMap[key])
+	flushedEventMap := e.eventMap
+	e.eventMap = make(map[string]EventJsons)
+	e.mu.Unlock()
+	return flushedEventMap
+}
+
+func (e *EventAccumulator) IsEmpty(user string) bool {
+	e.mu.Lock()
+	length := len(e.eventMap[user])
 	e.mu.Unlock()
 	return length == 0
 }
 
-func (e *EventAccumulator) GetKeys() []Key {
+func (e *EventAccumulator) GetKeys() []string {
 	e.mu.Lock()
 	i := 0
-	keys := make([]Key, len(e.eventMap))
+	keys := make([]string, len(e.eventMap))
 	for k := range e.eventMap {
 		keys[i] = k
 		i++

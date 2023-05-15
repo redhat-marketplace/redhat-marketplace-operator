@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/pprof"
+	"os"
 
 	emperror "emperror.dev/errors"
 	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
@@ -39,6 +41,15 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 		StatusHandler(w, r)
 	})
 
+	// if debug enabled
+	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+		router.HandleFunc("/debug/pprof/", pprof.Index)
+		router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		router.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
+
 	muxWithMiddleware := http.TimeoutHandler(router, handlerConfig.HandlerTimeout.Duration, "timeout exceeded")
 
 	return muxWithMiddleware
@@ -47,18 +58,18 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
 	log.WithName("events_api_handler v1/event")
 
-	headerAPIKey := r.Header.Get("X-API-KEY")
-	if headerAPIKey == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		err := emperror.New("request received without X-API-KEY header")
-		log.Error(err, "error with request header")
+	if eventConfig.LicenseAccept != true {
+		w.WriteHeader(http.StatusInternalServerError)
+		err := emperror.New("license has not been accepted in marketplaceconfig. event handler will not accept events.")
+		log.Error(err, "error with configuration")
 		return
 	}
 
-	if !eventConfig.ApiKeys.HasKey(events.Key(headerAPIKey)) {
+	headerUser := r.Header.Get("x-remote-user")
+	if headerUser == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		err := emperror.New("no X-API-KEY matching secrets in datareporterconfig secretRefs")
-		log.Error(err, "error validating api key")
+		err := emperror.New("request received without x-remote-user header")
+		log.Error(err, "error with request header")
 		return
 	}
 
@@ -77,7 +88,7 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w
 	}
 
 	rawMessage := json.RawMessage(eventKeyBytes)
-	event := events.Event{Key: events.Key(headerAPIKey), RawMessage: rawMessage}
+	event := events.Event{User: headerUser, RawMessage: rawMessage}
 
 	eventEngine.EventChan <- event
 

@@ -17,6 +17,5 @@ spec:
     - label:
         labelSelector:
           matchLabels:
-            app: prometheus
             prometheus: user-workload
       workloadType: Pod

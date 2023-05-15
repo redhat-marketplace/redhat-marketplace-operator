@@ -20,8 +20,9 @@ import (
 	"context"
 	"flag"
 	"os"
+	"runtime/debug"
 
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
@@ -29,10 +30,10 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -55,6 +56,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -88,6 +90,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	quantity, err := resource.ParseQuantity(os.Getenv("LIMITSMEMORY"))
+	if err == nil {
+		setupLog.Info("setting memory limit from container resources.limits.memory", "downwardAPIEnv", "LIMITSMEMORY", "GOMEMLIMIT", quantity.String())
+		debug.SetMemoryLimit(quantity.Value())
+	}
+
 	setupLog.Info("componentConfigVar", "file", componentConfigVar)
 
 	content, err := os.ReadFile(componentConfigVar)
@@ -97,7 +105,7 @@ func main() {
 
 	codecs := serializer.NewCodecFactory(scheme)
 
-	cc := &marketplacev1alpha1.ComponentConfig{}
+	cc := v1alpha1.NewComponentConfig()
 	if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, cc); err != nil {
 		setupLog.Error(err, "could not decode file into runtime.Object")
 	}
@@ -126,15 +134,15 @@ func main() {
 
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
-			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{
-					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
 			&v1alpha1.DataReporterConfig{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&routev1.Route{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.MarketplaceConfig{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
@@ -191,7 +199,7 @@ func main() {
 	h := server.NewDataReporterHandler(eventEngine, config, cc.ApiHandlerConfig)
 
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
-		setupLog.Error(err, "unable to set up pprof")
+		setupLog.Error(err, "unable to set up data reporter handler")
 		os.Exit(1)
 	}
 

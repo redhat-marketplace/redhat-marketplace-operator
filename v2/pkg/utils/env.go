@@ -22,7 +22,7 @@ import (
 const (
 	/* Resource Names */
 	RHM_CONTROLLER_DEPLOYMENT_NAME         = "redhat-marketplace-controller-manager"
-	RHM_METERING_DEPLOYMENT_NAME           = "metering-controller-manager"
+	RHM_METERING_DEPLOYMENT_NAME           = "ibm-metrics-operator-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
@@ -49,6 +49,14 @@ const (
 	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
 	RHM_COS_UPLOADER_SECRET                = "rhm-cos-uploader-secret"
+	METRICS_OP_METRICS_READER_SECRET       = "ibm-metrics-operator-servicemonitor-metrics-reader"
+	METRICS_OP_CA_BUNDLE_CONFIGMAP         = "ibm-metrics-operator-serving-certs-ca-bundle"
+	METRICS_OP_SERVICE_MONITOR             = "ibm-metrics-operator-controller-manager-metrics-monitor"
+	METRICS_OP_METRICS_SERVICE             = "ibm-metrics-operator-controller-manager-metrics-service"
+	RHM_OP_METRICS_READER_SECRET           = "redhat-marketplace-servicemonitor-metrics-reader"
+	RHM_OP_CA_BUNDLE_CONFIGMAP             = "redhat-marketplace-serving-certs-ca-bundle"
+	RHM_OP_SERVICE_MONITOR                 = "redhat-marketplace-controller-manager-metrics-monitor"
+	RHM_OP_METRICS_SERVICE                 = "redhat-marketplace-controller-manager-metrics-service"
 
 	/* RHOS Monitoring Resource Names */
 	OPENSHIFT_MONITORING_NAMESPACE                              = "openshift-monitoring"
@@ -58,7 +66,7 @@ const (
 	OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME         = "prometheus-user-workload"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME             = "prometheus-user-workload"
 	OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME            = "thanos-querier"
-	SERVING_CERTS_CA_BUNDLE_NAME                                = "metering-serving-certs-ca-bundle"
+	SERVING_CERTS_CA_BUNDLE_NAME                                = "ibm-metrics-operator-serving-certs-ca-bundle"
 	KUBELET_SERVING_CA_BUNDLE_NAME                              = "kubelet-serving-ca-bundle"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_OPERATOR_SERVICE_ACCOUNT = "prometheus-operator"
 	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_ACCOUNT          = "prometheus-user-workload"
@@ -69,15 +77,15 @@ const (
 	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
-	OPERATOR_SERVICE_ACCOUNT     = "metering-operator"
+	OPERATOR_SERVICE_ACCOUNT     = "ibm-metrics-operator-controller-manager"
 	RAZEE_SERVICE_ACCOUNT        = "redhat-marketplace-remoteresources3deployment"
-	METRIC_STATE_SERVICE_ACCOUNT = "metering-metric-state"
-	REPORTING_SERVICE_ACCOUNT    = "metering-reporter"
+	METRIC_STATE_SERVICE_ACCOUNT = "ibm-metrics-operator-metric-state"
+	REPORTING_SERVICE_ACCOUNT    = "ibm-metrics-operator-reporter"
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
-	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresources3:0.11.2_082c995"
-	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.7.13_082c995"
+	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresources3:0.11.2_958d130"
+	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a"
 	IBM_COS_READER_KEY_FIELD                  = "IBM_COS_READER_KEY"
 	BUCKET_NAME_FIELD                         = "BUCKET_NAME"
 	IBM_COS_URL_FIELD                         = "IBM_COS_URL"

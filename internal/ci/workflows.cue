@@ -643,11 +643,11 @@ branch_build: _#bashWorkflow & {
               apiVersion: operators.coreos.com/v1alpha1
               kind: CatalogSource
               metadata:
-                name: rhm-metering-operator-test
+                name: ibm-metrics-operator-test
                 namespace: openshift-marketplace
               spec:
-                displayName: RHM Metering Test
-                image: quay.io/rh-marketplace/redhat-marketplace-metering-dev-index:${{ env.TAG }}
+                displayName: IBM Metrics Operator Test
+                image: quay.io/rh-marketplace/ibm-metrics-operator-dev-index:${{ env.TAG }}
                 publisher: ''
                 sourceType: grpc
               ---

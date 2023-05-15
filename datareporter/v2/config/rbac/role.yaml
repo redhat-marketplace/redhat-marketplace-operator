@@ -48,6 +48,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - route.openshift.io
   resources:
   - routes
@@ -58,20 +66,4 @@ rules:
   - list
   - patch
   - update
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  creationTimestamp: null
-  name: manager-role
-  namespace: system
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
   - watch

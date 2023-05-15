@@ -36,26 +36,16 @@ spec:
           spec:
             description: DataReporterConfigSpec defines the desired state of DataReporterConfig
             properties:
-              apiKeys:
+              userConfig:
                 items:
                   properties:
                     metadata:
                       additionalProperties:
                         type: string
                       type: object
-                    secretRef:
+                    userName:
                       description: Required.
-                      properties:
-                        name:
-                          description: name is unique within a namespace to reference
-                            a secret resource.
-                          type: string
-                        namespace:
-                          description: namespace defines the space within which the
-                            secret name must be unique.
-                          type: string
-                      type: object
-                      x-kubernetes-map-type: atomic
+                      type: string
                   type: object
                 type: array
             type: object

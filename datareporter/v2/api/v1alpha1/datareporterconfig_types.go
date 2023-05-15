@@ -30,12 +30,12 @@ type DataReporterConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	ApiKeys []ApiKey `json:"apiKeys,omitempty"`
+	UserConfigs []UserConfig `json:"userConfig,omitempty"`
 }
 
-type ApiKey struct {
+type UserConfig struct {
 	// Required.
-	SecretReference *corev1.SecretReference `json:"secretRef,omitempty"`
+	UserName string `json:"userName,omitempty"`
 	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
 }

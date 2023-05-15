@@ -48,10 +48,11 @@ spec:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
         - "--logtostderr=true"
-        - "--v=10"
+        - "--v=3"
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+        - --auth-header-fields-enabled
         volumeMounts:
           - mountPath: /etc/tls/private
             name: ibm-data-reporter-operator-metrics-service-tls

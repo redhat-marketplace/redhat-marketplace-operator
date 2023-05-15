@@ -9,8 +9,8 @@ namespace: redhat-marketplace
 namePrefix: ibm-data-reporter-operator-
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  someName: someValue
+commonLabels:
+  redhat.marketplace.com/name: ibm-data-reporter-operator
 
 bases:
 - ../crd

@@ -30,7 +30,7 @@ import (
 type EventProcessorSender interface {
 	Start(ctx context.Context) error
 	Process(context.Context, Event) error
-	Send(context.Context, Key) error
+	Send(context.Context, string) error
 }
 
 // Process events on the Event Channel and send when conditions are met
@@ -43,9 +43,11 @@ type ProcessorSender struct {
 
 	EventProcessorSender
 
-	sendReadyChan chan Key
+	sendReadyChan chan string
 
 	eventAccumulator *EventAccumulator
+
+	eventReporter *EventReporter
 
 	config *Config
 }
@@ -55,10 +57,16 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 	defer ticker.Stop()
 
 	p.EventChan = make(chan Event)
-	p.sendReadyChan = make(chan Key)
+	p.sendReadyChan = make(chan string)
 
 	p.eventAccumulator = &EventAccumulator{}
-	p.eventAccumulator.eventMap = make(map[Key]EventJsons)
+	p.eventAccumulator.eventMap = make(map[string]EventJsons)
+
+	eventReporter, err := NewEventReporter(p.log, p.config)
+	if err != nil {
+		return err
+	}
+	p.eventReporter = eventReporter
 
 	var processWaitGroup sync.WaitGroup
 	var sendWaitGroup sync.WaitGroup
@@ -97,11 +105,20 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				keys := p.eventAccumulator.GetKeys()
-				for _, localKey := range keys {
-					p.log.Info("Timer expired. Send ready.", "key", localKey)
-					p.sendReadyChan <- localKey
+				p.log.Info("Timer expired. SendAll.")
+				if err := p.SendAll(ctx); err != nil {
+					p.log.Error(err, "error sending event data")
 				}
+
+				/*
+					case <-ticker.C:
+						keys := p.eventAccumulator.GetKeys()
+						for _, localKey := range keys {
+							p.log.Info("Timer expired. Send ready.", "key", localKey)
+							p.sendReadyChan <- localKey
+						}
+				*/
+
 			}
 		}
 	}()
@@ -122,7 +139,7 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 
 	// If we are at event max, signal to send
 	if len >= p.config.MaxEventEntries {
-		p.sendReadyChan <- event.Key
+		p.sendReadyChan <- event.User
 	}
 
 	// If the map is at maximum size, signal to send
@@ -130,30 +147,40 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 	return nil
 }
 
-func (p *ProcessorSender) Send(ctx context.Context, key Key) error {
+func (p *ProcessorSender) Send(ctx context.Context, user string) error {
 
 	// flush entries for this key
-	eventJsons := p.eventAccumulator.Flush(key)
-
-	// EventReporter with current token
-	dataServiceConfig, err := p.provideDataServiceConfig()
-	if err != nil {
-		return err
-	}
-
-	reporter, err := NewEventReporter(p.log, dataServiceConfig)
-	if err != nil {
-		return err
-	}
+	eventJsons := p.eventAccumulator.Flush(user)
 
 	// Build and Send the report to dataService
-	// There is a case where if an ApiKey is removed, the metadata will no longer be available when the Report it sent
-	metadata := p.config.ApiKeys.GetMetadata(key)
-	if err := reporter.Report(metadata, eventJsons); err != nil {
+	// There is a case where if an Userkey is removed, the metadata will no longer be available when the Report it sent
+	metadata := p.config.UserConfigs.GetMetadata(user)
+	if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
 		return err
 	}
 
 	p.log.Info("Sent Report")
+
+	return nil
+}
+
+func (p *ProcessorSender) SendAll(ctx context.Context) error {
+
+	// flush entire map
+	eventMap := p.eventAccumulator.FlushAll()
+
+	for key := range eventMap {
+		eventJsons := eventMap[key]
+
+		// Build and Send the report to dataService
+		// There is a case where if an Userkey is removed, the metadata will no longer be available when the Report it sent
+		metadata := p.config.UserConfigs.GetMetadata(key)
+		if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
+			return err
+		}
+
+		p.log.Info("Sent Report")
+	}
 
 	return nil
 }

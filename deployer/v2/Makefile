@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.8-v4.11
+OPENSHIFT_VERSIONS ?= v4.9-v4.12
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -37,7 +37,7 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-namespace ?= openshift-redhat-marketplace
+namespace ?= redhat-marketplace
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(OPERATOR_IMAGE)
@@ -145,7 +145,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),Deployer,./deployer/v2/,./,redhat-marketplace-operator,../..)
+	$(call docker-templated-build,$(IMAGE),"Deployment Operator",./deployer/v2/,./,redhat-marketplace-operator,../..)
 
 # Push the docker image
 docker-push:
@@ -172,8 +172,6 @@ bundle: clean manifests kustomize helm operator-sdk yq omt
 	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
@@ -305,4 +303,5 @@ bundle-pin-images:
 # Run certification test
 .PHONY: test-certify
 test-certify: bundle bundle-pin-images
-	cd hack/certify && ./certify.sh
+	./../../hack/certify/catsource.sh && \
+	./../../hack/certify/certify.sh redhat-marketplace-operator

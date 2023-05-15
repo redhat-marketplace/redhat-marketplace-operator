@@ -23,7 +23,7 @@ spec:
         razee/watch-resource: lite
         app.kubernetes.io/name: rhm-remoteresources3-controller
         app.kubernetes.io/instance: rhm-remoteresources3-controller
-        app.kubernetes.io/part-of: redhat-marketplace-deployer
+        app.kubernetes.io/part-of: redhat-marketplace-operator
         app.kubernetes.io/managed-by: operator
       name: rhm-remoteresources3-controller
     spec:
