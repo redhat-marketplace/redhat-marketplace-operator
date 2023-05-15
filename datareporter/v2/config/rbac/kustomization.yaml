@@ -20,3 +20,7 @@ resources:
 - servicemonitor-metrics-reader_cluster_role_binding.yaml
 - servicemonitor-metrics-reader_cluster_role.yaml
 - servicemonitor-metrics-reader_service_account.yaml
+# default serviceaccount for api access
+- ibm-data-reporter-operator-api_cluster_role_binding.yaml
+- ibm-data-reporter-operator-api_cluster_role.yaml
+- ibm-data-reporter-operator-api_service_account.yaml

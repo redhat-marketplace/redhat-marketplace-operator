@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    redhat.marketplace.com/name: ibm-data-reporter-operator
+  name: ibm-data-reporter-operator-api
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ibm-data-reporter-operator-api
+subjects:
+- kind: ServiceAccount
+  name: ibm-data-reporter-operator-api
+  namespace: redhat-marketplace
