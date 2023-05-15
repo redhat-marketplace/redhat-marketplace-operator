@@ -94,7 +94,7 @@ func (r *EventReporter) writeReport(dir string, metadata Metadata, eventJsons Ev
 	}
 
 	// Generate and write manifest
-	manifest := Manifest{Type: "dataReporter", Metadata: metadata}
+	manifest := Manifest{Type: "dataReporter", Version: "1"}
 
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
@@ -114,14 +114,16 @@ func (r *EventReporter) writeReport(dir string, metadata Metadata, eventJsons Ev
 		return "", err
 	}
 
-	eventsFilePath := filepath.Join(filesDir, "events.json")
+	fileid := uuid.New()
+
+	eventsFilePath := filepath.Join(filesDir, fmt.Sprintf("%s.json", fileid))
 	if err = os.WriteFile(eventsFilePath, eventsBytes, 0600); err != nil {
 		r.log.Error(err, "failed to write events file", "file", eventsFilePath)
 		return "", err
 	}
 
 	// Create the archive
-	archiveFilePath := filepath.Join(dir, fmt.Sprintf("data-reporter-%s.tar.gz", uuid.New()))
+	archiveFilePath := filepath.Join(dir, fmt.Sprintf("data-reporter-%s.tar.gz", fileid))
 
 	if err = r.tarGzipPool.TarGzip(filesDir, archiveFilePath); err != nil {
 		return "", err
