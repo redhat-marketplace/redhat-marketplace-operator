@@ -142,6 +142,9 @@ const (
 	MeterReportJobFailedMeterdef      = "rhm-meter-report-job-failed"
 	MetricStateUptimeMeterdef         = "rhm-metric-state-uptime"
 	PrometheusMeterbaseUptimeMeterdef = "rhm-prometheus-meterbase-uptime"
+
+	/* Data Reporter */
+	DATAREPORTERCONFIG_NAME = "datareporterconfig"
 )
 
 var (

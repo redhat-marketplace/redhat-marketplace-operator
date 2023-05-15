@@ -87,8 +87,8 @@ type EventJsons []json.RawMessage
 type Metadata map[string]string
 
 type Manifest struct {
-	Type     string `json:"type,omitempty"`
-	Metadata `json:"metadata,omitempty"`
+	Type    string `json:"type,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type ReportData struct {
