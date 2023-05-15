@@ -139,7 +139,7 @@ docker-build: ## Build docker image with the manager.
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push $(IMAGE)
 
 
 
@@ -228,7 +228,6 @@ skaffold-build: skaffold
 	$(SKAFFOLD) build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 skaffold-dev: skaffold kustomize yq
-	cd config/manager && $(KUSTOMIZE) edit set image ${OPERATOR_IMAGE_NAME}=${IMG}
 	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run: skaffold yq

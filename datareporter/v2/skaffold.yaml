@@ -7,7 +7,7 @@ build:
   - image: ibm-data-reporter-operator
     context: .
     custom:
-      buildCommand: ARCHS=amd64 make vet docker-build
+      buildCommand: ARCHS=amd64 make vet docker-build docker-push
       dependencies:
         paths:
         - go.mod

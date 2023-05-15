@@ -6,7 +6,3 @@ configMapGenerator:
 - files:
   - component_config.yaml
   name: component-config
-images:
-- name: ibm-data-reporter-operator
-  newName: default-route-openshift-image-registry.apps.dac-49.cp.fyre.ibm.com/openshift/ibm-data-reporter-operator
-  newTag: tag-1681850694
