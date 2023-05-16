@@ -133,7 +133,8 @@ func NewUploadTask(ctx context.Context, config *Config, namespace Namespace) (Up
 	if err != nil {
 		return nil, err
 	}
-	dataService, err := dataservice.NewDataService(dataServiceConfig)
+	v := provideGRPCDialOptions(dataServiceConfig)
+	dataService, err := dataservice.NewDataService(dataServiceConfig, v...)
 	if err != nil {
 		return nil, err
 	}

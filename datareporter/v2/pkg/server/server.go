@@ -92,7 +92,7 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w
 
 	eventEngine.EventChan <- event
 
-	log.Info("event sent to event engine", "event", event)
+	log.V(4).Info("event sent to event engine", "event", event)
 
 	w.WriteHeader(http.StatusOK)
 	out, _ := json.Marshal(event)
