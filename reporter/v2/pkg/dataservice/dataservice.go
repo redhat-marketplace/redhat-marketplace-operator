@@ -60,8 +60,8 @@ type DataService struct {
 
 var _ FileStorage = &DataService{}
 
-func NewDataService(dataServiceConfig *DataServiceConfig) (*DataService, error) {
-	client, err := createDataServiceDownloadClient(context.Background(), dataServiceConfig)
+func NewDataService(dataServiceConfig *DataServiceConfig, opts ...grpc.DialOption) (*DataService, error) {
+	client, err := createDataServiceDownloadClient(context.Background(), dataServiceConfig, opts...)
 
 	if err != nil {
 		return nil, err
@@ -80,10 +80,11 @@ func (u *DataService) Name() string {
 func createDataServiceDownloadClient(
 	ctx context.Context,
 	dataServiceConfig *DataServiceConfig,
+	opts ...grpc.DialOption,
 ) (fileserver.FileServerClient, error) {
 	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
-	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert)
+	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert, opts...)
 
 	if err != nil {
 		logger.Error(err, "failed to establish connection")
@@ -326,9 +327,8 @@ func newGRPCConn(
 	ctx context.Context,
 	address string,
 	caCert []byte,
+	opts ...grpc.DialOption,
 ) (*grpc.ClientConn, error) {
-
-	options := []grpc.DialOption{}
 
 	/* creat tls */
 	tlsConf, err := createTlsConfig(caCert)
@@ -337,14 +337,14 @@ func newGRPCConn(
 		return nil, err
 	}
 
-	options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
+	opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
 
-	options = append(options, grpc.WithBlock())
+	opts = append(opts, grpc.WithBlock())
 
 	context, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	return grpc.DialContext(context, address, options...)
+	return grpc.DialContext(context, address, opts...)
 }
 
 func createTlsConfig(caCert []byte) (*tls.Config, error) {
