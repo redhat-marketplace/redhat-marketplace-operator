@@ -26,9 +26,12 @@ import (
 	"github.com/imdario/mergo"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,6 +83,7 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.Config.LicenseAccept = ptr.ToBool(marketplaceConfig.Spec.License.Accept)
 		if r.Config.LicenseAccept != true {
 			reqLogger.Info("license has not been accepted in marketplaceconfig. event handler will not accept events.")
+
 		}
 	}
 
@@ -88,7 +92,7 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err := r.Client.Get(ctx, req.NamespacedName, dataReporterConfig); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("datareporterconfig resource not found, creating.")
-			dataReporterConfig.Name = utils.DATAREPORTERCONFIG_NAME
+			dataReporterConfig.Name = "datareporterconfig"
 			dataReporterConfig.Namespace = req.Namespace
 			if err := r.Client.Create(ctx, dataReporterConfig); err != nil {
 				return ctrl.Result{}, err
@@ -97,7 +101,30 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		reqLogger.Error(err, "Failed to get datareporterconfig")
 		return ctrl.Result{}, err
 	}
+
 	reqLogger.Info("datareporterconfig found")
+
+	// check license and update status
+	if r.Config.LicenseAccept != true {
+
+		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+
+			// license not accepted, update status
+			ok := dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    datareporterv1alpha1.ConditionNoLicense,
+				Status:  corev1.ConditionTrue,
+				Reason:  datareporterv1alpha1.ReasonLicenseNotAccepted,
+				Message: "License has not been accepted",
+			})
+
+			if ok {
+				reqLogger.Info("updating dataReporterConfig status")
+				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+			return nil
+		})
+
+	}
 
 	// Set the updated UserConfig for the Event Processor
 	r.Config.UserConfigs.SetUserConfigs(dataReporterConfig.Spec.UserConfigs)
@@ -150,13 +177,13 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectNew.GetName() == utils.DATAREPORTERCONFIG_NAME
+			return e.ObjectNew.GetName() == "datareporterconfig"
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == utils.DATAREPORTERCONFIG_NAME
+			return e.Object.GetName() == "datareporterconfig"
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == utils.DATAREPORTERCONFIG_NAME
+			return e.Object.GetName() == "datareporterconfig"
 		},
 	}
 
@@ -179,7 +206,7 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		return []reconcile.Request{
 			{
 				NamespacedName: types.NamespacedName{
-					Name:      utils.DATAREPORTERCONFIG_NAME,
+					Name:      "datareporterconfig",
 					Namespace: a.GetNamespace(),
 				},
 			},

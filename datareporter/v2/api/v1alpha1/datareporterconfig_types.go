@@ -72,3 +72,11 @@ type DataReporterConfigList struct {
 func init() {
 	SchemeBuilder.Register(&DataReporterConfig{}, &DataReporterConfigList{})
 }
+
+const (
+
+	// license not accepted condition, operator will not process events
+	ConditionNoLicense status.ConditionType = "NoLicense"
+
+	ReasonLicenseNotAccepted status.ConditionReason = "LicenseNotAccepted"
+)
