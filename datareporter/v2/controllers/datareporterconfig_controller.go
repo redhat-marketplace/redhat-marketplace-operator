@@ -29,6 +29,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,11 +62,12 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 // controller CRDs
-//+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=marketplace.redhat.com,resources=datareporterconfigs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs,verbs=get;list;watch
-//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=datareporterconfigs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=datareporterconfigs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=datareporterconfigs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch
+//+kubebuilder:rbac:groups=route.openshift.io,namespace=system,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch
 
 func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
@@ -102,8 +104,39 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Set the updated UserConfig for the Event Processor
 	r.Config.UserConfigs.SetUserConfigs(dataReporterConfig.Spec.UserConfigs)
 
-	// Enforce the Service configuration for ibm-data-reporter-operator-controller-manager-metrics-service
-	// TODO
+	// Enforce the Service Spec for ibm-data-reporter-operator-controller-manager-metrics-service
+	// Should be created by OLM at install time, but OLM does not reconcile it when modified/deleted
+	service := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.DATAREPORTER_SERVICE_NAME,
+			Namespace: dataReporterConfig.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Port:       8443,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromString("https"),
+				},
+			},
+			Selector: map[string]string{
+				"control-plane":               "controller-manager",
+				"redhat.marketplace.com/name": "ibm-data-reporter-operator",
+			},
+		},
+	}
+
+	// Create the Route
+	newService := service
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, &newService, func() error {
+			return mergo.Merge(&newService, &service, mergo.WithOverride)
+		})
+		return err
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Configure the Route
 	route := routev1.Route{
@@ -114,7 +147,7 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
 				Kind: "Service",
-				Name: "ibm-data-reporter-operator-controller-manager-metrics-service",
+				Name: utils.DATAREPORTER_SERVICE_NAME,
 			},
 			Port: &routev1.RoutePort{
 				TargetPort: intstr.FromInt(8443),
@@ -175,6 +208,21 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		},
 	}
 
+	svcPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew.GetName() == utils.DATAREPORTER_SERVICE_NAME
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == utils.DATAREPORTER_SERVICE_NAME
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetName() == utils.DATAREPORTER_SERVICE_NAME
+		},
+	}
+
 	mapFn := func(a client.Object) []reconcile.Request {
 		return []reconcile.Request{
 			{
@@ -193,6 +241,10 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(mpcPred)).
+		Watches(
+			&source.Kind{Type: &corev1.Service{}},
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(svcPred)).
 		Watches(
 			&source.Kind{Type: &routev1.Route{}},
 			&handler.EnqueueRequestForOwner{

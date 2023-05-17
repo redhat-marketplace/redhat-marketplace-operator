@@ -144,7 +144,8 @@ const (
 	PrometheusMeterbaseUptimeMeterdef = "rhm-prometheus-meterbase-uptime"
 
 	/* Data Reporter */
-	DATAREPORTERCONFIG_NAME = "datareporterconfig"
+	DATAREPORTERCONFIG_NAME   = "datareporterconfig"
+	DATAREPORTER_SERVICE_NAME = "ibm-data-reporter-operator-controller-manager-metrics-service"
 )
 
 var (

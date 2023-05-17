@@ -105,20 +105,10 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				p.log.Info("Timer expired. SendAll.")
+				p.log.V(4).Info("Timer expired. SendAll.")
 				if err := p.SendAll(ctx); err != nil {
 					p.log.Error(err, "error sending event data")
 				}
-
-				/*
-					case <-ticker.C:
-						keys := p.eventAccumulator.GetKeys()
-						for _, localKey := range keys {
-							p.log.Info("Timer expired. Send ready.", "key", localKey)
-							p.sendReadyChan <- localKey
-						}
-				*/
-
 			}
 		}
 	}()

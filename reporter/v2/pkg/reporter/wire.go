@@ -96,6 +96,7 @@ func NewUploadTask(
 		ProvideUploaders,
 		dataservice.NewDataService,
 		provideDataServiceConfig,
+		provideGRPCDialOptions,
 		wire.Struct(new(UploadTask), "*"),
 		wire.Value(logger),
 		wire.Bind(new(UploadRun), new(*UploadTask)),
