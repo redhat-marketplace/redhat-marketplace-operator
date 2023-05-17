@@ -93,7 +93,7 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err := r.Client.Get(ctx, req.NamespacedName, dataReporterConfig); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("datareporterconfig resource not found, creating.")
-			dataReporterConfig.Name = "datareporterconfig"
+			dataReporterConfig.Name = utils.DATAREPORTERCONFIG_NAME
 			dataReporterConfig.Namespace = req.Namespace
 			if err := r.Client.Create(ctx, dataReporterConfig); err != nil {
 				return ctrl.Result{}, err
@@ -209,13 +209,13 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectNew.GetName() == "datareporterconfig"
+			return e.ObjectNew.GetName() == utils.DATAREPORTERCONFIG_NAME
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == "datareporterconfig"
+			return e.Object.GetName() == utils.DATAREPORTERCONFIG_NAME
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == "datareporterconfig"
+			return e.Object.GetName() == utils.DATAREPORTERCONFIG_NAME
 		},
 	}
 
@@ -253,7 +253,7 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		return []reconcile.Request{
 			{
 				NamespacedName: types.NamespacedName{
-					Name:      "datareporterconfig",
+					Name:      utils.DATAREPORTERCONFIG_NAME,
 					Namespace: a.GetNamespace(),
 				},
 			},
