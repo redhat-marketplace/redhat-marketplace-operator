@@ -1,71 +1,108 @@
-# ibm-data-reporter-operator
-The IBM Data Reporter Operator accepts events and transforms them into Reports submitted to the Data Service of the IBM Metrics Operator.
+# IBM Data Reporter Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+# Introduction
 
-## Getting Started
+The IBM Data Reporter Operator accepts events and transforms them into reports submitted to the Data Service of the IBM Metrics Operator.
 
-### Prerequisites
-- Install IBM Metrics Operator
+# Details
+
+The IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Data Service. The IBM Data Service periodically uploads the reports to Red Hat Marketplace.
+
+## Prerequisites
+
+- OpenShift Container Platform, major version 4 with any available supported minor version
+- Install IBM Metrics Operator and Red Hat Marketplace Deployment Operator
+  - IBM Data Reporter Operator prerequisties the IBM Metrics Operator data-service and registration with Red Hat Marketplace
   - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per the instructions
   - `rhm-data-service` has started
 
-### Install & Configuration
+## SecurityContextConstraints Requirements
 
-- Install the IBM Data Reporter Operator
-- Set your context to the IBM Data Reporter Operator namespace
-  - `oc project redhat-marketplace`
-- Create or Configure the DataReporterConfig named `datareporterconfig` as per the sample `config/samples/marketplace_v1alpha1_datareporterconfig.yaml`
-  - Reference the service account in the format example `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`
-  - Optionally provide any metadata that will be attached to events submitted by this user
-- Apply the ClusterRole, ServiceAccount and Secret that will be used to authorize access to the IBM Data Reporter service
-  - `oc apply -f hack/role/role.yaml`
-- Create the CluterRoleBinding
-    ```
-    NAMESPACE=$(oc config view --minify -o jsonpath='{..namespace}') && \
-    oc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-data-reporter-operator-api --serviceaccount=${NAMESPACE}:ibm-data-reporter-operator-api
-    oc label clusterrolebinding/ibm-data-reporter-operator-api redhat.marketplace.com/name=ibm-data-reporter-operator
-    ```
+- The operator runs under Red Hat restricted SCC
 
-### Usage
+## Resources Required
 
-#### Create a Token
+- The operator requires at least 85 Mi memory.
 
-Create a (time-bound) token to be used to authenticate to the Data Reporter service
+## Limitations
 
+- Only runs on amd64, s390x and ppc64le architectures
+
+## Installing
+
+- A user with the cluster administrator role.
+- Install this operator in the same namespace as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator
+  - default namespace: `redhat-marketplace`
+
+# Configuration
+
+Optional:
+- Configure the DataReporterConfig named `datareporterconfig` as per the following example
+- Reference the service account name that will be used to access the service
+  - Reports generated for events sent by this user will be decorated with the additional metadata
+
+```YAML
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: DataReporterConfig
+metadata:
+  name: datareporterconfig
+spec:
+  userConfig:
+  - metadata:
+      ameta1: ametadata1
+      bmeta1: bmetadata1
+      cmeta1: cmetadata1
+      dmeta1: dmetadata1
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api
 ```
-export DRTOKEN=$(kubectl create token ibm-data-reporter-operator-api --namespace redhat-marketplace --duration 2160h)
+
+### User Configuration
+
+- The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`
+- The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`
+  - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`
+
+Optional:
+
+- To create an additional ServiceAccount and ClusterRoleBinding for api access
+
+```SHELL
+NAMESPACE=$(oc config view --minify -o jsonpath='{..namespace}') && \
+oc create serviceaccount my-api-service-account && \
+oc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-data-reporter-operator-api --serviceaccount=${NAMESPACE}:my-api-service-account
 ```
 
-For more information about service account tokens, refer to the [kubernetes documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-an-api-token-for-a-serviceaccount).
+- Update datareporterconfig to attach metadata to reports associated with this user
 
-#### Get the Status
+## Usage
 
+- Get Token & Host
+
+```SHELL
+oc project redhat-marketplace
+export DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace redhat-marketplace --duration 1h)
+export DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}')
 ```
-DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
+
+- Get the Status
+
+```SHELL
 curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
 ```
 
-#### Post an Event
+- Post an Event
 
-```
-DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}') && \
+```SHELL
 curl -k -H "Authorization: Bearer ${DRTOKEN}" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
 ```
 
-#### Troubleshooting
+## Storage
 
-If you recieve a response such as the following, then a clusterrolebinding for the serviceaccount was probbaly not created in the [Install & Configuration](README.md#install--configuration) step.
-```
-Forbidden (user=system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api, verb=get, resource=, subresource=)
-```
-
-
+- The operator temporarily stores events in pod memory, and writes to the IBM Metrics Operator data-service, which requires a PersistentVolume
 
 ## License
 
-Copyright 2023.
+Copyright IBM Corporation 2023. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -78,4 +115,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
