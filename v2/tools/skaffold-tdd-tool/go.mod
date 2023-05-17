@@ -27,6 +27,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -110,13 +111,13 @@ replace (
 	github.com/docker/docker => github.com/docker/docker v17.12.0-ce-rc1.0.20190319215453-e7b5f7dbe98c+incompatible
 	github.com/docker/docker v1.14.0-0.20190319215453-e7b5f7dbe98c => github.com/docker/docker v17.12.0-ce-rc1.0.20190319215453-e7b5f7dbe98c+incompatible
 	github.com/operator-framework/operator-marketplace => github.com/operator-framework/operator-marketplace v0.0.0-20201110032404-0e3bd3db36a6
-	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20200609102542-5d7e3e970602
+	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../
-	k8s.io/api => k8s.io/api v0.24.7
-	k8s.io/apimachinery => k8s.io/apimachinery v0.24.7
-	k8s.io/client-go => k8s.io/client-go v0.24.7
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.12.3
+	k8s.io/api => k8s.io/api v0.25.9
+	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
+	k8s.io/client-go => k8s.io/client-go v0.25.9
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
 )
