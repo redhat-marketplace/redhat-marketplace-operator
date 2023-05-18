@@ -41,6 +41,7 @@ func RegisterImageStream(scheme *runtime.Scheme) {
 		&osimagev1.ImageTag{},
 		&osimagev1.ImageTagList{},
 		&ImageSecretList{},
+		&metav1.GetOptions{},
 		&metav1.CreateOptions{},
 		&metav1.ListOptions{},
 		&metav1.UpdateOptions{},
