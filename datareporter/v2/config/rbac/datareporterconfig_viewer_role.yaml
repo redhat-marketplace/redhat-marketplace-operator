@@ -1,0 +1,27 @@
+# permissions for end users to view datareporterconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: datareporterconfig-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: ibm-data-reporter-operator
+    app.kubernetes.io/part-of: ibm-data-reporter-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: datareporterconfig-viewer-role
+rules:
+- apiGroups:
+  - cache.marketplace.redhat.com
+  resources:
+  - datareporterconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cache.marketplace.redhat.com
+  resources:
+  - datareporterconfigs/status
+  verbs:
+  - get

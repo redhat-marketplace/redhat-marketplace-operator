@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
+	// "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -67,7 +67,7 @@ type TestCaseStep interface {
 
 // ReconcilerTest is the major test driver, create one of these for each test
 type ReconcilerTest struct {
-	runtimeObjs []runtime.Object
+	runtimeObjs []client.Object
 	SetupFunc   ReconcilerSetupFunc
 	Reconciler  reconcile.Reconciler
 	Client      client.Client
@@ -89,7 +89,7 @@ func (r *ReconcilerTest) GetClient() client.Client {
 	return r.Client
 }
 
-func (r *ReconcilerTest) GetGetObjects() []runtime.Object {
+func (r *ReconcilerTest) GetGetObjects() []client.Object {
 	return r.runtimeObjs
 }
 
@@ -112,13 +112,13 @@ func NewReconcilerTestSimple(
 
 // NewReconcilerTest creates a new reconciler test with a setup func
 // using the provided runtime objects to creat on the client.
-func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Object) *ReconcilerTest {
+func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...client.Object) *ReconcilerTest {
 	testSetupLock.Lock()
 	defer testSetupLock.Unlock()
-	myObjs := []runtime.Object{}
+	myObjs := []client.Object{}
 
 	for _, obj := range predefinedObjs {
-		myObjs = append(myObjs, obj.DeepCopyObject())
+		myObjs = append(myObjs, obj)
 	}
 
 	return &ReconcilerTest{

@@ -14,7 +14,7 @@ spec:
         app: rhm-data-service
         app.kubernetes.io/name: rhm-data-service
         app.kubernetes.io/instance: rhm-data-service
-        app.kubernetes.io/part-of: redhat-marketplace-metering
+        app.kubernetes.io/part-of: ibm-metrics-operator
         app.kubernetes.io/managed-by: operator
     spec:
       affinity:
@@ -108,10 +108,10 @@ spec:
             - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
             - --upstream=http://127.0.0.1:8003/
             - --upstream-force-h2c
-            - --v=10
+            - --v=3
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
-            - --auth-token-audiences=rhm-data-service.{{NAMESPACE}}.svc
+            - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: Always
           name: kube-rbac-proxy-1
@@ -136,7 +136,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metering-serving-certs-ca-bundle
+              name: ibm-metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -146,10 +146,10 @@ spec:
             - --secure-listen-address=:8008
             - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
             - --upstream=http://127.0.0.1:8007/
-            - --v=10
+            - --v=3
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
-            - --auth-token-audiences=rhm-data-service.{{NAMESPACE}}.svc
+            - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: Always
           name: kube-rbac-proxy-2
@@ -174,7 +174,7 @@ spec:
               name: rhm-data-service-tls
               readOnly: false
             - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: metering-serving-certs-ca-bundle
+              name: ibm-metrics-operator-serving-certs-ca-bundle
               readOnly: false
             - mountPath: /etc/tls/mtls
               name: rhm-data-service-mtls
@@ -188,9 +188,9 @@ spec:
           secret:
             secretName: rhm-data-service-mtls
         - configMap:
-            name: metering-serving-certs-ca-bundle
-          name: metering-serving-certs-ca-bundle
-      serviceAccountName: metering-data-service
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle
+      serviceAccountName: ibm-metrics-operator-data-service
   volumeClaimTemplates:
     - metadata:
         name: rhm-data-service

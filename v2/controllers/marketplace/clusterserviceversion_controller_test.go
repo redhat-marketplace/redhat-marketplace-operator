@@ -150,8 +150,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("clusterserviceversion_controller")
 				//TBD ReconcilerTest needs to be converted to use client.Object instead of runtime.Object
-				//r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-				r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
+				r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
 				r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
 				return nil
 			}

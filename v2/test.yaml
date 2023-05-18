@@ -3584,7 +3584,7 @@ kind: ClusterRole
 metadata:
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-metrics-reader
+  name: ibm-metrics-operator-reader
 rules:
   - nonResourceURLs:
       - /metrics

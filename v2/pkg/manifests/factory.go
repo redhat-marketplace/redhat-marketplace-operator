@@ -97,6 +97,18 @@ const (
 	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
 	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
 	MeterdefinitionFileServerImageStream      = "catalog-server/image-stream.yaml"
+
+	// ibm-metrics-operator olm manifests
+	MOServiceMonitorMetricsReaderSecret = "ibm-metrics-operator/servicemonitor-metrics-reader-secret.yaml"
+	MOMetricsServiceMonitor             = "ibm-metrics-operator/metrics-service-monitor.yaml"
+	MOMetricsService                    = "ibm-metrics-operator/metrics-service.yaml"
+	MOCABundleConfigMap                 = "ibm-metrics-operator/metrics-ca-bundle-configmap.yaml"
+
+	// redhat-marketplace-operator olm manifests
+	RHMOServiceMonitorMetricsReaderSecret = "redhat-marketplace-operator/servicemonitor-metrics-reader-secret.yaml"
+	RHMOMetricsServiceMonitor             = "redhat-marketplace-operator/metrics-service-monitor.yaml"
+	RHMOMetricsService                    = "redhat-marketplace-operator/metrics-service.yaml"
+	RHMOCABundleConfigMap                 = "redhat-marketplace-operator/metrics-ca-bundle-configmap.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -533,9 +545,9 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 	f.UpdateEnvVar(container, isDisconnected)
 
 	dataServiceArgs := []string{
-		"--dataServiceCertFile=/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt",
+		"--dataServiceCertFile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt",
 		"--dataServiceTokenFile=/etc/data-service-sa/data-service-token",
-		"--cafile=/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt",
+		"--cafile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt",
 	}
 
 	if userWorkloadEnabled {
@@ -559,8 +571,8 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 
 	dataServiceVolumeMounts := []v1.VolumeMount{
 		{
-			Name:      "metering-serving-certs-ca-bundle",
-			MountPath: "/etc/configmaps/metering-serving-certs-ca-bundle",
+			Name:      "ibm-metrics-operator-serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle",
 			ReadOnly:  false,
 		},
 		{
@@ -574,11 +586,11 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 
 	dataServiceTokenVols := []v1.Volume{
 		{
-			Name: "metering-serving-certs-ca-bundle",
+			Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 			VolumeSource: v1.VolumeSource{
 				ConfigMap: &v1.ConfigMapVolumeSource{
 					LocalObjectReference: v1.LocalObjectReference{
-						Name: "metering-serving-certs-ca-bundle",
+						Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 					},
 				},
 			},
@@ -934,7 +946,7 @@ func (f *Factory) ReporterJob(
 	}
 
 	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/metering-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
 
 		container.Args = append(container.Args, dataServiceArgs...)
 
@@ -945,8 +957,8 @@ func (f *Factory) ReporterJob(
 				MountPath: "/etc/data-service-sa",
 			},
 			{
-				Name:      "metering-serving-certs-ca-bundle",
-				MountPath: "/etc/configmaps/metering-serving-certs-ca-bundle",
+				Name:      "ibm-metrics-operator-serving-certs-ca-bundle",
+				MountPath: "/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle",
 				ReadOnly:  false,
 			},
 		}
@@ -955,11 +967,11 @@ func (f *Factory) ReporterJob(
 
 		dataServiceTokenVols := []v1.Volume{
 			{
-				Name: "metering-serving-certs-ca-bundle",
+				Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 				VolumeSource: v1.VolumeSource{
 					ConfigMap: &v1.ConfigMapVolumeSource{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: "metering-serving-certs-ca-bundle",
+							Name: "ibm-metrics-operator-serving-certs-ca-bundle",
 						},
 					},
 				},
@@ -1459,6 +1471,38 @@ func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, 
 	s.Data["tls.key"] = serverCertPEM
 
 	return s, nil
+}
+
+func (f *Factory) NewMOServiceMonitorMetricsReaderSecret() (*v1.Secret, error) {
+	return f.NewSecret(MustAssetReader(MOServiceMonitorMetricsReaderSecret))
+}
+
+func (f *Factory) NewMOMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	return f.NewServiceMonitor(MustAssetReader(MOMetricsServiceMonitor))
+}
+
+func (f *Factory) NewMOMetricsService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(MOMetricsService))
+}
+
+func (f *Factory) NewMOCABundleConfigMap() (*corev1.ConfigMap, error) {
+	return f.NewConfigMap(MustAssetReader(MOCABundleConfigMap))
+}
+
+func (f *Factory) NewRHMOServiceMonitorMetricsReaderSecret() (*v1.Secret, error) {
+	return f.NewSecret(MustAssetReader(RHMOServiceMonitorMetricsReaderSecret))
+}
+
+func (f *Factory) NewRHMOMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	return f.NewServiceMonitor(MustAssetReader(RHMOMetricsServiceMonitor))
+}
+
+func (f *Factory) NewRHMOMetricsService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(RHMOMetricsService))
+}
+
+func (f *Factory) NewRHMOCABundleConfigMap() (*corev1.ConfigMap, error) {
+	return f.NewConfigMap(MustAssetReader(RHMOCABundleConfigMap))
 }
 
 func init() {

@@ -35,16 +35,16 @@ spec:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
         - "--logtostderr=true"
-        - "--v=10"
+        - "--v=3"
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
         volumeMounts:
           - mountPath: /etc/tls/private
-            name: metering-controller-manager-metrics-service-tls
+            name: ibm-metrics-operator-controller-manager-metrics-service-tls
             readOnly: false
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
-            name: metering-serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
             readOnly: false
         ports:
         - containerPort: 8443
@@ -66,9 +66,9 @@ spec:
             cpu: 10m
             memory: 20Mi
       volumes:
-        - name: metering-controller-manager-metrics-service-tls
+        - name: ibm-metrics-operator-controller-manager-metrics-service-tls
           secret:
-            secretName: metering-controller-manager-metrics-service-tls
+            secretName: ibm-metrics-operator-controller-manager-metrics-service-tls
         - configMap:
-            name: metering-serving-certs-ca-bundle
-          name: metering-serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle

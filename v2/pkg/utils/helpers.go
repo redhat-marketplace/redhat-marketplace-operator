@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -38,7 +38,6 @@ import (
 const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
 
 var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
-var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
 
 var ParsedVersion460, _ = semver.Make("4.6.0")
 var ParsedVersion480, _ = semver.Make("4.8.0")

@@ -1,0 +1,6 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: ComponentConfig
+metadata:
+  name: componentconfig-sample
+spec:
+  # Add fields here
