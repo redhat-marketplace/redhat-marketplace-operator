@@ -74,6 +74,10 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Namespace LabelSelector"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
+
+	// License information is required
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License"
+	License MarketplaceConfigLicense `json:"license,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -94,6 +98,17 @@ type MarketplaceConfigStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	MeterBaseSubConditions status.Conditions `json:"meterBaseSubConditions,omitempty"`
+}
+
+// MarketplaceConfigLicense defines license acceptance
+// +k8s:openapi-gen=true
+type MarketplaceConfigLicense struct {
+
+	// By installing this product you accept the license terms https://ibm.biz/BdfaAY
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Accept Licence"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:checkbox"
+	Accept *bool `json:"accept,omitempty"`
 }
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers

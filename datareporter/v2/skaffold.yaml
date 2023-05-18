@@ -1,13 +1,13 @@
 apiVersion: skaffold/v3
 kind: Config
 metadata:
-  name: data-reporter-operator
+  name: ibm-data-reporter-operator
 build:
   artifacts:
-  - image: data-reporter-operator
+  - image: ibm-data-reporter-operator
     context: .
     custom:
-      buildCommand: ARCHS=amd64 make vet docker-build
+      buildCommand: ARCHS=amd64 make vet docker-build docker-push
       dependencies:
         paths:
         - go.mod
@@ -16,6 +16,7 @@ build:
         - ../../v2/apis/**
         - controllers/**
         - ../../v2/pkg/**
+        - pkg/**
         - ../../v2/assets/**
         - Dockerfile
         ignore:

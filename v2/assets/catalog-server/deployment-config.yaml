@@ -87,15 +87,15 @@ spec:
             name: rhm-meterdefinition-file-server-tls
             readOnly: false  
           - mountPath: /etc/configmaps/serving-certs-ca-bundle
-            name: metering-serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
             readOnly: false        
       volumes:
         - name: rhm-meterdefinition-file-server-tls
           secret:
             secretName: rhm-meterdefinition-file-server-tls
         - configMap:
-            name: metering-serving-certs-ca-bundle
-          name: metering-serving-certs-ca-bundle
+            name: ibm-metrics-operator-serving-certs-ca-bundle
+          name: ibm-metrics-operator-serving-certs-ca-bundle
       serviceAccountName: redhat-marketplace-operator
       dnsPolicy: ClusterFirst
       restartPolicy: Always

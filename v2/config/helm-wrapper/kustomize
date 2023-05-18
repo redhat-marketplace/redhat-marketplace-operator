@@ -14,7 +14,7 @@ pushd $DIR &>/dev/null
 
 cat <&0 >../manager/manager.yaml
 
-NS="${NAMESPACE:-openshift-redhat-marketplace}"
+NS="${NAMESPACE:-redhat-marketplace}"
 
 ${KUSTOMIZE} edit set namespace $NS && ${KUSTOMIZE} build . | ${YQ} ea 'select(.kind != "Namespace")' -
 

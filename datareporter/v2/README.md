@@ -1,84 +1,108 @@
-# data-reporter-operator
-// TODO(user): Add simple overview of use/purpose
+# IBM Data Reporter Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+# Introduction
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+The IBM Data Reporter Operator accepts events and transforms them into reports submitted to the Data Service of the IBM Metrics Operator.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+# Details
 
-```sh
-kubectl apply -f config/samples/
+The IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Data Service. The IBM Data Service periodically uploads the reports to Red Hat Marketplace.
+
+## Prerequisites
+
+- OpenShift Container Platform, major version 4 with any available supported minor version
+- Install IBM Metrics Operator and Red Hat Marketplace Deployment Operator
+  - IBM Data Reporter Operator prerequisties the IBM Metrics Operator data-service and registration with Red Hat Marketplace
+  - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per the instructions
+  - `rhm-data-service` has started
+
+## SecurityContextConstraints Requirements
+
+- The operator runs under Red Hat restricted SCC
+
+## Resources Required
+
+- The operator requires at least 85 Mi memory.
+
+## Limitations
+
+- Only runs on amd64, s390x and ppc64le architectures
+
+## Installing
+
+- A user with the cluster administrator role.
+- Install this operator in the same namespace as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator
+  - default namespace: `redhat-marketplace`
+
+# Configuration
+
+Optional:
+- Configure the DataReporterConfig named `datareporterconfig` as per the following example
+- Reference the service account name that will be used to access the service
+  - Reports generated for events sent by this user will be decorated with the additional metadata
+
+```YAML
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: DataReporterConfig
+metadata:
+  name: datareporterconfig
+spec:
+  userConfig:
+  - metadata:
+      ameta1: ametadata1
+      bmeta1: bmetadata1
+      cmeta1: cmetadata1
+      dmeta1: dmetadata1
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api
 ```
 
-2. Build and push your image to the location specified by `IMG`:
-	
-```sh
-make docker-build docker-push IMG=<some-registry>/v2:tag
-```
-	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+### User Configuration
 
-```sh
-make deploy IMG=<some-registry>/v2:tag
-```
+- The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`
+- The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`
+  - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+Optional:
 
-```sh
-make uninstall
+- To create an additional ServiceAccount and ClusterRoleBinding for api access
+
+```SHELL
+NAMESPACE=$(oc config view --minify -o jsonpath='{..namespace}') && \
+oc create serviceaccount my-api-service-account && \
+oc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-data-reporter-operator-api --serviceaccount=${NAMESPACE}:my-api-service-account
 ```
 
-### Undeploy controller
-UnDeploy the controller to the cluster:
+- Update datareporterconfig to attach metadata to reports associated with this user
 
-```sh
-make undeploy
+## Usage
+
+- Get Token & Host
+
+```SHELL
+oc project redhat-marketplace
+export DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace redhat-marketplace --duration 1h)
+export DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}')
 ```
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+- Get the Status
 
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
+```SHELL
+curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
 ```
 
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+- Post an Event
 
-```sh
-make run
+```SHELL
+curl -k -H "Authorization: Bearer ${DRTOKEN}" -X POST -d '{"event":"myevent"}' https://${DRHOST}/v1/event
 ```
 
-**NOTE:** You can also run this in one step by running: `make install run`
+## Storage
 
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+- The operator temporarily stores events in pod memory, and writes to the IBM Metrics Operator data-service, which requires a PersistentVolume
 
 ## License
 
-Copyright 2023.
+Copyright IBM Corporation 2023. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -91,4 +115,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

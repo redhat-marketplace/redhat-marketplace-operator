@@ -18,25 +18,30 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"os"
-	"time"
+	"runtime/debug"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	routev1 "github.com/openshift/api/route/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	//+kubebuilder:scaffold:imports
 
@@ -50,31 +55,24 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
 
-	// dataReporter flags
 	var namespace string
-	var dataServiceCertFile string
-	var dataServiceTokenFile string
+	var componentConfigVar string
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-
-	// dataReporter flags
-	flag.StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "/etc/data-service-sa/data-service-token", "token file for the data service")
-	flag.StringVar(&dataServiceCertFile, "dataServiceCertFile", "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt", "cert file for the data service")
 	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
+
+	// componentconfig path
+	flag.StringVar(&componentConfigVar, "config", "",
+		"The controller will load its initial configuration from this file. "+
+			"Omit this flag to use the default configuration values. "+
+			"Command-line flags override configuration from this file.")
 
 	opts := zap.Options{
 		Development: true,
@@ -92,27 +90,77 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	quantity, err := resource.ParseQuantity(os.Getenv("LIMITSMEMORY"))
+	if err == nil {
+		setupLog.Info("setting memory limit from container resources.limits.memory", "downwardAPIEnv", "LIMITSMEMORY", "GOMEMLIMIT", quantity.String())
+		debug.SetMemoryLimit(quantity.Value())
+	}
+
+	setupLog.Info("componentConfigVar", "file", componentConfigVar)
+
+	content, err := os.ReadFile(componentConfigVar)
+	if err != nil {
+		setupLog.Error(err, "os.ReadFile")
+	}
+
+	codecs := serializer.NewCodecFactory(scheme)
+
+	cc := v1alpha1.NewComponentConfig()
+	if err = runtime.DecodeInto(codecs.UniversalDecoder(), content, cc); err != nil {
+		setupLog.Error(err, "could not decode file into runtime.Object")
+	}
+
+	if err != nil {
+		setupLog.Error(err, "unable to load the config file")
+		os.Exit(1)
+	}
+
 	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
-		DataServiceTokenFile: dataServiceTokenFile,
-		DataServiceCertFile:  dataServiceCertFile,
+		DataServiceTokenFile: cc.DataServiceTokenFile,
+		DataServiceCertFile:  cc.DataServiceCertFile,
 		Namespace:            namespace,
+		AccMemoryLimit:       cc.AccMemoryLimit,
+		MaxFlushTimeout:      cc.MaxFlushTimeout,
+		MaxEventEntries:      cc.MaxEventEntries,
 	}
 
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config)
-	err := eventEngine.Start(ctx)
+	err = eventEngine.Start(ctx)
 	if err != nil {
 		setupLog.Error(err, "unable to start engine")
 		os.Exit(1)
 	}
 
+	newCacheFunc := cache.BuilderWithOptions(cache.Options{
+		SelectorsByObject: cache.SelectorsByObject{
+			&v1alpha1.DataReporterConfig{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&corev1.Service{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&routev1.Route{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&marketplacev1alpha1.MarketplaceConfig{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+		},
+	})
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     cc.Metrics.BindAddress,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "datareporter.marketplace.redhat.com",
+		HealthProbeBindAddress: cc.ManagerConfig.Health.HealthProbeBindAddress,
+		LeaderElection:         *cc.ManagerConfig.LeaderElection.LeaderElect,
+		LeaderElectionID:       cc.ManagerConfig.LeaderElectionID,
+		NewCache:               newCacheFunc,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -125,6 +173,7 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
+
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -134,10 +183,12 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Config: config,
+		Log:    ctrl.Log.WithName("controllers").WithName("DataReporterConfigController"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -149,17 +200,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	go func() {
-		eventjson := json.RawMessage(`{"event":"one"}`)
-		eventone := events.Event{Key: "one", RawMessage: eventjson}
-		for i := 0; i < 60; i++ {
-			setupLog.Info("sending event")
-			eventEngine.EventChan <- eventone
-			time.Sleep(1 * time.Second)
-		}
-	}()
+	h := server.NewDataReporterHandler(eventEngine, config, cc.ApiHandlerConfig)
 
-	//TODO: add server startup
+	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
+		setupLog.Error(err, "unable to set up data reporter handler")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

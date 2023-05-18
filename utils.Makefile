@@ -88,7 +88,7 @@ YQ=$(PROJECT_DIR)/bin/yq
 yq:
 	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION),$(YQ_VERSION))
 
-OPERATOR_SDK_VERSION=v1.27.0
+OPERATOR_SDK_VERSION=v1.28.1
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
@@ -120,7 +120,7 @@ pc-tool:
 	}
 
 SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
-SKAFFOLD_VERSION=v2.1.0
+SKAFFOLD_VERSION=v2.3.1
 skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 

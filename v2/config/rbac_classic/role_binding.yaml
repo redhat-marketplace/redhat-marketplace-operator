@@ -4,11 +4,16 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: metric-state-view-binding
-  namespace: system
 subjects:
 - kind: ServiceAccount
-  name: metric-state
-  namespace: system
+  name: ibm-metrics-operator-metric-state
+  namespace: openshift-redhat-marketplace
+- kind: ServiceAccount
+  name: ibm-metrics-operator-metric-state
+  namespace: redhat-marketplace
+- kind: ServiceAccount
+  name: ibm-metrics-operator-metric-state
+  namespace: ibm-common-services
 roleRef:
   kind: ClusterRole
   name: view
@@ -18,11 +23,16 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: reporter-cluster-monitoring-binding
-  namespace: system
 subjects:
 - kind: ServiceAccount
-  name: reporter
-  namespace: system
+  name: ibm-metrics-operator-reporter
+  namespace: openshift-redhat-marketplace
+- kind: ServiceAccount
+  name: ibm-metrics-operator-reporter
+  namespace: redhat-marketplace
+- kind: ServiceAccount
+  name: ibm-metrics-operator-reporter
+  namespace: ibm-common-services
 roleRef:
   kind: ClusterRole
   name: cluster-monitoring-view

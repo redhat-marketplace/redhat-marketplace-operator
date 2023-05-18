@@ -4,9 +4,15 @@ metadata:
   labels:
     app.kubernetes.io/name: datareporterconfig
     app.kubernetes.io/instance: datareporterconfig-sample
-    app.kubernetes.io/part-of: data-reporter-operator
+    app.kubernetes.io/part-of: ibm-data-reporter-operator
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: data-reporter-operator
-  name: datareporterconfig-sample
+    app.kubernetes.io/created-by: ibm-data-reporter-operator
+  name: datareporterconfig
 spec:
-  # TODO(user): Add fields here
+  userConfig:
+  - metadata:
+      ameta1: ametadata1
+      bmeta1: bmetadata1
+      cmeta1: cmetadata1
+      dmeta1: dmetadata1
+    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api

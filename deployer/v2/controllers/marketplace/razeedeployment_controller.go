@@ -272,6 +272,14 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	if !instance.Spec.Enabled {
 		reqLogger.Info("Razee not enabled")
 
+		if err := r.removeWatchkeeperDeployment(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if err := r.removeRazeeDeployments(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 				return err
@@ -1221,6 +1229,8 @@ func (r *RazeeDeploymentReconciler) createCatalogSource(instance *marketplacev1a
 			}
 		} else {
 			// Delete catalog source.
+			catalogSrc.Name = catalogName
+			catalogSrc.Namespace = utils.OPERATOR_MKTPLACE_NS
 			if err := r.Client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !errors.IsNotFound(err) {
 				reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
 				return err

@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.8-v4.12
+OPENSHIFT_VERSIONS ?= v4.9-v4.12
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -21,20 +21,20 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
 TAG ?= $(VERSION)
 
-OPERATOR_IMAGE_NAME = data-reporter-operator
+OPERATOR_IMAGE_NAME = ibm-data-reporter-operator
 OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
-BUNDLE_NAME ?= data-reporter-operator-manifest
+BUNDLE_NAME ?= ibm-data-reporter-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
-DEV_INDEX_NAME ?= data-reporter-operator-dev-index
+DEV_INDEX_NAME ?= ibm-data-reporter-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-namespace ?= openshift-redhat-marketplace
+namespace ?= redhat-marketplace
 
 IMG ?= $(OPERATOR_IMAGE)
 IMAGE ?= $(OPERATOR_IMAGE)
@@ -44,7 +44,7 @@ IMAGE ?= $(OPERATOR_IMAGE)
 # BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
-# BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) --extra-service-accounts ibm-data-reporter-operator-api
 
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
@@ -120,7 +120,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: build
 build:
-	$(call multiarch-build,data-reporter-operator)
+	$(call multiarch-build,ibm-data-reporter-operator)
 
 # Build manager binary
 manager: generate fmt vet
@@ -135,11 +135,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(call docker-templated-build,$(IMAGE),DataReporter,./datareporter/v2/,./,data-reporter-operator,../..)
+	$(call docker-templated-build,$(IMAGE),DataReporter,./datareporter/v2/,./,ibm-data-reporter-operator,../..)
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push $(IMAGE)
 
 
 
@@ -159,7 +159,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image ${OPERATOR_IMAGE_NAME}=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
@@ -175,6 +175,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 #	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
+VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 opm-builder-base: opm
 	docker buildx build --push \
@@ -185,11 +186,20 @@ opm-builder-base: opm
 	--progress plain \
 	.
 
+CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-data-reporter-operator.clusterserviceversion.yaml
+ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
+
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/manager && $(KUSTOMIZE) edit set image ${OPERATOR_IMAGE_NAME}=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
+	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build

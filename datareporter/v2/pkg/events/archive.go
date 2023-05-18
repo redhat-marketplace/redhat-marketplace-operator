@@ -16,7 +16,6 @@ package events
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -24,23 +23,32 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+
+	gp "github.com/ungerik/go-pool"
 )
 
-// from datactl
-func Tar(src string, writers ...io.Writer) error {
+type TarGzipPool struct {
+	gp.GzipPool
+}
+
+func (pool *TarGzipPool) TarGzip(src string, dest string) error {
+
 	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("unable to tar files - %v", err.Error())
 	}
 
-	mw := io.MultiWriter(writers...)
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
 
-	gzw := gzip.NewWriter(mw)
-	defer gzw.Close()
+	gzw := pool.GetWriter(destFile)
 
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	return filepath.Walk(src, func(file string, fi os.FileInfo, errIn error) error {
+	err = filepath.Walk(src, func(file string, fi os.FileInfo, errIn error) error {
 
 		if errIn != nil {
 			return errors.Wrap(errIn, "failed to tar files")
@@ -74,4 +82,16 @@ func Tar(src string, writers ...io.Writer) error {
 
 		return nil
 	})
+
+	if twerr := tw.Close(); twerr != nil {
+		err = errors.Append(err, twerr)
+	}
+
+	pool.PutWriter(gzw)
+
+	if derr := destFile.Close(); derr != nil {
+		err = errors.Append(err, derr)
+	}
+
+	return err
 }

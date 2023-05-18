@@ -1,0 +1,4 @@
+resources:
+  - role_binding.yaml
+configurations:
+  - kustomizeconfig.yaml

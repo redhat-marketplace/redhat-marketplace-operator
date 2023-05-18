@@ -4,7 +4,7 @@ metadata:
   name: redhat-marketplace-operator
 build:
   artifacts:
-  - image: redhat-marketplace-metering-operator
+  - image: ibm-metrics-operator
     context: .
     custom:
       buildCommand: ARCHS=amd64 make vet docker-build
@@ -76,7 +76,7 @@ build:
         - Dockerfile
         ignore:
         - '**/*_test.go'
-  - image: redhat-marketplace-data-reporter-operator
+  - image: ibm-data-reporter-operator
     context: ../datareporter/v2
     custom:
       buildCommand: ARCHS=amd64 make vet docker-build
@@ -108,7 +108,7 @@ build:
 deploy:
   helm:
     releases:
-    - name: rhm-metering-operator
+    - name: ibm-metrics-operator
       chartPath: ./config/helm-wrapper
       valuesFiles:
       - ./config/helm-wrapper/values.yaml
@@ -117,9 +117,9 @@ deploy:
         authCheckImage: redhat-marketplace-authcheck
         dqLiteImage: redhat-marketplace-data-service
         metricStateImage: redhat-marketplace-metric-state
-        operatorImage: redhat-marketplace-metering-operator
+        operatorImage: ibm-metrics-operator
         reporterImage: redhat-marketplace-reporter
-        dataReporterImage: redhat-marketplace-data-reporter-operator
+        dataReporterImage: ibm-data-reporter-operator
       namespace: openshift-redhat-marketplace
       setValueTemplates:
         devEnvVars[0].name: RELATED_IMAGE_METERDEF_FILE_SERVER

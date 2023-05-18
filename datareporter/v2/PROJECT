@@ -1,10 +1,11 @@
+componentConfig: true
 domain: redhat.com
 layout:
 - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: data-reporter-operator
+projectName: ibm-data-reporter-operator
 repo: github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2
 resources:
 - api:
