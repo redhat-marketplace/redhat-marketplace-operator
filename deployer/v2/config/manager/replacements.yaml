@@ -1,0 +1,11 @@
+replacements:
+  - source:
+      kind: Deployment
+      name: controller-manager
+      fieldPath: metadata.annotations.authcheckImage
+    targets:
+      - select:
+          kind: Deployment
+          name: controller-manager
+        fieldPaths:          
+          - spec.template.spec.containers.0.env.1.value

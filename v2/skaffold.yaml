@@ -120,7 +120,7 @@ deploy:
         operatorImage: ibm-metrics-operator
         reporterImage: redhat-marketplace-reporter
         dataReporterImage: ibm-data-reporter-operator
-      namespace: openshift-redhat-marketplace
+      namespace: redhat-marketplace
       setValueTemplates:
         devEnvVars[0].name: RELATED_IMAGE_METERDEF_FILE_SERVER
         devEnvVars[0].value: '{{.IMAGE_REGISTRY}}/rhm-meterdefinition-file-server:v1'

@@ -1,7 +1,7 @@
 namePrefix: redhat-marketplace-
 
 # Adds namespace to all resources.
-namespace: openshift-redhat-marketplace
+namespace: redhat-marketplace
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".

@@ -149,7 +149,7 @@ docker-build:
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push $(IMAGE)
 
 
 docker-manifest:
@@ -281,6 +281,14 @@ skaffold-delete: skaffold yq
 
 current-version:
 	@echo $(VERSION)
+
+# skaffold helper
+# https://skaffold.dev/docs/environment/templating/
+kustomize-set:
+	cd config/manager && \
+	kustomize edit set annotation \
+	authcheckImage:$(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(IMAGE_TAG) \
+	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG)
 
 TAG ?= ""
 CREDS ?= ""

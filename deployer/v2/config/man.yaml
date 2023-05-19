@@ -6,8 +6,6 @@ metadata:
   name: controller-manager
   namespace: system
   annotations:
-    reporterImage:
-    metricStateImage:
     authcheckImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.9.0
 spec:
   selector:

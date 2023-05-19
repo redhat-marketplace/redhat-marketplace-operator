@@ -32,7 +32,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("RHM subscription controller", func() {
 		var (
 			name      = rhmOperatorName
-			namespace = "openshift-redhat-marketplace"
+			namespace = "redhat-marketplace"
 
 			req = reconcile.Request{
 				NamespacedName: types.NamespacedName{
