@@ -78,5 +78,10 @@ const (
 	// license not accepted condition, operator will not process events
 	ConditionNoLicense status.ConditionType = "NoLicense"
 
+	// problem with data upload to data service
+	ConditionUploadFailure status.ConditionType = "UploadFailed"
+
 	ReasonLicenseNotAccepted status.ConditionReason = "LicenseNotAccepted"
+
+	ReasonUploadFailed status.ConditionReason = "UploadFailed"
 )

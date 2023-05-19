@@ -22,8 +22,15 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Must Start, Process and Send
@@ -50,6 +57,8 @@ type ProcessorSender struct {
 	eventReporter *EventReporter
 
 	config *Config
+
+	client client.Client
 }
 
 func (p *ProcessorSender) Start(ctx context.Context) error {
@@ -92,6 +101,7 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 				localKey := key
 				if err := p.Send(ctx, localKey); err != nil {
 					p.log.Error(err, "error sending event data")
+					p.UpdateErrorStatus(ctx)
 				}
 			}
 			sendWaitGroup.Done()
@@ -108,6 +118,7 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 				p.log.V(4).Info("Timer expired. SendAll.")
 				if err := p.SendAll(ctx); err != nil {
 					p.log.Error(err, "error sending event data")
+					p.UpdateErrorStatus(ctx)
 				}
 			}
 		}
@@ -198,4 +209,25 @@ func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceCo
 		DataServiceCert:  cert,
 		OutputPath:       p.config.OutputDirectory,
 	}, nil
+}
+
+func (p *ProcessorSender) UpdateErrorStatus(ctx context.Context) error {
+	retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+
+		dataReporterConfig := &v1alpha1.DataReporterConfig{}
+		if err := p.client.Get(ctx, types.NamespacedName{Name: utils.DATAREPORTERCONFIG_NAME, Namespace: p.config.Namespace}, dataReporterConfig); err != nil {
+			// report upload to data service failed, update status
+			ok := dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    datareporterv1alpha1.ConditionUploadFailure,
+				Status:  corev1.ConditionTrue,
+				Reason:  datareporterv1alpha1.ReasonUploadFailed,
+				Message: "Error uploading event data",
+			})
+			if ok {
+				return p.client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+		}
+		return nil
+	})
+	return nil
 }
