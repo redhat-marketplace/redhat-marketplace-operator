@@ -158,8 +158,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image ${OPERATOR_IMAGE_NAME}=${IMG}
+deploy: manifests kustomize kustomize-set ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
@@ -190,9 +189,8 @@ CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-data-reporter-operator.clusterservicev
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 
 .PHONY: bundle
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
+bundle: clean manifests kustomize kustomize-set operator-sdk yq omt ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image ${OPERATOR_IMAGE_NAME}=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
@@ -238,6 +236,12 @@ skaffold-delete: skaffold yq
 
 current-version:
 	@echo $(VERSION)
+
+kustomize-set:
+	cd config/manager && \
+	$(KUSTOMIZE) edit set image $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
+	$(KUSTOMIZE) edit set annotation \
+	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG)
 
 # Pin images in bundle
 .PHONY: bundle-pin-images

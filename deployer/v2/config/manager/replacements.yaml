@@ -9,3 +9,23 @@ replacements:
           name: controller-manager
         fieldPaths:          
           - spec.template.spec.containers.0.env.1.value
+  - source:
+      kind: Deployment
+      name: controller-manager
+      fieldPath: metadata.annotations.rrs3Image
+    targets:
+      - select:
+          kind: Deployment
+          name: controller-manager
+        fieldPaths:          
+          - spec.template.spec.containers.0.env.2.value
+  - source:
+      kind: Deployment
+      name: controller-manager
+      fieldPath: metadata.annotations.watchkeeperImage
+    targets:
+      - select:
+          kind: Deployment
+          name: controller-manager
+        fieldPaths:          
+          - spec.template.spec.containers.0.env.3.value

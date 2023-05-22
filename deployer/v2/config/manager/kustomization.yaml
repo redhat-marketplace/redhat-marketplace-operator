@@ -14,8 +14,3 @@ replacements:
       name: controller-manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-patchesStrategicMerge:
-- ./patches/env_vars_patch.yaml
-commonAnnotations:
-  authcheckImage: quay.io/dacleyra/redhat-marketplace-authcheck:2.11.0-1c9f8799-dirty
-  operatorImage: quay.io/dacleyra/redhat-marketplace-operator:2.11.0-1c9f8799-dirty
