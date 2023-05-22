@@ -159,7 +159,6 @@ func (p *ProcessorSender) Send(ctx context.Context, user string) error {
 	if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
 		return err
 	}
-
 	p.log.Info("Sent Report")
 
 	return nil
@@ -179,7 +178,6 @@ func (p *ProcessorSender) SendAll(ctx context.Context) error {
 		if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
 			return err
 		}
-
 		p.log.Info("Sent Report")
 	}
 
@@ -212,16 +210,19 @@ func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceCo
 }
 
 func (p *ProcessorSender) UpdateErrorStatus(ctx context.Context) error {
+
 	retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 
 		dataReporterConfig := &v1alpha1.DataReporterConfig{}
 		if err := p.client.Get(ctx, types.NamespacedName{Name: utils.DATAREPORTERCONFIG_NAME, Namespace: p.config.Namespace}, dataReporterConfig); err != nil {
+			p.log.Error(err, "datareporterconfig resource not found, unable to update status")
+		} else {
 			// report upload to data service failed, update status
 			ok := dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
 				Type:    datareporterv1alpha1.ConditionUploadFailure,
 				Status:  corev1.ConditionTrue,
 				Reason:  datareporterv1alpha1.ReasonUploadFailed,
-				Message: "Error uploading event data",
+				Message: "Error uploading report data",
 			})
 			if ok {
 				return p.client.Status().Update(context.TODO(), dataReporterConfig)
