@@ -188,7 +188,7 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize kustomize-set operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
