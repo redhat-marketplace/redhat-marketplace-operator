@@ -79,7 +79,7 @@ KUTTL_INT_TESTS ?= "(^register-test$$|^features-test$$)"
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	SKIP_DEPLOY=true kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
+	SKIP_DEPLOY=true kubectl kuttl test --namespace redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
@@ -89,13 +89,14 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go
 
+# Currently no CRDs
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+#	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+#	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
 deploy: manifests kustomize kustomize-set ## Deploy controller to the K8s cluster specified in ~/.kube/config.
@@ -204,14 +205,14 @@ bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
 bundle-run: operator-sdk
-	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace openshift-redhat-marketplace
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace redhat-marketplace
 
 bundle-run-install:
 	$(MAKE) skaffold-build bundle bundle-build bundle-deploy bundle-run
 
 bundle-run-uninstall:
 	for NAME in marketplaceconfigs.marketplace.redhat.com subscriptions.operators.coreos.com csv operatorgroup catalogsources.operators.coreos.com ; do \
-		kubectl delete $$NAME --all -n openshift-redhat-marketplace ; \
+		kubectl delete $$NAME --all -n redhat-marketplace ; \
 	done
 
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
@@ -246,8 +247,8 @@ bundle-dev-index: opm
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
 	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.redhat-marketplace
 
 skaffold-build: skaffold
 	cd .. && $(MAKE) save-licenses
@@ -280,11 +281,15 @@ current-version:
 # https://skaffold.dev/docs/environment/templating/
 .PHONY: kustomize-set
 kustomize-set:
+	cd config/default && \
+	${KUSTOMIZE} edit set namespace $(namespace) && \
+	cd ../.. && \
 	cd config/manager && \
-	$(KUSTOMIZE) edit set image $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
+	$(KUSTOMIZE) edit set image $(OPERATOR_IMAGE_NAME)=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
 	$(KUSTOMIZE) edit set annotation \
 	authcheckImage:$(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(IMAGE_TAG) \
 	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
+	rbacProxyImage:$(KUBE_RBAC_PROXY_IMAGE) \
 	rrs3Image:$(RRS3_IMAGE) \
 	watchkeeperImage:$(WATCHKEEPER_IMAGE)
 

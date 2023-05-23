@@ -161,3 +161,7 @@ database/
 v2/bundle
 deployer/v2/bundle
 datareporter/v2/bundle
+
+v2/config/manager/kustomization.yaml
+v2/deployer/config/manager/kustomization.yaml
+v2/datareporter/config/manager/kustomization.yaml

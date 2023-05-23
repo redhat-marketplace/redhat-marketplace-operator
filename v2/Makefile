@@ -98,15 +98,21 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize helm install
-	cd config && $(HELM) template rhm-template ./helm-wrapper \
-	-f ./helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) 
-	--set dqLiteImage=$(DQLITE_IMAGE) | ./default/kustomize | kubectl apply -f -
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: deploy
+deploy: manifests kustomize kustomize-set ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: undeploy
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -166,8 +172,7 @@ docker-build:
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
-
+	docker push $(IMAGE)
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
@@ -180,15 +185,9 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: clean manifests kustomize helm operator-sdk yq omt
+.PHONY: bundle
+bundle: clean manifests kustomize kustomize-set operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	export NAMESPACE=$(namespace) && $(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	--set dqLiteImage=$(DQLITE_IMAGE) \
-	--post-renderer ./config/manifests/kustomize | \
 	$(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
@@ -278,28 +277,6 @@ compile-helm: helm
 	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
-install: kustomize compile-helm yq
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
-	   --namespace $(namespace) \
-	   -f ./helm-wrapper/values.yaml \
-	   --set operatorImage=$(OPERATOR_IMAGE) \
-	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
-	   --set reporterImage=$(REPORTER_IMAGE) \
-	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-	   --set dqLiteImage=$(DQLITE_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
-
-uninstall: helm yq
-	cd config && export NAMESPACE=$(namespace) && PATH="$(PWD)/../bin:${PATH}" $(HELM) template rhm-ibm-metrics-operator ./helm-wrapper \
-	   --namespace $(namespace) \
-	   -f ./helm-wrapper/values.yaml \
-	   --set operatorImage=$(OPERATOR_IMAGE) \
-	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
-	   --set reporterImage=$(REPORTER_IMAGE) \
-	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-	   --set dqLiteImage=$(DQLITE_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
-
 skaffold-dev: skaffold kustomize yq
 	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
@@ -311,6 +288,23 @@ skaffold-delete: skaffold yq
 
 current-version:
 	@echo $(VERSION)
+
+# skaffold helper
+# https://skaffold.dev/docs/environment/templating/
+.PHONY: kustomize-set
+kustomize-set:
+	cd config/default && \
+	${KUSTOMIZE} edit set namespace $(namespace) && \
+	cd ../.. && \
+	cd config/manager && \
+	$(KUSTOMIZE) edit set image $(OPERATOR_IMAGE_NAME)=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
+	$(KUSTOMIZE) edit set annotation \
+	authcheckImage:$(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(IMAGE_TAG) \
+	dqLiteImage:$(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(IMAGE_TAG) \
+	rbacProxyImage:$(KUBE_RBAC_PROXY_IMAGE) \
+	metricStateImage:$(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(IMAGE_TAG) \
+	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
+	reporterImage:$(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(IMAGE_TAG)
 
 TAG ?= ""
 CREDS ?= ""

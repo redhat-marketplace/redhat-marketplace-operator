@@ -238,10 +238,14 @@ current-version:
 	@echo $(VERSION)
 
 kustomize-set:
+	cd config/default && \
+	${KUSTOMIZE} edit set namespace $(namespace) && \
+	cd ../.. && \
 	cd config/manager && \
-	$(KUSTOMIZE) edit set image $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
+	$(KUSTOMIZE) edit set image $(OPERATOR_IMAGE_NAME)=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
 	$(KUSTOMIZE) edit set annotation \
-	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG)
+	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
+	rbacProxyImage:$(KUBE_RBAC_PROXY_IMAGE)
 
 # Pin images in bundle
 .PHONY: bundle-pin-images
