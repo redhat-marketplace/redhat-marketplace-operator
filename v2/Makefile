@@ -185,7 +185,6 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-.PHONY: bundle
 bundle: clean manifests kustomize kustomize-set operator-sdk yq omt
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
@@ -305,6 +304,8 @@ kustomize-set:
 	metricStateImage:$(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(IMAGE_TAG) \
 	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
 	reporterImage:$(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(IMAGE_TAG)
+
+
 
 TAG ?= ""
 CREDS ?= ""
