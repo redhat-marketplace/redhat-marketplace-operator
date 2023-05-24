@@ -83,6 +83,20 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 	processWaitGroup.Add(p.digestersSize)
 	sendWaitGroup.Add(p.digestersSize)
 
+	// Clear the DataReporterConfig error status before starting
+	retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		dataReporterConfig := &v1alpha1.DataReporterConfig{}
+		if err := p.client.Get(ctx, types.NamespacedName{Name: utils.DATAREPORTERCONFIG_NAME, Namespace: p.config.Namespace}, dataReporterConfig); err != nil {
+			p.log.Error(err, "datareporterconfig resource not found, unable to update status")
+			return err
+		}
+		if dataReporterConfig.Status.Conditions.RemoveCondition(status.ConditionType(datareporterv1alpha1.ConditionUploadFailure)) {
+			p.log.Info("updating dataReporterConfig status")
+			return p.client.Status().Update(context.TODO(), dataReporterConfig)
+		}
+		return nil
+	})
+
 	for i := 0; i < p.digestersSize; i++ {
 		go func() {
 			for event := range p.EventChan {
@@ -212,7 +226,6 @@ func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceCo
 func (p *ProcessorSender) UpdateErrorStatus(ctx context.Context) error {
 
 	retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-
 		dataReporterConfig := &v1alpha1.DataReporterConfig{}
 		if err := p.client.Get(ctx, types.NamespacedName{Name: utils.DATAREPORTERCONFIG_NAME, Namespace: p.config.Namespace}, dataReporterConfig); err != nil {
 			p.log.Error(err, "datareporterconfig resource not found, unable to update status")
@@ -222,7 +235,7 @@ func (p *ProcessorSender) UpdateErrorStatus(ctx context.Context) error {
 				Type:    datareporterv1alpha1.ConditionUploadFailure,
 				Status:  corev1.ConditionTrue,
 				Reason:  datareporterv1alpha1.ReasonUploadFailed,
-				Message: "Error uploading report data",
+				Message: "an error occured while uploading a report to data-service, check pod logs for more information",
 			})
 			if ok {
 				return p.client.Status().Update(context.TODO(), dataReporterConfig)

@@ -106,25 +106,29 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	reqLogger.Info("datareporterconfig found")
 
 	// check license and update status
-	if r.Config.LicenseAccept != true {
-
+	if r.Config.LicenseAccept {
 		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-
-			// license not accepted, update status
-			ok := dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    datareporterv1alpha1.ConditionNoLicense,
-				Status:  corev1.ConditionTrue,
-				Reason:  datareporterv1alpha1.ReasonLicenseNotAccepted,
-				Message: "License has not been accepted",
-			})
-
-			if ok {
+			// license accepted, clear status
+			if dataReporterConfig.Status.Conditions.RemoveCondition(status.ConditionType(datareporterv1alpha1.ConditionNoLicense)) {
 				reqLogger.Info("updating dataReporterConfig status")
 				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
 			}
 			return nil
 		})
-
+	} else {
+		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// license not accepted, update status
+			if dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    datareporterv1alpha1.ConditionNoLicense,
+				Status:  corev1.ConditionTrue,
+				Reason:  datareporterv1alpha1.ReasonLicenseNotAccepted,
+				Message: "License has not been accepted in marketplaceconfig",
+			}) {
+				reqLogger.Info("updating dataReporterConfig status")
+				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+			return nil
+		})
 	}
 
 	// Set the updated UserConfig for the Event Processor
