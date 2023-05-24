@@ -177,7 +177,8 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: clean manifests kustomize kustomize-set operator-sdk yq omt
+bundle: clean manifests kustomize operator-sdk yq omt
+	$(MAKE) kustomize-set
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
