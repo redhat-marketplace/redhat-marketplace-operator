@@ -185,7 +185,12 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: clean manifests kustomize kustomize-set operator-sdk yq omt
+bundle: clean manifests kustomize operator-sdk yq omt
+	$(MAKE) kustomize-set
+	ls -latR config
+	ls -latR /home/runner/work/redhat-marketplace-operator/redhat-marketplace-operator/v2/config
+	cat config/default/kustomization.yaml
+	cat config/manager/kustomization.yaml
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
