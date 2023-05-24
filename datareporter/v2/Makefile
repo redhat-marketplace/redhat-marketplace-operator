@@ -158,7 +158,8 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize kustomize-set ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	$(MAKE) kustomize-set
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
@@ -189,7 +190,8 @@ CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-data-reporter-operator.clusterservicev
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 
 .PHONY: bundle
-bundle: clean manifests kustomize kustomize-set operator-sdk yq omt ## Generate bundle manifests and metadata, then validate generated files.
+bundle: clean manifests kustomize operator-sdk yq omt ## Generate bundle manifests and metadata, then validate generated files.
+	$(MAKE) kustomize-set
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)

@@ -107,7 +107,8 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize kustomize-set ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	$(MAKE) kustomize-set
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
@@ -187,10 +188,6 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize operator-sdk yq omt
 	$(MAKE) kustomize-set
-	ls -latR config
-	ls -latR /home/runner/work/redhat-marketplace-operator/redhat-marketplace-operator/v2/config
-	cat config/default/kustomization.yaml
-	cat config/manager/kustomization.yaml
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
