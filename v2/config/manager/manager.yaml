@@ -3,10 +3,6 @@ kind: Deployment
 metadata:
   name: controller-manager
   namespace: system
-  annotations:
-    reporterImage: {{ .Values.reporterImage }}
-    metricStateImage: {{ .Values.metricStateImage }}
-    authcheckImage: {{ .Values.authCheckImage }}
 spec:
   selector:
     matchLabels:
@@ -46,7 +42,7 @@ spec:
         - name: manager
           args:
             - --enable-leader-election
-          image: {{ .Values.operatorImage }}
+          image: ibm-metrics-operator:latest
           resources:
             requests:
               cpu: 100m
@@ -69,14 +65,18 @@ spec:
           env:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
-            - name: RELATED_IMAGE_REPORTER
-              value: {{ .Values.reporterImage }}
-            - name: RELATED_IMAGE_METRIC_STATE
-              value: {{ .Values.metricStateImage }}
             - name: RELATED_IMAGE_AUTHCHECK
-              value: {{ .Values.authCheckImage }}
+              value: redhat-marketplace-authcheck:latest
             - name: RELATED_IMAGE_DQLITE
-              value: {{ .Values.dqLiteImage }}
+              value: redhat-marketplace-data-service:latest
+            - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+              value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+            - name: RELATED_IMAGE_METRIC_STATE
+              value: redhat-marketplace-metric-state:latest
+            - name: RELATED_IMAGE_REPORTER
+              value: redhat-marketplace-reporter:latest
+            - name: IBMCATALOGSOURCE
+              value: 'true'
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -105,10 +105,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.annotations['olm.operatorGroup']
-            {{- range $val := .Values.devEnvVars }}
-            - name: {{ $val.name | quote }}
-              value: {{ $val.value | quote }}
-            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -118,4 +114,4 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
       terminationGracePeriodSeconds: 10
-      serviceAccountName: ibm-metrics-operator-controller-manager
+      serviceAccountName: controller-manager

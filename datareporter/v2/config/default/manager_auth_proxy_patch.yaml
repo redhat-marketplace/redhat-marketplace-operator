@@ -43,7 +43,7 @@ spec:
             name: data-service-token-vol
             readOnly: true
       - name: kube-rbac-proxy
-        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.11
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"

@@ -1,7 +1,67 @@
 resources:
 - manager.yaml
 - namespace.yaml
+replacements:
+- source:
+    fieldPath: metadata.annotations.authcheckImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.1.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.dqLiteImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.2.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.rbacProxyImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.3.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.metricStateImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.4.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.reporterImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.5.value
+    select:
+      kind: Deployment
+      name: controller-manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-patchesStrategicMerge:
-- ./patches/env_vars_patch.yaml
+images:
+- name: ibm-metrics-operator
+  newName: quay.io/rh-marketplace/ibm-metrics-operator
+  newTag: 2.11.0-beta.1520
+commonAnnotations:
+  authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.11.0-beta.1520
+  dqLiteImage: quay.io/rh-marketplace/redhat-marketplace-data-service:2.11.0-beta.1520
+  metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.11.0-beta.1520
+  operatorImage: quay.io/rh-marketplace/ibm-metrics-operator:2.11.0-beta.1520
+  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+  reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.11.0-beta.1520

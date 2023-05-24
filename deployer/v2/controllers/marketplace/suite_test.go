@@ -71,7 +71,7 @@ const (
 	imageStreamID                  string = "rhm-meterdefinition-file-server:v1"
 	imageStreamTag                 string = "v1"
 	listenerAddress                string = "127.0.0.1:2100"
-	operatorNamespace              string = "openshift-redhat-marketplace"
+	operatorNamespace              string = "redhat-marketplace"
 	relatedImageMeterdefFileServer string = "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0"
 
 	timeout  = time.Second * 50
