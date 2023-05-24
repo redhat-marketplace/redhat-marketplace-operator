@@ -143,7 +143,6 @@ test/certs/**
 
 redhat-marketplace-pull-secret.env
 .pull-secret.env
-v2/config/manager/manager.yaml
 kubeconfig
 .wicked-report/
 wicked_cli.log
@@ -161,7 +160,3 @@ database/
 v2/bundle
 deployer/v2/bundle
 datareporter/v2/bundle
-
-v2/config/manager/kustomization.yaml
-v2/deployer/config/manager/kustomization.yaml
-v2/datareporter/config/manager/kustomization.yaml
