@@ -9,8 +9,6 @@ namespace: redhat-marketplace
 namePrefix: ibm-data-reporter-operator-
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  redhat.marketplace.com/name: ibm-data-reporter-operator
 
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
@@ -22,9 +20,6 @@ commonLabels:
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.
-patchesStrategicMerge:
-- manager_auth_proxy_patch.yaml
-- component_config_patch.yaml
 
 
 
@@ -45,3 +40,10 @@ resources:
 - ../rbac
 - ../manager
 - ../prometheus
+labels:
+- includeSelectors: true
+  pairs:
+    redhat.marketplace.com/name: ibm-data-reporter-operator
+patches:
+- path: manager_auth_proxy_patch.yaml
+- path: component_config_patch.yaml

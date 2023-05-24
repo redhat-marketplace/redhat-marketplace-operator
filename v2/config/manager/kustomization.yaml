@@ -1,8 +1,6 @@
 resources:
 - manager.yaml
 - namespace.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
 replacements:
 - source:
     fieldPath: metadata.annotations.authcheckImage
@@ -54,3 +52,5 @@ replacements:
     select:
       kind: Deployment
       name: controller-manager
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
