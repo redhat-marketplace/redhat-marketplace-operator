@@ -76,12 +76,14 @@ func init() {
 const (
 
 	// license not accepted condition, operator will not process events
-	ConditionNoLicense status.ConditionType = "NoLicense"
-
-	// problem with data upload to data service
-	ConditionUploadFailure status.ConditionType = "UploadFailed"
-
+	ConditionNoLicense       status.ConditionType   = "NoLicense"
 	ReasonLicenseNotAccepted status.ConditionReason = "LicenseNotAccepted"
 
-	ReasonUploadFailed status.ConditionReason = "UploadFailed"
+	// problem with data upload to data service
+	ConditionUploadFailure status.ConditionType   = "UploadFailed"
+	ReasonUploadFailed     status.ConditionReason = "UploadFailed"
+
+	// unable to connect to data service
+	ConditionConnectionFailure status.ConditionType   = "DataServiceConnectionFailed"
+	ReasonConnectionFailure    status.ConditionReason = "DataServiceConnectionFailed"
 )

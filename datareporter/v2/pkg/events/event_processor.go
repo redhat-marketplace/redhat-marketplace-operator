@@ -71,7 +71,13 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 	p.eventAccumulator = &EventAccumulator{}
 	p.eventAccumulator.eventMap = make(map[string]EventJsons)
 
-	eventReporter, err := NewEventReporter(p.log, p.config)
+	// Retries until an intial connection is successful
+	dataService, err := p.provideDataService()
+	if err != nil {
+		return err
+	}
+
+	eventReporter, err := NewEventReporter(p.log, p.config, dataService)
 	if err != nil {
 		return err
 	}
@@ -244,4 +250,55 @@ func (p *ProcessorSender) UpdateErrorStatus(ctx context.Context) error {
 		return nil
 	})
 	return nil
+}
+
+func (p *ProcessorSender) provideDataService() (*dataservice.DataService, error) {
+
+	dataServiceConfig, err := p.provideDataServiceConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	var dataService *dataservice.DataService
+	for {
+		// 60 second context timeout
+		dataService, err = dataservice.NewDataService(dataServiceConfig)
+		if err != nil {
+			p.log.Error(err, "could not connect to data-service, retrying...")
+
+			// Set Status on datareporterconfig
+			retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				dataReporterConfig := &v1alpha1.DataReporterConfig{}
+				if err := p.client.Get(context.TODO(), types.NamespacedName{Name: utils.DATAREPORTERCONFIG_NAME, Namespace: p.config.Namespace}, dataReporterConfig); err != nil {
+					p.log.Error(err, "datareporterconfig resource not found, unable to update status")
+				} else {
+					if dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
+						Type:    datareporterv1alpha1.ConditionConnectionFailure,
+						Status:  corev1.ConditionTrue,
+						Reason:  datareporterv1alpha1.ReasonConnectionFailure,
+						Message: "an error occured while attempting to initialize a connection to service/rhm-data-service",
+					}) {
+						return p.client.Status().Update(context.TODO(), dataReporterConfig)
+					}
+				}
+				return nil
+			})
+		} else {
+			// Remove Status on datareporterconfig and continue
+			retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				dataReporterConfig := &v1alpha1.DataReporterConfig{}
+				if err := p.client.Get(context.TODO(), types.NamespacedName{Name: utils.DATAREPORTERCONFIG_NAME, Namespace: p.config.Namespace}, dataReporterConfig); err != nil {
+					p.log.Error(err, "datareporterconfig resource not found, unable to update status")
+				} else {
+
+					if dataReporterConfig.Status.Conditions.RemoveCondition(status.ConditionType(datareporterv1alpha1.ConditionConnectionFailure)) {
+						return p.client.Status().Update(context.TODO(), dataReporterConfig)
+					}
+				}
+				return nil
+			})
+			break
+		}
+	}
+	return dataService, err
 }
