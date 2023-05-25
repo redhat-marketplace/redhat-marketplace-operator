@@ -26,9 +26,11 @@ import (
 	"github.com/imdario/mergo"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +84,7 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.Config.LicenseAccept = ptr.ToBool(marketplaceConfig.Spec.License.Accept)
 		if r.Config.LicenseAccept != true {
 			reqLogger.Info("license has not been accepted in marketplaceconfig. event handler will not accept events.")
+
 		}
 	}
 
@@ -99,7 +102,34 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		reqLogger.Error(err, "Failed to get datareporterconfig")
 		return ctrl.Result{}, err
 	}
+
 	reqLogger.Info("datareporterconfig found")
+
+	// check license and update status
+	if r.Config.LicenseAccept {
+		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// license accepted, clear status
+			if dataReporterConfig.Status.Conditions.RemoveCondition(status.ConditionType(datareporterv1alpha1.ConditionNoLicense)) {
+				reqLogger.Info("updating dataReporterConfig status")
+				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+			return nil
+		})
+	} else {
+		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// license not accepted, update status
+			if dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    datareporterv1alpha1.ConditionNoLicense,
+				Status:  corev1.ConditionTrue,
+				Reason:  datareporterv1alpha1.ReasonLicenseNotAccepted,
+				Message: "License has not been accepted in marketplaceconfig",
+			}) {
+				reqLogger.Info("updating dataReporterConfig status")
+				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+			return nil
+		})
+	}
 
 	// Set the updated UserConfig for the Event Processor
 	r.Config.UserConfigs.SetUserConfigs(dataReporterConfig.Spec.UserConfigs)
