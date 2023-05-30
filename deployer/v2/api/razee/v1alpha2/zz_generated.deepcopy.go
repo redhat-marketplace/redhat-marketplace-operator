@@ -376,8 +376,8 @@ func (in *RemoteResourceSpec) DeepCopyInto(out *RemoteResourceSpec) {
 	*out = *in
 	in.Auth.DeepCopyInto(&out.Auth)
 	out.ClusterAuth = in.ClusterAuth
-	if in.Request != nil {
-		in, out := &in.Request, &out.Request
+	if in.Requests != nil {
+		in, out := &in.Requests, &out.Requests
 		*out = make([]Request, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

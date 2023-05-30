@@ -34,3 +34,13 @@ replacements:
       name: controller-manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+images:
+- name: redhat-marketplace-operator
+  newName: quay.io/maxpaspa/redhat-marketplace-operator
+  newTag: 2.11.0-1d48c246-dirty
+commonAnnotations:
+  authcheckImage: quay.io/maxpaspa/redhat-marketplace-authcheck:2.11.0-1d48c246-dirty
+  operatorImage: quay.io/maxpaspa/redhat-marketplace-operator:2.11.0-1d48c246-dirty
+  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+  rrs3Image: us.icr.io/armada-master/remoteresource:2.1.11_bc34aa0
+  watchkeeperImage: us.icr.io/armada-master/watch-keeper:0.8.5_bc34aa0

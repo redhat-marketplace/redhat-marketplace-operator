@@ -1,6 +1,7 @@
 package v1alpha2
 
 import (
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -18,7 +19,7 @@ type RemoteResource struct {
 
 // +kubebuilder:object:root=true
 
-// RemoteResourceS3List contains a list of RemoteResourceS3
+// RemoteResourceList contains a list of RemoteResourceS3
 type RemoteResourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -31,13 +32,11 @@ type RemoteResourceSpec struct {
 	Auth           RemoteResourceAuth `json:"auth,omitempty"`
 	ClusterAuth    ClusterAuth        `json:"clusterAuth,omitempty"`
 	BackendService BackendService     `json:"backendService,omitempty"`
-	Request        []Request          `json:"requests,omitempty"`
+	Requests       []Request          `json:"requests,omitempty"`
 }
 
-// +kubebuilder:pruning:PreserveUnknownFields
+// RemoteResourceS3Status defines the observed state of RemoteResourceS3
 type RemoteResourceStatus struct {
-	// Type                             string `json:"type,omitempty"`
-	// XKubernetesPreserveUnknownFields bool   `json:"x-kubernetes-preserve-unknown-fields,omitempty"`
 }
 
 type ClusterAuth struct {
@@ -204,3 +203,28 @@ type ValueFrom struct {
 func init() {
 	SchemeBuilder.Register(&RemoteResource{}, &RemoteResourceList{})
 }
+
+// These are valid conditions of a job.
+const (
+	// ResourceInstallError means the RemoteResourceS3 controller has a bad status (can not apply resources)
+	ResourceInstallError status.ConditionType = "ResourceInstallError"
+
+	// Reasons for install
+	FailedRequest status.ConditionReason = "FailedRequest"
+	NoBadRequest  status.ConditionReason = "NoBadRequest"
+)
+
+var (
+	ConditionFailedRequest = status.Condition{
+		Type:   ResourceInstallError,
+		Status: corev1.ConditionTrue,
+		Reason: FailedRequest,
+	}
+
+	ConditionNoBadRequest = status.Condition{
+		Type:    ResourceInstallError,
+		Status:  corev1.ConditionFalse,
+		Message: "No error found",
+		Reason:  NoBadRequest,
+	}
+)

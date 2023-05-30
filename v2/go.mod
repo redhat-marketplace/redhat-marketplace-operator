@@ -116,6 +116,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/prometheus v1.8.2-0.20220315145411-881111fec433 // indirect
+	github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 v2.0.0-00010101000000-000000000000
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
@@ -154,6 +155,7 @@ replace (
 	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/openshift/cluster-monitoring-operator => github.com/openshift/cluster-monitoring-operator v0.1.1-0.20220930042853-58d1e5ad06f6
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
+	// github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 => ../deployer/v2
 	// v4.12
 	k8s.io/api => k8s.io/api v0.25.9
 	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9

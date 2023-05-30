@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -203,9 +204,9 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(cmp)).
 		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}},
+			&source.Kind{Type: &razeev1alpha2.RemoteResource{}},
 			&handler.EnqueueRequestForOwner{
-				OwnerType: &marketplacev1alpha1.RazeeDeployment{},
+				OwnerType: &razeev1alpha2.RemoteResource{},
 			},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
@@ -220,8 +221,8 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
+// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog;opencloud-operators
 
@@ -971,8 +972,8 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 
 // Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
 func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
-	instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
-	return r.updateParentRemoteResourceS3(&marketplacev1alpha1.RemoteResourceS3{
+	instance *marketplacev1alpha1.RazeeDeployment) *razeev1alpha2.RemoteResource {
+	return r.updateParentRemoteResourceS3(&razeev1alpha2.RemoteResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
@@ -980,15 +981,15 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
 	}, instance)
 }
 
-func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *marketplacev1alpha1.RemoteResourceS3, instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
-	parentRRS3.Spec = marketplacev1alpha1.RemoteResourceS3Spec{
-		Auth: marketplacev1alpha1.Auth{
-			Iam: &marketplacev1alpha1.Iam{
-				ResponseType: "cloud_iam",
-				GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
-				URL:          "https://iam.cloud.ibm.com/identity/token",
-				APIKeyRef: marketplacev1alpha1.APIKeyRef{
-					ValueFrom: marketplacev1alpha1.ValueFrom{
+func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *razeev1alpha2.RemoteResource, instance *marketplacev1alpha1.RazeeDeployment) *razeev1alpha2.RemoteResource {
+	parentRRS3.Spec = razeev1alpha2.RemoteResourceSpec{
+		Auth: razeev1alpha2.RemoteResourceAuth{
+			Iam: &razeev1alpha2.RemoteResourceIam{
+				// ResponseType: "cloud_iam",
+				GrantType: "urn:ibm:params:oauth:grant-type:apikey",
+				URL:       "https://iam.cloud.ibm.com/identity/token",
+				APIKeyRef: razeev1alpha2.APIKeyRef{
+					ValueFrom: razeev1alpha2.ValueFrom{
 						SecretKeyRef: corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: utils.COS_READER_KEY_NAME,
@@ -999,9 +1000,9 @@ func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *mar
 				},
 			},
 		},
-		Requests: []marketplacev1alpha1.Request{
+		Requests: []razeev1alpha2.Request{
 			{
-				Options: marketplacev1alpha1.S3Options{
+				Options: razeev1alpha2.S3Options{
 					URL: *instance.Spec.ChildUrl,
 				},
 			},
@@ -1020,7 +1021,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 
 	maxRetry := 3
 
-	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	childRRS3 := razeev1alpha2.RemoteResource{}
 	err := utils.Retry(func() error {
 		reqLogger.Info("Listing childRRS3")
 
@@ -1072,7 +1073,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 		}
 	}
 
-	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	parentRRS3 := razeev1alpha2.RemoteResource{}
 	err = utils.Retry(func() error {
 		reqLogger.Info("Listing parentRRS3")
 

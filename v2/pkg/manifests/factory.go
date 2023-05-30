@@ -198,7 +198,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 	case container.Name == "rhm-meterdefinition-file-server":
 		container.Image = f.config.RelatedImages.MeterDefFileServer
 	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
-		container.Image = f.config.RelatedImages.RemoteResourceS3
+		container.Image = f.config.RelatedImages.RemoteResource
 
 		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
 		// will fail; HTTP_PROXY will be used instead

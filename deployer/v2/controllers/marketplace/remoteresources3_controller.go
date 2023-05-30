@@ -16,11 +16,13 @@ package marketplace
 
 import (
 	"context"
-	"fmt"
+	// "fmt"
+
+	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 
 	"github.com/go-logr/logr"
-	"github.com/gotidy/ptr"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+
+	// marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
@@ -46,12 +48,12 @@ type RemoteResourceS3Reconciler struct {
 
 func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.RemoteResourceS3{}).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}).
+		For(&razeev1alpha2.RemoteResource{}).
+		Watches(&source.Kind{Type: &razeev1alpha2.RemoteResource{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s;remoteresources3s/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources;remoteresources/status,verbs=get;list;watch;update;patch
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
@@ -60,7 +62,7 @@ func (r *RemoteResourceS3Reconciler) Reconcile(ctx context.Context, request reco
 	reqLogger.Info("Reconciling RemoteResourceS3")
 
 	// Fetch the Node instance
-	instance := &marketplacev1alpha1.RemoteResourceS3{}
+	instance := &razeev1alpha2.RemoteResource{}
 
 	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -78,50 +80,51 @@ func (r *RemoteResourceS3Reconciler) Reconcile(ctx context.Context, request reco
 		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 			return err
 		}
-		if instance.Status.Touched == nil {
-			instance.Status = marketplacev1alpha1.RemoteResourceS3Status{
-				Touched: ptr.Bool(true),
-			}
-			return r.Client.Status().Update(context.TODO(), instance)
-		}
+		// if instance.Status.Touched == nil {
+		// 	instance.Status = razeev1alpha2.RemoteResourceStatus{
+		// 		Touched: ptr.Bool(true),
+		// 	}
+		// 	return r.Client.Status().Update(context.TODO(), instance)
+		// }
+		//TODO: figure out how to maintian parity here
 		return nil
 	}); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	requests := instance.Spec.Requests
-	var rs3Request *marketplacev1alpha1.Request
-	for i := 0; i < len(requests); i++ {
-		reqLogger.Info(fmt.Sprint("Status code: ", requests[i].StatusCode))
-		if !(requests[i].StatusCode >= 200 && requests[i].StatusCode < 300 || requests[i].StatusCode == 0) {
-			reqLogger.Info(fmt.Sprint("setup request failure for code: ", requests[i].StatusCode))
-			rs3Request = &requests[i]
-			break
-		}
-	}
+	// requests := instance.Spec.Requests
+	// var rs3Request *razeev1alpha2.Request
+	// for i := 0; i < len(requests); i++ {
+	// 	reqLogger.Info(fmt.Sprint("Status code: ", requests[i].StatusCode))
+	// 	if !(requests[i].StatusCode >= 200 && requests[i].StatusCode < 300 || requests[i].StatusCode == 0) {
+	// 		reqLogger.Info(fmt.Sprint("setup request failure for code: ", requests[i].StatusCode))
+	// 		rs3Request = &requests[i]
+	// 		break
+	// 	}
+	// }
 
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-			return err
-		}
+	// if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	// 	if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+	// 		return err
+	// 	}
 
-		update := false
-		if rs3Request != nil {
-			condition := marketplacev1alpha1.ConditionFailedRequest
-			condition.Message = rs3Request.Message
-			update = instance.Status.Conditions.SetCondition(condition)
-		} else {
-			update = instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionNoBadRequest)
-		}
+	// 	update := false
+	// 	if rs3Request != nil {
+	// 		condition := razeev1alpha2.ConditionFailedRequest
+	// 		condition.Message = rs3Request.Message
+	// 		update = instance.Status.Conditions.SetCondition(condition)
+	// 	} else {
+	// 		update = instance.Status.Conditions.SetCondition(razeev1alpha2.ConditionNoBadRequest)
+	// 	}
 
-		if update {
-			return r.Client.Status().Update(context.TODO(), instance)
-		}
+	// 	if update {
+	// 		return r.Client.Status().Update(context.TODO(), instance)
+	// 	}
 
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
+	// 	return nil
+	// }); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
 
 	reqLogger.Info("finished reconcile")
 	return reconcile.Result{}, nil
