@@ -104,9 +104,18 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	// check if license is accepted
 	if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
-		err := errors.New("license not accepted")
-		reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue with initialization")
-		return reconcile.Result{}, err
+		if marketplaceConfig.Status.Conditions.GetCondition(status.ConditionType(marketplacev1alpha1.ReasonInstallFinished)) != nil {
+			// upgrade scenario from version without license acceptance section, update it
+			reqLogger.Info("updating marketplaceconfig, setting license acceptance")
+			marketplaceConfig.Spec.License.Accept = ptr.Bool(true)
+			err := r.Client.Update(context.TODO(), marketplaceConfig)
+			return reconcile.Result{}, err
+
+		} else {
+			err := errors.New("license not accepted")
+			reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue with initialization")
+			return reconcile.Result{}, err
+		}
 	}
 
 	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
