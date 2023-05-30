@@ -116,7 +116,6 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/prometheus v1.8.2-0.20220315145411-881111fec433 // indirect
-	github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 v2.0.0-00010101000000-000000000000
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
