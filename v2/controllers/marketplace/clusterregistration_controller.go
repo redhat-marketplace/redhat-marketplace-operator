@@ -173,6 +173,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		marketplaceConfig.Name = utils.MARKETPLACECONFIG_NAME
 		marketplaceConfig.Namespace = r.cfg.DeployedNamespace
 
+		// accept license by default if MarketplaceConfig is created base on pull secret
+		marketplaceConfig.Spec.License.Accept = ptr.Bool(true)
+
 		// IS_DISCONNECTED flag takes precedence, default IsDisconnected to false
 		if r.cfg.IsDisconnected {
 			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(true)

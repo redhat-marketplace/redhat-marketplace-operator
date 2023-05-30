@@ -102,6 +102,13 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
+	// check if license is accepted
+	if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
+		err := errors.New("license not accepted")
+		reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue with initialization")
+		return reconcile.Result{}, err
+	}
+
 	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
 
 	// run the finalizers
