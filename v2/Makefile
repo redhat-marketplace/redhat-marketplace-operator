@@ -279,7 +279,7 @@ compile-helm: helm
      --post-renderer ./helm-wrapper/kustomize
 
 skaffold-dev: skaffold kustomize yq
-	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false --cache-artifacts=false
 
 skaffold-run: skaffold yq
 	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
@@ -292,21 +292,36 @@ current-version:
 
 # skaffold helper
 # https://skaffold.dev/docs/environment/templating/
-.PHONY: kustomize-set
-kustomize-set:
+.PHONY: kustomize-set-operator
+kustomize-set-operator:
 	cd config/default && \
 	${KUSTOMIZE} edit set namespace $(namespace) && \
 	cd ../.. && \
 	cd config/manager && \
 	$(KUSTOMIZE) edit set image $(OPERATOR_IMAGE_NAME)=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
 	$(KUSTOMIZE) edit set annotation \
-	authcheckImage:$(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(IMAGE_TAG) \
-	dqLiteImage:$(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(IMAGE_TAG) \
 	rbacProxyImage:$(KUBE_RBAC_PROXY_IMAGE) \
-	metricStateImage:$(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(IMAGE_TAG) \
-	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
-	reporterImage:$(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(IMAGE_TAG)
+	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG)
 
+.PHONY: kustomize-set-airgap
+kustomize-set-airgap:
+	cd ../../airgap/v2 && $(MAKE) kustomize-set-operator
+
+.PHONY: kustomize-set-authchecker
+kustomize-set-authchecker:
+	cd ../../authchecker/v2 && $(MAKE) kustomize-set-operator
+
+.PHONY: kustomize-set-metering
+kustomize-set-metering:
+	cd ../../metering/v2 && $(MAKE) kustomize-set-operator
+
+.PHONY: kustomize-set-reporter
+kustomize-set-reporter:
+	cd ../../reporter/v2 && $(MAKE) kustomize-set-operator
+
+# Set the annotation for the operator and child images
+.PHONY: kustomize-set
+kustomize-set: kustomize-set-airgap kustomize-set-authchecker kustomize-set-metering kustomize-set-reporter kustomize-set-operator
 
 
 TAG ?= ""

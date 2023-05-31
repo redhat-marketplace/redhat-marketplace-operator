@@ -44,9 +44,16 @@ generate:
 test: ginkgo
 	- $(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --v --trace ./...
 
-
+# skaffold helper redhat-marketplace-deployment-operator 
 .PHONY: kustomize-set-deployer
 kustomize-set-deployer:
 	cd ../../deployer/v2/config/manager && \
+	$(KUSTOMIZE) edit set annotation \
+	authcheckImage:$(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+
+# skaffold helper for ibm-metrics-operator
+.PHONY: kustomize-set-operator
+kustomize-set-operator:
+	cd ../../v2/config/manager && \
 	$(KUSTOMIZE) edit set annotation \
 	authcheckImage:$(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
