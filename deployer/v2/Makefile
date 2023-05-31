@@ -268,7 +268,7 @@ compile-helm: helm
 
 
 skaffold-dev: skaffold kustomize yq
-	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false --cache-artifacts=false
 
 skaffold-run: skaffold yq
 	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
@@ -279,21 +279,27 @@ skaffold-delete: skaffold yq
 current-version:
 	@echo $(VERSION)
 
-# skaffold helper
 # https://skaffold.dev/docs/environment/templating/
-.PHONY: kustomize-set
-kustomize-set:
+
+# Set the annotations for the operator
+.PHONY: kustomize-set-operator
+kustomize-set-operator:
 	cd config/default && \
 	${KUSTOMIZE} edit set namespace $(namespace) && \
 	cd ../.. && \
 	cd config/manager && \
 	$(KUSTOMIZE) edit set image $(OPERATOR_IMAGE_NAME)=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
 	$(KUSTOMIZE) edit set annotation \
-	authcheckImage:$(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(IMAGE_TAG) \
 	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
 	rbacProxyImage:$(KUBE_RBAC_PROXY_IMAGE) \
 	rrs3Image:$(RRS3_IMAGE) \
 	watchkeeperImage:$(WATCHKEEPER_IMAGE)
+
+# Set the annotation for the operator and child images
+.PHONY: kustomize-set
+kustomize-set:
+	$(MAKE) kustomize-set
+	cd ../../authchecker/v2 && $(MAKE) kustomize-set-deployer
 
 TAG ?= ""
 CREDS ?= ""
