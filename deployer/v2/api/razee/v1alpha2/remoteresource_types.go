@@ -10,6 +10,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=remoteresources,scope=Namespaced
+// +k8s:openapi-gen=true
 type RemoteResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -28,6 +29,7 @@ type RemoteResourceList struct {
 
 // RemoteResourceSpec defines the desired state of RemoteResource
 // +kubebuilder:pruning:PreserveUnknownFields
+// +k8s:openapi-gen=true
 type RemoteResourceSpec struct {
 	Auth           RemoteResourceAuth `json:"auth,omitempty"`
 	ClusterAuth    ClusterAuth        `json:"clusterAuth,omitempty"`
@@ -36,6 +38,7 @@ type RemoteResourceSpec struct {
 }
 
 // RemoteResourceS3Status defines the observed state of RemoteResourceS3
+// +k8s:openapi-gen=true
 type RemoteResourceStatus struct {
 }
 
