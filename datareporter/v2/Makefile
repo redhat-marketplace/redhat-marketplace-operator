@@ -228,7 +228,7 @@ skaffold-build: skaffold
 	$(SKAFFOLD) build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 skaffold-dev: skaffold kustomize yq
-	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false --cache-artifacts=false
 
 skaffold-run: skaffold yq
 	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
