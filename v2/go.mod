@@ -58,7 +58,6 @@ require github.com/blang/semver/v4 v4.0.0
 require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
-	github.com/google/subcommands v1.0.1 // indirect
 )
 
 require (
@@ -154,7 +153,7 @@ replace (
 	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/openshift/cluster-monitoring-operator => github.com/openshift/cluster-monitoring-operator v0.1.1-0.20220930042853-58d1e5ad06f6
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
-	// github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 => ../deployer/v2
+
 	// v4.12
 	k8s.io/api => k8s.io/api v0.25.9
 	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
