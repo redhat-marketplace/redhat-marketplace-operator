@@ -238,6 +238,13 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+
+		if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
+			err := errors.New("license not accepted")
+			reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue")
+			return reconcile.Result{}, err
+		}
+
 		//only check registration status, compare pull secret from COS if we are not in a disconnected environment
 		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
 			NewMarketplaceClient(jwtToken, tokenClaims)
