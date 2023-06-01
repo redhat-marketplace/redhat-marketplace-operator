@@ -239,6 +239,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 
+		// check if license is accepted before registering cluster
 		if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
 			err := errors.New("license not accepted")
 			reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue")
@@ -523,6 +524,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 			builder.WithPredicates(predicate.Funcs{
 				// Queue the reconciler in a connected environment
 				// Handle the case where start in disconnected mode, and switch to connected
+				// Handle the case where license is accepted
 				CreateFunc: func(e event.CreateEvent) bool {
 					marketplaceConfig, ok := e.Object.(*marketplacev1alpha1.MarketplaceConfig)
 					if ok {
@@ -537,6 +539,10 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 					if newOk && oldOk {
 						if !ptr.ToBool(marketplaceConfigNew.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfigOld.Spec.IsDisconnected) {
+							return true
+						}
+
+						if ptr.ToBool(marketplaceConfigNew.Spec.License.Accept) && !ptr.ToBool(marketplaceConfigOld.Spec.License.Accept) {
 							return true
 						}
 
