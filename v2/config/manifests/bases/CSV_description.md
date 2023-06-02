@@ -66,13 +66,16 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
 1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
 2. Install the IBM Metrics Operator
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
-
     ```sh
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
     oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
-
-4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
+4. Review the [License](https://marketplace.redhat.com/license)
+5. Update MarketplaceConfig to accept the license.
+    ```
+    oc patch marketplaceconfig marketplaceconfig -n redhat-marketplace --type='merge' -p '{"spec": {"license": {"accept": true}}}'
+    ```
+6. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
 
     These steps require `oc`, `jq`, and `base64` to be available on your machine.
 
