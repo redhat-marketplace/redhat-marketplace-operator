@@ -241,9 +241,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 		// check if license is accepted before registering cluster
 		if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
-			err := errors.New("license not accepted")
-			reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue")
-			return reconcile.Result{}, err
+			reqLogger.Info("License has not been accepted in marketplaceconfig. You have to accept license to continue")
+			return reconcile.Result{}, nil
 		}
 
 		//only check registration status, compare pull secret from COS if we are not in a disconnected environment

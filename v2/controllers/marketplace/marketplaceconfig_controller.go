@@ -105,15 +105,46 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	// check if license is accepted
 	if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
 		if marketplaceConfig.Status.Conditions.GetCondition(status.ConditionType(marketplacev1alpha1.ReasonInstallFinished)) != nil {
-			// upgrade scenario from version without license acceptance section, update it
+			// upgrade scenario from previous version without license acceptance section, update it as accepted
 			reqLogger.Info("updating marketplaceconfig, setting license acceptance")
-			marketplaceConfig.Spec.License.Accept = ptr.Bool(true)
-			err := r.Client.Update(context.TODO(), marketplaceConfig)
-			return reconcile.Result{}, err
-
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig); err != nil {
+					return err
+				}
+				marketplaceConfig.Spec.License.Accept = ptr.Bool(true)
+				return r.Client.Update(context.TODO(), marketplaceConfig)
+			}); err != nil {
+				return reconcile.Result{}, err
+			}
 		} else {
-			err := errors.New("license not accepted")
-			reqLogger.Error(err, "License has not been accepted in marketplaceconfig. You have to accept license to continue with initialization")
+			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				// license not accepted, update status
+				if err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig); err != nil {
+					return err
+				}
+				if marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionNoLicense,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonLicenseNotAccepted,
+					Message: "License has not been accepted in marketplaceconfig",
+				}) {
+					reqLogger.Info("updating marketplaceconfig status")
+					return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+				}
+				return nil
+			})
+			reqLogger.Info("License has not been accepted in marketplaceconfig. You have to accept license to continue with initialization")
+			return reconcile.Result{}, err
+		}
+	} else {
+		// License Accepted, clear status
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if marketplaceConfig.Status.Conditions.RemoveCondition(status.ConditionType(marketplacev1alpha1.ConditionNoLicense)) {
+				reqLogger.Info("updating marketplaceconfig status")
+				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
+			}
+			return nil
+		}); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
