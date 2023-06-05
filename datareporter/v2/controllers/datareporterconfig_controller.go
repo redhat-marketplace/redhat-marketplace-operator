@@ -107,17 +107,25 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// check license and update status
 	if r.Config.LicenseAccept {
-		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// license accepted, clear status
+			if err := r.Client.Get(context.TODO(), req.NamespacedName, dataReporterConfig); err != nil {
+				return err
+			}
 			if dataReporterConfig.Status.Conditions.RemoveCondition(status.ConditionType(datareporterv1alpha1.ConditionNoLicense)) {
 				reqLogger.Info("updating dataReporterConfig status")
 				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
 			}
 			return nil
-		})
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
 	} else {
-		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// license not accepted, update status
+			if err := r.Client.Get(context.TODO(), req.NamespacedName, dataReporterConfig); err != nil {
+				return err
+			}
 			if dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
 				Type:    datareporterv1alpha1.ConditionNoLicense,
 				Status:  corev1.ConditionTrue,
@@ -128,7 +136,9 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
 			}
 			return nil
-		})
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// Set the updated UserConfig for the Event Processor
