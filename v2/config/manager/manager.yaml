@@ -70,7 +70,7 @@ spec:
             - name: RELATED_IMAGE_DQLITE
               value: redhat-marketplace-data-service:latest
             - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-              value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+              value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
             - name: RELATED_IMAGE_METRIC_STATE
               value: redhat-marketplace-metric-state:latest
             - name: RELATED_IMAGE_REPORTER
