@@ -104,7 +104,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	// check if license is accepted
 	if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
-		if marketplaceConfig.Status.Conditions.GetCondition(status.ConditionType(marketplacev1alpha1.ReasonInstallFinished)) != nil {
+		if marketplaceConfig.Status.Conditions.GetCondition(status.ConditionType(marketplacev1alpha1.ConditionComplete)) != nil {
 			// upgrade scenario from previous version without license acceptance section, update it as accepted
 			reqLogger.Info("updating marketplaceconfig, setting license acceptance")
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
