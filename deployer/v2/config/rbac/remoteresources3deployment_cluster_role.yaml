@@ -10,9 +10,9 @@ rules:
     verbs:
       - '*'
   - apiGroups:
-      - marketplace.redhat.com
+      - deploy.razee.io 
     resources:
-      - remoteresources3s
+      - remoteresources
     verbs:
       - get
       - list

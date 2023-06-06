@@ -222,7 +222,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
+// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog;opencloud-operators
 
@@ -983,6 +983,10 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(
 
 func (r *RazeeDeploymentReconciler) updateParentRemoteResourceS3(parentRRS3 *razeev1alpha2.RemoteResource, instance *marketplacev1alpha1.RazeeDeployment) *razeev1alpha2.RemoteResource {
 	parentRRS3.Spec = razeev1alpha2.RemoteResourceSpec{
+		ClusterAuth: razeev1alpha2.ClusterAuth{
+			ImpersonateUser: "razeedeploy",
+		},
+		BackendService: razeev1alpha2.BackendService("s3"),
 		Auth: razeev1alpha2.RemoteResourceAuth{
 			Iam: &razeev1alpha2.RemoteResourceIam{
 				// ResponseType: "cloud_iam",

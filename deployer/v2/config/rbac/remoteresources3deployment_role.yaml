@@ -14,9 +14,9 @@ rules:
       - watch
       - list
   - apiGroups:
-      - marketplace.redhat.com
+      - deploy.razee.io
     resources:
-      - remoteresources3s
-      - remoteresources3s/status
+      - remoteresources
+      - remoteresources/status
     verbs:
       - '*'
