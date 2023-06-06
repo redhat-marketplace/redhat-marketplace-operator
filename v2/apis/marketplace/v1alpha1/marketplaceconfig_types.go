@@ -156,6 +156,10 @@ const (
 	// ConditionRHMAccountExists means the customer has a RHM/Software Central account
 	ConditionRHMAccountExists status.ConditionType = "RHMAccountExists"
 
+	// License not accepted
+	ConditionNoLicense status.ConditionType = "NoLicense"
+
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
@@ -181,6 +185,9 @@ const (
 	ConditionDeploymentEnabled status.ConditionType = "DeploymentEnabled"
 	// ConditionRegistrationEnabled means the particular option is enabled
 	ConditionRegistrationEnabled status.ConditionType = "RegistrationEnabled"
+
+	// License not accepted
+	ReasonLicenseNotAccepted status.ConditionReason = "LicenseNotAccepted"
 )
 
 // +kubebuilder:object:root=true

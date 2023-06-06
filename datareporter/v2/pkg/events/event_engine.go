@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type EventEngine struct {
@@ -34,6 +35,7 @@ func NewEventEngine(
 	ctx context.Context,
 	log logr.Logger,
 	config *Config,
+	client client.Client,
 ) *EventEngine {
 	ee := &EventEngine{
 		log: log.WithValues("process", "EventEngine"),
@@ -41,6 +43,7 @@ func NewEventEngine(
 			log:           log,
 			digestersSize: 1,
 			config:        config,
+			client:        client,
 		},
 	}
 

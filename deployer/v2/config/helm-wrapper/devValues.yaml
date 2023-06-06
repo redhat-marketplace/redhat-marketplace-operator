@@ -1,3 +1,0 @@
-devEnvVars:
-  - name: IS_DISCONNECTED
-    value: 'false'

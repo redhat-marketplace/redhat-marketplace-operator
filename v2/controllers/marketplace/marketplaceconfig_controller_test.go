@@ -48,11 +48,13 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	marketplaceconfig.Spec.ClusterUUID = "test"
 	marketplaceconfig.Spec.IsDisconnected = ptr.Bool(true)
 	marketplaceconfig.Spec.ClusterName = "test-cluster"
+	marketplaceconfig.Spec.License.Accept = ptr.Bool(true)
 
 	marketplaceconfigConnected := utils.BuildMarketplaceConfigCR(namespace, customerID)
 	marketplaceconfigConnected.Spec.ClusterUUID = "test"
 	marketplaceconfigConnected.Spec.ClusterName = "test-cluster-connected"
 	marketplaceconfigConnected.Spec.InstallIBMCatalogSource = ptr.Bool(true)
+	marketplaceconfigConnected.Spec.License.Accept = ptr.Bool(true)
 
 	BeforeEach(func() {
 

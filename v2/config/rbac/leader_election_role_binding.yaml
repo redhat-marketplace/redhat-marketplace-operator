@@ -8,5 +8,5 @@ roleRef:
   name: leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: ibm-metrics-operator-controller-manager
+  name: controller-manager
   namespace: system

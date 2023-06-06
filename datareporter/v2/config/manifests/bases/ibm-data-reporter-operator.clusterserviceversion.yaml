@@ -13,11 +13,6 @@ spec:
     - description: DataReporterConfig is the Schema for the datareporterconfigs API
       displayName: Data Reporter Config
       kind: DataReporterConfig
-      name: datareporterconfigs.cache.marketplace.redhat.com
-      version: v1alpha1
-    - description: DataReporterConfig is the Schema for the datareporterconfigs API
-      displayName: Data Reporter Config
-      kind: DataReporterConfig
       name: datareporterconfigs.marketplace.redhat.com
       version: v1alpha1
     required:
@@ -27,11 +22,59 @@ spec:
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-  description: "# IBM Data Reporter Operator\n\n# Introduction\n\nThe IBM Data Reporter Operator accepts events and transforms them into reports submitted to the Data Service of the IBM Metrics Operator.\n\n# Details\n\nThe IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Data Service. The IBM Data Service periodically uploads the reports to Red Hat Marketplace.\n\n## Prerequisites\n\n- OpenShift Container Platform, major version 4 with any available supported minor version\n- Install IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n  - IBM Data Reporter Operator prerequisties the IBM Metrics Operator data-service and registration with Red Hat Marketplace\n  - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per the instructions\n  - `rhm-data-service` has started\n\n## SecurityContextConstraints Requirements\n\n- The operator runs under Red Hat restricted SCC\n\n## Resources Required\n\n- The operator requires at least 85 Mi memory.\n\n## Limitations\n\n- Only runs on amd64, s390x and ppc64le architectures\n\n## Installing\n\n- A user with the cluster administrator role.\n- Install this operator in the same namespace as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n  - default namespace: `redhat-marketplace`\n\n# Configuration\n\nOptional:\n- Configure the DataReporterConfig named `datareporterconfig` as per the following example\n- Reference the service account name that will be used to access the service\n  - Reports generated for events sent by this user will be decorated with the additional metadata\n\n```YAML\napiVersion: marketplace.redhat.com/v1alpha1\nkind: DataReporterConfig\nmetadata:\n  name: datareporterconfig\nspec:\n  userConfig:\n  - metadata:\n      ameta1: ametadata1\n      bmeta1: bmetadata1\n      cmeta1: cmetadata1\n      dmeta1: dmetadata1\n    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api\n```\n\n### User Configuration\n\n- The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`\n- The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`\n  - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`\n\nOptional:\n\n- To create an additional ServiceAccount and ClusterRoleBinding for api access\n\n```SHELL\nNAMESPACE=$(oc config view --minify -o jsonpath='{..namespace}') && \\\noc create serviceaccount my-api-service-account && \\\noc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-data-reporter-operator-api --serviceaccount=${NAMESPACE}:my-api-service-account\n```\n\n- Update datareporterconfig to attach metadata to reports associated with this user\n\n## Usage\n\n- Get Token & Host\n\n```SHELL\noc project redhat-marketplace\nexport DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace redhat-marketplace --duration 1h)\nexport DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}')\n```\n\n- Get the Status\n\n```SHELL\ncurl -k -H \"Authorization: Bearer ${DRTOKEN}\" https://${DRHOST}/v1/status \n```\n\n- Post an Event\n\n```SHELL\ncurl -k -H \"Authorization: Bearer ${DRTOKEN}\" -X POST -d '{\"event\":\"myevent\"}' https://${DRHOST}/v1/event\n```\n\n## Storage\n\n- The operator temporarily stores events in pod memory, and writes to the IBM Metrics Operator data-service, which requires a PersistentVolume\n\n## License\n\nCopyright IBM Corporation 2023. All Rights Reserved.\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n"
-  displayName: Data Reporter
+  description: "# IBM Data Reporter Operator\n\n# Introduction\n\nThe IBM Data Reporter
+    Operator accepts events and transforms them into reports submitted to the Data
+    Service of the IBM Metrics Operator.\n\n# Details\n\nThe IBM Data Reporter Operator
+    deploys a service that exposes an endpoint to which callers can send raw json
+    event data. The event data is transformed into a report and is sent to the IBM
+    Data Service. The IBM Data Service periodically uploads the reports to Red Hat
+    Marketplace.\n\n## Prerequisites\n\n- OpenShift Container Platform, major version
+    4 with any available supported minor version\n- Install IBM Metrics Operator and
+    Red Hat Marketplace Deployment Operator\n  - IBM Data Reporter Operator prerequisties
+    the IBM Metrics Operator data-service and registration with Red Hat Marketplace\n
+    \ - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per
+    the instructions\n  - `rhm-data-service` has started\n\n## SecurityContextConstraints
+    Requirements\n\n- The operator runs under Red Hat restricted SCC\n\n## Resources
+    Required\n\n- The operator requires at least 85 Mi memory.\n\n## Limitations\n\n-
+    Only runs on amd64, s390x and ppc64le architectures\n\n## Installing\n\n- A user
+    with the cluster administrator role.\n- Install this operator in the same namespace
+    as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n  - default
+    namespace: `redhat-marketplace`\n\n# Configuration\n\nOptional:\n- Configure the
+    DataReporterConfig named `datareporterconfig` as per the following example\n-
+    Reference the service account name that will be used to access the service\n  -
+    Reports generated for events sent by this user will be decorated with the additional
+    metadata\n\n```YAML\napiVersion: marketplace.redhat.com/v1alpha1\nkind: DataReporterConfig\nmetadata:\n
+    \ name: datareporterconfig\nspec:\n  userConfig:\n  - metadata:\n      ameta1:
+    ametadata1\n      bmeta1: bmetadata1\n      cmeta1: cmetadata1\n      dmeta1:
+    dmetadata1\n    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api\n```\n\n###
+    User Configuration\n\n- The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`\n-
+    The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`\n
+    \ - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`\n\nOptional:\n\n-
+    To create an additional ServiceAccount and ClusterRoleBinding for api access\n\n```SHELL\nNAMESPACE=$(oc
+    config view --minify -o jsonpath='{..namespace}') && \\\noc create serviceaccount
+    my-api-service-account && \\\noc create clusterrolebinding ibm-data-reporter-operator-api
+    --clusterrole=ibm-data-reporter-operator-api --serviceaccount=${NAMESPACE}:my-api-service-account\n```\n\n-
+    Update datareporterconfig to attach metadata to reports associated with this user\n\n##
+    Usage\n\n- Get Token & Host\n\n```SHELL\noc project redhat-marketplace\nexport
+    DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace redhat-marketplace
+    --duration 1h)\nexport DRHOST=$(oc get route ibm-data-reporter --template='{{
+    .spec.host }}')\n```\n\n- Get the Status\n\n```SHELL\ncurl -k -H \"Authorization:
+    Bearer ${DRTOKEN}\" https://${DRHOST}/v1/status \n```\n\n- Post an Event\n\n```SHELL\ncurl
+    -k -H \"Authorization: Bearer ${DRTOKEN}\" -X POST -d '{\"event\":\"myevent\"}'
+    https://${DRHOST}/v1/event\n```\n\n## Storage\n\n- The operator temporarily stores
+    events in pod memory, and writes to the IBM Metrics Operator data-service, which
+    requires a PersistentVolume\n\n## License\n\nCopyright IBM Corporation 2023. All
+    Rights Reserved.\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou
+    may not use this file except in compliance with the License.\nYou may obtain a
+    copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless
+    required by applicable law or agreed to in writing, software\ndistributed under
+    the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS
+    OF ANY KIND, either express or implied.\nSee the License for the specific language
+    governing permissions and\nlimitations under the License.\n"
+  displayName: IBM Data Reporter Operator
   icon:
-  - base64data: ""
-    mediatype: ""
+  - base64data: PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MS44IiBoZWlnaHQ9IjE5LjMzIiB2aWV3Qm94PSIwIDAgNTEuOCAxOS4zMyI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOiM0MjZhYjM7fTwvc3R5bGU+PC9kZWZzPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTM4Ljc2LDkuMiwzOC4zLDcuODZIMzAuNjFWOS4yWm0uOSwyLjU3LS40Ny0xLjM1SDMwLjYxdjEuMzVabTUuNzEsMTUuMzdoNi43MVYyNS44SDQ1LjM3djEuMzRabTAtMi41Nmg2LjcxVjIzLjIzSDQ1LjM3djEuMzVabTAtMi41N2g0VjIwLjY3aC00VjIyWm00LTMuOWgtNHYxLjM0aDRWMTguMTFabS00LTEuMjJoNFYxNS41NUg0MS43M2wtLjM4LDEuMDhMNDEsMTUuNTVIMzMuM3YxLjM0aDRWMTUuNjZsLjQ0LDEuMjNoNy4xOGwuNDMtMS4yM3YxLjIzWm00LTMuOUg0Mi42MmwtLjQ3LDEuMzRINDkuNFYxM1pNMzMuMywxOS40NWg0VjE4LjExaC00djEuMzRabTAsMi41Nmg0VjIwLjY3aC00VjIyWm0tMi42OSwyLjU3aDYuNzFWMjMuMjNIMzAuNjF2MS4zNVptMCwyLjU2aDYuNzFWMjUuOEgzMC42MXYxLjM0Wk00NC40LDcuODYsNDMuOTMsOS4yaDguMTVWNy44NlpNNDMsMTEuNzdoOVYxMC40Mkg0My41MUw0MywxMS43N1pNMzMuMywxNC4zM2g3LjI1TDQwLjA4LDEzSDMzLjN2MS4zNFptNS4zNSw1LjEySDQ0bC40Ny0xLjM0SDM4LjE4bC40NywxLjM0Wm0uOSwyLjU2aDMuNTlsLjQ3LTEuMzRIMzkuMDhMMzkuNTUsMjJabS45LDIuNTdoMS43OWwuNDctMS4zNUg0MGwuNDcsMS4zNVptLjksMi41Ni40Ni0xLjM0aC0uOTNsLjQ3LDEuMzRabS0yNi44NCwwaDkuODhhNS4xMSw1LjExLDAsMCwwLDMuNDYtMS4zNEgxNC41MXYxLjM0Wk0yNSwyMC42N1YyMmg0LjUxYTUuNDEsNS40MSwwLDAsMC0uMTctMS4zNFpNMTcuMTksMjJoNFYyMC42N2gtNFYyMlpNMjUsMTQuMzNoNC4zNEE1LjQxLDUuNDEsMCwwLDAsMjkuNTEsMTNIMjV2MS4zNFptLTcuODEsMGg0VjEzaC00djEuMzRabTcuMi02LjQ3SDE0LjUxVjkuMkgyNy44NWE1LjEzLDUuMTMsMCwwLDAtMy40Ni0xLjM0Wm00LjQ0LDIuNTZIMTQuNTF2MS4zNUgyOS4zN2E1LjMsNS4zLDAsMCwwLS41NC0xLjM1Wk0xNy4xOSwxNS41NXYxLjM0SDI3LjcxYTUuMzYsNS4zNiwwLDAsMCwxLjEyLTEuMzRabTEwLjUyLDIuNTZIMTcuMTl2MS4zNEgyOC44M2E1LjM2LDUuMzYsMCwwLDAtMS4xMi0xLjM0Wm0tMTMuMiw2LjQ3SDI4LjgzYTUuMyw1LjMsMCwwLDAsLjU0LTEuMzVIMTQuNTF2MS4zNVpNMy43Nyw5LjJoOS40VjcuODZIMy43N1Y5LjJabTAsMi41N2g5LjRWMTAuNDJIMy43N3YxLjM1Wk0xMC40OCwxM2gtNHYxLjM0aDRWMTNabS00LDMuOWg0VjE1LjU1aC00djEuMzRabTAsMi41Nmg0VjE4LjExaC00djEuMzRabTAsMi41Nmg0VjIwLjY3aC00VjIyWk0zLjc3LDI0LjU4aDkuNFYyMy4yM0gzLjc3djEuMzVabTAsMS4yMmg5LjR2MS4zNEgzLjc3VjI1LjhabTUwLjgyLjMyYy4wOSwwLC4xMywwLC4xMy0uMTJ2LS4wN2MwLS4wOCwwLS4xMi0uMTMtLjEySDU0LjR2LjMxWm0tLjE5LjU2aC0uMjZWMjUuNjFoLjQ5QS4zMi4zMiwwLDAsMSw1NSwyNmEuMzIuMzIsMCwwLDEtLjIuMzJsLjI1LjQxaC0uMjlsLS4yLS4zN0g1NC40di4zN1ptLjk0LS40OHYtLjEzYS43OS43OSwwLDAsMC0xLjU3LDB2LjEzYS43OS43OSwwLDAsMCwxLjU3LDBabS0xLjgxLS4wNmExLDEsMCwxLDEsMSwxLjA1LDEsMSwwLDAsMS0xLTEuMDVaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMy43NyAtNy44NikiLz48L3N2Zz4=
+    mediatype: image/svg+xml
   install:
     spec:
       deployments: null
@@ -49,10 +92,16 @@ spec:
   - red hat marketplace
   - operators
   links:
-  - name: V2
-    url: https://v2.domain
-  maturity: alpha
+  - name: Visit the marketplace!
+    url: https://marketplace.redhat.com
+  - name: About
+    url: https://marketplace.redhat.com/en-us/about
+  - name: Support
+    url: https://marketplace.redhat.com/en-us/support
+  maintainers:
+  - email: rhmoper@us.ibm.com
+    name: RHM Operator Team
+  maturity: stable
   provider:
     name: Red Hat Marketplace
-    url: https://github.com/redhat-marketplace/redhat-marketplace-operator
   version: 0.0.0

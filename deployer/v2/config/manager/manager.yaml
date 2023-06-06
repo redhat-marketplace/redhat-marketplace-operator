@@ -1,14 +1,8 @@
----
-# Source: helm-wrapper/templates/manager.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
   namespace: system
-  annotations:
-    reporterImage: 
-    metricStateImage: 
-    authcheckImage: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1678140093
 spec:
   selector:
     matchLabels:
@@ -48,7 +42,7 @@ spec:
         - name: manager
           args:
             - --enable-leader-election
-          image: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-operator:tag-1678140093
+          image: redhat-marketplace-operator:latest
           resources:
             requests:
               cpu: 100m
@@ -72,7 +66,11 @@ spec:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
             - name: RELATED_IMAGE_AUTHCHECK
-              value: image-registry.openshift-image-registry.svc:5000/openshift/redhat-marketplace-authcheck:tag-1678140093
+              value: redhat-marketplace-authcheck:latest
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: us.icr.io/armada-master/remoteresources3:0.11.2_958d130
+            - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+              value: us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

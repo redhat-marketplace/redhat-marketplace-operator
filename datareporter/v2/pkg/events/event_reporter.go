@@ -38,22 +38,8 @@ type EventReporter struct {
 func NewEventReporter(
 	log logr.Logger,
 	config *Config,
+	dataService *dataservice.DataService,
 ) (*EventReporter, error) {
-
-	dataServiceConfig, err := provideDataServiceConfig(
-		config.DataServiceCertFile,
-		config.DataServiceTokenFile,
-		config.Namespace,
-		config.OutputDirectory,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	dataService, err := dataservice.NewDataService(dataServiceConfig)
-	if err != nil {
-		return nil, err
-	}
 
 	return &EventReporter{
 		log:         log.WithValues("process", "EventReporter"),
