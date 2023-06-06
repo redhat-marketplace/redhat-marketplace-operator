@@ -504,7 +504,7 @@ func (m *MarketplaceClient) RhmAccountExists() (bool, error) {
 	if resp.StatusCode == 200 {
 		return true, nil
 	}
-	if resp.StatusCode == 422 {
+	if resp.StatusCode == 206 {
 		return false, nil
 	}
 
