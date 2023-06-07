@@ -63,5 +63,5 @@ commonAnnotations:
   dqLiteImage: quay.io/rh-marketplace/redhat-marketplace-data-service:2.11.0-beta.1520
   metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.11.0-beta.1520
   operatorImage: quay.io/rh-marketplace/ibm-metrics-operator:2.11.0-beta.1520
-  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
   reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.11.0-beta.1520

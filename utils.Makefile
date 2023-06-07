@@ -20,7 +20,7 @@ DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 DOCKERBUILDXCACHE ?=
 
-KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
 
 clean-bin:
 	rm -rf $(PROJECT_DIR)/bin

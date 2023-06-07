@@ -76,7 +76,7 @@ spec:
     registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com)
     requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.\n\n###
     Prerequisites\n1. Installations are required to [enable monitoring for user-defined
-    projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
@@ -113,8 +113,8 @@ spec:
     Why is a global pull secret required?\nIn order to successfully install the Red
     Hat Marketplace products, you will need to make the pull secret available across
     the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret
-    as a [global pull secret](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
-    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
+    as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
+    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
     SecurityContextConstraints requirements\n\nThe Operators and their components
     support running under the OpenShift Container Platform default restricted and
     restricted-v2 security context constraints.\n\n### Installation Namespace and

@@ -62,7 +62,7 @@ spec:
     Automatic approval on the Subscription will also install the IBM Metrics Operator
     automatically. If performing an install with Manual approval, install the IBM
     Metrics Operator first.\n\n#### The IBM Metrics Operator prequisites the following\n\n1.
-    Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
@@ -100,8 +100,8 @@ spec:
     Why is a global pull secret required?\nIn order to successfully install the Red
     Hat Marketplace products, you will need to make the pull secret available across
     the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret
-    as a [global pull secret](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
-    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
+    as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
+    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
     Cluster permission requirements\n\n|API group             |Resources                 |Verbs
     \                            |\n|----------------------|--------------------------|----------------------------------|\n|apiextensions.k8s.io
     \ |customresourcedefinitions |get;list;watch                    |\n|apps                  |deployments
