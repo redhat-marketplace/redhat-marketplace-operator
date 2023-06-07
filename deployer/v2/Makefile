@@ -298,7 +298,7 @@ kustomize-set-operator:
 # Set the annotation for the operator and child images
 .PHONY: kustomize-set
 kustomize-set:
-	$(MAKE) kustomize-set
+	$(MAKE) kustomize-set-operator
 	cd ../../authchecker/v2 && $(MAKE) kustomize-set-deployer
 
 TAG ?= ""
