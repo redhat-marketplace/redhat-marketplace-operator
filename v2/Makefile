@@ -305,19 +305,19 @@ kustomize-set-operator:
 
 .PHONY: kustomize-set-airgap
 kustomize-set-airgap:
-	cd ../../airgap/v2 && $(MAKE) kustomize-set-operator
+	cd ../airgap/v2 && $(MAKE) kustomize-set-operator
 
 .PHONY: kustomize-set-authchecker
 kustomize-set-authchecker:
-	cd ../../authchecker/v2 && $(MAKE) kustomize-set-operator
+	cd ../authchecker/v2 && $(MAKE) kustomize-set-operator
 
 .PHONY: kustomize-set-metering
 kustomize-set-metering:
-	cd ../../metering/v2 && $(MAKE) kustomize-set-operator
+	cd ../metering/v2 && $(MAKE) kustomize-set-operator
 
 .PHONY: kustomize-set-reporter
 kustomize-set-reporter:
-	cd ../../reporter/v2 && $(MAKE) kustomize-set-operator
+	cd ../reporter/v2 && $(MAKE) kustomize-set-operator
 
 # Set the annotation for the operator and child images
 .PHONY: kustomize-set
