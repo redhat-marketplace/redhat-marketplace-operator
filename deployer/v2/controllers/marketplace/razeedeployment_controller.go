@@ -1163,7 +1163,7 @@ func (r *RazeeDeploymentReconciler) removeWatchkeeperDeployment(req *marketplace
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-			Namespace: *req.Spec.TargetNamespace,
+			Namespace: ptr.ToString(req.Spec.TargetNamespace),
 		},
 	}
 	reqLogger.Info("deleting deployment", "name", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
