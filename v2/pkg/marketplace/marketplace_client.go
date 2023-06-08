@@ -215,6 +215,20 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 		return RegistrationStatusOutput{Err: err}, err
 	}
 
+	// Don't check Registration if there is no rhmAccountID
+	// Typical case for IEK with no RHM account
+	if len(account.AccountId) == 0 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "NoRHMAccountID",
+		}, nil
+	}
+
+	if len(account.ClusterUuid) == 0 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "NoClusterUuid",
+		}, nil
+	}
+
 	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
 		"accountId", account.AccountId,
 		"uuid", account.ClusterUuid)
@@ -314,7 +328,7 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 				Message: message,
 			})
 		}
-	} else {
+	} else if resp.StatusCode != 0 {
 		msg := http.StatusText(resp.StatusCode)
 		msg = fmt.Sprintf("registration failed: %s", msg)
 		conditions.SetCondition(status.Condition{

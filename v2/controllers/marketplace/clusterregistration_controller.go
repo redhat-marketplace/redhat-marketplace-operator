@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -275,7 +276,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-  // check if license is accepted before registering cluster
+	// check if license is accepted before registering cluster
 	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
 		reqLogger.Info("License has not been accepted in marketplaceconfig. You have to accept license to continue")
 		return reconcile.Result{}, nil
@@ -452,7 +453,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	reqLogger.Info("ClusterRegistrationController reconcile finished")
-	return reconcile.Result{}, nil
+	// Requeue to resolve RHMAccountExists for ibm-entitlement-key users who later register for RHM
+	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
 func (r *ClusterRegistrationReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {

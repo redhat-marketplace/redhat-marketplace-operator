@@ -425,14 +425,27 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 ) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("func", "initializeMarketplaceConfigSpec", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	rhmAccountExists, err := r.checkRHMAccountStatus(request, secretFetcher)
-	if err != nil {
-		reqLogger.Error(err, "failed to check RHM/Software Central account existence")
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+		reqLogger.Error(err, "failed to get marketplaceconfig")
 		return reconcile.Result{}, err
 	}
 
+	// Determine if rhmAccountExists from the Status set by ClusterRegistrationController, else call the API
+	var rhmAccountExists bool
+	if cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists); cond == nil {
+		var err error
+		rhmAccountExists, err = r.checkRHMAccountStatus(request, secretFetcher)
+		if err != nil {
+			reqLogger.Error(err, "failed to check RHM/Software Central account existence")
+			return reconcile.Result{}, err
+		}
+	} else {
+		rhmAccountExists = cond.IsTrue()
+	}
+
 	// Initialize MarketplaceConfigSpec
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
 			reqLogger.Error(err, "failed to get marketplaceconfig")
