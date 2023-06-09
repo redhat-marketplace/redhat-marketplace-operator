@@ -27,12 +27,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Accound ID"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
-	RhmAccountID string `json:"rhmAccountID"`
+	RhmAccountID string `json:"rhmAccountID,omitempty"`
 
 	// ClusterUUID is the Red Hat Marketplace cluster identifier
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
-	ClusterUUID string `json:"clusterUUID"`
+	ClusterUUID string `json:"clusterUUID,omitempty"`
 
 	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
 	// If you have set the name in the UI first, this name will be ignored.
