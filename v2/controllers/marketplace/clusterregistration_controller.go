@@ -206,10 +206,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 		marketplaceConfig.Spec.ClusterUUID = string(clusterID)
 
-		// Set required AccountID, reconcile later
-
-		marketplaceConfig.Spec.RhmAccountID = ""
-
 		// Set the controller deployment as the controller-ref, since it owns the finalizer
 		dep := &appsv1.Deployment{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{

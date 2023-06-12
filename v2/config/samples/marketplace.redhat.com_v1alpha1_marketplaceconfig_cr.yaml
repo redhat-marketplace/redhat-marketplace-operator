@@ -3,12 +3,12 @@ kind: MarketplaceConfig
 metadata:
   name: marketplaceconfig
 spec:
-  clusterUUID: ""
   features:
     deployment: true
     meterDefinitionCatalogServer: false
     registration: true
   installIBMCatalogSource: true
   isDisconnected: false
-  rhmAccountID: ""
+  license:
+    accept: false
 

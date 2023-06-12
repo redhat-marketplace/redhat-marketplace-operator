@@ -147,9 +147,6 @@ spec:
               rhmAccountID:
                 description: RhmAccountID is the Red Hat Marketplace Account identifier
                 type: string
-            required:
-            - clusterUUID
-            - rhmAccountID
             type: object
           status:
             description: MarketplaceConfigStatus defines the observed state of MarketplaceConfig
