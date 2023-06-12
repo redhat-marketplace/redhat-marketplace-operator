@@ -30,6 +30,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -220,6 +221,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription;rhm-cos-reader-key
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;get;delete,resourceNames=rhm-remoteresource-controller
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
@@ -689,11 +691,21 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	/******************************************************************************
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
-	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
+	reqLogger.V(0).Info("Finding Rhm RemoteResource deployment")
 
 	if rrs3DeploymentEnabled {
+		err := r.deleteLegacyRRS3(request, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = r.checkChildMigrationStatus(request, instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			dep, err := r.factory.NewRemoteResourceS3Deployment()
+			dep, err := r.factory.NewRemoteResourceDeployment()
 			return dep, err
 		}); err != nil {
 			return reconcile.Result{}, err
@@ -778,7 +790,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		// Set the remoteresources3-controller as the controller, since it owns the finalizer
 		rrs3Deployment := &appsv1.Deployment{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+			Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
 			Namespace: request.Namespace,
 		}, rrs3Deployment)
 		if errors.IsNotFound(err) {
@@ -836,6 +848,109 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
+}
+
+func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, reqLogger logr.Logger) error {
+	rrs3Deployment := &appsv1.Deployment{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+		Namespace: request.Namespace,
+	}, rrs3Deployment)
+	if err != nil && !errors.IsNotFound(err) {
+		reqLogger.Error(err, "could not get legacy rrs3 deployment")
+		return err
+	}
+
+	if !errors.IsNotFound(err) {
+		err = r.Client.Delete(context.TODO(), rrs3Deployment)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete rrs3 deployment")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) error {
+	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+				return err
+			}
+			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionChildRRS3MigrationComplete) {
+				return r.Client.Status().Update(context.TODO(), instance)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) makeMigrationCall(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) error {
+	reqLogger.Info("attempting to un-register")
+
+	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+		AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+	}
+
+	reqLogger.Info("migrate child rrs3", "marketplace client account", marketplaceClientAccount)
+
+	err := marketplaceClient.MigrateChildRRS3(marketplaceClientAccount)
+	if err != nil {
+		reqLogger.Error(err, "migrate failed")
+		return err
+	}
+
+	return err
+}
+
+func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, reqLogger logr.Logger) error {
+	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
+	si, err := secretFetcher.ReturnSecret()
+	if err != nil {
+		if golangerrors.Is(err, utils.NoSecretsFound) {
+			reqLogger.Error(err, "Secret not found. Skipping unregister")
+		} else {
+			reqLogger.Error(err, "Failed to get secret")
+			return err
+		}
+	} else {
+
+		token, err := secretFetcher.ParseAndValidate(si)
+		if err != nil {
+			reqLogger.Error(err, "error validating secret skipping unregister")
+		} else {
+			tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+			if err != nil {
+				reqLogger.Error(err, "error parsing token")
+				return err
+			}
+
+			marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(token, tokenClaims)
+			if err != nil {
+				reqLogger.Error(err, "error constructing marketplace client")
+				return err
+			}
+
+			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+			err = r.Client.Get(context.TODO(), types.NamespacedName{
+				Name:      utils.MARKETPLACECONFIG_NAME,
+				Namespace: request.Namespace,
+			}, marketplaceConfig)
+
+			err = r.makeMigrationCall(marketplaceConfig, marketplaceClient, request, reqLogger)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr
@@ -1133,20 +1248,20 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	err = utils.Retry(func() error {
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
 
-		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
 		err = r.Client.Delete(context.TODO(), deployment)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				reqLogger.Info("rrs3 deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
 				return nil
 			}
 
-			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
 			return err
 		}
 

@@ -231,6 +231,7 @@ const (
 	ReasonRazeeDeployJobStart                    status.ConditionReason = "StartRazeeDeployJob"
 	ReasonRazeeDeployJobFinished                 status.ConditionReason = "FinishedRazeeDeployJob"
 	ReasonParentRRS3Installed                    status.ConditionReason = "FinishParentRRS3Install"
+	ReasonChildRRS3Migrated                      status.ConditionReason = "ChildRRS3Migrated"
 	ReasonRazeeInstallFinished                   status.ConditionReason = "FinishedRazeeInstall"
 	ReasonWatchKeeperDeploymentStart             status.ConditionReason = "StartWatchKeeperDeploymentInstall"
 	ReasonWatchKeeperDeploymentInstalled         status.ConditionReason = "FinishedWatchKeeperDeploymentInstall"
@@ -351,5 +352,12 @@ var (
 		Status:  corev1.ConditionTrue,
 		Reason:  ReasonParentRRS3Installed,
 		Message: "ParentRRS3 install finished",
+	}
+
+	ConditionChildRRS3MigrationComplete = status.Condition{
+		Type:    ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonChildRRS3Migrated,
+		Message: "Child RRS3 Migration successful",
 	}
 )

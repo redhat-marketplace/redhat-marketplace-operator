@@ -4,11 +4,11 @@ resources:
   - auth_proxy_service.yaml
   - leader_election_role_binding.yaml
   - leader_election_role.yaml
-  - remoteresources3deployment_cluster_role_binding.yaml
-  - remoteresources3deployment_cluster_role.yaml
-  - remoteresources3deployment_role_binding.yaml
-  - remoteresources3deployment_role.yaml
-  - remoteresources3deployment_service_account.yaml
+  - remoteresourcedeployment_cluster_role_binding.yaml
+  - remoteresourcedeployment_cluster_role.yaml
+  - remoteresourcedeployment_role_binding.yaml
+  - remoteresourcedeployment_role.yaml
+  - remoteresourcedeployment_service_account.yaml
   - role_binding.yaml
   - role.yaml
   - service_account.yaml

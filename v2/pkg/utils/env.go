@@ -25,6 +25,7 @@ const (
 	RHM_METERING_DEPLOYMENT_NAME           = "ibm-metrics-operator-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
+	RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME    = "rhm-remoteresource-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
 	RAZEE_JOB_NAME                         = "rhm-razeedeploy-job"
 	PARENT_RRS3_RESOURCE_NAME              = "parent"

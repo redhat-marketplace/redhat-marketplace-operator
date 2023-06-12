@@ -34,15 +34,7 @@ build:
         ignore:
         - '**/*_test.go'
   tagPolicy:
-    customTemplate:
-      template: '{{ .VERS }}-{{ .GC }}'
-      components:
-      - name: VERS
-        envTemplate:
-          template: '{{.VERSION}}'
-      - name: GC
-        gitCommit:
-          variant: AbbrevCommitSha
+    dateTime: {}
   local:
     useBuildkit: true
     concurrency: 2
