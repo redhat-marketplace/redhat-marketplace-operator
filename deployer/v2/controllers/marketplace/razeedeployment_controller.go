@@ -699,9 +699,18 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return reconcile.Result{}, err
 		}
 
-		err = r.checkChildMigrationStatus(request, instance)
-		if err != nil {
-			return reconcile.Result{}, err
+		needsMigration := r.checkChildMigrationStatus(request, instance)
+
+		if needsMigration {
+			err = r.migrateChildRRS3(request, reqLogger)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			err = r.setChildMigrationStatus(request, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 
 		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
@@ -872,7 +881,15 @@ func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, 
 	return nil
 }
 
-func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) error {
+func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) bool {
+	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
+		return true
+	}
+
+	return false
+}
+
+func (r *RazeeDeploymentReconciler) setChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) error {
 	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
@@ -914,7 +931,7 @@ func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, 
 	si, err := secretFetcher.ReturnSecret()
 	if err != nil {
 		if golangerrors.Is(err, utils.NoSecretsFound) {
-			reqLogger.Error(err, "Secret not found. Skipping unregister")
+			reqLogger.Error(err, "Secret not found. Skipping migration")
 		} else {
 			reqLogger.Error(err, "Failed to get secret")
 			return err
@@ -923,7 +940,7 @@ func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, 
 
 		token, err := secretFetcher.ParseAndValidate(si)
 		if err != nil {
-			reqLogger.Error(err, "error validating secret skipping unregister")
+			reqLogger.Error(err, "error validating secret skipping migration")
 		} else {
 			tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 			if err != nil {
