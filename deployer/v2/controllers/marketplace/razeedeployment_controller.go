@@ -909,7 +909,7 @@ func (r *RazeeDeploymentReconciler) setChildMigrationStatus(request reconcile.Re
 }
 
 func (r *RazeeDeploymentReconciler) makeMigrationCall(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) error {
-	reqLogger.Info("attempting to un-register")
+	reqLogger.Info("attempting to migrate child RRS3")
 
 	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
 		AccountId:   marketplaceConfig.Spec.RhmAccountID,
@@ -952,7 +952,6 @@ func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, 
 		return err
 	}
 
-	reqLogger.Info("attempting to update registration")
 	marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
 		NewMarketplaceClient(token, tokenClaims)
 
