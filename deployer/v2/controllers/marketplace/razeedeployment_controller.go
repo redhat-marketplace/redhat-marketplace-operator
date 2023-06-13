@@ -227,6 +227,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog;opencloud-operators
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 
 // operator_config
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
@@ -930,44 +931,49 @@ func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, 
 	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
 	si, err := secretFetcher.ReturnSecret()
 	if err != nil {
-		if golangerrors.Is(err, utils.NoSecretsFound) {
-			reqLogger.Error(err, "Secret not found. Skipping migration")
-		} else {
-			reqLogger.Error(err, "Failed to get secret")
-			return err
-		}
-	} else {
+		return err
+	}
 
-		token, err := secretFetcher.ParseAndValidate(si)
-		if err != nil {
-			reqLogger.Error(err, "error validating secret skipping migration")
-		} else {
-			tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-			if err != nil {
-				reqLogger.Error(err, "error parsing token")
-				return err
-			}
+	reqLogger.Info("found secret", "secret", si.Name)
 
-			marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(token, tokenClaims)
-			if err != nil {
-				reqLogger.Error(err, "error constructing marketplace client")
-				return err
-			}
+	if si.Secret == nil {
+		return nil
+	}
 
-			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-			err = r.Client.Get(context.TODO(), types.NamespacedName{
-				Name:      utils.MARKETPLACECONFIG_NAME,
-				Namespace: request.Namespace,
-			}, marketplaceConfig)
+	token, err := secretFetcher.ParseAndValidate(si)
+	if err != nil {
+		reqLogger.Error(err, "error validating secret")
+		return err
+	}
 
-			err = r.makeMigrationCall(marketplaceConfig, marketplaceClient, request, reqLogger)
-			if err != nil {
-				return err
-			}
-		}
+	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+	if err != nil {
+		reqLogger.Error(err, "error parsing token")
+		return err
+	}
+
+	reqLogger.Info("attempting to update registration")
+	marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+		NewMarketplaceClient(token, tokenClaims)
+
+	if err != nil {
+		reqLogger.Error(err, "error constructing marketplace client")
+		return err
+	}
+
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.MARKETPLACECONFIG_NAME,
+		Namespace: request.Namespace,
+	}, marketplaceConfig)
+
+	err = r.makeMigrationCall(marketplaceConfig, marketplaceClient, request, reqLogger)
+	if err != nil {
+		return err
 	}
 
 	return nil
+
 }
 
 // Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr

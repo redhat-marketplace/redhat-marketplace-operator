@@ -229,6 +229,20 @@ rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
+  - marketplaceconfigs
+  - marketplaceconfigs/finalizers
+  - marketplaceconfigs/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
   - razeedeployments
   - razeedeployments/finalizers
   - razeedeployments/status
