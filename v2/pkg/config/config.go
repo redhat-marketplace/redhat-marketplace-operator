@@ -54,6 +54,8 @@ type OperatorConfig struct {
 	MeterdefinitionCatalog
 	Config         EnvConfig `env:"CONFIG"`
 	IsDisconnected bool      `env:"IS_DISCONNECTED" envDefault:"false"`
+	minVersion     string
+	cipherSuites   []string
 }
 
 // ENVCONFIG is a map of containerName to a corev1 resource requirements

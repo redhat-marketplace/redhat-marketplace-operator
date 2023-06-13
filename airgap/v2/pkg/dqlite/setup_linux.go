@@ -41,18 +41,20 @@ import (
 )
 
 type DatabaseConfig struct {
-	Name     string
-	Dir      string
-	Url      string
-	Join     *[]string
-	Verbose  bool
-	Log      logr.Logger
-	dqliteDB *sql.DB
-	app      *app.App
-	gormDB   *gorm.DB
-	CACert   string
-	TLSCert  string
-	TLSKey   string
+	Name         string
+	Dir          string
+	Url          string
+	Join         *[]string
+	Verbose      bool
+	Log          logr.Logger
+	dqliteDB     *sql.DB
+	app          *app.App
+	gormDB       *gorm.DB
+	CACert       string
+	TLSCert      string
+	TLSKey       string
+	CipherSuites []uint16
+	MinVersion   uint16
 }
 
 // InitDB initializes the GORM connection and returns a connected struct
@@ -108,7 +110,16 @@ func (dc *DatabaseConfig) initDqlite() error {
 		}
 		pool := x509.NewCertPool()
 		pool.AppendCertsFromPEM(caCert)
-		options = append(options, app.WithTLS(app.SimpleTLSConfig(tlsCert, pool)))
+
+		tlsListenConfig, tlsDialConfig := app.SimpleTLSConfig(tlsCert, pool)
+
+		tlsListenConfig.CipherSuites = dc.CipherSuites
+		tlsListenConfig.MinVersion = dc.MinVersion
+
+		tlsDialConfig.CipherSuites = dc.CipherSuites
+		tlsDialConfig.MinVersion = dc.MinVersion
+
+		options = append(options, app.WithTLS(tlsListenConfig, tlsDialConfig))
 	}
 
 	app, err := app.New(dc.Dir, options...)

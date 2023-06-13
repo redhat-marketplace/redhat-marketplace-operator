@@ -52,6 +52,11 @@ type ManagerConfig struct {
 	cfg.ControllerManagerConfigurationSpec `json:",inline"`
 }
 
+type TLSConfig struct {
+	CipherSuites []string `json:"cipherSuites"`
+	MinVersion   string   `json:"minVersion"`
+}
+
 // ComponentConfigStatus defines the observed state of ComponentConfig
 type ComponentConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -69,6 +74,7 @@ type ComponentConfig struct {
 	ApiHandlerConfig  `json:"apiHandlerConfig,omitempty"`
 	EventEngineConfig `json:"eventHandlerConfig,omitempty"`
 	ManagerConfig     `json:"managerConfig,omitempty"`
+	TLSConfig         `json:"tlsConfig,omitempty"`
 	Status            ComponentConfigStatus `json:"status,omitempty"`
 }
 
@@ -119,6 +125,15 @@ func NewComponentConfig() *ComponentConfig {
 		ManagerConfig: ManagerConfig{
 			LeaderElectionID:                   "datareporter.marketplace.redhat.com",
 			ControllerManagerConfigurationSpec: controllerManagerSpec,
+		},
+		TLSConfig: TLSConfig{
+			CipherSuites: []string{"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+				"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+			MinVersion: "VersionTLS12",
 		},
 	}
 

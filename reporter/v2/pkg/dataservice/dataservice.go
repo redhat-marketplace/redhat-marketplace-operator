@@ -84,7 +84,12 @@ func createDataServiceDownloadClient(
 ) (fileserver.FileServerClient, error) {
 	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
-	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert, opts...)
+	conn, err := newGRPCConn(ctx,
+		dataServiceConfig.Address,
+		dataServiceConfig.DataServiceCert,
+		dataServiceConfig.CipherSuites,
+		dataServiceConfig.MinVersion,
+		opts...)
 
 	if err != nil {
 		logger.Error(err, "failed to establish connection")
@@ -317,21 +322,25 @@ func (d *DataService) DeleteFile(ctx context.Context, info *dataservicev1.FileIn
 }
 
 type DataServiceConfig struct {
-	OutputPath       string `json:"-"`
-	Address          string `json:"address"`
-	DataServiceToken string `json:"dataServiceToken"`
-	DataServiceCert  []byte `json:"dataServiceCert"`
+	OutputPath       string   `json:"-"`
+	Address          string   `json:"address"`
+	DataServiceToken string   `json:"dataServiceToken"`
+	DataServiceCert  []byte   `json:"dataServiceCert"`
+	CipherSuites     []uint16 `json:"cipherSuites"`
+	MinVersion       uint16   `json:"minVersion"`
 }
 
 func newGRPCConn(
 	ctx context.Context,
 	address string,
 	caCert []byte,
+	cipherSuites []uint16,
+	minVersion uint16,
 	opts ...grpc.DialOption,
 ) (*grpc.ClientConn, error) {
 
 	/* creat tls */
-	tlsConf, err := createTlsConfig(caCert)
+	tlsConf, err := createTlsConfig(caCert, cipherSuites, minVersion)
 	if err != nil {
 		logger.Error(err, "failed to create creds")
 		return nil, err
@@ -347,7 +356,7 @@ func newGRPCConn(
 	return grpc.DialContext(context, address, opts...)
 }
 
-func createTlsConfig(caCert []byte) (*tls.Config, error) {
+func createTlsConfig(caCert []byte, cipherSuites []uint16, minVersion uint16) (*tls.Config, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get system cert pool")
@@ -361,7 +370,9 @@ func createTlsConfig(caCert []byte) (*tls.Config, error) {
 	}
 
 	return &tls.Config{
-		RootCAs: caCertPool,
+		RootCAs:      caCertPool,
+		CipherSuites: cipherSuites,
+		MinVersion:   minVersion,
 	}, nil
 }
 

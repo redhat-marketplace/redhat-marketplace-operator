@@ -35,6 +35,8 @@ type Config struct {
 	MaxFlushTimeout      metav1.Duration
 	MaxEventEntries      int
 	LicenseAccept        bool
+	CipherSuites         []uint16
+	MinVersion           uint16
 }
 
 type UserConfigs struct {
