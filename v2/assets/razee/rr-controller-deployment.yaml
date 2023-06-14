@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    razee/watch-resource: lite
+  name: rhm-remoteresource-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rhm-remoteresource-controller
+      owned-by: marketplace.redhat.com-razee
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: rhm-remoteresource-controller
+        owned-by: marketplace.redhat.com-razee
+        razee/watch-resource: lite
+        app.kubernetes.io/name: rhm-remoteresource-controller
+        app.kubernetes.io/instance: rhm-remoteresource-controller
+        app.kubernetes.io/part-of: redhat-marketplace-operator
+        app.kubernetes.io/managed-by: operator
+      name: rhm-remoteresource-controller
+    spec:
+      securityContext: 
+        runAsNonRoot: true
+      containers:
+        - env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: authcheck
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 20m
+              memory: 20Mi
+            requests:
+              cpu: 10m
+              memory: 12Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true   
+          terminationMessagePolicy: FallbackToLogsOnError
+        - env:
+            - name: CRD_WATCH_TIMEOUT_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  key: CRD_WATCH_TIMEOUT_SECONDS
+                  name: razeedeploy-overrides
+                  optional: true
+            - name: GROUP
+              value: marketplace.redhat.com
+            - name: VERSION
+              value: v1alpha1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - sh/liveness.sh
+            failureThreshold: 1
+            initialDelaySeconds: 30
+            periodSeconds: 150
+            timeoutSeconds: 30
+          name: rhm-remoteresource-controller
+          resources:
+            limits:
+              cpu: 100m
+              memory: 200Mi
+            requests:
+              cpu: 40m
+              memory: 75Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /home/node/download-cache
+              name: cache-volume
+            - mountPath: /usr/src/app/download-cache
+              name: cache-volume-2
+            - mountPath: /usr/src/app/config
+              name: razeedeploy-config
+      serviceAccountName: redhat-marketplace-remoteresourcedeployment
+      volumes:
+        - emptyDir: {}
+          name: cache-volume
+        - emptyDir: {}
+          name: cache-volume-2
+        - configMap:
+            defaultMode: 440
+            name: razeedeploy-config
+            optional: true
+          name: razeedeploy-config

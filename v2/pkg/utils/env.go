@@ -25,6 +25,7 @@ const (
 	RHM_METERING_DEPLOYMENT_NAME           = "ibm-metrics-operator-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
+	RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME    = "rhm-remoteresource-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
 	RAZEE_JOB_NAME                         = "rhm-razeedeploy-job"
 	PARENT_RRS3_RESOURCE_NAME              = "parent"
@@ -84,8 +85,8 @@ const (
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
-	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresources3:0.11.2_958d130"
-	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a"
+	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresource:2.1.11_bc34aa0"
+	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.8.5_bc34aa0"
 	IBM_COS_READER_KEY_FIELD                  = "IBM_COS_READER_KEY"
 	BUCKET_NAME_FIELD                         = "BUCKET_NAME"
 	IBM_COS_URL_FIELD                         = "IBM_COS_URL"

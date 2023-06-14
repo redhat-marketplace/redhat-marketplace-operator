@@ -27,12 +27,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Accound ID"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
-	RhmAccountID string `json:"rhmAccountID"`
+	RhmAccountID string `json:"rhmAccountID,omitempty"`
 
 	// ClusterUUID is the Red Hat Marketplace cluster identifier
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
-	ClusterUUID string `json:"clusterUUID"`
+	ClusterUUID string `json:"clusterUUID,omitempty"`
 
 	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
 	// If you have set the name in the UI first, this name will be ignored.
@@ -153,6 +153,11 @@ const (
 	// ConditionSecretError means the redhat-marketplace-pull-secret or ibm-entitlement-key is missing in a connected env
 	ConditionSecretError status.ConditionType = "SecretError"
 
+	ConditionChildMigrationComplete status.ConditionType = "ChildRRS3MigrationComplete"
+
+	// License not accepted
+	ConditionNoLicense status.ConditionType = "NoLicense"
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
@@ -176,6 +181,9 @@ const (
 	ConditionDeploymentEnabled status.ConditionType = "DeploymentEnabled"
 	// ConditionRegistrationEnabled means the particular option is enabled
 	ConditionRegistrationEnabled status.ConditionType = "RegistrationEnabled"
+
+	// License not accepted
+	ReasonLicenseNotAccepted status.ConditionReason = "LicenseNotAccepted"
 )
 
 // +kubebuilder:object:root=true

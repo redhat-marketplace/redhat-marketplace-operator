@@ -40,8 +40,9 @@ var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	RegistrationEndpoint = "provisioning/v1/registered-clusters"
+	PullSecretEndpoint       = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	RegistrationEndpoint     = "provisioning/v1/registered-clusters"
+	MigrateChildRRS3Endpoint = "provisioning/v1/child-yaml-migration"
 )
 
 const (
@@ -56,8 +57,8 @@ type MarketplaceClientConfig struct {
 }
 
 type MarketplaceClientAccount struct {
-	AccountId   string
-	ClusterUuid string
+	AccountId   string `json:"accountId"`
+	ClusterUuid string `json:"uuid"`
 }
 
 type MarketplaceClient struct {
@@ -417,6 +418,31 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 		}
 	}
 	return objId, nil
+}
+
+func (mhttp *MarketplaceClient) MigrateChildRRS3(account *MarketplaceClientAccount) error {
+	u, err := buildQuery(mhttp.endpoint, MigrateChildRRS3Endpoint)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to build query")
+	}
+
+	requestBody, err := json.Marshal(account)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	resp, err := mhttp.httpClient.Post(u.String(), "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
+	}
+
+	return nil
 }
 
 func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {

@@ -125,13 +125,6 @@ func main() {
 		MaxEventEntries:      cc.MaxEventEntries,
 	}
 
-	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config)
-	err = eventEngine.Start(ctx)
-	if err != nil {
-		setupLog.Error(err, "unable to start engine")
-		os.Exit(1)
-	}
-
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
 			&v1alpha1.DataReporterConfig{}: {
@@ -176,6 +169,13 @@ func main() {
 
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, mgr.GetClient())
+	err = eventEngine.Start(ctx)
+	if err != nil {
+		setupLog.Error(err, "unable to start engine")
 		os.Exit(1)
 	}
 

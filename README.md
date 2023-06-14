@@ -34,7 +34,7 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
 ### Prerequisites
 * User with **Cluster Admin** role
 * OpenShift Container Platform, major version 4 with any available supported minor version
-* It is required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
+* It is required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
   * A minimum retention time of 168h and minimum storage capacity of 40Gi per volume.
 
 ### Resources Required
@@ -48,7 +48,7 @@ Minimum system resources required:
 
 | Prometheus Provider  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
 | --------- | ----------- | ----------- | --------- | ----- |
-| **[Openshift User Workload Monitoring](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html)** |          1  |     0.1       | 2x40        |   2    |
+| **[Openshift User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)** |          1  |     0.1       | 2x40        |   2    |
 
 Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
 
