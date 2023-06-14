@@ -995,10 +995,18 @@ func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, 
 	}
 
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.MARKETPLACECONFIG_NAME,
-		Namespace: request.Namespace,
-	}, marketplaceConfig)
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.MARKETPLACECONFIG_NAME,
+			Namespace: request.Namespace,
+		}, marketplaceConfig); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	err = r.makeMigrationCall(marketplaceConfig, marketplaceClient, request, reqLogger)
 	if err != nil {
