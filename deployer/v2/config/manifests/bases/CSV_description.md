@@ -21,7 +21,7 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
 
 #### The IBM Metrics Operator prequisites the following
 
-1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.12/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
+1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
 2. Edit the cluster-monitoring-config ConfigMap object:
 
    ```sh
@@ -94,7 +94,7 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
     ```
 
 ### Why is a global pull secret required?
-In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.12/openshift_images/managing_images/using-image-pull-secrets.html).
+In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).
 
 
 ### Cluster permission requirements

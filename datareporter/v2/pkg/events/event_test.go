@@ -51,7 +51,7 @@ var _ = Describe("EngineTest", func() {
 		eventone = Event{"one", json.RawMessage(`{"event":"one"}`)}
 
 		// Pass ComponentConfig that sets the mock server where we can read the request
-		engine = NewEventEngine(ctx, logf.Log, cfg)
+		engine = NewEventEngine(ctx, logf.Log, cfg, nil)
 
 		err = engine.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())

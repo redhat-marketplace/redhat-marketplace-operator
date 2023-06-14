@@ -71,13 +71,11 @@ func ProvideUploaders(
 			}
 
 			// Set Token
-			log.Info("dacdebug", "reporterConfig.DataServiceTokenFile", reporterConfig.DataServiceTokenFile)
 			opts, err := dataservice.ProvideGRPCCallOptions(reporterConfig.DataServiceTokenFile)
 			if err != nil {
 				return uploaders, err
 			}
 			uploader.SetCallOpts(opts...)
-			log.Info("dacdebug", "opts", opts)
 
 			uploaders = append(uploaders, uploader)
 		case *u.COSS3Uploader:
