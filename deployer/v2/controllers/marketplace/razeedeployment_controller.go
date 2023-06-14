@@ -210,6 +210,12 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 				OwnerType: &razeev1alpha2.RemoteResource{},
 			},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(
+			&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}},
+			&handler.EnqueueRequestForOwner{
+				OwnerType: &marketplacev1alpha1.MarketplaceConfig{},
+			},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
@@ -700,20 +706,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return reconcile.Result{}, err
 		}
 
-		needsMigration := r.checkChildMigrationStatus(request, instance)
-
-		if needsMigration {
-			err = r.migrateChildRRS3(request, reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			err = r.setChildMigrationStatus(request, instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-
 		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 			dep, err := r.factory.NewRemoteResourceDeployment()
 			return dep, err
@@ -735,6 +727,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	if registrationEnabled {
+		reqLogger.Info("registration enabled")
+
 		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 			dep, err := r.factory.NewWatchKeeperDeployment()
 			return dep, err
@@ -752,6 +746,24 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return nil
 		}); err != nil {
 			return reconcile.Result{}, err
+		}
+
+		needsMigration, err := r.checkChildMigrationStatus(request, instance, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, err
+
+		}
+
+		if needsMigration {
+			err := r.migrateChildRRS3(request, reqLogger)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			err = r.setChildMigrationStatus(request, instance, reqLogger)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
@@ -882,15 +894,36 @@ func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, 
 	return nil
 }
 
-func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) bool {
-	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
-		return true
+func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment, reqLogger logr.Logger) (bool, error) {
+	reqLogger.Info("checking child migration status")
+
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.MARKETPLACECONFIG_NAME,
+			Namespace: request.Namespace,
+		}, marketplaceConfig); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return false, err
 	}
 
-	return false
+	childRRS3Migrated := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionChildMigrationComplete)
+	clusterRegsitered := marketplaceConfig.Status.Conditions.IsTrueFor(marketplacev1alpha1.ConditionRegistered)
+
+	if childRRS3Migrated == nil && clusterRegsitered {
+		return true, nil
+	}
+
+	return false, nil
 }
 
-func (r *RazeeDeploymentReconciler) setChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) error {
+func (r *RazeeDeploymentReconciler) setChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("setting child migration status")
+
 	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
@@ -928,6 +961,7 @@ func (r *RazeeDeploymentReconciler) makeMigrationCall(marketplaceConfig *marketp
 }
 
 func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, reqLogger logr.Logger) error {
+	reqLogger.Info("migrating child RRS3")
 	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
 	si, err := secretFetcher.ReturnSecret()
 	if err != nil {

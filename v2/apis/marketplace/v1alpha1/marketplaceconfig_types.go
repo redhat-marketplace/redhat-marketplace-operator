@@ -153,6 +153,8 @@ const (
 	// ConditionSecretError means the redhat-marketplace-pull-secret or ibm-entitlement-key is missing in a connected env
 	ConditionSecretError status.ConditionType = "SecretError"
 
+	ConditionChildMigrationComplete status.ConditionType = "ChildRRS3MigrationComplete"
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"

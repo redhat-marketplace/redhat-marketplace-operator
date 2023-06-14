@@ -355,7 +355,7 @@ var (
 	}
 
 	ConditionChildRRS3MigrationComplete = status.Condition{
-		Type:    ConditionComplete,
+		Type:    ConditionChildMigrationComplete,
 		Status:  corev1.ConditionTrue,
 		Reason:  ReasonChildRRS3Migrated,
 		Message: "Child RRS3 Migration successful",
