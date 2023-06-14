@@ -70,7 +70,10 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
     oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
-4. Review the [License](https://marketplace.redhat.com/license)
+4. Use of the Red Hat Marketplace platform is governed by the:
+
+    [IBM Cloud Services Agreement](https://www.ibm.com/support/customer/csol/terms/?id=Z126-6304_WS&_ga=2.116312197.2046730452.1684328846-812467790.1684328846) (or other base agreement between you and IBM such as a [Passport Advantage Agreement](https://www.ibm.com/software/passportadvantage/pa_agreements.html?_ga=2.116312197.2046730452.1684328846-812467790.1684328846)) and the [Service Description for the Red Hat Marketplace](https://www.ibm.com/support/customer/csol/terms/?id=i126-8719&_ga=2.83289621.2046730452.1684328846-812467790.1684328846).
+    
 5. Update MarketplaceConfig to accept the license.
     ```
     oc patch marketplaceconfig marketplaceconfig -n redhat-marketplace --type='merge' -p '{"spec": {"license": {"accept": true}}}'
