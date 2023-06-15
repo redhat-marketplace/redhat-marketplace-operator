@@ -182,7 +182,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}
 		parentRRS3 = razeev1alpha2.RemoteResource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+				Name:      utils.PARENT_REMOTE_RESOURCE_NAME,
 				Namespace: namespace,
 			},
 		}

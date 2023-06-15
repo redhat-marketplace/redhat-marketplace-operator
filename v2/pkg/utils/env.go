@@ -28,7 +28,7 @@ const (
 	RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME    = "rhm-remoteresource-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
 	RAZEE_JOB_NAME                         = "rhm-razeedeploy-job"
-	PARENT_RRS3_RESOURCE_NAME              = "parent"
+	PARENT_REMOTE_RESOURCE_NAME            = "parent"
 	COS_READER_KEY_NAME                    = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME                   = "razee-uninstall-job"
 	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"
@@ -75,7 +75,7 @@ const (
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
-	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
+	RR_FINALIZER         = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
 	OPERATOR_SERVICE_ACCOUNT     = "ibm-metrics-operator-controller-manager"
