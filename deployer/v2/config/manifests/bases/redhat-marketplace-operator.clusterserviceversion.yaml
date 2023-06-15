@@ -38,11 +38,6 @@ spec:
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
-    - description: RemoteResourceS3 is the Schema for the remoteresources3s API
-      displayName: Remote Resource S3
-      kind: RemoteResourceS3
-      name: remoteresources3s.marketplace.redhat.com
-      version: v1alpha1
   description: "The Red Hat Marketplace Deployment Operator by IBM provides cluster
     and operator management for Red Hat Marketplace customers.\n### **Important Note**\nA
     set of instructions for onboarding is provided here. For more detailed onboarding
