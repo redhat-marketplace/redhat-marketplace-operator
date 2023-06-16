@@ -182,7 +182,7 @@ bundle: clean manifests kustomize operator-sdk yq omt
 	$(MAKE) kustomize-set
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
-	--extra-service-accounts redhat-marketplace-remoteresourcedeployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
+	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-remoteresourcedeployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
