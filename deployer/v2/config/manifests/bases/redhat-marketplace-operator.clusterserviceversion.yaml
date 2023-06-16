@@ -11,7 +11,7 @@ metadata:
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
-    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources.deploy.razee.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
@@ -108,6 +108,7 @@ spec:
     \                 |get;list;watch                    |\n|config.openshift.io   |infrastructures
     \          |get;list;watch                    |\n|marketplace.redhat.com|marketplaceconfigs
     \       |get;list;watch                    |\n|marketplace.redhat.com|remoteresources3s
+    \       |get;list;watch                    |\n|deploy.razee.io|remoteresources
     \        |get;list;watch                    |\n|operators.coreos.com  |catalogsources
     \           |create;get;list;watch;delete      |\n|operators.coreos.com  |clusterserviceversions
     \   |get;list;watch;update;patch;delete|\n|operators.coreos.com  |operatorgroups

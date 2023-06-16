@@ -51,7 +51,7 @@ type RemoteResourceSpec struct {
 	Requests       []Request          `json:"requests,omitempty"`
 }
 
-// RemoteResourceS3Status defines the observed state of RemoteResourceS3
+// RemoteResourceStatus defines the observed state of RemoteResourceS3
 // +k8s:openapi-gen=true
 type RemoteResourceStatus struct {
 }

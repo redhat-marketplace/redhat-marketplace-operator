@@ -201,7 +201,7 @@ spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
           status:
-            description: RemoteResourceS3Status defines the observed state of RemoteResourceS3
+            description: RemoteResourceStatus defines the observed state of RemoteResourceS3
             type: object
         type: object
     served: true

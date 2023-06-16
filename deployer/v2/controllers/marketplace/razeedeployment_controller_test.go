@@ -345,7 +345,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 			k8sClient.List(context.TODO(), list, client.InNamespace(namespace))
 
 			return list.Items
-		}, timeout, interval).Should(HaveLen(0), "system RemoteResourceS3s should be deleted")
+		}, timeout, interval).Should(HaveLen(0), "system RemoteResource should be deleted")
 
 		Eventually(func() []corev1.ConfigMap {
 			list := &corev1.ConfigMapList{}
