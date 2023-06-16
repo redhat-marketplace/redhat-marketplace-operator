@@ -884,7 +884,10 @@ func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, 
 	}
 
 	if !errors.IsNotFound(err) {
-		err = r.Client.Delete(context.TODO(), rrs3Deployment)
+		err = r.Client.Delete(context.TODO(),
+			rrs3Deployment,
+			client.PropagationPolicy(metav1.DeletePropagationForeground),
+			client.GracePeriodSeconds(60))
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete rrs3 deployment")
 			return err
