@@ -31,6 +31,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	k8sapiflag "k8s.io/component-base/cli/flag"
 )
 
 var log logr.Logger
@@ -49,6 +50,8 @@ func main() {
 		caCert         string
 		tlsCert        string
 		tlsKey         string
+		minVersion     string
+		cipherSuites   []string
 	)
 
 	cmd := &cobra.Command{
@@ -65,16 +68,31 @@ func main() {
 			}
 
 			j := viper.GetStringSlice("join")
+
+			tlsVersion, err := k8sapiflag.TLSVersion(minVersion)
+			if err != nil {
+				log.Error(err, "TLS version invalid")
+				os.Exit(1)
+			}
+
+			tlsCipherSuites, err := k8sapiflag.TLSCipherSuites(cipherSuites)
+			if err != nil {
+				log.Error(err, "failed to convert TLS cipher suite name to ID")
+				os.Exit(1)
+			}
+
 			cfg := &dqlite.DatabaseConfig{
-				Name:    "airgap",
-				Dir:     viper.GetString("dir"),
-				Url:     viper.GetString("db"),
-				Join:    &j,
-				Verbose: viper.GetBool("verbose"),
-				Log:     log,
-				CACert:  caCert,
-				TLSCert: tlsCert,
-				TLSKey:  tlsKey,
+				Name:         "airgap",
+				Dir:          viper.GetString("dir"),
+				Url:          viper.GetString("db"),
+				Join:         &j,
+				Verbose:      viper.GetBool("verbose"),
+				Log:          log,
+				CACert:       caCert,
+				TLSCert:      tlsCert,
+				TLSKey:       tlsKey,
+				CipherSuites: tlsCipherSuites,
+				MinVersion:   tlsVersion,
 			}
 
 			cleanAfter := viper.GetDuration("cleanAfter")
@@ -144,6 +162,17 @@ func main() {
 
 	flags.StringVar(&cleanAfter, "cleanAfter", "-1440h", "clean files older than x seconds/minutes/hours, default 1440i.e. 60 days")
 	flags.StringVar(&cronExpression, "cronExpression", "*/10 * * * *", "cron expression for scheduler, default cron will run every day 12:00 AM")
+
+	flags.StringVar(&minVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
+	flags.StringSliceVar(&cipherSuites,
+		"tls-cipher-suites",
+		[]string{"TLS_AES_128_GCM_SHA256",
+			"TLS_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+		"Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, a subset will be used")
 
 	cmd.MarkFlagRequired("db")
 

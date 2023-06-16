@@ -226,6 +226,8 @@ func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceCo
 		DataServiceToken: serviceAccountToken,
 		DataServiceCert:  cert,
 		OutputPath:       p.config.OutputDirectory,
+		CipherSuites:     p.config.CipherSuites,
+		MinVersion:       p.config.MinVersion,
 	}, nil
 }
 

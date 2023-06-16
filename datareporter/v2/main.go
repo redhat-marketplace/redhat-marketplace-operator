@@ -38,6 +38,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	k8sapiflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -115,6 +116,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	tlsVersion, err := k8sapiflag.TLSVersion(cc.TLSConfig.MinVersion)
+	if err != nil {
+		setupLog.Error(err, "TLS version invalid")
+		os.Exit(1)
+	}
+
+	cipherSuites, err := k8sapiflag.TLSCipherSuites(cc.TLSConfig.CipherSuites)
+	if err != nil {
+		setupLog.Error(err, "failed to convert TLS cipher suite name to ID")
+		os.Exit(1)
+	}
+
 	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
 		DataServiceTokenFile: cc.DataServiceTokenFile,
@@ -123,6 +136,8 @@ func main() {
 		AccMemoryLimit:       cc.AccMemoryLimit,
 		MaxFlushTimeout:      cc.MaxFlushTimeout,
 		MaxEventEntries:      cc.MaxEventEntries,
+		CipherSuites:         cipherSuites,
+		MinVersion:           tlsVersion,
 	}
 
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
