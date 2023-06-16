@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
-kind: RemoteResourceS3
+kind: RemoteResource
 metadata:
-  name: example-remoteresources3
+  name: example-remoteresource
 spec:
   auth:
     iam:

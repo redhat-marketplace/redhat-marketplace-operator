@@ -21,8 +21,8 @@ status:
     reason: FinishedRazeeInstall
     status: "True"
     type: Complete
-  - message: RemoteResourceS3 deployment disabled
-    reason: EnabledRemoteResourceS3DeploymentInstall
+  - message: RemoteResource deployment disabled
+    reason: EnabledRemoteResourceDeploymentInstall
     status: "False"
     type: DeploymentEnabled
   - message: Razee install complete
