@@ -54,14 +54,3 @@ replacements:
       name: controller-manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-images:
-- name: ibm-metrics-operator
-  newName: quay.io/maxpaspa/ibm-metrics-operator
-  newTag: 2.11.0-a22d7dba-dirty
-commonAnnotations:
-  authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.11.0-beta.1520
-  dqLiteImage: quay.io/rh-marketplace/redhat-marketplace-data-service:2.11.0-beta.1520
-  metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.11.0-beta.1520
-  operatorImage: quay.io/rh-marketplace/ibm-metrics-operator:2.11.0-beta.1520
-  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
-  reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.11.0-beta.1520
