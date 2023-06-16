@@ -238,6 +238,10 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // operator_config
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 
+// cleanup required for finalizers & ownerrefs
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
@@ -884,10 +888,7 @@ func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, 
 	}
 
 	if !errors.IsNotFound(err) {
-		err = r.Client.Delete(context.TODO(),
-			rrs3Deployment,
-			client.PropagationPolicy(metav1.DeletePropagationForeground),
-			client.GracePeriodSeconds(60))
+		err = r.Client.Delete(context.TODO(), rrs3Deployment)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete rrs3 deployment")
 			return err

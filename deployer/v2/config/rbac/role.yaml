@@ -216,17 +216,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - deploy.razee.io
-  resources:
-  - remoteresources
-  - remoteresources/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - marketplace.redhat.com
   resources:
   - marketplaceconfigs
@@ -252,6 +241,26 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - child
+  - parent
+  resources:
+  - remoteresources3s
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - monitoring.coreos.com
   resources:
