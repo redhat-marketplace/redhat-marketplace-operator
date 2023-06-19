@@ -153,6 +153,7 @@ replace (
 	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/openshift/cluster-monitoring-operator => github.com/openshift/cluster-monitoring-operator v0.1.1-0.20220930042853-58d1e5ad06f6
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
+
 	// v4.12
 	k8s.io/api => k8s.io/api v0.25.9
 	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9

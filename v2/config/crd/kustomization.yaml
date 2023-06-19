@@ -8,7 +8,6 @@ resources:
   - bases/marketplace.redhat.com_meterdefinitions.yaml
   - bases/marketplace.redhat.com_meterreports.yaml
   - bases/marketplace.redhat.com_razeedeployments.yaml
-  - bases/marketplace.redhat.com_remoteresources3s.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 #patchesStrategicMerge:

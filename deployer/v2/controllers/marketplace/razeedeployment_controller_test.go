@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -57,7 +58,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		cosReaderKeySecret      corev1.Secret
 		configMap               corev1.ConfigMap
 		deployment              appsv1.Deployment
-		parentRRS3              marketplacev1alpha1.RemoteResourceS3
+		parentRRS3              razeev1alpha2.RemoteResource
 	)
 
 	BeforeEach(func() {
@@ -179,9 +180,9 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Namespace: namespace,
 			},
 		}
-		parentRRS3 = marketplacev1alpha1.RemoteResourceS3{
+		parentRRS3 = razeev1alpha2.RemoteResource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+				Name:      utils.PARENT_REMOTE_RESOURCE_NAME,
 				Namespace: namespace,
 			},
 		}
@@ -339,12 +340,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 				ReconcileWithUntilDone(true)),
 		)
 
-		Eventually(func() []marketplacev1alpha1.RemoteResourceS3 {
-			list := &marketplacev1alpha1.RemoteResourceS3List{}
+		Eventually(func() []razeev1alpha2.RemoteResource {
+			list := &razeev1alpha2.RemoteResourceList{}
 			k8sClient.List(context.TODO(), list, client.InNamespace(namespace))
 
 			return list.Items
-		}, timeout, interval).Should(HaveLen(0), "system RemoteResourceS3s should be deleted")
+		}, timeout, interval).Should(HaveLen(0), "system RemoteResource should be deleted")
 
 		Eventually(func() []corev1.ConfigMap {
 			list := &corev1.ConfigMapList{}

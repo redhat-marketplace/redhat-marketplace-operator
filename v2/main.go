@@ -146,9 +146,6 @@ func main() {
 			&marketplacev1alpha1.RazeeDeployment{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			&marketplacev1alpha1.RemoteResourceS3{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
 			&routev1.Route{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},

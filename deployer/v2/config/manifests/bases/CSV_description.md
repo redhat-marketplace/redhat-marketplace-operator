@@ -111,6 +111,7 @@ In order to successfully install the Red Hat Marketplace products, you will need
 |config.openshift.io   |infrastructures           |get;list;watch                    |
 |marketplace.redhat.com|marketplaceconfigs        |get;list;watch                    |
 |marketplace.redhat.com|remoteresources3s         |get;list;watch                    |
+|deploy.razee.io       |remoteresources           |get;list;watch                    |
 |operators.coreos.com  |catalogsources            |create;get;list;watch;delete      |
 |operators.coreos.com  |clusterserviceversions    |get;list;watch;update;patch;delete|
 |operators.coreos.com  |operatorgroups            |get;list;watch;delete;create      |

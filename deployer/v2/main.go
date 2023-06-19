@@ -52,6 +52,7 @@ import (
 	_ "net/http/pprof"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
+	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/controllers/marketplace"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -82,6 +83,7 @@ func init() {
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(razeev1alpha2.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -136,7 +138,7 @@ func main() {
 			&marketplacev1alpha1.RazeeDeployment{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			&marketplacev1alpha1.RemoteResourceS3{}: {
+			&razeev1alpha2.RemoteResource{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&monitoringv1.ServiceMonitor{}: {
@@ -191,15 +193,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RazeeDeployment")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.RemoteResourceS3Reconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RemoteResourceS3")
 		os.Exit(1)
 	}
 

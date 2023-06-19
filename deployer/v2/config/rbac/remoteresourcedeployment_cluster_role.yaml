@@ -1,0 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: remoteresourcedeployment
+rules:
+  - apiGroups:
+      - operators.coreos.com
+    resources:
+      - subscriptions
+    verbs:
+      - '*'
+  - apiGroups:
+      - deploy.razee.io 
+    resources:
+      - remoteresources
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+    - authentication.k8s.io
+    resources:
+    - tokenreviews
+    verbs:
+    - create

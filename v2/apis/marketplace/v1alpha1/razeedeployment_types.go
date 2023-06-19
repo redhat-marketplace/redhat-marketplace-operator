@@ -221,23 +221,24 @@ func init() {
 const (
 
 	// Reasons for install
-	ReasonRazeeStartInstall                      status.ConditionReason = "StartRazeeInstall"
-	ReasonWatchKeeperNonNamespacedInstalled      status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
-	ReasonWatchKeeperLimitPollInstalled          status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
-	ReasonRazeeClusterMetaDataInstalled          status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
-	ReasonWatchKeeperConfigInstalled             status.ConditionReason = "FinishedWatchKeeperConfigInstall"
-	ReasonWatchKeeperSecretInstalled             status.ConditionReason = "FinishedWatchKeeperSecretInstall"
-	ReasonCosReaderKeyInstalled                  status.ConditionReason = "FinishedCosReaderKeyInstall"
-	ReasonRazeeDeployJobStart                    status.ConditionReason = "StartRazeeDeployJob"
-	ReasonRazeeDeployJobFinished                 status.ConditionReason = "FinishedRazeeDeployJob"
-	ReasonParentRRS3Installed                    status.ConditionReason = "FinishParentRRS3Install"
-	ReasonRazeeInstallFinished                   status.ConditionReason = "FinishedRazeeInstall"
-	ReasonWatchKeeperDeploymentStart             status.ConditionReason = "StartWatchKeeperDeploymentInstall"
-	ReasonWatchKeeperDeploymentInstalled         status.ConditionReason = "FinishedWatchKeeperDeploymentInstall"
-	ReasonRhmRemoteResourceS3DeploymentStart     status.ConditionReason = "StartRemoteResourceS3DeploymentInstall"
-	ReasonRhmRemoteResourceS3DeploymentInstalled status.ConditionReason = "FinishedRemoteResourceS3DeploymentInstall"
-	ReasonRhmRemoteResourceS3DeploymentEnabled   status.ConditionReason = "EnabledRemoteResourceS3DeploymentInstall"
-	ReasonRhmRegistrationWatchkeeperEnabled      status.ConditionReason = "EnabledRegistrationWatchkeeperInstall"
+	ReasonRazeeStartInstall                    status.ConditionReason = "StartRazeeInstall"
+	ReasonWatchKeeperNonNamespacedInstalled    status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
+	ReasonWatchKeeperLimitPollInstalled        status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
+	ReasonRazeeClusterMetaDataInstalled        status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
+	ReasonWatchKeeperConfigInstalled           status.ConditionReason = "FinishedWatchKeeperConfigInstall"
+	ReasonWatchKeeperSecretInstalled           status.ConditionReason = "FinishedWatchKeeperSecretInstall"
+	ReasonCosReaderKeyInstalled                status.ConditionReason = "FinishedCosReaderKeyInstall"
+	ReasonRazeeDeployJobStart                  status.ConditionReason = "StartRazeeDeployJob"
+	ReasonRazeeDeployJobFinished               status.ConditionReason = "FinishedRazeeDeployJob"
+	ReasonParentRRS3Installed                  status.ConditionReason = "FinishParentRRS3Install"
+	ReasonChildRRS3Migrated                    status.ConditionReason = "ChildRRS3Migrated"
+	ReasonRazeeInstallFinished                 status.ConditionReason = "FinishedRazeeInstall"
+	ReasonWatchKeeperDeploymentStart           status.ConditionReason = "StartWatchKeeperDeploymentInstall"
+	ReasonWatchKeeperDeploymentInstalled       status.ConditionReason = "FinishedWatchKeeperDeploymentInstall"
+	ReasonRhmRemoteResourceDeploymentStart     status.ConditionReason = "StartRemoteResourceDeploymentInstall"
+	ReasonRhmRemoteResourceDeploymentInstalled status.ConditionReason = "FinishedRemoteResourceDeploymentInstall"
+	ReasonRhmRemoteResourceDeploymentEnabled   status.ConditionReason = "EnabledRemoteResourceDeploymentInstall"
+	ReasonRhmRegistrationWatchkeeperEnabled    status.ConditionReason = "EnabledRegistrationWatchkeeperInstall"
 )
 
 var (
@@ -318,11 +319,11 @@ var (
 		Message: "Razee Install starting",
 	}
 
-	ConditionResourceS3DeploymentDisabled = status.Condition{
+	ConditionResourceDeploymentDisabled = status.Condition{
 		Type:    ConditionDeploymentEnabled,
 		Status:  corev1.ConditionFalse,
-		Reason:  ReasonRhmRemoteResourceS3DeploymentEnabled,
-		Message: "Deployment feature is disabled. RemoteResourceS3 deployment disabled. Operator deployment will be unavailable on marketplace.redhat.com",
+		Reason:  ReasonRhmRemoteResourceDeploymentEnabled,
+		Message: "Deployment feature is disabled. RemoteResource deployment disabled. Operator deployment will be unavailable on marketplace.redhat.com",
 	}
 
 	ConditionRhmRegistrationWatchkeeperDisabled = status.Condition{
@@ -332,11 +333,11 @@ var (
 		Message: "Registration feature is disabled. WatchKeeper disabled. Registration status will be unavailable on marketplace.redhat.com",
 	}
 
-	ConditionRhmRemoteResourceS3DeploymentEnabled = status.Condition{
+	ConditionRhmRemoteResourceDeploymentEnabled = status.Condition{
 		Type:    ConditionDeploymentEnabled,
 		Status:  corev1.ConditionTrue,
-		Reason:  ReasonRhmRemoteResourceS3DeploymentEnabled,
-		Message: "RemoteResourceS3 deployment enabled",
+		Reason:  ReasonRhmRemoteResourceDeploymentEnabled,
+		Message: "RemoteResource deployment enabled",
 	}
 
 	ConditionRhmRegistrationWatchkeeperEnabled = status.Condition{
@@ -346,10 +347,17 @@ var (
 		Message: "Registration deployment enabled",
 	}
 
-	ConditionParentRRS3Installed = status.Condition{
+	ConditionParentRRInstalled = status.Condition{
 		Type:    ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  ReasonParentRRS3Installed,
-		Message: "ParentRRS3 install finished",
+		Message: "ParentRR install finished",
+	}
+
+	ConditionChildRRS3MigrationComplete = status.Condition{
+		Type:    ConditionChildMigrationComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonChildRRS3Migrated,
+		Message: "Child RRS3 Migration successful",
 	}
 )

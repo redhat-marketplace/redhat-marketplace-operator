@@ -37,8 +37,8 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-RRS3_IMAGE ?= us.icr.io/armada-master/remoteresources3:0.11.2_958d130
-WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a
+RRS3_IMAGE ?= us.icr.io/armada-master/remoteresource:2.1.11_bc34aa0
+WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.5_bc34aa0
 
 namespace ?= redhat-marketplace
 
@@ -91,12 +91,12 @@ run: generate fmt vet manifests
 
 # Currently no CRDs
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-#	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+install: kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 .PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-#	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+uninstall: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	kubectl delete crd remoteresources.deploy.razee.io
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
@@ -182,7 +182,7 @@ bundle: clean manifests kustomize operator-sdk yq omt
 	$(MAKE) kustomize-set
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
-	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
+	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-remoteresourcedeployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
@@ -268,7 +268,7 @@ compile-helm: helm
 
 
 skaffold-dev: skaffold kustomize yq
-	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) dev --default-repo $(IMAGE_REGISTRY) --cleanup=false --cache-artifacts=false
 
 skaffold-run: skaffold yq
 	PATH="$(PWD)/../bin:${PATH}" $(SKAFFOLD) run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
@@ -279,21 +279,27 @@ skaffold-delete: skaffold yq
 current-version:
 	@echo $(VERSION)
 
-# skaffold helper
 # https://skaffold.dev/docs/environment/templating/
-.PHONY: kustomize-set
-kustomize-set:
+
+# Set the annotations for the operator
+.PHONY: kustomize-set-operator
+kustomize-set-operator:
 	cd config/default && \
 	${KUSTOMIZE} edit set namespace $(namespace) && \
 	cd ../.. && \
 	cd config/manager && \
 	$(KUSTOMIZE) edit set image $(OPERATOR_IMAGE_NAME)=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) && \
 	$(KUSTOMIZE) edit set annotation \
-	authcheckImage:$(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(IMAGE_TAG) \
 	operatorImage:$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(IMAGE_TAG) \
 	rbacProxyImage:$(KUBE_RBAC_PROXY_IMAGE) \
 	rrs3Image:$(RRS3_IMAGE) \
 	watchkeeperImage:$(WATCHKEEPER_IMAGE)
+
+# Set the annotation for the operator and child images
+.PHONY: kustomize-set
+kustomize-set:
+	$(MAKE) kustomize-set-operator
+	cd ../../authchecker/v2 && $(MAKE) kustomize-set-deployer
 
 TAG ?= ""
 CREDS ?= ""

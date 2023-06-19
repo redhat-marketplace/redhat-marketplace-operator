@@ -68,3 +68,10 @@ build:
 
 demo: build
 	docker-compose up
+
+# skaffold helper for ibm-metrics-operator
+.PHONY: kustomize-set-operator
+kustomize-set-operator:
+	cd ../../v2/config/manager && \
+	$(KUSTOMIZE) edit set annotation \
+	dqLiteImage:$(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
