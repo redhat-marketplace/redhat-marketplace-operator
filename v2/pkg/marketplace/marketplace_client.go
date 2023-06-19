@@ -40,8 +40,9 @@ var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	RegistrationEndpoint = "provisioning/v1/registered-clusters"
+	PullSecretEndpoint     = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	RegistrationEndpoint   = "provisioning/v1/registered-clusters"
+	AuthenticationEndpoint = "subscriptions/api/v1/keys/authentication"
 )
 
 const (
@@ -221,6 +222,20 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 		return RegistrationStatusOutput{Err: err}, err
 	}
 
+	// Don't check Registration if there is no rhmAccountID
+	// Typical case for IEK with no RHM account
+	if len(account.AccountId) == 0 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "NoRHMAccountID",
+		}, nil
+	}
+
+	if len(account.ClusterUuid) == 0 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "NoClusterUuid",
+		}, nil
+	}
+
 	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
 		"accountId", account.AccountId,
 		"uuid", account.ClusterUuid)
@@ -320,7 +335,7 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 				Message: message,
 			})
 		}
-	} else {
+	} else if resp.StatusCode != 0 {
 		msg := http.StatusText(resp.StatusCode)
 		msg = fmt.Sprintf("registration failed: %s", msg)
 		conditions.SetCondition(status.Condition{
@@ -479,4 +494,40 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 			StatusCode:         resp.StatusCode,
 		}, err
 	}
+}
+
+func (m *MarketplaceClient) RhmAccountExists() (bool, error) {
+	u, err := buildQuery(m.endpoint, AuthenticationEndpoint)
+	if err != nil {
+		return false, err
+	}
+
+	logger.Info("query to check rhmAccount existence", "query", u.String())
+
+	requestBody, err := json.Marshal(map[string]bool{
+		"createAccount":              false,
+		"sendEmailOnAccountCreation": false,
+	})
+	if err != nil {
+		return false, errors.New("intenalError: json.Marshal")
+	}
+
+	requestBodyBuffer := bytes.NewBuffer(requestBody)
+	if err != nil {
+		return false, errors.New("intenalError: NewBuffer")
+	}
+
+	resp, err := m.httpClient.Post(u.String(), "application/json", requestBodyBuffer)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode == 200 {
+		return true, nil
+	}
+	if resp.StatusCode == 206 {
+		return false, nil
+	}
+
+	return false, errors.New("unexpected response status " + resp.Status)
 }

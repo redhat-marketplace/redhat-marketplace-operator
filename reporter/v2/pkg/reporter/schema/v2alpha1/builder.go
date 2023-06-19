@@ -109,6 +109,8 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		fallthrough
 	case marketplacecommon.MetricTypeAdoption:
 		fallthrough
+	case marketplacecommon.MetricTypeInfrastructure:
+		fallthrough
 	case marketplacecommon.MetricTypeLicense:
 		key.AdditionalAttributes["metricType"] = meterDef.MetricType.String()
 	default:

@@ -206,11 +206,12 @@ spec:
                               metricType:
                                 description: MetricType identifies the type of metric
                                   this meter definition reports. Currently "billable",
-                                  "license", or "adoption".
+                                  "license", "adoption", or "infrastructure".
                                 enum:
                                 - billable
                                 - license
                                 - adoption
+                                - infrastructure
                                 type: string
                               name:
                                 description: Name of the metric for humans to read.

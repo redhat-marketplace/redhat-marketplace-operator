@@ -12,6 +12,7 @@ spec:
       period: 1h
       query: 'sum(kube_job_failed{job_name=~"rhm-meter-report-upload-.*"}) without (condition)'
       workloadType: Service
+      metricType: infrastructure
   resourceFilters:
     - label:
         labelSelector:

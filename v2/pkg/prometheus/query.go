@@ -44,6 +44,7 @@ type PromQueryArgs struct {
 	AggregateFunc      string
 	LabelReplacePrefix string
 	LabelReplaceSuffix string
+	MetricType         common.MetricType
 	GroupBy            []string
 	Without            []string
 
@@ -79,6 +80,7 @@ func NewPromQueryFromLabels(
 		GroupBy:       []string(meterDefLabels.MetricGroupBy),
 		Without:       []string(meterDefLabels.MetricWithout),
 		AggregateFunc: meterDefLabels.MetricAggregation,
+		MetricType:    meterDefLabels.MetricType,
 	})
 }
 

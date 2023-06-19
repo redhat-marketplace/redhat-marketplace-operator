@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -29,7 +30,9 @@ import (
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -133,31 +136,51 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	tokenClaims, err := marketplace.GetJWTTokenClaim(jwtToken)
-	if err != nil {
-		reqLogger.Error(err, "Token is missing account id")
+	var tokenClaims *marketplace.MarketplaceClaims
+	var rhmAccountExists bool
+	if si.Name == utils.IBMEntitlementKeySecretName {
+		tokenClaims = &marketplace.MarketplaceClaims{Env: si.Env}
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(jwtToken, tokenClaims)
+		if err != nil {
+			reqLogger.Error(err, "failed to build marketplaceclient")
+			return reconcile.Result{}, nil
+		}
 
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			si, err := secretFetcher.ReturnSecret()
-			if err != nil {
-				return err
+		rhmAccountExists, err = mclient.RhmAccountExists()
+		if err != nil {
+			reqLogger.Error(err, "failed to check if rhm account exists")
+			return reconcile.Result{}, nil
+		}
+
+	} else {
+		tokenClaims, err = marketplace.GetJWTTokenClaim(jwtToken)
+
+		if err != nil {
+			reqLogger.Error(err, "Token is missing account id")
+
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				si, err := secretFetcher.ReturnSecret()
+				if err != nil {
+					return err
+				}
+
+				annotations := si.Secret.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations[si.StatusKey] = "error"
+				annotations[si.MessageKey] = "Account id is not available in provided token, please generate token from RH Marketplace again"
+
+				si.Secret.SetAnnotations(annotations)
+
+				reqLogger.Info("Updating secret annotations with status on failure", "secret", si.Name)
+				return r.Client.Update(context.TODO(), si.Secret)
+			}); err != nil {
+				return reconcile.Result{}, err
 			}
-
-			annotations := si.Secret.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string)
-			}
-			annotations[si.StatusKey] = "error"
-			annotations[si.MessageKey] = "Account id is not available in provided token, please generate token from RH Marketplace again"
-
-			si.Secret.SetAnnotations(annotations)
-
-			reqLogger.Info("Updating secret annotations with status on failure", "secret", si.Name)
-			return r.Client.Update(context.TODO(), si.Secret)
-		}); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{}, err
+		rhmAccountExists = true
 	}
 
 	reqLogger.Info("Marketplace Token Claims set")
@@ -219,6 +242,22 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, err
 		}
 
+		if rhmAccountExists {
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRHMAccountExists,
+				Message: "RHM/Software Central account exists",
+			})
+		} else {
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+				Status:  corev1.ConditionFalse,
+				Reason:  marketplacev1alpha1.ReasonRHMAccountNotExist,
+				Message: "RHM/Software Central account does not exist",
+			})
+		}
+
 		if err = r.Client.Create(context.TODO(), marketplaceConfig); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -233,14 +272,13 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+	// check if license is accepted before registering cluster
+	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
+		reqLogger.Info("License has not been accepted in marketplaceconfig. You have to accept license to continue")
+		return reconcile.Result{}, nil
+	}
 
-		// check if license is accepted before registering cluster
-		if !ptr.ToBool(marketplaceConfig.Spec.License.Accept) {
-			reqLogger.Info("License has not been accepted in marketplaceconfig. You have to accept license to continue")
-			return reconcile.Result{}, nil
-		}
-
+	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists {
 		//only check registration status, compare pull secret from COS if we are not in a disconnected environment
 		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
 			NewMarketplaceClient(jwtToken, tokenClaims)
@@ -411,7 +449,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}
 
 	reqLogger.Info("ClusterRegistrationController reconcile finished")
-	return reconcile.Result{}, nil
+	// Requeue to resolve RHMAccountExists for ibm-entitlement-key users who later register for RHM
+	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
 func (r *ClusterRegistrationReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {

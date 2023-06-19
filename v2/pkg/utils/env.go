@@ -138,6 +138,9 @@ const (
 	ProductionURL        = "https://marketplace.redhat.com"
 	StageURL             = "https://sandbox.marketplace.redhat.com"
 
+	ProdEnv  = "production"
+	StageEnv = "stage"
+
 	UserWorkloadMonitoringMeterdef    = "prometheus-user-workload-uptime"
 	MeterReportJobFailedMeterdef      = "rhm-meter-report-job-failed"
 	MetricStateUptimeMeterdef         = "rhm-metric-state-uptime"
