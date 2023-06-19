@@ -40,6 +40,9 @@ type MarketplaceUploaderConfig struct {
 
 	certificates []*x509.Certificate `json:"-"`
 	httpVersion  *int                `json:"-"`
+
+	CipherSuites []uint16
+	MinVersion   uint16
 }
 
 type MarketplaceUploader struct {
@@ -57,6 +60,9 @@ func NewMarketplaceUploader(
 	if err != nil {
 		return nil, err
 	}
+
+	tlsConfig.CipherSuites = config.CipherSuites
+	tlsConfig.MinVersion = config.MinVersion
 
 	client := &http.Client{}
 	config.httpVersion = ptr.Int(1)

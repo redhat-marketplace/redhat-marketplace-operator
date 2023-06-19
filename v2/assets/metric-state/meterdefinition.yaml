@@ -12,6 +12,7 @@ spec:
       period: 1h
       query: avg_over_time(up{job="rhm-metric-state-service"}[5m])
       workloadType: Pod
+      metricType: infrastructure
   resourceFilters:
     - label:
         labelSelector:

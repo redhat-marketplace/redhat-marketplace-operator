@@ -53,6 +53,8 @@ func provideDataServiceConfig(
 		DataServiceToken: serviceAccountToken,
 		DataServiceCert:  cert,
 		OutputPath:       reporterConfig.OutputDirectory,
+		CipherSuites:     reporterConfig.CipherSuites,
+		MinVersion:       reporterConfig.MinVersion,
 	}, nil
 }
 

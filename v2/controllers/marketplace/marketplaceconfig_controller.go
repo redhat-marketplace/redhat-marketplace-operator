@@ -425,6 +425,25 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 ) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("func", "initializeMarketplaceConfigSpec", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
+		reqLogger.Error(err, "failed to get marketplaceconfig")
+		return reconcile.Result{}, err
+	}
+
+	// Determine if rhmAccountExists from the Status set by ClusterRegistrationController, else call the API
+	var rhmAccountExists bool
+	if cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists); cond == nil {
+		var err error
+		rhmAccountExists, err = r.checkRHMAccountStatus(request, secretFetcher)
+		if err != nil {
+			reqLogger.Error(err, "failed to check RHM/Software Central account existence")
+			return reconcile.Result{}, err
+		}
+	} else {
+		rhmAccountExists = cond.IsTrue()
+	}
+
 	// Initialize MarketplaceConfigSpec
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -444,7 +463,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 
 		// Initialize enabled features if not set, based on IsDisconnected state
 		if marketplaceConfig.Spec.Features == nil {
-			if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+			if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) || !rhmAccountExists {
 				marketplaceConfig.Spec.Features = &common.Features{
 					Deployment:                         ptr.Bool(false),
 					Registration:                       ptr.Bool(false),
@@ -460,15 +479,9 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		}
 
 		// Initilize individual features if nil or toggle based on IsDisconnected
-		if marketplaceConfig.Spec.Features.Deployment == nil || ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
-			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected))
-		}
-		if marketplaceConfig.Spec.Features.Registration == nil || ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
-			marketplaceConfig.Spec.Features.Registration = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected))
-		}
-		if marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer == nil || ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
-			marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected))
-		}
+		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists)
+		marketplaceConfig.Spec.Features.Registration = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists)
+		marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(false)
 
 		// Initialize Catalog flag
 		if marketplaceConfig.Spec.InstallIBMCatalogSource == nil {
@@ -586,6 +599,22 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 			} else {
 				updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionSecretError)
 			}
+		}
+
+		if rhmAccountExists {
+			updated = marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRHMAccountExists,
+				Message: "RHM/Software Central account exists",
+			}) || updated
+		} else {
+			updated = marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+				Status:  corev1.ConditionFalse,
+				Reason:  marketplacev1alpha1.ReasonRHMAccountNotExist,
+				Message: "RHM/Software Central account does not exist",
+			}) || updated
 		}
 
 		if updated {
@@ -726,9 +755,10 @@ func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request
 				reqLogger.Info("setting cluster name override on razee cr")
 				razeeDeployment.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
 			}
-
-			// Disable razee in disconnected environment
-			razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected)
+			// Disable razee in disconnected environment or if RHM/Software Central account does not exist
+			cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
+			rhmAccountExists := cond != nil && cond.IsTrue()
+			razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists
 
 			reqLogger.Info("creating razee cr")
 			err = r.Client.Create(context.TODO(), razeeDeployment)
@@ -772,11 +802,13 @@ func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request
 			reqLogger.Error(err, "failed to get marketplaceconfig")
 			return err
 		}
+		cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
+		rhmAccountExists := cond != nil && cond.IsTrue()
 
 		razeeDeploymentCopy := razeeDeployment.DeepCopy()
 
-		// Disable razee in disconnected environment
-		razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected)
+		// Disable razee in disconnected environment or RHM/Software Central account does not exist
+		razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists
 		razeeDeployment.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 		razeeDeployment.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
 		razeeDeployment.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
@@ -1048,4 +1080,42 @@ func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusFinished(
 	})
 
 	return reconcile.Result{}, err
+}
+
+func (r *MarketplaceConfigReconciler) checkRHMAccountStatus(
+	request reconcile.Request,
+	secretFetcher *utils.SecretFetcherBuilder) (bool, error) {
+	reqLogger := r.Log.WithValues("func", "checkRHMAccountStatus", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	si, err := secretFetcher.ReturnSecret()
+	if err != nil {
+		reqLogger.Error(err, "Fetching redhat-marketplace-pull-secret or ibm-entitlement-key secret failed")
+		return false, err
+	}
+
+	jwtToken, err := secretFetcher.ParseAndValidate(si)
+	if err != nil {
+		reqLogger.Error(err, "error validating secret", "secret", si.Name)
+		return false, err
+	}
+
+	if si.Name == utils.IBMEntitlementKeySecretName {
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(jwtToken, &marketplace.MarketplaceClaims{Env: si.Env})
+
+		if err != nil {
+			reqLogger.Error(err, "failed to build marketplaceclient")
+			return false, err
+		}
+
+		rhmAccountExists, err := mclient.RhmAccountExists()
+		if err != nil {
+			reqLogger.Error(err, "failed to check if rhm account exists")
+			return false, err
+		}
+
+		return rhmAccountExists, nil
+
+	} else {
+		return true, nil
+	}
 }

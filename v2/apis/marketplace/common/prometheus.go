@@ -32,10 +32,11 @@ const (
 	WorkloadTypeService WorkloadType = "Service"
 	WorkloadTypePVC     WorkloadType = "PersistentVolumeClaim"
 
-	MetricTypeBillable MetricType = "billable"
-	MetricTypeLicense  MetricType = "license"
-	MetricTypeAdoption MetricType = "adoption"
-	MetricTypeEmpty    MetricType = ""
+	MetricTypeBillable       MetricType = "billable"
+	MetricTypeLicense        MetricType = "license"
+	MetricTypeAdoption       MetricType = "adoption"
+	MetricTypeEmpty          MetricType = ""
+	MetricTypeInfrastructure MetricType = "infrastructure"
 )
 
 type MeterDefPrometheusLabels struct {

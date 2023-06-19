@@ -36,6 +36,8 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -81,6 +83,12 @@ var _ = Describe("Reporter", func() {
 				ClusterUUID:  "foo-id",
 			},
 		}
+		config.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionRHMAccountExists,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRHMAccountExists,
+			Message: "RHM/Software Central account exists",
+		})
 
 		v1Writer, _ = ProvideWriter(cfg, config, logger)
 		v1Builder, _ = ProvideDataBuilder(cfg, logger)

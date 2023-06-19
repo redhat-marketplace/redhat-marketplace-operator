@@ -48,6 +48,8 @@ type Config struct {
 	PrometheusPort       string
 	uploaders.UploaderTargets
 	ReporterSchema string
+	CipherSuites   []uint16
+	MinVersion     uint16
 
 	K8sRestConfig *rest.Config
 }

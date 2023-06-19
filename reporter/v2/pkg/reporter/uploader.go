@@ -90,7 +90,12 @@ func ProvideUploaders(
 			}
 			uploaders = append(uploaders, uploader)
 		case *u.MarketplaceUploader:
-			config, err := provideMarketplaceConfig(ctx, client, reporterConfig.DeployedNamespace, log)
+			config, err := provideMarketplaceConfig(ctx,
+				client,
+				reporterConfig.DeployedNamespace,
+				reporterConfig.CipherSuites,
+				reporterConfig.MinVersion,
+				log)
 			// No secret is acceptable in disconnected environment
 			if err == utils.NoSecretsFound && reporterConfig.IsDisconnected {
 				log.Info("Disconnected mode, no redhat-marketplace-pull-secret or ibm-entitlement-key secret found, MarketplaceUploader will be unavailable")
@@ -152,6 +157,8 @@ func provideMarketplaceConfig(
 	ctx context.Context,
 	client client.Client,
 	deployedNamespace string,
+	cipherSuites []uint16,
+	minVersion uint16,
 	log logr.Logger,
 ) (*uploaders.MarketplaceUploaderConfig, error) {
 	log.Info("finding secret redhat-marketplace-pull-secret or ibm-entitlement-key")
@@ -179,7 +186,9 @@ func provideMarketplaceConfig(
 	}
 
 	return &uploaders.MarketplaceUploaderConfig{
-		URL:   url,
-		Token: jwtToken,
+		URL:          url,
+		Token:        jwtToken,
+		CipherSuites: cipherSuites,
+		MinVersion:   minVersion,
 	}, nil
 }
