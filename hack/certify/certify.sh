@@ -147,7 +147,7 @@ cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 
-git checkout v1.0.75
+git checkout v1.0.83
 
 # Create a new SCC
 oc apply -f ansible/roles/operator-pipeline/templates/openshift/openshift-pipelines-custom-scc.yml
@@ -195,6 +195,8 @@ rm -Rf operators/${OP_NAME}/$VERSION/manifests/${OP_NAME}_v1_serviceaccount.yaml
 # echo "cert_project_id: 5f68c9457115dbd1183ccab6" > operators/${OP_NAME}/ci.yaml
 # ibm-metrics-operator
 # echo "cert_project_id: 6419c8987cadbe946d0e0594" > operators/${OP_NAME}/ci.yaml
+# data-reporter-operator
+# echo "cert_project_id: 646fa6b07840293fae4e3d17" > operators/${OP_NAME}/ci.yaml
 
 # Commit and push the changes to the branch
 git add --all
@@ -205,7 +207,10 @@ git push -f origin $BRANCH
 # Run the Pipeline
 
 cd $TMP_DIR/operator-pipelines
-curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
+
+# latest client does not print log
+# curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
+curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/0.23.1/tkn-linux-amd64-0.23.1.tar.gz | tar -xz
 
 GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators.git
 BUNDLE_PATH=operators/${OP_NAME}/$VERSION
