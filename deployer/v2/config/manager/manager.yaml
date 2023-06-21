@@ -68,9 +68,9 @@ spec:
             - name: RELATED_IMAGE_AUTHCHECK
               value: redhat-marketplace-authcheck:latest
             - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-              value: us.icr.io/armada-master/remoteresource:2.1.11_bc34aa0
+              value: us.icr.io/armada-master/remoteresource:2.1.6_eee1907
             - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-              value: us.icr.io/armada-master/watch-keeper:0.8.5_bc34aa0
+              value: us.icr.io/armada-master/watch-keeper:0.8.6_ca20177
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:
