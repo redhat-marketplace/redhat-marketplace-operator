@@ -74,19 +74,25 @@ spec:
     Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
     Install the IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n3.
     Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret`
-    and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.\n\n
+    and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.\n
     \   ```sh\n    # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace\n
     \   oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace
-    --from-literal=PULL_SECRET=${PULL_SECRET}\n    ```\n\n4. Install the Red Hat Marketplace
-    pull secret as a global pull secret on the cluster.\n\n    These steps require
-    `oc`, `jq`, and `base64` to be available on your machine.\n\n    ```sh\n    #
-    Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.\n
-    \   # Store it in a file called entitledregistryconfigjson.\n    oc create secret
-    docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com
-    --docker-username \"cp\" --docker-password \"${PULL_SECRET}\" --dry-run=client
-    --output=\"jsonpath={.data.\\.dockerconfigjson}\" | base64 --decode > entitledregistryconfigjson\n
-    \   # Get the current global secrets on the cluster and store it as a file named
-    dockerconfigjson\n    oc get secret pull-secret -n openshift-config --output=\"jsonpath={.data.\\.dockerconfigjson}\"
+    --from-literal=PULL_SECRET=${PULL_SECRET}\n    ```\n4. Use of the Red Hat Marketplace
+    platform is governed by the:\n\n    [IBM Cloud Services Agreement](https://www.ibm.com/support/customer/csol/terms/?id=Z126-6304_WS&_ga=2.116312197.2046730452.1684328846-812467790.1684328846)
+    (or other base agreement between you and IBM such as a [Passport Advantage Agreement](https://www.ibm.com/software/passportadvantage/pa_agreements.html?_ga=2.116312197.2046730452.1684328846-812467790.1684328846))
+    and the [Service Description for the Red Hat Marketplace](https://www.ibm.com/support/customer/csol/terms/?id=i126-8719&_ga=2.83289621.2046730452.1684328846-812467790.1684328846).\n\n5.
+    Update MarketplaceConfig to accept the license.\n    ```\n    oc patch marketplaceconfig
+    marketplaceconfig -n redhat-marketplace --type='merge' -p '{\"spec\": {\"license\":
+    {\"accept\": true}}}'\n    ```\n6. Install the Red Hat Marketplace pull secret
+    as a global pull secret on the cluster.\n\n    These steps require `oc`, `jq`,
+    and `base64` to be available on your machine.\n\n    ```sh\n    # Create the docker
+    pull secret file using your PULL_SECRET from Red Hat Marketplace.\n    # Store
+    it in a file called entitledregistryconfigjson.\n    oc create secret docker-registry
+    entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username
+    \"cp\" --docker-password \"${PULL_SECRET}\" --dry-run=client --output=\"jsonpath={.data.\\.dockerconfigjson}\"
+    | base64 --decode > entitledregistryconfigjson\n    # Get the current global secrets
+    on the cluster and store it as a file named dockerconfigjson\n    oc get secret
+    pull-secret -n openshift-config --output=\"jsonpath={.data.\\.dockerconfigjson}\"
     | base64 --decode > dockerconfigjson\n    # Merge the two dockerconfigs together
     into a file called dockerconfigjson-merged.\n    jq -s '.[0] * .[1]' dockerconfigjson
     entitledregistryconfigjson > dockerconfigjson-merged\n    # Set the cluster's
