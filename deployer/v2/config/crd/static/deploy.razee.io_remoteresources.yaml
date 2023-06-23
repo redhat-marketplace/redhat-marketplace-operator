@@ -1,0 +1,224 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # name must match the spec fields below, and be in the form: <plural>.<group>
+  name: remoteresources.deploy.razee.io
+  annotations:
+    # razee.io/git-repo: "{{{GIT_REMOTE}}}"
+    # razee.io/commit-sha: "{{{TRAVIS_COMMIT}}}"
+  labels:
+    deploy.razee.io/Reconcile: "false"
+spec:
+  # group name to use for REST API: /apis/<group>/<version>
+  group: deploy.razee.io
+  # either Namespaced or Cluster
+  scope: Namespaced
+  names:
+    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+    plural: remoteresources
+    # singular name to be used as an alias on the CLI and for display
+    singular: remoteresource
+    # kind is normally the CamelCased singular type. Your resource manifests use this.
+    kind: RemoteResource
+    # shortNames allow shorter string to match your resource on the CLI
+    shortNames:
+      - rr
+  # list of versions supported by this CustomResourceDefinition
+  versions:
+    - name: v1alpha2
+      # Each version can be enabled/disabled by Served flag.
+      served: true
+      # One and only one version must be marked as the storage version.
+      storage: true
+      subresources:
+        # status enables the status subresource.
+        status: {}
+      schema:
+        # openAPIV3Schema is the schema for validating custom objects.
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [requests]
+              properties:
+                clusterAuth:
+                  type: object
+                  properties:
+                    impersonateUser:
+                      type: string
+                backendService:
+                  type: string
+                  enum: [generic, s3, git]
+                auth:
+                  type: object
+                  oneOf:
+                    - required: [hmac]
+                    - required: [iam]
+                  properties:
+                    hmac:
+                      type: object
+                      allOf:
+                        - oneOf:
+                            - required: [accessKeyId]
+                            - required: [accessKeyIdRef]
+                        - oneOf:
+                            - required: [secretAccessKey]
+                            - required: [secretAccessKeyRef]
+                      properties:
+                        accessKeyId:
+                          type: string
+                        accessKeyIdRef:
+                          type: object
+                          required: [valueFrom]
+                          properties:
+                            valueFrom:
+                              type: object
+                              required: [secretKeyRef]
+                              properties:
+                                secretKeyRef:
+                                  type: object
+                                  required: [name, key]
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    key:
+                                      type: string
+                        secretAccessKey:
+                          type: string
+                        secretAccessKeyRef:
+                          type: object
+                          required: [valueFrom]
+                          properties:
+                            valueFrom:
+                              type: object
+                              required: [secretKeyRef]
+                              properties:
+                                secretKeyRef:
+                                  type: object
+                                  required: [name, key]
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    key:
+                                      type: string
+                    iam:
+                      type: object
+                      allOf:
+                        - required: [url, grantType]
+                        - oneOf:
+                            - required: [apiKey]
+                            - required: [apiKeyRef]
+                      properties:
+                        grantType:
+                          type: string
+                        url:
+                          type: string
+                          format: uri
+                        apiKey:
+                          type: string
+                        apiKeyRef:
+                          type: object
+                          required: [valueFrom]
+                          properties:
+                            valueFrom:
+                              type: object
+                              required: [secretKeyRef]
+                              properties:
+                                secretKeyRef:
+                                  type: object
+                                  required: [name, key]
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    key:
+                                      type: string
+                requests:
+                  type: array
+                  items:
+                    type: object
+                    required: [options]
+                    properties:
+                      optional:
+                        type: boolean
+                      options:
+                        type: object
+                        oneOf:
+                          - required: [url]
+                          - required: [uri]
+                          - required: [git]
+                        properties:
+                          url:
+                            type: string
+                            format: uri
+                          uri:
+                            type: string
+                            format: uri
+                          git:
+                            type: object
+                            required: [provider, repo, filePath]
+                            oneOf:
+                              - required: [ref]
+                              - required: [release]
+                            properties:
+                              provider:
+                                type: string
+                                enum: [github, gitlab]
+                              repo:
+                                type: string
+                              ref:
+                                type: string
+                              filePath:
+                                type: string
+                              release:
+                                type: string
+                          headers:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          headersFrom:
+                            type: array
+                            items:
+                              type: object
+                              oneOf:
+                                - required: [configMapRef]
+                                - required: [secretMapRef]
+                                - required: [genericMapRef]
+                              properties:
+                                configMapRef:
+                                  type: object
+                                  required: [name]
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                secretMapRef:
+                                  type: object
+                                  required: [name]
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                genericMapRef:
+                                  type: object
+                                  required: [apiVersion, kind, name]
+                                  properties:
+                                    apiVersion:
+                                      type: string
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true

@@ -1,7 +1,7 @@
 namePrefix: ibm-metrics-operator-
 
 # Adds namespace to all resources.
-namespace: openshift-redhat-marketplace
+namespace: redhat-marketplace
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
@@ -9,28 +9,24 @@ namespace: openshift-redhat-marketplace
 # field above.
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  redhat.marketplace.com/name: ibm-metrics-operator
 
 configurations:
-  - kustomizeconfig.yaml
-resources:
-  - ../crd
-  - ../rbac
-  - ../rbac_classic
-  - ../manager
+- kustomizeconfig.yaml
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
   # crd/kustomization.yaml
   # - ../webhook-openshift
   # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
   # - ../certmanager
   # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
-  - ../prometheus
-patchesStrategicMerge:
+resources:
+- ../crd
+- ../rbac
+- ../rbac_classic
+- ../manager
+- ../prometheus
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.
-  - manager_auth_proxy_patch.yaml
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 # - manager_webhook_patch.yaml
@@ -40,38 +36,11 @@ patchesStrategicMerge:
 # - webhookcainjection_patch.yaml
 # - webhookopenshiftcainjection_patch.yaml
 # the following config is for teaching kustomize how to do var substitution
-vars:
-  # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
-  # - name: CERTIFICATE_NAMESPACE # namespace of the certificate CR
-  #   objref:
-  #     kind: Certificate
-  #     group: cert-manager.io
-  #     version: v1alpha2
-  #     name: serving-cert # this name should match the one in certificate.yaml
-  #   fieldref:
-  #     fieldpath: metadata.namespace
-  # - name: CERTIFICATE_NAME
-  #   objref:
-  #     kind: Certificate
-  #     group: cert-manager.io
-  #     version: v1alpha2
-  #     name: serving-cert # this name should match the one in certificate.yaml
-  # - name: SERVICE_NAMESPACE # namespace of the service
-  #   objref:
-  #     kind: Service
-  #     version: v1
-  #     name: controller-manager-service
-  #   fieldref:
-  #     fieldpath: metadata.namespace
-  # - name: SERVICE_NAME
-  #   objref:
-  #     kind: Service
-  #     version: v1
-  #     name: controller-manager-service
-  # - name: NAMESPACE
-  #   objref:
-  #     kind: Service
-  #     version: v1
-  #     name: controller-manager-service
-  #   fieldref:
-  #     fieldpath: metadata.namespace
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+- includeSelectors: true
+  pairs:
+    redhat.marketplace.com/name: ibm-metrics-operator
+patches:
+- path: manager_auth_proxy_patch.yaml

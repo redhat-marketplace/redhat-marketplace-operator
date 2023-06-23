@@ -20,6 +20,9 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/oauth"
 )
 
 func provideDataServiceConfig(
@@ -50,5 +53,27 @@ func provideDataServiceConfig(
 		DataServiceToken: serviceAccountToken,
 		DataServiceCert:  cert,
 		OutputPath:       reporterConfig.OutputDirectory,
+		CipherSuites:     reporterConfig.CipherSuites,
+		MinVersion:       reporterConfig.MinVersion,
 	}, nil
+}
+
+// Per Dial token vs per Call
+func provideGRPCDialOptions(
+	dataServiceConfig *dataservice.DataServiceConfig,
+) []grpc.DialOption {
+
+	options := []grpc.DialOption{}
+
+	if dataServiceConfig.DataServiceToken != "" {
+		/* create oauth2 token  */
+		oauth2Token := &oauth2.Token{
+			AccessToken: dataServiceConfig.DataServiceToken,
+		}
+
+		perRPC := oauth.NewOauthAccess(oauth2Token)
+
+		options = append(options, grpc.WithPerRPCCredentials(perRPC))
+	}
+	return options
 }

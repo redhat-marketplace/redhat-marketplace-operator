@@ -25,9 +25,10 @@ const (
 	RHM_METERING_DEPLOYMENT_NAME           = "ibm-metrics-operator-controller-manager"
 	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
+	RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME    = "rhm-remoteresource-controller"
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
 	RAZEE_JOB_NAME                         = "rhm-razeedeploy-job"
-	PARENT_RRS3_RESOURCE_NAME              = "parent"
+	PARENT_REMOTE_RESOURCE_NAME            = "parent"
 	COS_READER_KEY_NAME                    = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME                   = "razee-uninstall-job"
 	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"
@@ -74,7 +75,7 @@ const (
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
-	RRS3_FINALIZER       = "children.downloads.deploy.razee.io"
+	RR_FINALIZER         = "children.downloads.deploy.razee.io"
 
 	/* RBAC */
 	OPERATOR_SERVICE_ACCOUNT     = "ibm-metrics-operator-controller-manager"
@@ -84,8 +85,8 @@ const (
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
-	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresources3:0.11.2_958d130"
-	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.8.3_83f4e3a"
+	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "us.icr.io/armada-master/remoteresource:2.1.6_eee1907"
+	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "us.icr.io/armada-master/watch-keeper:0.8.6_ca20177 "
 	IBM_COS_READER_KEY_FIELD                  = "IBM_COS_READER_KEY"
 	BUCKET_NAME_FIELD                         = "BUCKET_NAME"
 	IBM_COS_URL_FIELD                         = "IBM_COS_URL"
@@ -138,10 +139,17 @@ const (
 	ProductionURL        = "https://marketplace.redhat.com"
 	StageURL             = "https://sandbox.marketplace.redhat.com"
 
+	ProdEnv  = "production"
+	StageEnv = "stage"
+
 	UserWorkloadMonitoringMeterdef    = "prometheus-user-workload-uptime"
 	MeterReportJobFailedMeterdef      = "rhm-meter-report-job-failed"
 	MetricStateUptimeMeterdef         = "rhm-metric-state-uptime"
 	PrometheusMeterbaseUptimeMeterdef = "rhm-prometheus-meterbase-uptime"
+
+	/* Data Reporter */
+	DATAREPORTERCONFIG_NAME   = "datareporterconfig"
+	DATAREPORTER_SERVICE_NAME = "ibm-data-reporter-operator-controller-manager-metrics-service"
 )
 
 var (

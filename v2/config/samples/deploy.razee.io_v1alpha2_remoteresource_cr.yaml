@@ -1,0 +1,20 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: RemoteResource
+metadata:
+  name: example-remoteresource
+spec:
+  auth:
+    iam:
+      apiKeyRef:
+        valueFrom:
+          secretKeyRef:
+            key: accesskey
+            name: rhm-cos-reader-key
+      grantType: urn:ibm:params:oauth:grant-type:apikey
+      responseType: cloud_iam
+      url: https://iam.cloud.ibm.com/identity/token
+  requests:
+  - options:
+      url: https://s3.us-east.cloud-object-storage.appdomain.cloud/your-accountId/your-cluster-uuid/name-of-child.yaml
+
+  

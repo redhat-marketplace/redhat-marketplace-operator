@@ -8,6 +8,6 @@ status:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rhm-remoteresources3-controller
+  name: rhm-remoteresource-controller
 status:
   replicas: 1

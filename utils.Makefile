@@ -20,6 +20,8 @@ DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 DOCKERBUILDXCACHE ?=
 
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
+
 clean-bin:
 	rm -rf $(PROJECT_DIR)/bin
 
@@ -46,10 +48,10 @@ code-generator:
 		git clone -b tags/$(CODEGEN_VERSION) git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
-KUSTOMIZE_VERSION=v4.5.7
+KUSTOMIZE_VERSION=v5.0.3
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
 
 OMT_VERSION=v0.2.2
 OMT=$(PROJECT_DIR)/bin/operator-manifest-tools
@@ -88,13 +90,13 @@ YQ=$(PROJECT_DIR)/bin/yq
 yq:
 	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION),$(YQ_VERSION))
 
-OPERATOR_SDK_VERSION=v1.14.0
+OPERATOR_SDK_VERSION=v1.28.1
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
 	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
 
-OPM_VERSION=v1.19.1
+OPM_VERSION=v1.23.0
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
@@ -120,7 +122,7 @@ pc-tool:
 	}
 
 SKAFFOLD=$(PROJECT_DIR)/bin/skaffold
-SKAFFOLD_VERSION=v1.38.0
+SKAFFOLD_VERSION=v2.3.1
 skaffold:
 	$(call install-binary,https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VERSION),skaffold-$(UNAME)-amd64,$(SKAFFOLD),$(SKAFFOLD_VERSION))
 

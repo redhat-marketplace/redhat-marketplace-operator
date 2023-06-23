@@ -47,6 +47,7 @@ type SecretInfo struct {
 	MessageKey string
 	SecretKey  string
 	MissingMsg string
+	Env        string
 }
 
 type EntitlementKey struct {
@@ -138,6 +139,7 @@ func (sf *SecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (string, error)
 				return "", fmt.Errorf("could not find jwt token on prod entitlement key %w", TokenFieldMissingOrEmpty)
 			}
 			jwtToken = prodAuth.Password
+			si.Env = ProdEnv
 		}
 
 		stageAuth, ok := ek.Auths[IBMEntitlementStageKey]
@@ -146,6 +148,7 @@ func (sf *SecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (string, error)
 				return "", fmt.Errorf("could not find jwt token on stage entitlement key %w", TokenFieldMissingOrEmpty)
 			}
 			jwtToken = stageAuth.Password
+			si.Env = StageEnv
 		}
 
 	} else if si.Name == RHMPullSecretName {

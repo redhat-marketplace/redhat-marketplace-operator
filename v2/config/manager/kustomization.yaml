@@ -1,7 +1,56 @@
 resources:
 - manager.yaml
 - namespace.yaml
+replacements:
+- source:
+    fieldPath: metadata.annotations.authcheckImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.1.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.dqLiteImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.2.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.rbacProxyImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.3.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.metricStateImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.4.value
+    select:
+      kind: Deployment
+      name: controller-manager
+- source:
+    fieldPath: metadata.annotations.reporterImage
+    kind: Deployment
+    name: controller-manager
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.env.5.value
+    select:
+      kind: Deployment
+      name: controller-manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-patchesStrategicMerge:
-- ./patches/env_vars_patch.yaml

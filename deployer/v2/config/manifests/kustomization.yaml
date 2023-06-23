@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: openshift-redhat-marketplace
+namespace: redhat-marketplace
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
@@ -10,12 +10,3 @@ resources:
   - ../default
   - ../scorecard
   - bases/redhat-marketplace-operator.clusterserviceversion.yaml
-
-vars:
-  - name: AUTHCHECK_IMAGE_MARKER
-    objref:
-      kind: Deployment
-      name: controller-manager
-      apiVersion: apps/v1
-    fieldref:
-      fieldpath: metadata.annotations.authcheckImage

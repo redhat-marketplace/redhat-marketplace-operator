@@ -85,9 +85,10 @@ func (r *ReportWriter) WriteReport(
 
 			if err != nil {
 				reportErrors = append(reportErrors, err)
+			} else {
+				metricReport.Metrics = append(metricReport.Metrics, metric.(*v2alpha1.MarketplaceReportData))
 			}
 
-			metricReport.Metrics = append(metricReport.Metrics, metric.(*v2alpha1.MarketplaceReportData))
 		}
 
 		marshallBytes, err := json.Marshal(metricReport)

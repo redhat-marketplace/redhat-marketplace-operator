@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	logf "github.com/go-logr/logr"
 	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/prometheus-operator/prometheus-operator/pkg/assets"

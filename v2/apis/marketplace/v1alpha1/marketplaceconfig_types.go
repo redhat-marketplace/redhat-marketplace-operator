@@ -27,12 +27,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Accound ID"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
-	RhmAccountID string `json:"rhmAccountID"`
+	RhmAccountID string `json:"rhmAccountID,omitempty"`
 
 	// ClusterUUID is the Red Hat Marketplace cluster identifier
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
-	ClusterUUID string `json:"clusterUUID"`
+	ClusterUUID string `json:"clusterUUID,omitempty"`
 
 	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
 	// If you have set the name in the UI first, this name will be ignored.
@@ -74,6 +74,10 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Namespace LabelSelector"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
+
+	// License information is required
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License"
+	License MarketplaceConfigLicense `json:"license,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -94,6 +98,17 @@ type MarketplaceConfigStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	MeterBaseSubConditions status.Conditions `json:"meterBaseSubConditions,omitempty"`
+}
+
+// MarketplaceConfigLicense defines license acceptance
+// +k8s:openapi-gen=true
+type MarketplaceConfigLicense struct {
+
+	// By installing this product you accept the license terms https://ibm.biz/BdfaAY
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Accept Licence"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:checkbox"
+	Accept *bool `json:"accept,omitempty"`
 }
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
@@ -138,6 +153,15 @@ const (
 	// ConditionSecretError means the redhat-marketplace-pull-secret or ibm-entitlement-key is missing in a connected env
 	ConditionSecretError status.ConditionType = "SecretError"
 
+	ConditionChildMigrationComplete status.ConditionType = "ChildRRS3MigrationComplete"
+
+	// ConditionRHMAccountExists means the customer has a RHM/Software Central account
+	ConditionRHMAccountExists status.ConditionType = "RHMAccountExists"
+
+	// License not accepted
+	ConditionNoLicense status.ConditionType = "NoLicense"
+
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
@@ -155,12 +179,17 @@ const (
 	ReasonOperatingNormally     status.ConditionReason = "OperatingNormally"
 	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
 	ReasonNoSecret              status.ConditionReason = "NoSecret"
+	ReasonRHMAccountExists      status.ConditionReason = "RHMAccountExists"
+	ReasonRHMAccountNotExist    status.ConditionReason = "RHMAccountNotExist"
 
 	// Enablement/Disablement of features conditions
 	// ConditionDeploymentEnabled means the particular option is enabled
 	ConditionDeploymentEnabled status.ConditionType = "DeploymentEnabled"
 	// ConditionRegistrationEnabled means the particular option is enabled
 	ConditionRegistrationEnabled status.ConditionType = "RegistrationEnabled"
+
+	// License not accepted
+	ReasonLicenseNotAccepted status.ConditionReason = "LicenseNotAccepted"
 )
 
 // +kubebuilder:object:root=true

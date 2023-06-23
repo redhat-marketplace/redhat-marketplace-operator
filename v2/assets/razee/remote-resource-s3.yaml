@@ -1,39 +1,46 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: remoteresources3-controller
+  name: remoteresource-controller
   annotations:
-    razee.io/git-repo: 'https://github.com/razee-io/RemoteResourceS3.git'
-    razee.io/commit-sha: '5771fb3616cc1da29886561e382f15fd314c75d9'
+    # razee.io/git-repo: "{{{GIT_REMOTE}}}"
+    # razee.io/commit-sha: "{{{TRAVIS_COMMIT}}}"
   labels:
-    razee/watch-resource: 'lite'
+    razee/watch-resource: "lite"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: remoteresources3-controller
+      app: remoteresource-controller
   strategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        app: remoteresources3-controller
-        razee/watch-resource: 'lite'
-      name: remoteresources3-controller
+        app: remoteresource-controller
+        razee/watch-resource: "lite"
+      name: remoteresource-controller
     spec:
       serviceAccountName: razeedeploy-sa
-      securityContext: 
+      securityContext:
         runAsNonRoot: true
       containers:
-        - image: redhat-marketplace-authcheck:latest
-          name: authcheck
+        - name: authcheck
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
+            limits:
+              cpu: 20m
+              memory: 20Mi
             requests:
               cpu: 10m
               memory: 12Mi
-            limits:
-              cpu: 15m
-              memory: 20Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -41,17 +48,26 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
-          terminationMessagePolicy: FallbackToLogsOnError
-        - image: 'us.icr.io/armada-master/remoteresources3:0.11.2_958d130'
+            runAsNonRoot: true 
+        - image: "quay.io/razee/remoteresource:2.1.11_bc34aa0"
           resources:
             limits:
-              memory: 200Mi
-              cpu: 100m
+              memory: 300Mi
+              cpu: 200m
             requests:
               memory: 75Mi
-              cpu: 40m
+              cpu: 50m
           env:
+            - name: USER_AGENT_NAME
+              value: razee-io/remoteresource
+            - name: USER_AGENT_VERSION
+              value: "2.1.11_bc34aa0"
+            - name: RR_RECONCILE_BY_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  name: razeedeploy-overrides
+                  key: RR_RECONCILE_BY_DEFAULT
+                  optional: true
             - name: CRD_WATCH_TIMEOUT_SECONDS
               valueFrom:
                 configMapKeyRef:
@@ -59,7 +75,7 @@ spec:
                   key: CRD_WATCH_TIMEOUT_SECONDS
                   optional: true
           imagePullPolicy: Always
-          name: remoteresources3-controller
+          name: remoteresource-controller
           livenessProbe:
             exec:
               command:
@@ -68,18 +84,10 @@ spec:
             periodSeconds: 150
             timeoutSeconds: 30
             failureThreshold: 1
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            privileged: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true             
           volumeMounts:
-            - mountPath: /usr/src/app/download-cache
+            - mountPath: /home/node/download-cache
               name: cache-volume
-            - mountPath: /usr/src/app/config
+            - mountPath: /home/node/config
               name: razeedeploy-config
       volumes:
         - name: cache-volume
@@ -87,5 +95,5 @@ spec:
         - name: razeedeploy-config
           configMap:
             name: razeedeploy-config
-            defaultMode: 420
+            defaultMode: 400
             optional: true

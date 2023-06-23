@@ -1,4 +1,4 @@
-apiVersion: skaffold/v2beta28
+apiVersion: skaffold/v3
 kind: Config
 metadata:
   name: redhat-marketplace-operator
@@ -7,7 +7,7 @@ build:
   - image: redhat-marketplace-operator
     context: .
     custom:
-      buildCommand: ARCHS=amd64 make vet docker-build
+      buildCommand: ARCHS=amd64 make vet docker-build docker-push kustomize-set-operator
       dependencies:
         paths:
         - go.mod
@@ -23,7 +23,7 @@ build:
   - image: redhat-marketplace-authcheck
     context: ../../authchecker/v2
     custom:
-      buildCommand: ARCHS=amd64 make vet docker-build
+      buildCommand: ARCHS=amd64 make vet docker-build docker-push kustomize-set-deployer
       dependencies:
         paths:
         - go.mod
@@ -32,37 +32,15 @@ build:
         - pkg/**
         - Dockerfile
         ignore:
-        - '**/*_test.go'        
+        - '**/*_test.go'
   tagPolicy:
-    customTemplate:
-      template: '{{ .VERS }}-{{ .GC }}'
-      components:
-      - name: VERS
-        envTemplate:
-          template: '{{.VERSION}}'
-      - name: GC
-        gitCommit:
-          variant: AbbrevCommitSha
+    dateTime: {}
   local:
     useBuildkit: true
     concurrency: 2
+manifests:
+  kustomize:
+    paths: 
+    - config/default
 deploy:
-  helm:
-    releases:
-    - name: rhm-operator
-      chartPath: ./config/helm-wrapper
-      valuesFiles:
-      - ./config/helm-wrapper/values.yaml
-      - ./config/helm-wrapper/devValues.yaml
-      artifactOverrides:
-        authCheckImage: redhat-marketplace-authcheck
-        operatorImage: redhat-marketplace-operator
-      namespace: openshift-redhat-marketplace
-      upgradeOnChange: true
-    flags:
-      install:
-      - --post-renderer
-      - config/helm-wrapper/kustomize
-      upgrade:
-      - --post-renderer
-      - config/helm-wrapper/kustomize
+  kubectl: {}

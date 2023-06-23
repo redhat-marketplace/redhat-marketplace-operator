@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ibm-data-reporter-operator-api
+  labels:
+    redhat.marketplace.com/name: ibm-data-reporter-operator
+rules:
+- nonResourceURLs:
+  - "/v1/status"
+  verbs:
+  - get
+- nonResourceURLs:
+  - "/v1/event"
+  verbs:
+  - create
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ibm-data-reporter-operator-api
+  labels:
+    redhat.marketplace.com/name: ibm-data-reporter-operator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ibm-data-reporter-operator-api
+  labels:
+    name: ibm-data-reporter-operator
+  annotations:
+    kubernetes.io/service-account.name: ibm-data-reporter-operator-api
+type: kubernetes.io/service-account-token

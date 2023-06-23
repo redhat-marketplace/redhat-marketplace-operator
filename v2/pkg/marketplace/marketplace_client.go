@@ -40,8 +40,10 @@ var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	RegistrationEndpoint = "provisioning/v1/registered-clusters"
+	PullSecretEndpoint       = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	RegistrationEndpoint     = "provisioning/v1/registered-clusters"
+	MigrateChildRRS3Endpoint = "provisioning/v1/child-yaml-migration"
+	AuthenticationEndpoint = "subscriptions/api/v1/keys/authentication"
 )
 
 const (
@@ -56,8 +58,8 @@ type MarketplaceClientConfig struct {
 }
 
 type MarketplaceClientAccount struct {
-	AccountId   string
-	ClusterUuid string
+	AccountId   string `json:"accountId"`
+	ClusterUuid string `json:"uuid"`
 }
 
 type MarketplaceClient struct {
@@ -125,6 +127,13 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(
 	tlsConfig = &tls.Config{
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: b.Insecure,
+		CipherSuites: []uint16{tls.TLS_AES_128_GCM_SHA256,
+			tls.TLS_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
+		MinVersion: tls.VersionTLS12,
 	}
 
 	var transport http.RoundTripper = &http.Transport{
@@ -212,6 +221,20 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 	if account == nil {
 		err := errors.New("account info missing")
 		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	// Don't check Registration if there is no rhmAccountID
+	// Typical case for IEK with no RHM account
+	if len(account.AccountId) == 0 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "NoRHMAccountID",
+		}, nil
+	}
+
+	if len(account.ClusterUuid) == 0 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "NoClusterUuid",
+		}, nil
 	}
 
 	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
@@ -313,7 +336,7 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 				Message: message,
 			})
 		}
-	} else {
+	} else if resp.StatusCode != 0 {
 		msg := http.StatusText(resp.StatusCode)
 		msg = fmt.Sprintf("registration failed: %s", msg)
 		conditions.SetCondition(status.Condition{
@@ -419,6 +442,31 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 	return objId, nil
 }
 
+func (mhttp *MarketplaceClient) MigrateChildRRS3(account *MarketplaceClientAccount) error {
+	u, err := buildQuery(mhttp.endpoint, MigrateChildRRS3Endpoint)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to build query")
+	}
+
+	requestBody, err := json.Marshal(account)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	resp, err := mhttp.httpClient.Post(u.String(), "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
 	if account == nil {
 		err := errors.New("account info missing")
@@ -472,4 +520,40 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 			StatusCode:         resp.StatusCode,
 		}, err
 	}
+}
+
+func (m *MarketplaceClient) RhmAccountExists() (bool, error) {
+	u, err := buildQuery(m.endpoint, AuthenticationEndpoint)
+	if err != nil {
+		return false, err
+	}
+
+	logger.Info("query to check rhmAccount existence", "query", u.String())
+
+	requestBody, err := json.Marshal(map[string]bool{
+		"createAccount":              false,
+		"sendEmailOnAccountCreation": false,
+	})
+	if err != nil {
+		return false, errors.New("intenalError: json.Marshal")
+	}
+
+	requestBodyBuffer := bytes.NewBuffer(requestBody)
+	if err != nil {
+		return false, errors.New("intenalError: NewBuffer")
+	}
+
+	resp, err := m.httpClient.Post(u.String(), "application/json", requestBodyBuffer)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode == 200 {
+		return true, nil
+	}
+	if resp.StatusCode == 206 {
+		return false, nil
+	}
+
+	return false, errors.New("unexpected response status " + resp.Status)
 }

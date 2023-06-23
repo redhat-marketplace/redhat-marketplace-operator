@@ -87,12 +87,12 @@ const (
 	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
-	RRS3ControllerDeployment = "razee/rrs3-controller-deployment.yaml"
-	WatchKeeperDeployment    = "razee/watch-keeper-deployment.yaml"
-	DataServiceStatefulSet   = "dataservice/statefulset.yaml"
-	DataServiceService       = "dataservice/service.yaml"
-	DataServiceRoute         = "dataservice/route.yaml"
-	DataServiceTLSSecret     = "dataservice/secret.yaml"
+	RRControllerDeployment = "razee/rr-controller-deployment.yaml"
+	WatchKeeperDeployment  = "razee/watch-keeper-deployment.yaml"
+	DataServiceStatefulSet = "dataservice/statefulset.yaml"
+	DataServiceService     = "dataservice/service.yaml"
+	DataServiceRoute       = "dataservice/route.yaml"
+	DataServiceTLSSecret   = "dataservice/secret.yaml"
 
 	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
 	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
@@ -197,8 +197,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == "rhm-meterdefinition-file-server":
 		container.Image = f.config.RelatedImages.MeterDefFileServer
-	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
-		container.Image = f.config.RelatedImages.RemoteResourceS3
+	case container.Name == utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME:
+		container.Image = f.config.RelatedImages.RemoteResource
 
 		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
 		// will fail; HTTP_PROXY will be used instead
@@ -1387,7 +1387,7 @@ func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
 	return controllerutil.SetControllerReference(owner, obj, f.scheme)
 }
 
-func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error {
+func (f *Factory) UpdateRemoteResourceDeployment(dep *appsv1.Deployment) error {
 	if dep.GetNamespace() == "" {
 		dep.SetNamespace(f.namespace)
 	}
@@ -1408,12 +1408,12 @@ func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error
 	return nil
 }
 
-func (f *Factory) NewRemoteResourceS3Deployment() (*appsv1.Deployment, error) {
-	dep, err := f.NewDeployment(MustAssetReader(RRS3ControllerDeployment))
+func (f *Factory) NewRemoteResourceDeployment() (*appsv1.Deployment, error) {
+	dep, err := f.NewDeployment(MustAssetReader(RRControllerDeployment))
 	if err != nil {
 		return nil, err
 	}
-	err = f.UpdateRemoteResourceS3Deployment(dep)
+	err = f.UpdateRemoteResourceDeployment(dep)
 	return dep, err
 }
 

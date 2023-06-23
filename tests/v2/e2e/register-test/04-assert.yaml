@@ -40,8 +40,8 @@ status:
       reason: FinishedRazeeInstall
       status: 'True'
       type: Complete
-    - message: RemoteResourceS3 deployment enabled
-      reason: EnabledRemoteResourceS3DeploymentInstall
+    - message: RemoteResource deployment enabled
+      reason: EnabledRemoteResourceDeploymentInstall
       status: 'True'
       type: DeploymentEnabled
     - message: Razee install complete
@@ -119,14 +119,14 @@ status:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rhm-remoteresources3-controller
+  name: rhm-remoteresource-controller
 status:
   availableReplicas: 1
   readyReplicas: 1
   replicas: 1
 ---
 apiVersion: marketplace.redhat.com/v1alpha1
-kind: RemoteResourceS3
+kind: RemoteResource
 metadata:
   finalizers:
     - children.downloads.deploy.razee.io

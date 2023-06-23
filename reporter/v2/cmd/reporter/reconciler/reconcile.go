@@ -26,6 +26,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	"github.com/spf13/cobra"
+	k8sapiflag "k8s.io/component-base/cli/flag"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -40,6 +41,8 @@ var isDisconnected string
 var uploadTargets []string
 var local, upload bool
 var retry int
+var minVersion string
+var cipherSuites []string
 
 var ReconcileCmd = &cobra.Command{
 	Use:   "reconcile",
@@ -71,6 +74,16 @@ var ReconcileCmd = &cobra.Command{
 			return errors.Wrap(err, "error converting IS_DISCONNECTED to bool")
 		}
 
+		tlsVersion, err := k8sapiflag.TLSVersion(minVersion)
+		if err != nil {
+			return errors.Wrap(err, "TLS version invalid")
+		}
+
+		tlsCipherSuites, err := k8sapiflag.TLSCipherSuites(cipherSuites)
+		if err != nil {
+			return errors.Wrap(err, "failed to convert TLS cipher suite name to ID")
+		}
+
 		cfg := &reporter.Config{
 			OutputDirectory:      tmpDir,
 			Retry:                ptr.Int(retry),
@@ -87,6 +100,8 @@ var ReconcileCmd = &cobra.Command{
 			PrometheusNamespace:  prometheusNamespace,
 			PrometheusPort:       prometheusPort,
 			ReporterSchema:       reporterSchema,
+			MinVersion:           tlsVersion,
+			CipherSuites:         tlsCipherSuites,
 		}
 		err = cfg.SetDefaults()
 		if err != nil {
@@ -143,4 +158,16 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
 
 	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v2alpha1", "reporter version schema to write")
+
+	ReconcileCmd.Flags().StringVar(&minVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
+	ReconcileCmd.Flags().StringSliceVar(&cipherSuites,
+		"tls-cipher-suites",
+		[]string{"TLS_AES_128_GCM_SHA256",
+			"TLS_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+		"Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, a subset will be used")
+
 }

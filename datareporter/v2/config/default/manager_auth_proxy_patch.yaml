@@ -1,0 +1,97 @@
+# This patch inject a sidecar container which is a HTTP proxy for the 
+# controller manager, it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
+# The serving-certs-ca-bundle is also used to validate the cert of the data-service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    metadata:
+        annotations:
+          productName: "Red Hat Marketplace Operator"
+          productID: "36cdaba810c348c096b85800dd62bcf1"
+          productMetric: "FREE"
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - amd64
+                    - ppc64le
+                    - s390x
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                    - linux                    
+      containers:
+      - name: manager
+        args:
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-bind-address=127.0.0.1:8080"
+        - "--leader-elect"
+        volumeMounts:
+          - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            name: ibm-data-reporter-operator-serving-certs-ca-bundle
+            readOnly: false
+          - mountPath: /etc/data-service-sa
+            name: data-service-token-vol
+            readOnly: true
+      - name: kube-rbac-proxy
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
+        args:
+        - "--secure-listen-address=0.0.0.0:8443"
+        - "--upstream=http://127.0.0.1:8080/"
+        - "--logtostderr=true"
+        - "--v=3"
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - --tls-min-version=VersionTLS12
+        - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+        - --auth-header-fields-enabled
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: ibm-data-reporter-operator-metrics-service-tls
+            readOnly: false
+          - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            name: ibm-data-reporter-operator-serving-certs-ca-bundle
+            readOnly: false
+        ports:
+        - containerPort: 8443
+          protocol: TCP
+          name: https
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        resources:
+          limits:
+            cpu: 20m
+            memory: 25Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+      volumes:
+        - name: ibm-data-reporter-operator-metrics-service-tls
+          secret:
+            secretName: ibm-data-reporter-operator-metrics-service-tls
+        - name: ibm-data-reporter-operator-serving-certs-ca-bundle
+          configMap:
+            name: ibm-data-reporter-operator-serving-certs-ca-bundle
+        - name: data-service-token-vol
+          projected:
+            sources:
+            - serviceAccountToken:
+                path: data-service-token
+                expirationSeconds: 3600
+                audience: rhm-data-service

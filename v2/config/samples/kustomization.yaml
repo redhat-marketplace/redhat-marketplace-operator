@@ -5,6 +5,6 @@ resources:
 - marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml
 - marketplace.redhat.com_v1alpha1_meterreport_cr.yaml
 - marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
-- marketplace.redhat.com_v1alpha1_remoteresources3_cr.yaml
+- deploy.razee.io_v1alpha2_remoteresource_cr.yaml
 - marketplace.redhat.com_v1beta1_meterdefinition.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

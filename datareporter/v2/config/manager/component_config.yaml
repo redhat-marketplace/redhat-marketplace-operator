@@ -1,0 +1,20 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: ComponentConfig
+apiHandlerConfig:
+  handlerTimeout: "3s"
+eventHandlerConfig:
+  memoryLimit: "50Mi"
+  maxFlushTimeout: "300s"
+  maxEventEntries: 50
+  dataServiceTokenFile: "/etc/data-service-sa/data-service-token"
+  dataServiceCertFile: "/etc/configmaps/serving-cert-ca-bundle/service-ca.crt"
+managerConfig:
+  leaderElectionId: "datareporter.marketplace.redhat.com"
+  health:
+    healthProbeBindAddress: :8081
+  metrics:
+    bindAddress: 127.0.0.1:8080
+  webhook:
+    port: 9443
+  leaderElection:
+    leaderElect: false

@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"emperror.dev/errors"
@@ -52,12 +53,15 @@ type FileStorage interface {
 type DataService struct {
 	OutputPath string
 	fileServer fileserver.FileServerClient
+
+	opts  []grpc.CallOption
+	mutex sync.RWMutex
 }
 
 var _ FileStorage = &DataService{}
 
-func NewDataService(dataServiceConfig *DataServiceConfig) (*DataService, error) {
-	client, err := createDataServiceDownloadClient(context.Background(), dataServiceConfig)
+func NewDataService(dataServiceConfig *DataServiceConfig, opts ...grpc.DialOption) (*DataService, error) {
+	client, err := createDataServiceDownloadClient(context.Background(), dataServiceConfig, opts...)
 
 	if err != nil {
 		return nil, err
@@ -76,10 +80,16 @@ func (u *DataService) Name() string {
 func createDataServiceDownloadClient(
 	ctx context.Context,
 	dataServiceConfig *DataServiceConfig,
+	opts ...grpc.DialOption,
 ) (fileserver.FileServerClient, error) {
 	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
-	conn, err := newGRPCConn(ctx, dataServiceConfig.Address, dataServiceConfig.DataServiceCert, dataServiceConfig.DataServiceToken)
+	conn, err := newGRPCConn(ctx,
+		dataServiceConfig.Address,
+		dataServiceConfig.DataServiceCert,
+		dataServiceConfig.CipherSuites,
+		dataServiceConfig.MinVersion,
+		opts...)
 
 	if err != nil {
 		logger.Error(err, "failed to establish connection")
@@ -94,7 +104,7 @@ func (d *DataService) GetFile(ctx context.Context, id string) (*dataservicev1.Fi
 		IdLookup: &fileserver.GetFileRequest_Id{
 			Id: id,
 		},
-	})
+	}, d.opts...)
 	return fileResp.GetInfo(), err
 }
 
@@ -109,7 +119,7 @@ func (d *DataService) ListFiles(ctx context.Context) ([]*dataservicev1.FileInfo,
 			Filter:    "",
 		}
 
-		response, err := d.fileServer.ListFiles(ctx, req)
+		response, err := d.fileServer.ListFiles(ctx, req, d.opts...)
 
 		if err != nil {
 			return fileList, fmt.Errorf("error while opening stream: %v", err)
@@ -132,7 +142,7 @@ func (d *DataService) UpdateMetadata(ctx context.Context, file *dataservicev1.Fi
 	_, err := d.fileServer.UpdateFileMetadata(ctx, &fileserver.UpdateFileMetadataRequest{
 		Id:       file.Id,
 		Metadata: file.Metadata,
-	})
+	}, d.opts...)
 	return err
 }
 
@@ -146,7 +156,7 @@ func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.File
 		Id: info.Id,
 	}
 
-	resultStream, err := d.fileServer.DownloadFile(ctx, req)
+	resultStream, err := d.fileServer.DownloadFile(ctx, req, d.opts...)
 	if err != nil {
 		err = fmt.Errorf("failed to attempt download due to: %v", err)
 		return
@@ -226,7 +236,7 @@ func (d *DataService) Upload(ctx context.Context, info *dataservicev1.FileInfo, 
 				SourceType: info.SourceType,
 			},
 		},
-	})
+	}, d.opts...)
 
 	if err != nil {
 		logger.Info("failed to find, attempt upload", "err", err)
@@ -237,7 +247,7 @@ func (d *DataService) Upload(ctx context.Context, info *dataservicev1.FileInfo, 
 	}
 
 	var upload fileserver.FileServer_UploadFileClient
-	upload, err = d.fileServer.UploadFile(ctx)
+	upload, err = d.fileServer.UploadFile(ctx, d.opts...)
 
 	if err != nil {
 		logger.Error(err, "Failed to UploadFile request")
@@ -306,56 +316,47 @@ func (d *DataService) DeleteFile(ctx context.Context, info *dataservicev1.FileIn
 
 	_, err := d.fileServer.DeleteFile(ctx, &fileserver.DeleteFileRequest{
 		Id: info.Id,
-	})
+	}, d.opts...)
 
 	return err
 }
 
 type DataServiceConfig struct {
-	OutputPath       string `json:"-"`
-	Address          string `json:"address"`
-	DataServiceToken string `json:"dataServiceToken"`
-	DataServiceCert  []byte `json:"dataServiceCert"`
+	OutputPath       string   `json:"-"`
+	Address          string   `json:"address"`
+	DataServiceToken string   `json:"dataServiceToken"`
+	DataServiceCert  []byte   `json:"dataServiceCert"`
+	CipherSuites     []uint16 `json:"cipherSuites"`
+	MinVersion       uint16   `json:"minVersion"`
 }
 
 func newGRPCConn(
 	ctx context.Context,
 	address string,
 	caCert []byte,
-	token string,
+	cipherSuites []uint16,
+	minVersion uint16,
+	opts ...grpc.DialOption,
 ) (*grpc.ClientConn, error) {
 
-	options := []grpc.DialOption{}
-
 	/* creat tls */
-	tlsConf, err := createTlsConfig(caCert)
+	tlsConf, err := createTlsConfig(caCert, cipherSuites, minVersion)
 	if err != nil {
 		logger.Error(err, "failed to create creds")
 		return nil, err
 	}
 
-	if token != "" {
-		options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
+	opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
 
-		/* create oauth2 token  */
-		oauth2Token := &oauth2.Token{
-			AccessToken: token,
-		}
-
-		perRPC := oauth.NewOauthAccess(oauth2Token)
-
-		options = append(options, grpc.WithPerRPCCredentials(perRPC))
-	}
-
-	options = append(options, grpc.WithBlock())
+	opts = append(opts, grpc.WithBlock())
 
 	context, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	return grpc.DialContext(context, address, options...)
+	return grpc.DialContext(context, address, opts...)
 }
 
-func createTlsConfig(caCert []byte) (*tls.Config, error) {
+func createTlsConfig(caCert []byte, cipherSuites []uint16, minVersion uint16) (*tls.Config, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get system cert pool")
@@ -369,7 +370,9 @@ func createTlsConfig(caCert []byte) (*tls.Config, error) {
 	}
 
 	return &tls.Config{
-		RootCAs: caCertPool,
+		RootCAs:      caCertPool,
+		CipherSuites: cipherSuites,
+		MinVersion:   minVersion,
 	}, nil
 }
 
@@ -403,4 +406,42 @@ func (r *DataService) UploadFile(ctx context.Context, fileName string, reader io
 	info.Checksum = fmt.Sprintf("%x", checksum)
 
 	return r.Upload(ctx, info, bytes.NewReader(b))
+}
+
+// Set Call Options for NewStreams, usually for updated token & cert
+func (r *DataService) SetCallOpts(opts ...grpc.CallOption) {
+	r.mutex.Lock()
+	r.opts = opts
+	r.mutex.Unlock()
+}
+
+// Provide the Call Options for token auth
+func ProvideGRPCCallOptions(
+	dataServiceTokenFile string,
+) ([]grpc.CallOption, error) {
+
+	options := []grpc.CallOption{}
+
+	var serviceAccountToken = ""
+	if dataServiceTokenFile != "" {
+		content, err := os.ReadFile(dataServiceTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		serviceAccountToken = string(content)
+	}
+
+	if serviceAccountToken != "" {
+
+		/* create oauth2 token  */
+		oauth2Token := &oauth2.Token{
+			AccessToken: serviceAccountToken,
+		}
+
+		perRPC := oauth.NewOauthAccess(oauth2Token)
+
+		options = append(options, grpc.PerRPCCredentials(perRPC))
+	}
+
+	return options, nil
 }
