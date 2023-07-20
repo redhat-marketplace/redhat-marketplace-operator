@@ -75,7 +75,6 @@ require (
 )
 
 replace (
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.14.0
 	k8s.io/api => k8s.io/api v0.25.9

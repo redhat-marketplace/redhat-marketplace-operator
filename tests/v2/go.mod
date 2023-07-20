@@ -137,7 +137,6 @@ require (
 
 replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/prometheus/common => github.com/prometheus/common v0.26.0
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2

@@ -133,6 +133,5 @@ require (
 )
 
 replace (
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 )
