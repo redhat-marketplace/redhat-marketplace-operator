@@ -10,7 +10,6 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/foxcpp/go-mockdns v0.0.0-20210729171921-fb145fc6f897
 	github.com/go-logr/logr v1.2.3
-	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
@@ -53,11 +52,15 @@ require (
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
 )
 
-require github.com/blang/semver/v4 v4.0.0
+require (
+	github.com/blang/semver/v4 v4.0.0
+	github.com/golang-jwt/jwt/v5 v5.0.0
+)
 
 require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 )
 
 require (
@@ -85,7 +88,6 @@ require (
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect

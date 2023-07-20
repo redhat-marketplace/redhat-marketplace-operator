@@ -17,7 +17,7 @@ package marketplace
 import (
 	"context"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +63,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			AccountID: "foo",
 			APIKey:    "test",
 			Env:       "test",
-			StandardClaims: jwt.StandardClaims{
+			StandardClaims: jwt.RegisteredClaims{
 				ExpiresAt: 15000,
 				Issuer:    "test",
 			},
