@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gotidy/ptr"
@@ -57,15 +58,17 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	marketplaceconfigConnected.Spec.License.Accept = ptr.Bool(true)
 
 	BeforeEach(func() {
-
+		expireTime := time.Now().Add(1500 * time.Second)
 		// setup redhat-marketplace-pull-secret
 		tokenClaims := marketplace.MarketplaceClaims{
 			AccountID: "foo",
 			APIKey:    "test",
 			Env:       "test",
-			StandardClaims: jwt.RegisteredClaims{
-				ExpiresAt: 15000,
-				Issuer:    "test",
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: &jwt.NumericDate{
+					Time: expireTime,
+				},
+				Issuer: "test",
 			},
 		}
 
