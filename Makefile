@@ -65,13 +65,18 @@ docker-manifest:
 .PHONY: check-licenses
 check-licenses: addlicense ## Check if all files have licenses
 	 find . -type f -name "*.go" | xargs $(LICENSE) -check -c "IBM Corp." -v
+	 find . -type f -name "*.proto" | xargs $(LICENSE) -check -c "IBM Corp." -v
 
 add-licenses: addlicense
 	 find . -type f -name "*.go" | xargs $(LICENSE) -c "IBM Corp."
+	 find . -type f -name "*.proto" | xargs $(LICENSE) -c "IBM Corp."
 
 save-licenses: golicense
 	for folder in $(addsuffix /v2,$(PROJECT_FOLDERS)) ; do \
-		[ ! -d "_licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path _licenses --force ./... && chmod -R +w _licenses" ; \
+		[ ! -d "_licenses" ] && sh -c "cd $$folder && \
+		go mod download && \
+		$(GO_LICENSES) check --include_tests ./... && \
+		$(GO_LICENSES) save --save_path _licenses --force ./... && chmod -R +w _licenses" ; \
 	done
 
 cicd:
