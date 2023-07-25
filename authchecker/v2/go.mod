@@ -50,6 +50,7 @@ require (
 )
 
 replace (
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v5 v5.0.0
 	k8s.io/api => k8s.io/api v0.25.9
 	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
 	k8s.io/client-go => k8s.io/client-go v0.25.9

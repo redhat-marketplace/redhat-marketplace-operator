@@ -6,8 +6,8 @@ require (
 	emperror.dev/errors v0.8.1
 	github.com/go-logr/logr v1.2.4
 	github.com/google/uuid v1.3.0
-	github.com/onsi/ginkgo/v2 v2.8.1
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/ginkgo/v2 v2.9.4
+	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v0.0.0-20220824124051-d72820206113
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 v2.0.0-00010101000000-000000000000
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210409165614-0a6355b7a700
@@ -23,10 +23,13 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/google/pprof v0.0.0-20220829040838-70bd9ae97f40 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20220426143752-6e78b5cdab00 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
+	golang.org/x/tools v0.9.3 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 )
 
@@ -83,12 +86,12 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.6.0 // indirect
+	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.8.0 // indirect

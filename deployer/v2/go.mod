@@ -9,7 +9,6 @@ require (
 	github.com/caarlos0/env/v6 v6.4.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/go-logr/logr v1.2.3
-	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -131,6 +130,7 @@ require (
 
 replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
