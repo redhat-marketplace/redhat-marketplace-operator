@@ -206,13 +206,16 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
     - id: build
       name: Build and push images
@@ -351,13 +354,16 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
     - id: bundle
       name: Build bundle
@@ -379,9 +385,12 @@ jobs:
         make bundle-dev-index-multiarch
         echo "::endgroup::"
 
-        echo "::set-output name=isDev::$IS_DEV"
-        echo "::set-output name=version::$VERSION"
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=tag::$TAG"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v2
@@ -405,9 +414,12 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch
         echo "::endgroup::"
-        echo "::set-output name=isDev::$IS_DEV"
-        echo "::set-output name=version::$VERSION"
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=tag::$TAG"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v2
@@ -431,9 +443,12 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch
         echo "::endgroup::"
-        echo "::set-output name=isDev::$IS_DEV"
-        echo "::set-output name=version::$VERSION"
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=tag::$TAG"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v2
