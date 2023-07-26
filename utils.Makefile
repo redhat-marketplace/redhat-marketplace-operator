@@ -78,11 +78,11 @@ ginkgo:
 
 LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
-	$(call go-install-tool,$(LICENSE),github.com/google/addlicense@v1.0.0,v1.0.0)
+	$(call go-install-tool,$(LICENSE),github.com/google/addlicense@v1.1.1,v1.1.1)
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.0.0,v1.0.0)
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
 
 YQ_VERSION=v4.8.0
 
