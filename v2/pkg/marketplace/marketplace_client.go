@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	jwt "github.com/golang-jwt/jwt"
+	jwt "github.com/golang-jwt/jwt/v5"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -43,7 +43,7 @@ const (
 	PullSecretEndpoint       = "provisioning/v1/rhm-operator/rhm-operator-secret"
 	RegistrationEndpoint     = "provisioning/v1/registered-clusters"
 	MigrateChildRRS3Endpoint = "provisioning/v1/child-yaml-migration"
-	AuthenticationEndpoint = "subscriptions/api/v1/keys/authentication"
+	AuthenticationEndpoint   = "subscriptions/api/v1/keys/authentication"
 )
 
 const (
@@ -386,7 +386,7 @@ type MarketplaceClaims struct {
 	Password  string `json:"password,omitempty"`
 	APIKey    string `json:"iam_apikey,omitempty"`
 	Env       string `json:"env,omitempty"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 const EnvStage = "stage"

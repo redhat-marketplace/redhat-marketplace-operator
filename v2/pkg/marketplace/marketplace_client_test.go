@@ -18,7 +18,7 @@ import (
 	ioutil "io/ioutil"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt"
+	jwt "github.com/golang-jwt/jwt/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -31,11 +31,9 @@ const timeout = time.Second * 100
 const interval = time.Second * 3
 
 type Payload struct {
+	jwt.RegisteredClaims
 	Env      string `json:"env"`
 	Password string `json:"password"`
-	Id       string `json:"jti,omitempty"`
-	IssuedAt int64  `json:"iat,omitempty"`
-	Issuer   string `json:"iss,omitempty"`
 }
 
 func CreateToken(password string, env string, duration time.Duration) (string, error) {
@@ -54,10 +52,12 @@ func (payload *Payload) Valid() error {
 
 func NewPayload(password string, env string, duration time.Duration) (*Payload, error) {
 	payload := &Payload{
-		Env:      env,
-		Id:       "tokenID",
-		IssuedAt: int64(1234),
-		Issuer:   "test-issuer",
+		Env: env,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt: jwt.NewNumericDate(time.Unix(1234, 0)),
+			Issuer:   "test-issuer",
+			ID:       "tokenID",
+		},
 		Password: password,
 	}
 	return payload, nil
@@ -125,9 +125,9 @@ var _ = Describe("Marketplace Config Status", func() {
 			Expect(*tokenClaims).To(MatchFields(IgnoreExtras, Fields{
 				"AccountID": Equal(""),
 				"Password":  Equal("mypassword"),
-				"StandardClaims": MatchFields(IgnoreExtras, Fields{
-					"Id":       Equal("tokenID"),
-					"IssuedAt": Equal(int64(1234)),
+				"RegisteredClaims": MatchFields(IgnoreExtras, Fields{
+					"ID":       Equal("tokenID"),
+					"IssuedAt": Equal(jwt.NewNumericDate(time.Unix(1234, 0))),
 					"Issuer":   Equal("test-issuer"),
 				}),
 			}))
@@ -140,9 +140,9 @@ var _ = Describe("Marketplace Config Status", func() {
 				"AccountID": Equal(""),
 				"Password":  Equal("mypassword"),
 				"Env":       Equal("stage"),
-				"StandardClaims": MatchFields(IgnoreExtras, Fields{
-					"Id":       Equal("tokenID"),
-					"IssuedAt": Equal(int64(1234)),
+				"RegisteredClaims": MatchFields(IgnoreExtras, Fields{
+					"ID":       Equal("tokenID"),
+					"IssuedAt": Equal(jwt.NewNumericDate(time.Unix(1234, 0))),
 					"Issuer":   Equal("test-issuer"),
 				}),
 			}))
