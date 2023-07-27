@@ -136,12 +136,12 @@ jobs:
       run: .github/workflows/scripts/scan_images.sh
       env:
         REDHAT_TOKEN: ${{ secrets.redhat_api_key }}
-    - uses: peter-evans/create-or-update-comment@v1
+    - uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: rocket
     - if: ${{ failure() }}
-      uses: peter-evans/create-or-update-comment@v1
+      uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: "-1"
@@ -270,7 +270,7 @@ jobs:
         echo "setting tag to $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
@@ -285,12 +285,12 @@ jobs:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
-    - uses: peter-evans/create-or-update-comment@v1
+    - uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: rocket
     - if: ${{ failure() }}
-      uses: peter-evans/create-or-update-comment@v1
+      uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: "-1"
@@ -419,7 +419,7 @@ jobs:
         echo "setting tag to $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
@@ -433,12 +433,12 @@ jobs:
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$TAG docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
         echo "::endgroup::"
       shell: bash {0}
-    - uses: peter-evans/create-or-update-comment@v1
+    - uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: rocket
     - if: ${{ failure() }}
-      uses: peter-evans/create-or-update-comment@v1
+      uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: "-1"
@@ -567,7 +567,7 @@ jobs:
         echo "setting tag to $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
@@ -582,12 +582,12 @@ jobs:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
-    - uses: peter-evans/create-or-update-comment@v1
+    - uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: rocket
     - if: ${{ failure() }}
-      uses: peter-evans/create-or-update-comment@v1
+      uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{github.event.comment.id}}
         reactions: "-1"

@@ -134,13 +134,13 @@ jobs:
       with:
         go-version: 1.19
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v2
       with:
         image: tonistiigi/binfmt:qemu-v6.1.0
         platforms: all
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
       with:
         config: .github/buildkitd.toml
     - name: Cache Go modules
@@ -166,7 +166,7 @@ jobs:
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
@@ -267,13 +267,13 @@ jobs:
       with:
         go-version: 1.19
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v2
       with:
         image: tonistiigi/binfmt:qemu-v6.1.0
         platforms: all
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
       with:
         config: .github/buildkitd.toml
     - name: Cache Go modules
@@ -299,19 +299,19 @@ jobs:
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Login to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: registry.redhat.io
         username: ${{secrets['REDHAT_IO_USER']}}
