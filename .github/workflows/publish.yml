@@ -25,8 +25,10 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
-        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+#        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
+#        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+        echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
+        echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
       uses: actions/checkout@v2
       with:
@@ -93,13 +95,16 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
       env:
         REF: ${{ steps.pr.outputs.prRef }}
@@ -165,8 +170,10 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
-        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+#        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
+#        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+        echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
+        echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
       uses: actions/checkout@v2
       with:
@@ -233,13 +240,16 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
       env:
         REF: ${{ steps.pr.outputs.prRef }}
@@ -314,8 +324,10 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
-        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+#        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
+#        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+        echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
+        echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
       uses: actions/checkout@v2
       with:
@@ -382,13 +394,16 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
       env:
         REF: ${{ steps.pr.outputs.prRef }}
@@ -462,8 +477,10 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
-        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+#        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
+#        echo "::set-output name=prRef::$(echo $PR |jq -r ".head.ref")"
+        echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
+        echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
       uses: actions/checkout@v2
       with:
@@ -530,13 +547,16 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+#        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+#        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+#        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
       env:
         REF: ${{ steps.pr.outputs.prRef }}
