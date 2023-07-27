@@ -46,15 +46,15 @@ ENV USER_UID=1001 \
   BINFILE=${bin}
 
 # install operator binary
-COPY v2/hack/docker/bin/entrypoint /opt/app-root/src/entrypoint
-COPY v2/hack/docker/bin/user_setup /opt/app-root/src/user_setup
+COPY v2/hack/docker/bin/entrypoint /usr/local/bin/entrypoint
+COPY v2/hack/docker/bin/user_setup /usr/local/bin/user_setup
 COPY v2/LICENSE v2/_licenses/* /licenses/
-RUN  /opt/app-root/src/user_setup
+RUN  /usr/local/bin/user_setup
 
-COPY --from=builder /opt/app-root/src/go/bin/${bin}-${TARGETOS}-${TARGETARCH} /usr/local/bin/datactl/${bin}
+COPY --from=builder /opt/app-root/src/go/bin/${bin}-${TARGETOS}-${TARGETARCH}  /usr/local/bin/${bin}
 COPY --from=builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect 
 
-WORKDIR /opt/app-root/src
-ENTRYPOINT ["/opt/app-root/src/entrypoint"]
+WORKDIR /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 USER ${USER_UID}
