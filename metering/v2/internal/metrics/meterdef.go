@@ -19,11 +19,12 @@ import (
 
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	kbsm "k8s.io/kube-state-metrics/v2/pkg/metric"
+	kbsmg "k8s.io/kube-state-metrics/v2/pkg/metric_generator"
 )
 
 var meterDefinitionMetricsFamilies = []FamilyGenerator{
 	{
-		FamilyGenerator: kbsm.FamilyGenerator{
+		FamilyGenerator: kbsmg.FamilyGenerator{
 			Name: "meterdef_metric_label_info",
 			Type: kbsm.Gauge,
 			Help: "Metering info for meterDefinition",
