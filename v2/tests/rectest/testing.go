@@ -25,6 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	// "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -408,7 +409,7 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	statusWriter.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+		DoAndReturn(func(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 			name := getNamespacedName("patch-status", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
@@ -420,7 +421,7 @@ func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr 
 		}).AnyTimes()
 
 	statusWriter.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+		DoAndReturn(func(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 			name := getNamespacedName("update-status", obj.GetObjectKind().GroupVersionKind().String(), obj.GetName(), obj.GetNamespace())
 
 			if _, ok := called[name]; !ok {
