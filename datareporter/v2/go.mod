@@ -34,12 +34,6 @@ require (
 )
 
 require (
-	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
-	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
-	github.com/Azure/go-autorest/logger v0.2.1 // indirect
-	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
@@ -56,7 +50,6 @@ require (
 	github.com/go-openapi/jsonreference v0.20.1 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
@@ -123,8 +116,8 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
 
-	k8s.io/api => k8s.io/api v0.25.9
-	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
-	k8s.io/client-go => k8s.io/client-go v0.25.9
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
+	k8s.io/api => k8s.io/api v0.26.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.26.7
+	k8s.io/client-go => k8s.io/client-go v0.26.7
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.14.6
 )

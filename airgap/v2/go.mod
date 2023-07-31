@@ -18,7 +18,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.1.0
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
 	google.golang.org/grpc v1.53.0
@@ -78,8 +78,8 @@ replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.14.0
-	k8s.io/api => k8s.io/api v0.25.9
-	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
-	k8s.io/client-go => k8s.io/client-go v0.25.9
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
+	k8s.io/api => k8s.io/api v0.26.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.26.7
+	k8s.io/client-go => k8s.io/client-go v0.26.7
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.14.6
 )
