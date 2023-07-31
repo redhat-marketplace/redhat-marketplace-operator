@@ -40,5 +40,4 @@ jobs:
     strategy:
       matrix:
         command:
-        - base
         - data-service
