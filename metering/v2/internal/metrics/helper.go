@@ -18,7 +18,8 @@ import (
 	"strings"
 
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+	kbsm "k8s.io/kube-state-metrics/v2/pkg/metric"
+	kbsmg "k8s.io/kube-state-metrics/v2/pkg/metric_generator"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -26,7 +27,7 @@ var log = logf.Log.WithName("meteric")
 
 type FamilyGenerator struct {
 	GenerateMeterFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) *kbsm.Family
-	kbsm.FamilyGenerator
+	kbsmg.FamilyGenerator
 }
 
 func (g *FamilyGenerator) generateHeader() string {
