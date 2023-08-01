@@ -53,8 +53,8 @@ test: fmt vet ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace ./...
 
 buff-update:
-	$(BUF) mod update ; \
-	cd ./apis && $(BUF) mod update
+	$(BUF) mod update
+	$(BUF) mod update ./apis
 
 # Generate
 generate: buf buff-update
