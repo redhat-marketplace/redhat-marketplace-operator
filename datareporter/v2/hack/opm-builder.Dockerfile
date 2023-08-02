@@ -18,5 +18,4 @@ RUN /bin/sh -c 'wget "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 COPY --from=builder ["/build/grpc_health_probe", "/bin/grpc_health_probe"]
-
 COPY --from=builder ["/build/opm", "/bin/opm"]
