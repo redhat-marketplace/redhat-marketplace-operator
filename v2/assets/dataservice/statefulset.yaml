@@ -64,6 +64,7 @@ spec:
               port: 8003
             initialDelaySeconds: 60
             periodSeconds: 5
+            timeoutSeconds: 2
           ports:
             - containerPort: 9001
               name: db
