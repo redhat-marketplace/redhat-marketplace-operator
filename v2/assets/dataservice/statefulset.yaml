@@ -61,10 +61,9 @@ spec:
           name: rhm-data-service
           livenessProbe:
             grpc:
-              port: 8003
+              port: 8005
             initialDelaySeconds: 60
             periodSeconds: 5
-            timeoutSeconds: 2
           ports:
             - containerPort: 9001
               name: db
