@@ -305,7 +305,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 					annotations = make(map[string]string)
 				}
 				annotations[si.StatusKey] = "error"
-				annotations[si.MessageKey] = err.Error()
+				annotations[si.MessageKey] = "http request error"
 
 				si.Secret.SetAnnotations(annotations)
 

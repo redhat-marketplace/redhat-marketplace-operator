@@ -7,7 +7,7 @@ build:
   - image: ibm-metrics-operator
     context: .
     custom:
-      buildCommand: ARCHS=amd64 make vet docker-build docker-push kustomize-set-operator
+      buildCommand: ARCHS=amd64 DOCKER_EXTRA_ARGS=--no-cache make vet docker-build docker-push kustomize-set-operator
       dependencies:
         paths:
         - go.mod
