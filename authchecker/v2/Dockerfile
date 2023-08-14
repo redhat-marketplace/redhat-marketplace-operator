@@ -1,11 +1,10 @@
-# syntax = docker/dockerfile:experimental
 ARG REGISTRY=quay.io/rh-marketplace
 
 FROM registry.access.redhat.com/ubi8/go-toolset AS builder
 ARG path
 ARG ARCHS
 
-ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=1
+ENV CGO_ENABLED=1
 ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
@@ -18,7 +17,7 @@ RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
     cd ${path} && \
     BINDIR=/opt/app-root/src/go/bin make build && \
-    go install github.com/acardace/fips-detect@latest
+    go install github.com/acardace/fips-detect@7157dae
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 ARG TARGETPLATFORM
@@ -34,15 +33,10 @@ LABEL name="Red Hat Marketplace ${name}" \
   maintainer="rhmoper@us.ibm.com" \
   vendor="Red Hat Marketplace" \
   release="1" \
-  summary="Red Hat Marketplace ${name} Image" \
-  description="Container for the Red Hat Marketplace ${name}" \
+  summary="Red Hat Marketplace ${name} Container Image" \
+  description="Container Image for the Red Hat Marketplace ${name}" \
   version="${app_version}" \
   quay.expires-after=${quay_expiration}
-
-RUN microdnf install yum procps-ng \
-  && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
-  && yum clean all \
-  && microdnf clean all
 
 ENV USER_UID=1001 \
   USER_NAME=redhat-marketplace-operator \

@@ -64,7 +64,7 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 ARCH ?= amd64
 
 build:
-	go build -o $(BINDIR)/redhat-marketplace-data-service ./cmd/server/main.go
+	$(call multiarch-build,redhat-marketplace-data-service, -tags libsqlite3 ./cmd/server/main.go)
 
 demo: build
 	docker-compose up
