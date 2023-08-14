@@ -6,20 +6,23 @@ ARCH ?= amd64
 include ../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
+REGISTRY ?= $(IMAGE_REGISTRY)
+DSIMG = $(IMAGE_REGISTRY)/data-service-base:ubi8
+DSUBIIMG = $(IMAGE_REGISTRY)/data-service-ubi-minimal:ubi8
+ARGS = --build-arg REGISTRY=$(IMAGE_REGISTRY)
 
-# Push the docker image
+# Build the docker images
+docker-build: data-service data-service-ubi-minimal
+
+# Push the docker images
 docker-push:
-	docker push $(19IMG)
+	docker push $(DSIMG)
+	docker push $(DSUBIIMG)
 
-docker-build: base data-service
-
-19ARGS = --build-arg GO_VERSION=$(GO_VERSION)
-19IMG = $(IMAGE_REGISTRY)/golang-base:1.19
-base:
-	$(call docker-build,base.Dockerfile,$(19IMG),$(19ARGS))
-
-DSIMGARGS = --build-arg GO_VERSION=$(GO_VERSION)
-DSIMG = $(IMAGE_REGISTRY)/data-service-base:1.19
-
+# go-toolset dqlite-lib-builder
 data-service:
-	$(call docker-build,dataservice.Dockerfile,$(DSIMG),$(19ARGS))
+	$(call docker-build,dataservice.Dockerfile,$(DSIMG),$(ARGS))
+
+# ubi-minimal plus built prereqs
+data-service-ubi-minimal:
+	$(call docker-build,data-service-ubi-minimal.Dockerfile,$(DSUBIIMG),$(ARGS))
