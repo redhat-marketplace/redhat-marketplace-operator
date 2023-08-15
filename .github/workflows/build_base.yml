@@ -34,20 +34,17 @@ jobs:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
-    - id: build
+    - id: build data-service
       name: Build images
-      run: make base/${{ matrix.command }}
+      run: make base/data-service
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
-        PUSH: "false"
-    - id: push
-      name: Push images
-      run: make base/${{ matrix.command }}
-      env:
-        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "true"
         IMAGE_PUSH: "true"
-    strategy:
-      matrix:
-        command:
-        - data-service
-        - data-service-ubi-minimal
+    - id: build data-service-ubi-minimal
+      name: Build images
+      run: make base/data-service-ubi-minimal
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "true"
+        IMAGE_PUSH: "true"
