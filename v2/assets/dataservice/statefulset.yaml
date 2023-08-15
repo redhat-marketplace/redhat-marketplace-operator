@@ -62,7 +62,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - grpc_health_probe
+                - grpc-health-probe
                 - -addr=localhost:8003
             initialDelaySeconds: 60
             periodSeconds: 5
