@@ -49,7 +49,7 @@ COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/${bin}-${TARGETOS}-${TARGETARCH} /usr/local/bin/${bin}
 COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect
-COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/grpc_health_probe /bin/grpc_health_probe
+COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/grpc-health-probe /bin/grpc_health_probe
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
