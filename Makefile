@@ -71,7 +71,10 @@ add-licenses: addlicense
 
 save-licenses: golicense
 	for folder in $(addsuffix /v2,$(PROJECT_FOLDERS)) ; do \
-		[ ! -d "_licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path _licenses --force ./... && chmod -R +w _licenses" ; \
+		[ ! -d "_licenses" ] && sh -c "cd $$folder && \
+		go mod download && \
+		$(GO_LICENSES) check --include_tests ./... && \
+		$(GO_LICENSES) save --save_path _licenses --force ./... && chmod -R +w _licenses" ; \
 	done
 
 cicd:

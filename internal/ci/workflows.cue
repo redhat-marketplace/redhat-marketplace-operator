@@ -734,7 +734,7 @@ _#installGo: _#step & {
 
 _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
-	uses: "docker/setup-buildx-action@v1"
+	uses: "docker/setup-buildx-action@v2"
 	id:   "buildx"
 	with: {
 		"config": ".github/buildkitd.toml"
@@ -750,7 +750,7 @@ _#hasWriteAccess: _#step & {
 
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
-	uses: "docker/setup-qemu-action@v1"
+	uses: "docker/setup-qemu-action@v2"
 	with: {
 		image:     "tonistiigi/binfmt:qemu-v6.1.0"
 		platforms: "all"
@@ -1198,7 +1198,7 @@ _#registryLoginStep: {
 	}
 	res: _#step & {
 		name: "Login to Docker Hub"
-		uses: "docker/login-action@v1"
+		uses: "docker/login-action@v2"
 		with: {
 			registry: "\(#args.registry)"
 			username: "\(#args.user)"
@@ -1476,7 +1476,7 @@ _#githubUpdateActionStep: {
 }
 
 _#addRocketToComment: _#step & {
-	uses: "peter-evans/create-or-update-comment@v1"
+	uses: "peter-evans/create-or-update-comment@v3"
 	with: {
 		"comment-id": "${{github.event.comment.id}}"
 		reactions:    "rocket"
@@ -1484,7 +1484,7 @@ _#addRocketToComment: _#step & {
 }
 
 _#addFailureComment: _#step & {
-	uses: "peter-evans/create-or-update-comment@v1"
+	uses: "peter-evans/create-or-update-comment@v3"
 	if:   "${{ failure() }}"
 	with: {
 		"comment-id": "${{github.event.comment.id}}"
