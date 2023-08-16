@@ -102,9 +102,7 @@ spec:
               memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
-            - --logtostderr
             - --secure-listen-address=:8004
-            - --insecure-listen-address=:8005
             - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
             - --tls-min-version=VersionTLS12
             - --upstream=http://127.0.0.1:8003/
@@ -143,7 +141,6 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
         - args:
-            - --logtostderr
             - --secure-listen-address=:8008
             - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
             - --tls-min-version=VersionTLS12
