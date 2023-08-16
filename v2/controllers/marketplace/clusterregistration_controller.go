@@ -294,10 +294,10 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		newOptSecretObj, err := mclient.GetMarketplaceSecret()
 		if err != nil {
 			reqLogger.Error(err, "failed to get operator secret from marketplace")
-			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				si, err := secretFetcher.ReturnSecret()
-				if err != nil {
-					return err
+			if rerr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				si, rserr := secretFetcher.ReturnSecret()
+				if rserr != nil {
+					return rserr
 				}
 
 				annotations := si.Secret.GetAnnotations()
@@ -311,8 +311,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 				reqLogger.Info("Updating secret annotations with status on failure", "secret", si.Name)
 				return r.Client.Update(context.TODO(), si.Secret)
-			}); err != nil {
-				return reconcile.Result{}, err
+			}); rerr != nil {
+				return reconcile.Result{}, rerr
 			}
 			return reconcile.Result{}, err
 		}

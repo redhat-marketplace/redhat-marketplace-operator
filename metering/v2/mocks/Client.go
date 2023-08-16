@@ -21,6 +21,11 @@ type Client struct {
 	mock.Mock
 }
 
+func (_m *Client) SubResource(string) client.SubResourceClient{
+	var t interface{}
+	return t.(client.SubResourceClient)
+}
+
 // Create provides a mock function with given fields: ctx, obj, opts
 func (_m *Client) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	_va := make([]interface{}, len(opts))
