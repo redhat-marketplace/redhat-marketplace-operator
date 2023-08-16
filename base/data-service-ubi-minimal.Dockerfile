@@ -16,9 +16,8 @@ RUN curl -sSL -o epel-release-latest-8.noarch.rpm https://dl.fedoraproject.org/p
     rpm -e epel-release-8-19.el8 && \
     rm -Rf epel-release-latest-8.noarch.rpm
 
-# COPY raft, dqlite, probe from builder
+# COPY raft, dqlite, from builder
 COPY --from=dqlite-lib-builder /usr/lib64/libdqlite.* /usr/lib64/
 COPY --from=dqlite-lib-builder /usr/lib64/libraft.* /usr/lib64/
 COPY --from=dqlite-lib-builder /usr/lib64/pkgconfig/dqlite.pc /usr/lib64/pkgconfig/dqlite.pc
 COPY --from=dqlite-lib-builder /usr/lib64/pkgconfig/raft.pc /usr/lib64/pkgconfig/raft.pc
-COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin /bin/grpc_health_probe
