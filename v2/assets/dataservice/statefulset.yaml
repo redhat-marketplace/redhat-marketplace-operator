@@ -99,7 +99,13 @@ spec:
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --secure-listen-address=:8004
@@ -118,9 +124,18 @@ spec:
             - containerPort: 8004
               name: grpc
           resources:
+            limits:
+              cpu: 20m
+              memory: 32Mi
             requests:
               cpu: 10m
               memory: 20Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: kube-rbac-proxy-1
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -156,9 +171,18 @@ spec:
             - containerPort: 8008
               name: grpc
           resources:
+            limits:
+              cpu: 20m
+              memory: 32Mi
             requests:
               cpu: 10m
               memory: 20Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: kube-rbac-proxy-2
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

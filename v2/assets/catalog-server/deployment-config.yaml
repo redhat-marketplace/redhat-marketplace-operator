@@ -37,7 +37,13 @@ spec:
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
+        env:
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: authcheck
+              resource: limits.memory
           terminationMessagePolicy: FallbackToLogsOnError
       - name: rhm-meterdefinition-file-server
         image: rhm-meterdefinition-file-server-image
@@ -76,9 +82,18 @@ spec:
           - containerPort: 8200
             name: https
         resources:
+          limits:
+            cpu: 20m
+            memory: 32Mi
           requests:
             cpu: 10m
             memory: 20Mi
+        env:
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: kube-rbac-proxy
+              resource: limits.memory
         securityContext: 
           runAsNonRoot: true
         terminationMessagePolicy: FallbackToLogsOnError

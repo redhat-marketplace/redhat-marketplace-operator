@@ -31,16 +31,21 @@ spec:
         runAsNonRoot: true    
       containers:
         - env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -64,7 +69,7 @@ spec:
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

@@ -81,17 +81,24 @@ spec:
         - image: redhat-marketplace-authcheck:latest
           name: authcheck
           env:
-          - name: GOGC
-            value: 50
-          - name: PPROF_DEBUG
-            value: "true"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           resources:
             requests:
               cpu: 10m
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -116,12 +123,18 @@ spec:
             - containerPort: 9092
               name: https
           resources:
+            limits:
+              cpu: 20m
+              memory: 32Mi
             requests:
               cpu: 10m
               memory: 20Mi
-            limits:
-              cpu: 20m
-              memory: 30Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: kube-rbac-proxy-1
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
