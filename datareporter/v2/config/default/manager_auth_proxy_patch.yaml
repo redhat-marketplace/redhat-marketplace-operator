@@ -76,10 +76,16 @@ spec:
         resources:
           limits:
             cpu: 20m
-            memory: 25Mi
+            memory: 32Mi
           requests:
             cpu: 10m
             memory: 20Mi
+        env:
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: kube-rbac-proxy
+              resource: limits.memory
       volumes:
         - name: ibm-data-reporter-operator-metrics-service-tls
           secret:
