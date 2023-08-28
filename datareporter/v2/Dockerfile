@@ -1,6 +1,6 @@
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM registry.access.redhat.com/ubi8/go-toolset AS builder
+FROM ${REGISTRY}/data-service-base:ubi8 AS builder
 ARG path
 ARG ARCHS
 
