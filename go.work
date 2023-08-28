@@ -3,6 +3,7 @@ go 1.19
 use (
 	./airgap/v2
 	./deployer/v2
+	./deployer/v2/scripts
 	./authchecker/v2
 	./metering/v2
 	./datareporter/v2
