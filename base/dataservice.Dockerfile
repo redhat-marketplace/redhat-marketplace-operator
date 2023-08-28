@@ -8,6 +8,7 @@ ARG GRPC_HEALTH_VERSION=v0.4.19
 ARG DQLITE_VERSION=v1.15.1
 ARG RAFT_VERSION=v0.17.1
 ARG LIBUV_VERSION=v1.46.0
+ARG FIPS_DETECT_VERSION=7157dae
 ARG quay_expiration=7d
 
 USER 0
@@ -30,4 +31,5 @@ RUN dnf update -y && \
     cd dqlite && autoreconf -i && ./configure --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf dqlite && \
     go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION} && \
+    go install github.com/acardace/fips-detect@${FIPS_DETECT_VERSION} && \
     go clean -modcache
