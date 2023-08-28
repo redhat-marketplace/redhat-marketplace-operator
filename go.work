@@ -2,10 +2,11 @@ go 1.19
 
 use (
 	./airgap/v2
+	./deployer/v2
 	./authchecker/v2
-	./cue.mod
 	./metering/v2
-	./reporter/v2
+	./datareporter/v2
+	./cue.mod
 	./tests/v2
 	./v2
 	./v2/scripts
