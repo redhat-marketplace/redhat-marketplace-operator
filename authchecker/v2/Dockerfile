@@ -12,14 +12,14 @@ ENV GOFLAGS="-buildvcs=false"
 WORKDIR /src
 
 RUN mkdir -p /opt/app-root/src/go/bin && \
-    mkdir -p /opt/app-root/src/go/pkg/
+    mkdir -p /opt/app-root/src/go/pkg
 
 RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
     cd ${path} && \
-    BINDIR=/opt/app-root/src/go/bin make build && \
-    go install github.com/acardace/fips-detect@7157dae
+    BINDIR=/opt/app-root/src/go/bin && \
+    go install cmd/main.go
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 ARG TARGETPLATFORM
@@ -42,7 +42,7 @@ LABEL name="Red Hat Marketplace ${name}" \
 
 ENV USER_UID=1001 \
   USER_NAME=redhat-marketplace-operator \
-  BINFILE=${bin}
+  BINFILE=/usr/local/bin/main
 
 # install operator binary
 COPY v2/hack/docker/bin/entrypoint /usr/local/bin/entrypoint
@@ -50,7 +50,7 @@ COPY v2/hack/docker/bin/user_setup /usr/local/bin/user_setup
 COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 
-COPY --from=builder /opt/app-root/src/go/bin/${bin}-${TARGETOS}-${TARGETARCH}  /usr/local/bin/${bin}
+COPY --from=builder /opt/app-root/src/go/bin/main /usr/local/bin/main
 COPY --from=builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect 
 
 WORKDIR /usr/local/bin
