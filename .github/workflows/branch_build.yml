@@ -165,6 +165,15 @@ jobs:
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
         sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
+    - name: Install IBM Twistlock Tool
+      run: |-
+        # download IBM twistlock and extract it to tmp
+        # https://w3twistlock.sos.ibm.com/download/tt_latest.zip
+        wget --tries=3 --no-check-certificate https://w3twistlock.sos.ibm.com/download/tt_latest.zip | unzip -d /tmp/
+
+        # copy it to your path
+        sudo cp /tmp/tt_v*/linux*/tt /usr/local/ibm_twistlock_tool
+        sudo chmod +x /usr/local/ibm_twistlock_tool
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
@@ -222,6 +231,13 @@ jobs:
         fi
 
         make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+
+        if [[ "$REF" == *"release"* ]]; then
+          export IBM_TWISTLOCK="${{secrets.TWISTLOCK_CREDENTIALS}}"
+          export TWISTLOCK_URL="${{secrets.TWISTLOCK_URL}}"
+          make ${{ matrix.project }}/security-scan
+        fi
+
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         IMAGE_PUSH: "true"
