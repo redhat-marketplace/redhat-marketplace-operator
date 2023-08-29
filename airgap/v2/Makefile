@@ -29,7 +29,7 @@ endif
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,,redhat-marketplace-data-service,../..)
+	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,"-tags libsqlite3 ./cmd/server/main.go",redhat-marketplace-data-service,../..)
 
 # Push the docker image
 docker-push:

@@ -1,32 +1,34 @@
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM ${REGISTRY}/data-service-base:ubi8 as dqlite-lib-builder
+FROM ${REGISTRY}/data-service-base:ubi8 AS builder
+ARG name
 ARG path
-ARG ARCHS
+ARG exec
+ARG bin
+ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG TARGETOS
 
 ENV CGO_ENABLED=1
-ENV GOFLAGS="-buildvcs=false"   
+ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
-
-RUN mkdir -p /opt/app-root/src/go/bin && \
-    mkdir -p /opt/app-root/src/go/pkg/
 
 RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
     cd ${path} && \
-    BINDIR=/opt/app-root/src/go/bin make build && \
-    go install github.com/acardace/fips-detect@7157dae
+    go build -o /opt/app-root/src/go/bin/${bin} ${exec}
 
-FROM ${REGISTRY}/data-service-ubi-minimal:ubi8
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
 ARG name
+ARG path
+ARG exec
 ARG bin
 ARG app_version
-ARG path
 ARG quay_expiration
 
 LABEL name="Red Hat Marketplace ${name}" \
@@ -39,17 +41,17 @@ LABEL name="Red Hat Marketplace ${name}" \
   quay.expires-after=${quay_expiration}
 
 ENV USER_UID=1001 \
-    USER_NAME=redhat-marketplace-operator \
-    BINFILE=${bin}
+  USER_NAME=redhat-marketplace-operator \
+  BINFILE=/usr/local/bin/${bin}
 
-# install operator binary, grpc probe
+# install operator binary
 COPY v2/hack/docker/bin/entrypoint /usr/local/bin/entrypoint
 COPY v2/hack/docker/bin/user_setup /usr/local/bin/user_setup
 COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
-COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/${bin}-${TARGETOS}-${TARGETARCH} /usr/local/bin/${bin}
-COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect
-COPY --from=dqlite-lib-builder /opt/app-root/src/go/bin/grpc-health-probe /bin/grpc-health-probe
+
+COPY --from=builder /opt/app-root/src/go/bin/${bin} /usr/local/bin/${bin}
+COPY --from=builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect 
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
