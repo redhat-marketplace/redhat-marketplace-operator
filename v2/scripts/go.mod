@@ -1,4 +1,4 @@
-module github.com/redhat-marketplace/redhat-marketplace-operator/tooling
+module github.com/redhat-marketplace/redhat-marketplace-operator/scripts
 
 go 1.19
 
