@@ -114,8 +114,6 @@ jobs:
       matrix:
         project:
         - authchecker
-        - metering
-        - reporter
   images:
     name: Build Images
     runs-on: ubuntu-20.04
@@ -228,21 +226,9 @@ jobs:
     strategy:
       matrix:
         project:
-        - operator
         - authchecker
-        - metering
-        - reporter
-        - airgap
-        - deployer
-        - datareporter
         include:
-        - project: operator
         - project: authchecker
-        - project: metering
-        - project: reporter
-        - project: airgap
-        - project: deployer
-        - project: datareporter
   deploy:
     name: Deploy
     needs:

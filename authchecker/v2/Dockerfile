@@ -2,7 +2,9 @@ ARG REGISTRY=quay.io/rh-marketplace
 
 FROM ${REGISTRY}/data-service-base:ubi8 AS builder
 ARG path
-ARG ARCHS
+ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG TARGETOS
 
 ENV CGO_ENABLED=1
 ENV GOFLAGS="-buildvcs=false"
