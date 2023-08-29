@@ -20,12 +20,12 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,7 +39,7 @@ func PodFailHandler(testHarness *TestHarness) func(message string, callerSkip ..
 }
 
 func printDebug(testHarness *TestHarness) {
-	lists := []client.Object{
+	lists := []client.ObjectList{
 		&corev1.PodList{},
 		&appsv1.DeploymentList{},
 		&appsv1.StatefulSetList{},
@@ -48,8 +48,8 @@ func printDebug(testHarness *TestHarness) {
 		&v1alpha1.MarketplaceConfigList{},
 	}
 
-	filters := []func(client.Object) bool{
-		func(obj client.Object) bool {
+	filters := []func(runtime.Object) bool{
+		func(obj runtime.Object) bool {
 			pod, ok := obj.(*corev1.Pod)
 
 			if !ok {
@@ -73,9 +73,11 @@ func printDebug(testHarness *TestHarness) {
 	}
 }
 
-func printList(list client.Object, filters []func(client.Object) bool) {
+func printList(list client.ObjectList, filters []func(runtime.Object) bool) {
 	preamble := "\x1b[1mDEBUG %T\x1b[0m"
-	if config.DefaultReporterConfig.NoColor {
+
+	_, reporterConfig := GinkgoConfiguration()
+	if reporterConfig.NoColor {
 		preamble = "DEBUG %T"
 	}
 
