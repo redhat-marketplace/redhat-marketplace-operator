@@ -68,18 +68,6 @@ func main() {
 
 			j := viper.GetStringSlice("join")
 
-			// tlsVersion, err := k8sapiflag.TLSVersion(minVersion)
-			// if err != nil {
-			// 	log.Error(err, "TLS version invalid")
-			// 	os.Exit(1)
-			// }
-
-			// tlsCipherSuites, err := k8sapiflag.TLSCipherSuites(cipherSuites)
-			// if err != nil {
-			// 	log.Error(err, "failed to convert TLS cipher suite name to ID")
-			// 	os.Exit(1)
-			// }
-
 			cfg := &dqlite.DatabaseConfig{
 				Name:    "airgap",
 				Dir:     viper.GetString("dir"),
@@ -90,8 +78,6 @@ func main() {
 				CACert:  caCert,
 				TLSCert: tlsCert,
 				TLSKey:  tlsKey,
-				// CipherSuites: tlsCipherSuites,
-				// MinVersion:   tlsVersion,
 			}
 
 			cleanAfter := viper.GetDuration("cleanAfter")
