@@ -168,8 +168,15 @@ build:
 	$(call multiarch-build,redhat-marketplace-operator)
 
 # Build the docker image
-docker-build:
+docker-build: ibm-twistlock-tool
 	$(call docker-templated-build,$(IMAGE),"IBM Metrics Operator",./v2/,./,redhat-marketplace-operator,..)
+	if [[ "$REF" == *"release"* ]]; then
+		$(IBM_TWISTLOCK) images pull-and-scan \
+		--url "${TWISTLOCK_URL}"
+		--user "${TWISTLOCK_CREDENTIALS}" \
+		--control-group eal_eal-006818 \
+		${IMAGE}
+	fi
 
 # Push the docker image
 docker-push:

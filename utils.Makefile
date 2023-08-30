@@ -269,7 +269,7 @@ define get-image-sha
 $$(IMAGE=$(1); echo $${IMAGE%:*}@sha256:$$(skopeo inspect --raw docker://$(1) | sha256sum | cut -d " " -f 1))
 endef
 
-IBM_TWISTLOCK="ibm_twistlock_tool"
+IBM_TWISTLOCK=$(PROJECT_DIR)/ibm_twistlock_tool
 security-scan: 
 	$(IBM_TWISTLOCK) images pull-and-scan \
 	--url "${TWISTLOCK_URL}"
