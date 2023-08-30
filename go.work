@@ -14,4 +14,6 @@ use (
 	./v2/tools/connect
 	./v2/tools/skaffold-tdd-tool
 	./v2/tools/version
+	./reporter/v2
 )
+
