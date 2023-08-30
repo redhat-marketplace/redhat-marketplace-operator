@@ -1,17 +1,11 @@
 name: "Operator CodeQL config"
 paths:
+  - v2
   - airgap/v2
-  - deployer/v2
-  - deployer/v2/scripts
   - authchecker/v2
   - metering/v2
+  - reporter/v2
+  - deployer/v2
   - datareporter/v2
-  - cue.mod
-  - tests/v2
-  - v2
-  - v2/scripts
-  - v2/tools/connect
-  - v2/tools/skaffold-tdd-tool
-  - v2/tools/version
 paths-ignore:
   - 'v2/tests/'
