@@ -235,20 +235,20 @@ jobs:
       matrix:
         project:
         - operator
-        - authchecker
-        - metering
-        - reporter
-        - airgap
-        - deployer
-        - datareporter
+        # - authchecker
+        # - metering
+        # - reporter
+        # - airgap
+        # - deployer
+        # - datareporter
         include:
         - project: operator
-        - project: authchecker
-        - project: metering
-        - project: reporter
-        - project: airgap
-        - project: deployer
-        - project: datareporter
+        # - project: authchecker
+        # - project: metering
+        # - project: reporter
+        # - project: airgap
+        # - project: deployer
+        # - project: datareporter
   deploy:
     name: Deploy
     needs:
