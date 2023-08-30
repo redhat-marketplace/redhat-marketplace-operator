@@ -11,6 +11,8 @@ on:
     - bugfix/**
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
+  IBM_TWISTLOCK: ${{secrets['TWISTLOCK_CREDENTIALS']}}
+  TWISTLOCK_URL: ${{secrets['TWISTLOCK_URL']}}
 jobs:
   test:
     name: Test
@@ -222,11 +224,6 @@ jobs:
         fi
 
         make clean-licenses save-licenses ${{ matrix.project }}/docker-build
-
-        if [[ "$REF" == *"release"* ]]; then
-          export IBM_TWISTLOCK="${{secrets.TWISTLOCK_CREDENTIALS}}"
-          export TWISTLOCK_URL="${{secrets.TWISTLOCK_URL}}"
-        fi
 
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
