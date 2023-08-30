@@ -170,13 +170,13 @@ build:
 # Build the docker image
 docker-build:
 #	$(call docker-templated-build,$(IMAGE),"IBM Metrics Operator",./v2/,./,redhat-marketplace-operator,..)
-	if [[ "$REF" == *"release"* ]]; then
+	"$(REF)" == *"release"*  && \
 		$(IBM_TWISTLOCK) images pull-and-scan \
-		--url "$(TWISTLOCK_URL)"
+		--url "$(TWISTLOCK_URL)" \
 		--user "$(TWISTLOCK_CREDENTIALS)" \
 		--control-group eal_eal-006818 \
 		quay.io/rh-marketplace/ibm-metrics-operator-dev-index:2.12.0-beta.1680
-	fi
+
 
 # Push the docker image
 docker-push:
