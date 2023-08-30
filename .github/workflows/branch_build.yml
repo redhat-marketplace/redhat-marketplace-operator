@@ -11,7 +11,7 @@ on:
     - bugfix/**
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
-  IBM_TWISTLOCK: ${{secrets['TWISTLOCK_CREDENTIALS']}}
+  TWISTLOCK_CREDENTIALS: ${{secrets['TWISTLOCK_CREDENTIALS']}}
   TWISTLOCK_URL: ${{secrets['TWISTLOCK_URL']}}
 jobs:
   test:
