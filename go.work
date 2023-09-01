@@ -1,6 +1,7 @@
 go 1.19
 
 use (
+	.
 	./airgap/v2
 	./deployer/v2
 	./deployer/v2/scripts
