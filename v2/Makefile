@@ -119,6 +119,19 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) object:headerFile="hack/boilerplate.go.txt" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+cert-docs: manifests
+	if [ ! -d "../documention" ]; then echo "The cert doc folder does not exist"; mkdir ../documention; fi
+
+	if [ ! -d "../operators" ]; then echo "The cert operator folder does not exist"; mkdir ../operators; fi
+
+	if [ ! -d "../operators/ibm-metrics-operator" ]; then echo "The cert operator/manifests folder does not exist"; mkdir ../operators/ibm-metrics-operator; fi
+
+	if [ ! -d "../operators/ibm-metrics-operator/manifests" ]; then echo "The cert operator/manifests folder does not exist"; mkdir ../operators/ibm-metrics-operator/manifests; fi
+
+	cp -r config/crd/bases/. ../operators/ibm-metrics-operator/manifests
+
+	cp -r config/manifests/bases/./*.yaml  ../operators/ibm-metrics-operator/manifests
+
 # Run go fmt against code
 fmt:
 	go fmt ./...

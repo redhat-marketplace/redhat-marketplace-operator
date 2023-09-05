@@ -11,7 +11,7 @@ metadata:
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
-    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources.deploy.razee.io]'
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources.deploy.razee.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
