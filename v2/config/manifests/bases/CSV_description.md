@@ -62,6 +62,41 @@ Full registration and visibility of usage metrics on [https://marketplace.redhat
                   storage: 40Gi
     ```
 
+### Resources Required
+
+Minimum system resources required:
+
+| Operator                | Memory (MB) | CPU (cores) | Disk (GB) | Nodes |
+| ----------------------- | ----------- | ----------- | --------- | ----- |
+| **Metrics**   |        750  |     0.25    | 3x1       |    3  |
+| **Deployment** |        250  |     0.25    | -         |    1  |
+
+| Prometheus Provider  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
+| --------- | ----------- | ----------- | --------- | ----- |
+| **[Openshift User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)** |          1  |     0.1       | 2x40        |   2    |
+
+Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
+
+The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+
+### Supported Storage Providers
+
+- OpenShift Container Storage / OpenShift Data Foundation version 4.x, from version 4.2 or higher
+- IBM Cloud Block storage and IBM Cloud File storage
+- IBM Storage Suite for IBM Cloud Paks:
+  - File storage from IBM Spectrum Fusion/Scale 
+  - Block storage from IBM Spectrum Virtualize, FlashSystem or DS8K
+- Portworx Storage, version 2.5.5 or above
+- Amazon Elastic File Storage
+
+### Access Modes required
+
+ - ReadWriteOnce (RWO)
+
+### Provisioning Options supported
+
+ - Dynamic provisioning using a storageClass
+
 ### Installation
 1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
 2. Install the IBM Metrics Operator

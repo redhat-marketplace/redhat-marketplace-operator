@@ -52,11 +52,25 @@ Minimum system resources required:
 
 Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
 
-### Storage
+The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode.
 
-The IBM Metrics Operator creates 3 x 1GB dynamic persistent volumes to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+### Supported Storage Providers
 
-The IBM Metrics Operator requires User Workload Monitoring to be configured with 40Gi persistent volumes at minimum.
+- OpenShift Container Storage / OpenShift Data Foundation version 4.x, from version 4.2 or higher
+- IBM Cloud Block storage and IBM Cloud File storage
+- IBM Storage Suite for IBM Cloud Paks:
+  - File storage from IBM Spectrum Fusion/Scale 
+  - Block storage from IBM Spectrum Virtualize, FlashSystem or DS8K
+- Portworx Storage, version 2.5.5 or above
+- Amazon Elastic File Storage
+
+### Access Modes required
+
+ - ReadWriteOnce (RWO)
+
+### Provisioning Options supported
+
+ - Dynamic provisioning using a storageClass
 
 ### Installing
 
