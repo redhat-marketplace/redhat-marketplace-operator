@@ -15,6 +15,10 @@ The Red Hat Marketplace Operator metering and deployment functionality have been
 
 Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
+### Upgrade Policy
+
+The operator releases adhere to semantic versioning and provides a seamless upgrade path for minor and patch releases within the current stable channel.
+
 ### Prerequisites
 
 1. The Red Hat Markeplace Deployment Operator prerequisites the IBM Metrics Operator. Installing the Red Hat Markeplace Deployment Operator with Automatic approval on the Subscription will also install the IBM Metrics Operator automatically. If performing an install with Manual approval, install the IBM Metrics Operator first.
