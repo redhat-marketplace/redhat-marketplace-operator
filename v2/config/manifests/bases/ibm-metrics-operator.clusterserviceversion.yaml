@@ -75,8 +75,10 @@ spec:
     for deployment functionality\n    - ClusterServiceVersion/redhat-marketplace-operator\n\nFull
     registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com)
     requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.\n\n###
-    Prerequisites\n1. Installations are required to [enable monitoring for user-defined
-    projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    Upgrade Policy\n\nThe operator releases adhere to semantic versioning and provides
+    a seamless upgrade path for minor and patch releases within the current stable
+    channel.\n\n### Prerequisites\n1. Installations are required to [enable monitoring
+    for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n

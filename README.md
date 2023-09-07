@@ -31,6 +31,10 @@ The Red Hat Marketplace Operator metering and deployment functionalities have be
 
 Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
+### Upgrade Policy
+
+The operator releases adhere to semantic versioning and provides a seamless upgrade path for minor and patch releases within the current stable channel.
+
 ### Prerequisites
 * User with **Cluster Admin** role
 * OpenShift Container Platform, major version 4 with any available supported minor version

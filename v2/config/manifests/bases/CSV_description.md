@@ -15,6 +15,10 @@ The Red Hat Marketplace Operator metering and deployment functionalities have be
 
 Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
+### Upgrade Policy
+
+The operator releases adhere to semantic versioning and provides a seamless upgrade path for minor and patch releases within the current stable channel.
+
 ### Prerequisites
 1. Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html) as the Prometheus provider.
 2. Edit the cluster-monitoring-config ConfigMap object:
