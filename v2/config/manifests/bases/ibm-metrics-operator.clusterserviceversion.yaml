@@ -170,8 +170,14 @@ spec:
     that has get/list/watch access to your CRD, and create a ClusterRoleBinding for
     the metric-state ServiceAccount\n\nAttempting to meter a resource with a MeterDefinition
     without the required permissions will log an `AccessDeniedError` in metric-state.\n\n###
-    Cluster permission requirements\n\n|API group             |Resources              |Verbs
-    \                                    |\n|----------------------|-----------------------|------------------------------------------|\n|apps
+    Disaster Recovery\n\nTo plan for disaster recovery, note the PhysicalVolumeClaims
+    `rhm-data-service-rhm-data-service-N`. \n- In connected environments, MeterReport
+    data upload attempts occur hourly, and are then removed from data-service. There
+    is a low risk of losing much unreported data.\n- In an airgap environment, MeterReport
+    data must be pulled from data-service and uploaded manually using `datactl`. To
+    prevent data loss in a disaster scenario, the data-service volumes should be considered
+    in a recovery plan.\n\n### Cluster permission requirements\n\n|API group             |Resources
+    \             |Verbs                                     |\n|----------------------|-----------------------|------------------------------------------|\n|apps
     \                 |statefulsets           |get;list;watch                            |\n|authentication.k8s.io
     |tokenreviews           |create                                    |\n|authorization.k8s.io
     \ |subjectaccessreviews   |create                                    |\n|config.openshift.io
