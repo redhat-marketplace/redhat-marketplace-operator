@@ -31,6 +31,10 @@ The Red Hat Marketplace Operator metering and deployment functionalities have be
 
 Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
+### Upgrade Policy
+
+The operator releases adhere to semantic versioning and provides a seamless upgrade path for minor and patch releases within the current stable channel.
+
 ### Prerequisites
 * User with **Cluster Admin** role
 * OpenShift Container Platform, major version 4 with any available supported minor version
@@ -52,11 +56,25 @@ Minimum system resources required:
 
 Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
 
-### Storage
+The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode.
 
-The IBM Metrics Operator creates 3 x 1GB dynamic persistent volumes to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+### Supported Storage Providers
 
-The IBM Metrics Operator requires User Workload Monitoring to be configured with 40Gi persistent volumes at minimum.
+- OpenShift Container Storage / OpenShift Data Foundation version 4.x, from version 4.2 or higher
+- IBM Cloud Block storage and IBM Cloud File storage
+- IBM Storage Suite for IBM Cloud Paks:
+  - File storage from IBM Spectrum Fusion/Scale 
+  - Block storage from IBM Spectrum Virtualize, FlashSystem or DS8K
+- Portworx Storage, version 2.5.5 or above
+- Amazon Elastic File Storage
+
+### Access Modes required
+
+ - ReadWriteOnce (RWO)
+
+### Provisioning Options supported
+
+ - Dynamic provisioning using a storageClass
 
 ### Installing
 
@@ -92,6 +110,13 @@ The metric-state Deployment obtains `get/list/watch` access to metered resources
 2. Create a ClusterRole that has get/list/watch access to your CRD, and create a ClusterRoleBinding for the metric-state ServiceAccount
 
 Attempting to meter a resource with a MeterDefinition without the required permissions will log an `AccessDeniedError` in metric-state.
+
+### Disaster Recovery
+
+To plan for disaster recovery, note the PhysicalVolumeClaims `rhm-data-service-rhm-data-service-N`. 
+- In connected environments, MeterReport data upload attempts occur hourly, and are then removed from data-service. There is a low risk of losing much unreported data.
+- In an airgap environment, MeterReport data must be pulled from data-service and uploaded manually using `datactl`. To prevent data loss in a disaster scenario, the data-service volumes should be considered in a recovery plan.
+
 
 ### Cluster permission requirements
 

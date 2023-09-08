@@ -26,6 +26,11 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: RemoteResource is the Schema for the remoteresources API
+      displayName: Remote Resource
+      kind: RemoteResource
+      name: remoteresources.deploy.razee.io
+      version: v1alpha1
     - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
         controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       displayName: Marketplace Config
@@ -56,11 +61,6 @@ spec:
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
-    - description: RemoteResource is the Schema for the remoteresources API
-      displayName: Remote Resource
-      kind: RemoteResource
-      name: remoteresources.deploy.razee.io
-      version: v1alpha1
   description: "The IBM Metrics Operator provides workload metering and reporting
     for IBM and Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions
     for onboarding is provided here. For more detailed onboarding instructions or
@@ -75,8 +75,10 @@ spec:
     for deployment functionality\n    - ClusterServiceVersion/redhat-marketplace-operator\n\nFull
     registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com)
     requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.\n\n###
-    Prerequisites\n1. Installations are required to [enable monitoring for user-defined
-    projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    Upgrade Policy\n\nThe operator releases adhere to semantic versioning and provides
+    a seamless upgrade path for minor and patch releases within the current stable
+    channel.\n\n### Prerequisites\n1. Installations are required to [enable monitoring
+    for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
@@ -89,7 +91,25 @@ spec:
     \     name: user-workload-monitoring-config\n      namespace: openshift-user-workload-monitoring\n\n
     \   data:\n      config.yaml: |\n        prometheus:\n          retention: 168h\n
     \         volumeClaimTemplate:\n            spec:\n              resources:\n
-    \               requests:\n                  storage: 40Gi\n    ```\n\n### Installation\n1.
+    \               requests:\n                  storage: 40Gi\n    ```\n\n### Resources
+    Required\n\nMinimum system resources required:\n\n| Operator                |
+    Memory (MB) | CPU (cores) | Disk (GB) | Nodes |\n| ----------------------- | -----------
+    | ----------- | --------- | ----- |\n| **Metrics**   |        750  |     0.25
+    \   | 3x1       |    3  |\n| **Deployment** |        250  |     0.25    | -         |
+    \   1  |\n\n| Prometheus Provider  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes
+    |\n| --------- | ----------- | ----------- | --------- | ----- |\n| **[Openshift
+    User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)**
+    |          1  |     0.1       | 2x40        |   2    |\n\nMultiple nodes are required
+    to provide pod scheduling for high availability for Red Hat Marketplace Data Service
+    and Prometheus.\n\nThe IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims
+    to store reports as part of the data service, with _ReadWriteOnce_ access mode.\n\n###
+    Supported Storage Providers\n\n- OpenShift Container Storage / OpenShift Data
+    Foundation version 4.x, from version 4.2 or higher\n- IBM Cloud Block storage
+    and IBM Cloud File storage\n- IBM Storage Suite for IBM Cloud Paks:\n  - File
+    storage from IBM Spectrum Fusion/Scale \n  - Block storage from IBM Spectrum Virtualize,
+    FlashSystem or DS8K\n- Portworx Storage, version 2.5.5 or above\n- Amazon Elastic
+    File Storage\n\n### Access Modes required\n\n - ReadWriteOnce (RWO)\n\n### Provisioning
+    Options supported\n\n - Dynamic provisioning using a storageClass\n\n### Installation\n1.
     Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
     Install the IBM Metrics Operator\n3. Create a Kubernetes secret in the installed
     namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET`
@@ -150,8 +170,14 @@ spec:
     that has get/list/watch access to your CRD, and create a ClusterRoleBinding for
     the metric-state ServiceAccount\n\nAttempting to meter a resource with a MeterDefinition
     without the required permissions will log an `AccessDeniedError` in metric-state.\n\n###
-    Cluster permission requirements\n\n|API group             |Resources              |Verbs
-    \                                    |\n|----------------------|-----------------------|------------------------------------------|\n|apps
+    Disaster Recovery\n\nTo plan for disaster recovery, note the PhysicalVolumeClaims
+    `rhm-data-service-rhm-data-service-N`. \n- In connected environments, MeterReport
+    data upload attempts occur hourly, and are then removed from data-service. There
+    is a low risk of losing much unreported data.\n- In an airgap environment, MeterReport
+    data must be pulled from data-service and uploaded manually using `datactl`. To
+    prevent data loss in a disaster scenario, the data-service volumes should be considered
+    in a recovery plan.\n\n### Cluster permission requirements\n\n|API group             |Resources
+    \             |Verbs                                     |\n|----------------------|-----------------------|------------------------------------------|\n|apps
     \                 |statefulsets           |get;list;watch                            |\n|authentication.k8s.io
     |tokenreviews           |create                                    |\n|authorization.k8s.io
     \ |subjectaccessreviews   |create                                    |\n|config.openshift.io
