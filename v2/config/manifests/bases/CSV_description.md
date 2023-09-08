@@ -165,6 +165,12 @@ The metric-state Deployment obtains `get/list/watch` access to metered resources
 
 Attempting to meter a resource with a MeterDefinition without the required permissions will log an `AccessDeniedError` in metric-state.
 
+### Disaster Recovery
+
+To plan for disaster recovery, note the PhysicalVolumeClaims `rhm-data-service-rhm-data-service-N`. 
+- In connected environments, MeterReport data upload attempts occur hourly, and are then removed from data-service. There is a low risk of losing much unreported data.
+- In an airgap environment, MeterReport data must be pulled from data-service and uploaded manually using `datactl`. To prevent data loss in a disaster scenario, the data-service volumes should be considered in a recovery plan.
+
 ### Cluster permission requirements
 
 |API group             |Resources              |Verbs                                     |
