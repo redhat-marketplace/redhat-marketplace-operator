@@ -212,7 +212,7 @@ release: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			steps: [{
 				name: "Checkout code"
-				uses: "actions/checkout@v2"
+				uses: "actions/checkout@v3"
 			}, {
 				name: "Unshallow" // required for the changelog to work correctly.
 				run:  "git fetch --prune --unshallow"
@@ -228,7 +228,7 @@ release: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			steps: [{
 				name: "Check out the repo"
-				uses: "actions/checkout@v2"
+				uses: "actions/checkout@v3"
 			}, {
 				name: "Set version environment"
 				run: """
@@ -301,24 +301,27 @@ _#testStrategy: {
 
 _#cancelPreviousRun: _#step & {
   name: "Cancel Previous Run"
-  uses: "styfle/cancel-workflow-action@0.4.1"
+  uses: "styfle/cancel-workflow-action@0.11.0"
   with: "access_token": "${{ github.token }}"
 }
 
 _#installGo: _#step & {
 	name: "Install Go"
-	uses: "actions/setup-go@v2"
-	with: "go-version": "${{ matrix.go-version }}"
+	uses: "actions/setup-go@v4"
+	with: {
+		"go-version": "${{ matrix.go-version }}"
+		cache: false
+	}
 }
 
 _#checkoutCode: _#step & {
 	name: "Checkout code"
-	uses: "actions/checkout@v2"
+	uses: "actions/checkout@v3"
 }
 
 _#cacheGoModules: _#step & {
 	name: "Cache Go modules"
-	uses: "actions/cache@v1"
+	uses: "actions/cache@v3"
 	with: {
 		path: "~/go/pkg/mod"
 		key:  "${{ runner.os }}-${{ matrix.go-version }}-go-${{ hashFiles('**/go.sum') }}"

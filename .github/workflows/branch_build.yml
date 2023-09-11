@@ -20,19 +20,20 @@ jobs:
         shell: bash
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Cancel Previous Run
-      uses: styfle/cancel-workflow-action@0.4.1
+      uses: styfle/cancel-workflow-action@0.11.0
       with:
         access_token: ${{ github.token }}
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -81,13 +82,14 @@ jobs:
         shell: bash
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -126,13 +128,14 @@ jobs:
         shell: bash
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
       with:
@@ -144,7 +147,7 @@ jobs:
       with:
         config: .github/buildkitd.toml
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -259,13 +262,14 @@ jobs:
         shell: bash
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
       with:
@@ -277,7 +281,7 @@ jobs:
       with:
         config: .github/buildkitd.toml
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -384,7 +388,7 @@ jobs:
         echo "tag=$TAG" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
@@ -410,7 +414,7 @@ jobs:
         echo "tag=$TAG" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: release-deployer-bundle-${{ steps.bundle.outputs.tag }}
         path: deployer/v2/bundle
@@ -436,7 +440,7 @@ jobs:
         echo "tag=$TAG" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: release-datareporter-bundle-${{ steps.bundle.outputs.tag }}
         path: datareporter/v2/bundle

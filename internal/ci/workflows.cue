@@ -597,7 +597,7 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-					uses: "actions/upload-artifact@v2"
+					uses: "actions/upload-artifact@v3"
 					with: {
 						name: "release-bundle-${{ steps.bundle.outputs.tag }}"
 						path: "v2/bundle"
@@ -625,7 +625,7 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-					uses: "actions/upload-artifact@v2"
+					uses: "actions/upload-artifact@v3"
 					with: {
 						name: "release-deployer-bundle-${{ steps.bundle.outputs.tag }}"
 						path: "deployer/v2/bundle"
@@ -722,14 +722,17 @@ _#makeLogGroup: {
 
 _#cancelPreviousRun: _#step & {
 	name: "Cancel Previous Run"
-	uses: "styfle/cancel-workflow-action@0.4.1"
+	uses: "styfle/cancel-workflow-action@0.11.0"
 	with: "access_token": "${{ github.token }}"
 }
 
 _#installGo: _#step & {
 	name: "Install Go"
-	uses: "actions/setup-go@v2"
-	with: "go-version": _#goVersion
+	uses: "actions/setup-go@v4"
+	with: {
+		"go-version": _#goVersion
+		cache: false
+	}
 }
 
 _#setupBuildX: _#step & {
@@ -759,12 +762,12 @@ _#setupQemu: _#step & {
 
 _#checkoutCode: _#step & {
 	name: "Checkout code"
-	uses: "actions/checkout@v2"
+	uses: "actions/checkout@v3"
 }
 
 _#cacheGoModules: _#step & {
 	name: "Cache Go modules"
-	uses: "actions/cache@v2"
+	uses: "actions/cache@v3"
 	with: {
 		path:           "~/go/pkg/mod"
 		key:            "${{ runner.os }}-go-${{ github.sha }}"
@@ -776,7 +779,7 @@ _#cacheDockerBuildx: {
 	#project: string
 	res:      _#step & {
 		name: "Cache Docker Buildx"
-		uses: "actions/cache@v2"
+		uses: "actions/cache@v3"
 		with: {
 			path:           "/tmp/.buildx-cache"
 			key:            "${{ runner.os }}-buildx-\(#project)-${{ github.ref }}-${{ github.sha }}"
