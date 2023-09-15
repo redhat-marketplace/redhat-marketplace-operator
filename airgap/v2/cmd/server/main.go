@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	k8sapiflag "k8s.io/component-base/cli/flag"
 )
 
 var log logr.Logger
@@ -69,30 +68,16 @@ func main() {
 
 			j := viper.GetStringSlice("join")
 
-			tlsVersion, err := k8sapiflag.TLSVersion(minVersion)
-			if err != nil {
-				log.Error(err, "TLS version invalid")
-				os.Exit(1)
-			}
-
-			tlsCipherSuites, err := k8sapiflag.TLSCipherSuites(cipherSuites)
-			if err != nil {
-				log.Error(err, "failed to convert TLS cipher suite name to ID")
-				os.Exit(1)
-			}
-
 			cfg := &dqlite.DatabaseConfig{
-				Name:         "airgap",
-				Dir:          viper.GetString("dir"),
-				Url:          viper.GetString("db"),
-				Join:         &j,
-				Verbose:      viper.GetBool("verbose"),
-				Log:          log,
-				CACert:       caCert,
-				TLSCert:      tlsCert,
-				TLSKey:       tlsKey,
-				CipherSuites: tlsCipherSuites,
-				MinVersion:   tlsVersion,
+				Name:    "airgap",
+				Dir:     viper.GetString("dir"),
+				Url:     viper.GetString("db"),
+				Join:    &j,
+				Verbose: viper.GetBool("verbose"),
+				Log:     log,
+				CACert:  caCert,
+				TLSCert: tlsCert,
+				TLSKey:  tlsKey,
 			}
 
 			cleanAfter := viper.GetDuration("cleanAfter")

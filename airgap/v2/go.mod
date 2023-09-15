@@ -29,10 +29,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.12.3
 )
 
-require (
-	github.com/onsi/ginkgo/v2 v2.8.0
-	k8s.io/component-base v0.27.2
-)
+require github.com/onsi/ginkgo/v2 v2.8.0
 
 require (
 	github.com/Rican7/retry v0.1.0 // indirect
@@ -59,6 +56,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
+	go.uber.org/goleak v1.2.1 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
@@ -67,6 +65,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/api v0.27.2 // indirect
 	k8s.io/apimachinery v0.27.2 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect

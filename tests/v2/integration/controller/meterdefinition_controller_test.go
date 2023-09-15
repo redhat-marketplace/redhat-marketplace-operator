@@ -28,7 +28,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 
-	. "github.com/onsi/gomega/types"
+	gomegaTypes "github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -116,7 +116,7 @@ func (c *counter) Identity(element interface{}) string {
 	return fmt.Sprintf("%v", c.Next())
 }
 
-func runAssertionOnMeterDef(c *counter) GomegaMatcher {
+func runAssertionOnMeterDef(c *counter) gomegaTypes.GomegaMatcher {
 	return And(
 		WithTransform(func(meterdef *v1beta1.MeterDefinition) []common.Result {
 			return meterdef.Status.Results

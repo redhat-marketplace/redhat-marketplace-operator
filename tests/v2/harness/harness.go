@@ -114,16 +114,15 @@ func (t *TestHarness) Upsert(ctx context.Context, obj client.Object) error {
 
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			oldObj := obj.DeepCopyObject()
-			key := client.ObjectKeyFromObject(&oldObj)
-			err := t.Get(ctx, key, oldObj)
+			key := client.ObjectKeyFromObject(obj)
+			err := t.Get(ctx, key, obj)
 
 			if err != nil {
 				return err
 			}
 
 			acc1, _ := meta.Accessor(obj)
-			acc2, _ := meta.Accessor(oldObj)
+			acc2, _ := meta.Accessor(obj)
 
 			acc1.SetUID(acc2.GetUID())
 			acc1.SetGeneration(acc2.GetGeneration())
