@@ -59,16 +59,17 @@ jobs:
         echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
         echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         ref: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -161,7 +162,7 @@ jobs:
         echo "setting tag to $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - id: operatorImageStatuses
       name: Fetch Operator Image Statuses
       run: |-

@@ -28,16 +28,17 @@ jobs:
         echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
         echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         ref: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -130,7 +131,7 @@ jobs:
         echo "setting tag to $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - id: mirror
       name: Scan images
       run: .github/workflows/scripts/scan_images.sh
@@ -168,16 +169,17 @@ jobs:
         echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
         echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         ref: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -276,7 +278,7 @@ jobs:
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Publish Operator Images
       run: |-
         make pc-tool
@@ -317,16 +319,17 @@ jobs:
         echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
         echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         ref: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -425,7 +428,7 @@ jobs:
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Copy Manifest
       run: |-
         echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG"
@@ -465,16 +468,17 @@ jobs:
         echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
         echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         ref: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
+        cache: false
     - name: Cache Go modules
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -573,7 +577,7 @@ jobs:
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Publish Operator
       run: |-
         make pc-tool
