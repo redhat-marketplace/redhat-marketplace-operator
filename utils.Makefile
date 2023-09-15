@@ -268,3 +268,26 @@ endef
 define get-image-sha
 $$(IMAGE=$(1); echo $${IMAGE%:*}@sha256:$$(skopeo inspect --raw docker://$(1) | sha256sum | cut -d " " -f 1))
 endef
+
+IBM_TWISTLOCK_TOOL=$(PROJECT_DIR)/bin/tt
+TT_OS=linux
+ifeq ($(UNAME_S),Darwin)
+TT_OS=macos
+endif
+define install-twistlock-tool
+[ -f $(IBM_TWISTLOCK_TOOL) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading IBM twistlock tool"; \
+wget --tries=3 --no-check-certificate $(TWISTLOCK_URL)/download/tt_latest.zip ; \
+unzip tt_latest.zip; \
+mkdir -p $(PROJECT_DIR)/bin ; \
+cp tt_v*/$(TT_OS)*/tt $(IBM_TWISTLOCK_TOOL) ; \
+chmod +x $(IBM_TWISTLOCK_TOOL) ; \
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+install-twistlock-tool:
+	$(call install-twistlock-tool)
