@@ -52,12 +52,15 @@ spec:
     are removed from the IBM Metrics Operator\n    - ClusterServiceVersion/ibm-metrics-operator\n\nFull
     registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com)
     requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.\n\n###
-    Prerequisites\n\n1. The Red Hat Markeplace Deployment Operator prerequisites the
-    IBM Metrics Operator. Installing the Red Hat Markeplace Deployment Operator with
-    Automatic approval on the Subscription will also install the IBM Metrics Operator
-    automatically. If performing an install with Manual approval, install the IBM
-    Metrics Operator first.\n\n#### The IBM Metrics Operator prequisites the following\n\n1.
-    Installations are required to [enable monitoring for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    Upgrade Policy\n\nThe operator releases adhere to semantic versioning and provides
+    a seamless upgrade path for minor and patch releases within the current stable
+    channel.\n\n### Prerequisites\n\n1. The Red Hat Markeplace Deployment Operator
+    prerequisites the IBM Metrics Operator. Installing the Red Hat Markeplace Deployment
+    Operator with Automatic approval on the Subscription will also install the IBM
+    Metrics Operator automatically. If performing an install with Manual approval,
+    install the IBM Metrics Operator first.\n\n#### The IBM Metrics Operator prequisites
+    the following\n\n1. Installations are required to [enable monitoring for user-defined
+    projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
@@ -114,8 +117,8 @@ spec:
     \                 |get;list;watch                    |\n|config.openshift.io   |infrastructures
     \          |get;list;watch                    |\n|marketplace.redhat.com|marketplaceconfigs
     \       |get;list;watch                    |\n|marketplace.redhat.com|remoteresources3s
-    \       |get;list;watch                    |\n|deploy.razee.io|remoteresources
-    \        |get;list;watch                    |\n|operators.coreos.com  |catalogsources
+    \        |get;list;watch                    |\n|deploy.razee.io       |remoteresources
+    \          |get;list;watch                    |\n|operators.coreos.com  |catalogsources
     \           |create;get;list;watch;delete      |\n|operators.coreos.com  |clusterserviceversions
     \   |get;list;watch;update;patch;delete|\n|operators.coreos.com  |operatorgroups
     \           |get;list;watch;delete;create      |\n|operators.coreos.com  |subscriptions

@@ -18,11 +18,11 @@ require (
 	github.com/spf13/viper v1.15.0
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.1.0
-	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
-	google.golang.org/grpc v1.52.0
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
+	google.golang.org/grpc v1.53.0
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
 	google.golang.org/protobuf v1.28.1
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.5
@@ -67,7 +67,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.27.2 // indirect
 	k8s.io/apimachinery v0.27.2 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect
@@ -76,11 +75,11 @@ require (
 )
 
 replace (
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.14.0
-	k8s.io/api => k8s.io/api v0.25.9
-	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
-	k8s.io/client-go => k8s.io/client-go v0.25.9
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
+	k8s.io/api => k8s.io/api v0.26.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.26.7
+	k8s.io/client-go => k8s.io/client-go v0.26.7
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.14.6
 )

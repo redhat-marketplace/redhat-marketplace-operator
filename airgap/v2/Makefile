@@ -29,7 +29,7 @@ endif
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,,redhat-marketplace-data-service,../..)
+	$(call docker-templated-build,$(IMAGE),DataService,./airgap/v2/,"-tags libsqlite3 ./cmd/server/main.go",redhat-marketplace-data-service,../..)
 
 # Push the docker image
 docker-push:
@@ -52,8 +52,12 @@ vet:
 test: fmt vet ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace ./...
 
+buff-update:
+	$(BUF) mod update
+	$(BUF) mod update ./apis
+
 # Generate
-generate: buf
+generate: buf buff-update
 	$(BUF) generate
 	go generate ./...
 
@@ -64,7 +68,7 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 ARCH ?= amd64
 
 build:
-	go build -o $(BINDIR)/redhat-marketplace-data-service ./cmd/server/main.go
+	$(call multiarch-build,redhat-marketplace-data-service, -tags libsqlite3 ./cmd/server/main.go)
 
 demo: build
 	docker-compose up

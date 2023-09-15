@@ -13,7 +13,7 @@ require (
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v0.0.0-20220824124051-d72820206113
 	github.com/operator-framework/api v0.17.5
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.60.1
@@ -26,7 +26,7 @@ require (
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210409165614-0a6355b7a700
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.6.0
 	google.golang.org/grpc v1.55.0
@@ -39,7 +39,7 @@ require (
 )
 
 require (
-	github.com/onsi/ginkgo/v2 v2.8.0
+	github.com/onsi/ginkgo/v2 v2.9.4
 	go.uber.org/zap v1.24.0
 	k8s.io/component-base v0.27.2
 )
@@ -47,12 +47,6 @@ require (
 require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
-	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
-	github.com/Azure/go-autorest/logger v0.2.1 // indirect
-	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
@@ -68,6 +62,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/foxcpp/go-mockdns v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
@@ -75,14 +70,15 @@ require (
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.1 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
-	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/pprof v0.0.0-20220829040838-70bd9ae97f40 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -109,7 +105,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -118,11 +114,12 @@ require (
 	github.com/subosito/gotenv v1.4.2 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.6.0 // indirect
+	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/tools v0.9.3 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
@@ -141,7 +138,7 @@ require (
 
 replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/prometheus/common => github.com/prometheus/common v0.26.0
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.39.1
@@ -149,8 +146,8 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.25.9
-	k8s.io/apimachinery => k8s.io/apimachinery v0.25.9
-	k8s.io/client-go => k8s.io/client-go v0.25.9
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
+	k8s.io/api => k8s.io/api v0.26.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.26.7
+	k8s.io/client-go => k8s.io/client-go v0.26.7
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.14.6
 )

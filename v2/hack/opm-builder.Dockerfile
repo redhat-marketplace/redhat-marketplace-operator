@@ -5,13 +5,11 @@ ARG TARGETOS
 
 WORKDIR /build
 
-RUN dnf -y install git make wget
-
 RUN GRPC_HEALTH_PROBE_VERSION=v0.4.19 && \
-    wget -qO./grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-${TARGETARCH} && \
+    curl --retry 5 -L "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-${TARGETARCH}" -o grpc_health_probe  && \
     chmod +x ./grpc_health_probe
 
-RUN /bin/sh -c 'wget "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/4.9.0/opm-linux.tar.gz" && \
+RUN /bin/sh -c 'curl --retry 5 -L -O "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/4.9.0/opm-linux.tar.gz" && \
     tar -xf opm-linux.tar.gz && \
     chmod +x ./opm'
 

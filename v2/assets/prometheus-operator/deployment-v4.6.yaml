@@ -86,7 +86,6 @@ spec:
               name: prometheus-operator-tls
               readOnly: false
         - args:
-            - --logtostderr
             - --secure-listen-address=:8443
             - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
             - --upstream=https://prometheus-operator.{{NAMESPACE}}.svc:8080/

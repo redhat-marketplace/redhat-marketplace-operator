@@ -47,5 +47,7 @@ FILENAME="rhm-op-bundle-s${STABLE}-b${BETA}-d${DATETIME}"
 cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator || echo "failed to cd"
 zip -r ${ROOT}/bundle/${FILENAME}.zip . -x 'manifests/*' -x 'metadata/*'
 
-echo "::set-output name=filename::${FILENAME}.zip"
-echo "::set-output name=bundlename::${FILENAME}"
+#echo "::set-output name=filename::${FILENAME}.zip"
+#echo "::set-output name=bundlename::${FILENAME}"
+echo "filename=${FILENAME}.zip" >> $GITHUB_OUTPUT
+echo "bundlename=${FILENAME}" >> $GITHUB_OUTPUT

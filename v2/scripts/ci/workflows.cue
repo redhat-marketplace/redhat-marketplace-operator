@@ -243,7 +243,7 @@ release: _#bashWorkflow & {
 					GOLANG_VERSION:  1.14
 					CUE_VERSION:     "${{ env.CUE_VERSION }}"
 				}
-				uses: "docker/build-push-action@v1"
+				uses: "docker/build-push-action@v2"
 				with: {
 					tags:           "${{ env.CUE_VERSION }},latest"
 					repository:     "cuelang/cue"

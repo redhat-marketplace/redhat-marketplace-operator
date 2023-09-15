@@ -34,7 +34,6 @@ spec:
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
-        - "--logtostderr=true"
         - "--v=3"
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
@@ -63,10 +62,16 @@ spec:
         resources:
           limits:
             cpu: 20m
-            memory: 25Mi
+            memory: 40Mi
           requests:
             cpu: 10m
             memory: 20Mi
+        env:
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: kube-rbac-proxy
+              resource: limits.memory
       volumes:
         - name: redhat-marketplace-controller-manager-metrics-service-tls
           secret:

@@ -24,7 +24,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/spf13/pflag"
-	"k8s.io/kube-state-metrics/pkg/options"
+	"k8s.io/kube-state-metrics/v2/pkg/options"
 )
 
 // Options are the configurable parameters

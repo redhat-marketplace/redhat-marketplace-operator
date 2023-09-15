@@ -1,6 +1,5 @@
-# syntax = docker/dockerfile:experimental
 FROM golang:1.15-alpine as base
-MAINTAINER Zach Taylor <ztaylor@ibm.com>
+
 
 ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=linux
 

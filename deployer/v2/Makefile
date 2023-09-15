@@ -37,8 +37,8 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-RRS3_IMAGE ?= us.icr.io/armada-master/remoteresource:2.1.6_eee1907
-WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.6_ca20177 
+RRS3_IMAGE ?= us.icr.io/armada-master/remoteresource:2.1.18_5bbfd59
+WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.9_5bbfd59
 
 namespace ?= redhat-marketplace
 

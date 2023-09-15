@@ -81,17 +81,24 @@ spec:
         - image: redhat-marketplace-authcheck:latest
           name: authcheck
           env:
-          - name: GOGC
-            value: 50
-          - name: PPROF_DEBUG
-            value: "true"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           resources:
             requests:
               cpu: 10m
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -102,7 +109,6 @@ spec:
             runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
-            - --logtostderr
             - --secure-listen-address=:9092
             - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
             - --tls-min-version=VersionTLS12
@@ -117,12 +123,18 @@ spec:
             - containerPort: 9092
               name: https
           resources:
+            limits:
+              cpu: 20m
+              memory: 40Mi
             requests:
               cpu: 10m
               memory: 20Mi
-            limits:
-              cpu: 20m
-              memory: 30Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: kube-rbac-proxy-1
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

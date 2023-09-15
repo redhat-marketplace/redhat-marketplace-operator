@@ -39,8 +39,8 @@ jobs:
         OUTPUT='${{ steps.findAllReleasePRs.outputs.data }}'
         EMPTY=$(echo $OUTPUT | jq -cr '.search.edges | length == 0')
         OUTPUT=$(echo $OUTPUT | jq -cr '[.search.edges[].node]' 2> /dev/null) || echo '[]'
-        echo "::set-output name=emptymatrix::$EMPTY"
-        echo "::set-output name=matrix::{\"include\":$OUTPUT}"
+        echo "emptymatrix=$EMPTY" >> $GITHUB_OUTPUT
+        echo "matrix={\"include\":$OUTPUT}" >> $GITHUB_OUTPUT
   status:
     name: Check publish status
     needs:
@@ -56,8 +56,8 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ matrix.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq -r ".head.sha")"
-        echo "::set-output name=prRef::$(echo $PR | jq -r ".head.ref")"
+        echo "prSha=$(echo $PR | jq -r ".head.sha")" >> $GITHUB_OUTPUT
+        echo "prRef=$(echo $PR | jq -r ".head.ref")" >> $GITHUB_OUTPUT
     - name: Checkout code
       uses: actions/checkout@v2
       with:
@@ -124,13 +124,13 @@ jobs:
         fi
 
         echo "Found version $VERSION"
-        echo "::set-output name=version::$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "::set-output name=tag::$TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-        echo "::set-output name=isDev::$IS_DEV"
+        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
       env:
         REF: ${{ steps.pr.outputs.prRef }}
@@ -167,7 +167,7 @@ jobs:
       run: |-
         make pc-tool
         OUTPUT=$(./bin/partner-connect-tool status --username $RH_USER --password $RH_PASSWORD --images https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,,$TAG --images https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,,$TAG --images https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,,$TAG --images https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,,$TAG --images https://connect.redhat.com/projects/61649f78d3e2f8d3bcfe30d5/images,,$TAG --images https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images,,$TAG)
-        echo "::set-output name=imageStatus::$OUTPUT"
+        echo "imageStatus=$OUTPUT" >> $GITHUB_OUTPUT
       env:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}

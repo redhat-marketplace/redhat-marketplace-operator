@@ -34,6 +34,10 @@ The IBM Data Reporter Operator deploys a service that exposes an endpoint to whi
 - Install this operator in the same namespace as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator
   - default namespace: `redhat-marketplace`
 
+## Upgrade Policy
+
+The operator releases adhere to semantic versioning and provides a seamless upgrade path for minor and patch releases within the current stable channel.
+
 # Configuration
 
 Optional:

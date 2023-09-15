@@ -53,14 +53,16 @@ spec:
     Only runs on amd64, s390x and ppc64le architectures\n\n## Installing\n\n- A user
     with the cluster administrator role.\n- Install this operator in the same namespace
     as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator\n  - default
-    namespace: `redhat-marketplace`\n\n# Configuration\n\nOptional:\n- Configure the
-    DataReporterConfig named `datareporterconfig` as per the following example\n-
-    Reference the service account name that will be used to access the service\n  -
-    Reports generated for events sent by this user will be decorated with the additional
-    metadata\n\n```YAML\napiVersion: marketplace.redhat.com/v1alpha1\nkind: DataReporterConfig\nmetadata:\n
-    \ name: datareporterconfig\nspec:\n  userConfig:\n  - metadata:\n      ameta1:
-    ametadata1\n      bmeta1: bmetadata1\n      cmeta1: cmetadata1\n      dmeta1:
-    dmetadata1\n    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api\n```\n\n###
+    namespace: `redhat-marketplace`\n\n## Upgrade Policy\n\nThe operator releases
+    adhere to semantic versioning and provides a seamless upgrade path for minor and
+    patch releases within the current stable channel.\n\n# Configuration\n\nOptional:\n-
+    Configure the DataReporterConfig named `datareporterconfig` as per the following
+    example\n- Reference the service account name that will be used to access the
+    service\n  - Reports generated for events sent by this user will be decorated
+    with the additional metadata\n\n```YAML\napiVersion: marketplace.redhat.com/v1alpha1\nkind:
+    DataReporterConfig\nmetadata:\n  name: datareporterconfig\nspec:\n  userConfig:\n
+    \ - metadata:\n      ameta1: ametadata1\n      bmeta1: bmetadata1\n      cmeta1:
+    cmetadata1\n      dmeta1: dmetadata1\n    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api\n```\n\n###
     User Configuration\n\n- The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`\n-
     The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`\n
     \ - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`\n\nOptional:\n\n-

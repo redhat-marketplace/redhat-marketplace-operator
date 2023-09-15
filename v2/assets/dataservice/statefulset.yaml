@@ -62,7 +62,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - grpc_health_probe
+                - grpc-health-probe
                 - -addr=localhost:8003
             initialDelaySeconds: 60
             periodSeconds: 5
@@ -99,12 +99,16 @@ spec:
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: authcheck
+                resource: limits.memory
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
-            - --logtostderr
             - --secure-listen-address=:8004
-            - --insecure-listen-address=:8005
             - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
             - --tls-min-version=VersionTLS12
             - --upstream=http://127.0.0.1:8003/
@@ -120,9 +124,18 @@ spec:
             - containerPort: 8004
               name: grpc
           resources:
+            limits:
+              cpu: 20m
+              memory: 40Mi
             requests:
               cpu: 10m
               memory: 20Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: kube-rbac-proxy-1
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -143,7 +156,6 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
         - args:
-            - --logtostderr
             - --secure-listen-address=:8008
             - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
             - --tls-min-version=VersionTLS12
@@ -159,9 +171,18 @@ spec:
             - containerPort: 8008
               name: grpc
           resources:
+            limits:
+              cpu: 20m
+              memory: 40Mi
             requests:
               cpu: 10m
               memory: 20Mi
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: kube-rbac-proxy-2
+                resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

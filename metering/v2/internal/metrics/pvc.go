@@ -19,7 +19,8 @@ import (
 
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+	kbsm "k8s.io/kube-state-metrics/v2/pkg/metric"
+	kbsmg "k8s.io/kube-state-metrics/v2/pkg/metric_generator"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,7 +30,7 @@ var (
 
 var pvcMetricsFamilies = []FamilyGenerator{
 	{
-		FamilyGenerator: kbsm.FamilyGenerator{
+		FamilyGenerator: kbsmg.FamilyGenerator{
 			Name: "meterdef_persistentvolumeclaim_info",
 			Type: kbsm.Gauge,
 			Help: "Metering info for persistentvolumeclaim",

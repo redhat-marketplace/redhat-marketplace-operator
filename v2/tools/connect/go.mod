@@ -29,4 +29,4 @@ require (
 	golang.org/x/net v0.7.0 // indirect
 )
 
-replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.0
+replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0

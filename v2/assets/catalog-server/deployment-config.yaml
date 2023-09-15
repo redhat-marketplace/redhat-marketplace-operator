@@ -37,7 +37,13 @@ spec:
               memory: 12Mi
             limits:
               cpu: 15m
-              memory: 20Mi
+              memory: 24Mi
+        env:
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: authcheck
+              resource: limits.memory
           terminationMessagePolicy: FallbackToLogsOnError
       - name: rhm-meterdefinition-file-server
         image: rhm-meterdefinition-file-server-image
@@ -61,7 +67,6 @@ spec:
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       - args:
-            - --logtostderr
             - --secure-listen-address=:8200
             - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
             - --tls-min-version=VersionTLS12
@@ -77,9 +82,18 @@ spec:
           - containerPort: 8200
             name: https
         resources:
+          limits:
+            cpu: 20m
+            memory: 40Mi
           requests:
             cpu: 10m
             memory: 20Mi
+        env:
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: kube-rbac-proxy
+              resource: limits.memory
         securityContext: 
           runAsNonRoot: true
         terminationMessagePolicy: FallbackToLogsOnError
