@@ -51,7 +51,8 @@ COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 
 COPY --from=builder /opt/app-root/src/go/bin/${bin} /usr/local/bin/${bin}
-COPY --from=builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect 
+COPY --from=builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect
+COPY --from=builder /opt/app-root/src/go/bin/grpc-health-probe /usr/local/bin/grpc-health-probe
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
