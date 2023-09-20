@@ -99,6 +99,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.annotations['olm.operatorGroup']
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: manager
+                  resource: limits.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

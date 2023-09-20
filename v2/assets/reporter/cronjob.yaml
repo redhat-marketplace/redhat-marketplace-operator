@@ -40,6 +40,11 @@ spec:
             args:
               - 'reconcile'
             env:
+              - name: GOMEMLIMIT
+                valueFrom:
+                  resourceFieldRef:
+                    containerName: reporter
+                    resource: limits.memory
               - name: JOB_NAME
                 valueFrom:
                   fieldRef:
