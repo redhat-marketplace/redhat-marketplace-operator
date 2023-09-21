@@ -15,12 +15,6 @@ spec:
         - name: reporter
           image: redhat-markplace-reporter
           imagePullPolicy: Always
-          env: 
-            - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  containerName: reporter
-                  resource: limits.memory
           # additional args are added in factory
           args:
             [
