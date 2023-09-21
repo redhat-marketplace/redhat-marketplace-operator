@@ -231,7 +231,10 @@ func ProvideInfrastructureAwareConfig(
 				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v" + ocpTag
 				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v" + ocpTag
 				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v" + ocpTag
-				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v" + ocpTag
+
+				//v4.11 has transport error with data-service, use a static tag for now
+				//cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v" + ocpTag
+				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13"
 			} else {
 				log.Info("couldn't determind version, using default images")
 			}
