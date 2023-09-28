@@ -219,6 +219,13 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&ClusterServiceVersionReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersionReconciler"),
+		Scheme: k8sScheme,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
