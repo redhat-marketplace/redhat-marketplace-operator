@@ -126,13 +126,18 @@ func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, er
 
 	subscriptionConfig := &olmv1alpha1.SubscriptionConfig{}
 
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		return subscriptionConfig, nil
+	}
+
 	namespace := os.Getenv("POD_NAMESPACE")
 	if namespace == "" {
 		return subscriptionConfig, nil
 	}
 
 	pod := &corev1.Pod{}
-	if err := c.Get(context.TODO(), types.NamespacedName{Name: os.Getenv("HOSTNAME"), Namespace: namespace}, pod); err != nil {
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: podName, Namespace: namespace}, pod); err != nil {
 		return nil, err
 	}
 	replicaSet := &appsv1.ReplicaSet{}
