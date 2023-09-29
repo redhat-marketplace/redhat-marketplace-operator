@@ -15,26 +15,91 @@
 package marketplace
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+
 	"github.com/gotidy/ptr"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
+	. "github.com/onsi/gomega/gstruct"
+
+	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/stretchr/testify/assert"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("ClusterServiceVersion controller", func() {
+	idFn := func(element interface{}) string {
+		return fmt.Sprintf("%v", element)
+	}
+
+	var (
+		csvName = "new-clusterserviceversion"
+		subName = "new-subscription"
+		// namespace = "openshift-redhat-marketplace"
+
+		clusterserviceversion = &olmv1alpha1.ClusterServiceVersion{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      csvName,
+				Namespace: operatorNamespace,
+			},
+			Spec: olmv1alpha1.ClusterServiceVersionSpec{
+				InstallStrategy: olmv1alpha1.NamedInstallStrategy{
+					StrategySpec: olmv1alpha1.StrategyDetailsDeployment{
+						DeploymentSpecs: []olmv1alpha1.StrategyDeploymentSpec{},
+					},
+				},
+			},
+		}
+		subscription = &olmv1alpha1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      subName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					utils.OperatorTag: "true",
+				},
+			},
+			Spec: &olmv1alpha1.SubscriptionSpec{},
+			Status: olmv1alpha1.SubscriptionStatus{
+				InstalledCSV: csvName,
+			},
+		}
+
+		subscriptionWithoutLabels = &olmv1alpha1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      subName,
+				Namespace: operatorNamespace,
+			},
+			Spec: &olmv1alpha1.SubscriptionSpec{},
+			Status: olmv1alpha1.SubscriptionStatus{
+				InstalledCSV: csvName,
+			},
+		}
+
+		subscriptionDifferentCSV = &olmv1alpha1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      subName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					utils.OperatorTag: "true",
+				},
+			},
+			Spec: &olmv1alpha1.SubscriptionSpec{},
+			Status: olmv1alpha1.SubscriptionStatus{
+				InstalledCSV: "dummy",
+			},
+		}
+	)
+
 	var empty map[string]string
 
 	DescribeTable("filter events",
@@ -64,177 +129,145 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			evt := event.GenericEvent{}
 			Expect(clusterServiceVersionPredictates.GenericFunc(evt)).To(BeFalse())
 		})
+		It("should check for change in mdef", func() {
+			evt := event.UpdateEvent{}
+			evt.ObjectNew = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
+						"olm.operatorNamespace":              "default",
+					},
+				},
+			}
+			evt.ObjectOld = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
+						"olm.operatorNamespace":              "default",
+					},
+				}}
+			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeTrue())
+			evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION] = "newmdef"
+			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeFalse())
+		})
 	})
 
-	It("cluster service version controller", func() {
-		var (
-			csvName   = "new-clusterserviceversion"
-			subName   = "new-subscription"
-			namespace = "arbitrary-namespace"
+	Context("controller filtering of csvs", func() {
+		AfterEach(func() {
+			subscription := &olmv1alpha1.Subscription{}
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      subName,
+				Namespace: operatorNamespace,
+			}, subscription)).Should(Succeed(), "get subscription")
+			k8sClient.Delete(context.TODO(), subscription)
 
-			req = reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      csvName,
-					Namespace: namespace,
-				},
-			}
-			opts = []StepOption{
-				WithRequest(req),
-			}
+			csv := &olmv1alpha1.ClusterServiceVersion{}
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      csvName,
+				Namespace: operatorNamespace,
+			}, csv)).Should(Succeed(), "get csv")
+			k8sClient.Delete(context.TODO(), csv)
+		})
 
-			clusterserviceversion = &olmv1alpha1.ClusterServiceVersion{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      csvName,
-					Namespace: namespace,
-				},
-			}
-			subscription = &olmv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      subName,
-					Namespace: namespace,
-					Labels: map[string]string{
-						utils.OperatorTag: "true",
-					},
-				},
-				Status: olmv1alpha1.SubscriptionStatus{
-					InstalledCSV: csvName,
-				},
-			}
+		It("List csvs", func() {
+			Expect(k8sClient.Create(context.TODO(), subscription.DeepCopy())).Should(Succeed(), "create subscription")
+			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create csv")
 
-			subscriptionWithoutLabels = &olmv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      subName,
-					Namespace: namespace,
-				},
-				Status: olmv1alpha1.SubscriptionStatus{
-					InstalledCSV: csvName,
-				},
-			}
+			Eventually(func() []string {
+				csvList := &olmv1alpha1.ClusterServiceVersionList{}
+				k8sClient.List(context.TODO(), csvList)
 
-			subscriptionDifferentCSV = &olmv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      subName,
-					Namespace: namespace,
-					Labels: map[string]string{
-						utils.OperatorTag: "true",
-					},
-				},
-				Status: olmv1alpha1.SubscriptionStatus{
-					InstalledCSV: "dummy",
-				},
-			}
-
-			setup = func(r *ReconcilerTest) error {
-				var log = logf.Log.WithName("clusterserviceversion_controller")
-				r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-				r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
-				return nil
-			}
-
-			testClusterServiceVersionWithInstalledCSV = func(t GinkgoTInterface) {
-				t.Parallel()
-				reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscription)
-				reconcilerTest.TestAll(t,
-					ReconcileStep(opts,
-						ReconcileWithExpectedResults(DoneResult)),
-					ListStep(opts,
-						ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-						ListWithFilter(
-							client.InNamespace(namespace),
-							client.MatchingLabels(map[string]string{
-								watchTag: "lite",
-							})),
-						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
-
-							assert.Truef(t, ok, "expected cluster service version list got type %T", i)
-							assert.Equal(t, 1, len(list.Items))
-						}),
-					),
-				)
-			}
-
-			testClusterServiceVersionWithoutInstalledCSV = func(t GinkgoTInterface) {
-				t.Parallel()
-				reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionDifferentCSV)
-				reconcilerTest.TestAll(t,
-					ReconcileStep(nil,
-						ReconcileWithExpectedResults(DoneResult)),
-					ListStep(nil,
-						ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-						ListWithFilter(
-							client.InNamespace(namespace),
-							client.MatchingLabels(map[string]string{
-								watchTag: "lite",
-							})),
-						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
-
-							assert.Truef(t, ok, "expected cluster service version list got type %T", i)
-							assert.Equal(t, 0, len(list.Items))
-						}),
-					),
-				)
-			}
-
-			testClusterServiceVersionWithSubscriptionWithoutLabels = func(t GinkgoTInterface) {
-				t.Parallel()
-				reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionWithoutLabels)
-				reconcilerTest.TestAll(t,
-					ReconcileStep(opts,
-						ReconcileWithExpectedResults(DoneResult)),
-					ListStep(opts,
-						ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-						ListWithFilter(
-							client.InNamespace(namespace),
-							client.MatchingLabels(map[string]string{
-								watchTag: "lite",
-							})),
-						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-							list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
-
-							assert.Truef(t, ok, "expected cluster service version list got type %T", i)
-							assert.Equal(t, 0, len(list.Items))
-						}),
-					),
-				)
-			}
-
-			TestBuildMeterDefinitionFromString = func(t GinkgoTInterface) {
-				meter := &marketplacev1alpha1.MeterDefinition{}
-				name := "example-meterdefinition"
-				group := "partner.metering.com"
-				version := "v1alpha"
-				kind := "App"
-				var ann = map[string]string{
-					utils.CSV_ANNOTATION_NAME:      csvName,
-					utils.CSV_ANNOTATION_NAMESPACE: namespace,
+				var csvNames []string
+				for _, mdef := range csvList.Items {
+					csvNames = append(csvNames, mdef.Name)
 				}
 
-				ogMeter := &marketplacev1alpha1.MeterDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        name,
-						Namespace:   namespace,
-						Annotations: ann,
-					},
-					Spec: marketplacev1alpha1.MeterDefinitionSpec{
-						Group:   group,
-						Version: ptr.String(version),
-						Kind:    kind,
-					},
+				return csvNames
+			}, timeout, interval).Should(And(
+				HaveLen(1),
+				MatchAllElements(idFn, Elements{
+					"new-clusterserviceversion": Equal("new-clusterserviceversion"),
+				}),
+			))
+		})
+
+		It("Should not process mismatched csv and subscriptions", func() {
+			Expect(k8sClient.Create(context.TODO(), subscriptionDifferentCSV.DeepCopy())).Should(Succeed(), "create subscription")
+			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create subscription")
+
+			Eventually(func() []string {
+				csvList := &olmv1alpha1.ClusterServiceVersionList{}
+				labels := map[string]string{
+					watchTag: "lite",
+				}
+				listOpts := []client.ListOption{
+					client.MatchingLabels(labels),
+				}
+				k8sClient.List(context.TODO(), csvList, listOpts...)
+
+				var csvNames []string
+				for _, mdef := range csvList.Items {
+					csvNames = append(csvNames, mdef.Name)
 				}
 
-				meterStr, _ := json.Marshal(ogMeter)
-				err := meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-				if err != nil {
-					t.Errorf("Failed to build MeterDefinition CR: %v", err)
-				}
-			}
-		)
+				return csvNames
+			}, timeout, interval).Should(And(
+				HaveLen(0),
+			))
+		})
 
-		testClusterServiceVersionWithInstalledCSV(GinkgoT())
-		testClusterServiceVersionWithoutInstalledCSV(GinkgoT())
-		testClusterServiceVersionWithSubscriptionWithoutLabels(GinkgoT())
-		TestBuildMeterDefinitionFromString(GinkgoT())
+		It("Should not process subscriptions without labels", func() {
+			Expect(k8sClient.Create(context.TODO(), subscriptionWithoutLabels.DeepCopy())).Should(Succeed(), "create subscription")
+			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create subscription")
+
+			Eventually(func() []string {
+				csvList := &olmv1alpha1.ClusterServiceVersionList{}
+				labels := map[string]string{
+					watchTag: "lite",
+				}
+				listOpts := []client.ListOption{
+					client.MatchingLabels(labels),
+				}
+				k8sClient.List(context.TODO(), csvList, listOpts...)
+
+				var csvNames []string
+				for _, mdef := range csvList.Items {
+					csvNames = append(csvNames, mdef.Name)
+				}
+
+				return csvNames
+			}, timeout, interval).Should(And(
+				HaveLen(0),
+			))
+		})
+	})
+
+	It("BuildMeterDefinitionFromString", func() {
+		meter := &marketplacev1alpha1.MeterDefinition{}
+		name := "example-meterdefinition"
+		group := "partner.metering.com"
+		version := "v1alpha"
+		kind := "App"
+		var ann = map[string]string{
+			utils.CSV_ANNOTATION_NAME:      csvName,
+			utils.CSV_ANNOTATION_NAMESPACE: operatorNamespace,
+		}
+
+		ogMeter := &marketplacev1alpha1.MeterDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   operatorNamespace,
+				Annotations: ann,
+			},
+			Spec: marketplacev1alpha1.MeterDefinitionSpec{
+				Group:   group,
+				Version: ptr.String(version),
+				Kind:    kind,
+			},
+		}
+
+		meterStr, _ := json.Marshal(ogMeter)
+
+		Expect(meter.BuildMeterDefinitionFromString(string(meterStr), csvName, operatorNamespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)).Should(Succeed(), "build meterdefinition from string")
 	})
 })

@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
-var _ = FDescribe("ClusterServiceVersion controller", func() {
+var _ = Describe("ClusterServiceVersion controller", func() {
 	idFn := func(element interface{}) string {
 		return fmt.Sprintf("%v", element)
 	}
