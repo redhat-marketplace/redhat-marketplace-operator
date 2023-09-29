@@ -158,7 +158,7 @@ func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, er
 					log.Info("find parent subscription, got Deployment")
 					clusterServiceVersion := &olmv1alpha1.ClusterServiceVersion{}
 					for _, deploymentOwnerRef := range deployment.OwnerReferences {
-						if deployment.Kind == "ClusterServiceVersion" {
+						if deploymentOwnerRef.Kind == "ClusterServiceVersion" {
 							if err := c.Get(context.TODO(), types.NamespacedName{Name: deploymentOwnerRef.Name, Namespace: namespace}, clusterServiceVersion); err != nil {
 								return nil, err
 							}
