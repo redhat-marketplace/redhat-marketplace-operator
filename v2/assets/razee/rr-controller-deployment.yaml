@@ -27,6 +27,21 @@ spec:
         app.kubernetes.io/managed-by: operator
       name: rhm-remoteresource-controller
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - ppc64le
+                      - s390x
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
       securityContext: 
         runAsNonRoot: true
       containers:

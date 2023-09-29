@@ -60,6 +60,7 @@ require (
 require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/google/subcommands v1.0.1 // indirect
 )
 
 require (

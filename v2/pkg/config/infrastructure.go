@@ -131,6 +131,8 @@ func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, er
 		return subscriptionConfig, nil
 	}
 
+	log.Info("find parent subscription", "podname", podName)
+
 	namespace := os.Getenv("POD_NAMESPACE")
 	if namespace == "" {
 		return subscriptionConfig, nil
@@ -143,7 +145,7 @@ func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, er
 	replicaSet := &appsv1.ReplicaSet{}
 	for _, podOwnerRef := range pod.OwnerReferences {
 		if podOwnerRef.Kind == "ReplicaSet" {
-			if err := c.Get(context.TODO(), types.NamespacedName{Name: podOwnerRef.Name, Namespace: namespace}, pod); err != nil {
+			if err := c.Get(context.TODO(), types.NamespacedName{Name: podOwnerRef.Name, Namespace: namespace}, replicaSet); err != nil {
 				return nil, err
 			}
 			log.Info("find parent subscription, got ReplicaSet")
