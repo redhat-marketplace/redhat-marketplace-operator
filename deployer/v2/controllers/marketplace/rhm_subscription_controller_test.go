@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("Testing with Ginkgo", func() {
+var _ = Describe("Testing with Ginkgo", func() {
 	var (
 		name = rhmOperatorName
 
