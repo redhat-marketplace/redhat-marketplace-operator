@@ -247,3 +247,10 @@ func (i *Infrastructure) IsDefined() bool {
 	defer i.Unlock()
 	return i.openshift != nil || i.kubernetes != nil
 }
+
+// SubscriptionConfig returns the SubscriptionConfig of the Subscription owning this operator
+func (i *Infrastructure) SubscriptionConfig() *olmv1alpha1.SubscriptionConfig {
+	i.Lock()
+	defer i.Unlock()
+	return i.openshift.SubscriptionConfig
+}
