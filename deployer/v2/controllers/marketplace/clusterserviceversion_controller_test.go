@@ -22,7 +22,6 @@ import (
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/gomega/gstruct"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
-var _ = FDescribe("ClusterServiceVersion controller", func() {
+var _ = Describe("ClusterServiceVersion controller", func() {
 	idFn := func(element interface{}) string {
 		return fmt.Sprintf("%v", element)
 	}
@@ -44,7 +43,6 @@ var _ = FDescribe("ClusterServiceVersion controller", func() {
 	var (
 		csvName = "new-clusterserviceversion"
 		subName = "new-subscription"
-		// namespace = "openshift-redhat-marketplace"
 
 		clusterserviceversion = &olmv1alpha1.ClusterServiceVersion{
 			ObjectMeta: metav1.ObjectMeta{
@@ -128,27 +126,6 @@ var _ = FDescribe("ClusterServiceVersion controller", func() {
 			evt := event.GenericEvent{}
 			Expect(clusterServiceVersionPredictates.GenericFunc(evt)).To(BeFalse())
 		})
-		// It("should check for change in mdef", func() {
-		// 	evt := event.UpdateEvent{}
-		// 	evt.ObjectNew = &corev1.Pod{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Annotations: map[string]string{
-		// 				utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
-		// 				"olm.operatorNamespace":              "default",
-		// 			},
-		// 		},
-		// 	}
-		// 	evt.ObjectOld = &corev1.Pod{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Annotations: map[string]string{
-		// 				utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
-		// 				"olm.operatorNamespace":              "default",
-		// 			},
-		// 		}}
-		// 	Expect(clusterServiceVersionPredictates.Update(evt)).To(BeTrue())
-		// 	evt.ObjectOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION] = "newmdef"
-		// 	Expect(clusterServiceVersionPredictates.Update(evt)).To(BeFalse())
-		// })
 	})
 
 	Context("controller filtering of csvs", func() {

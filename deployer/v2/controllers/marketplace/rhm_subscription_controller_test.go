@@ -20,9 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	// . "github.com/onsi/gomega/gstruct"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

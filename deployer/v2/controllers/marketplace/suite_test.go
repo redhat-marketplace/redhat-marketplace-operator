@@ -29,7 +29,6 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
@@ -166,18 +165,9 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&RazeeDeploymentReconciler{
-		Client:  k8sClient,
-		Log:     ctrl.Log.WithName("controllers").WithName("ClusterServiceVersionReconciler"),
-		Scheme:  k8sScheme,
-		cfg:     operatorCfg,
-		factory: factory,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
 	err = (&RHMSubscriptionController{
 		Client: k8sClient,
-		Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersionReconciler"),
+		Log:    ctrl.Log.WithName("controllers").WithName("RHM Subscription Controller"),
 		Scheme: k8sScheme,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -228,7 +218,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
-	utilruntime.Must(razeev1alpha2.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	return scheme
 }

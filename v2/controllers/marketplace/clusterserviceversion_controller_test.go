@@ -22,7 +22,6 @@ import (
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/gomega/gstruct"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
