@@ -148,29 +148,25 @@ func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, er
 			if err := c.Get(context.TODO(), types.NamespacedName{Name: podOwnerRef.Name, Namespace: namespace}, replicaSet); err != nil {
 				return nil, err
 			}
-			log.Info("find parent subscription, got ReplicaSet")
 			deployment := &appsv1.Deployment{}
 			for _, replicaSetOwnerRef := range replicaSet.OwnerReferences {
 				if replicaSetOwnerRef.Kind == "Deployment" {
 					if err := c.Get(context.TODO(), types.NamespacedName{Name: replicaSetOwnerRef.Name, Namespace: namespace}, deployment); err != nil {
 						return nil, err
 					}
-					log.Info("find parent subscription, got Deployment")
 					clusterServiceVersion := &olmv1alpha1.ClusterServiceVersion{}
 					for _, deploymentOwnerRef := range deployment.OwnerReferences {
 						if deploymentOwnerRef.Kind == "ClusterServiceVersion" {
 							if err := c.Get(context.TODO(), types.NamespacedName{Name: deploymentOwnerRef.Name, Namespace: namespace}, clusterServiceVersion); err != nil {
 								return nil, err
 							}
-							log.Info("find parent subscription, got clusterServiceVersion")
 							subscriptionList := &olmv1alpha1.SubscriptionList{}
 							if err := c.List(context.TODO(), subscriptionList, client.InNamespace(namespace)); err != nil {
 								return nil, err
 							}
-							log.Info("find parent subscription, got subscriptionList")
 							for _, subscription := range subscriptionList.Items {
 								if subscription.Status.InstalledCSV == clusterServiceVersion.Name {
-									log.Info("found parent subscription for this operator pod")
+									log.Info("found parent subscription", "podname", podName)
 									if subscription.Spec.Config != nil {
 										return subscription.Spec.Config, nil
 									}
@@ -183,7 +179,7 @@ func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, er
 			}
 		}
 	}
-	log.Info("no parent subscription found for this operator pod")
+	log.Info("no parent subscription found", "podname", podName)
 	return subscriptionConfig, nil
 }
 
