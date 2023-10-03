@@ -109,6 +109,8 @@ require (
 )
 
 replace (
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20221021112143-4226c2167e40 // release-4.12
+	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20221019143426-16aed247da5c // release-4.12
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 => ../../deployer/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
