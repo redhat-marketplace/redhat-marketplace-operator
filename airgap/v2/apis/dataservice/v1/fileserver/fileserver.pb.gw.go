@@ -555,7 +555,7 @@ func RegisterFileServerHandlerFromEndpoint(ctx context.Context, mux *runtime.Ser
 
 // RegisterFileServerHandler registers the http handlers for service FileServer to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterFileServerHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+func RegisterFileServerHandler(ctx context.Context, mux *runtime.ServeMux, conn grpc.ClientConnInterface) error {
 	return RegisterFileServerHandlerClient(ctx, mux, NewFileServerClient(conn))
 }
 

@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -82,14 +83,17 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	mapper, err := apiutil.NewDiscoveryRESTMapper(cfg)
+	cluster, err := cluster.New(cfg)
+	Expect(err).NotTo(HaveOccurred())
+
+	mapper, err := apiutil.NewDiscoveryRESTMapper(cfg, cluster.GetHTTPClient())
 	Expect(err).NotTo(HaveOccurred())
 	k8scache, err = cache.New(cfg,
 		cache.Options{
-			Scheme:    scheme,
-			Mapper:    mapper,
-			Resync:    nil,
-			Namespace: "",
+			Scheme:     scheme,
+			Mapper:     mapper,
+			SyncPeriod: nil,
+			//Namespace: "",
 		})
 	Expect(err).NotTo(HaveOccurred())
 

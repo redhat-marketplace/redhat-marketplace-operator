@@ -24,7 +24,6 @@ import (
 	u "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +39,6 @@ func ProvideUploader(us u.Uploaders) (u.Uploader, error) {
 
 func ProvideUploaders(
 	ctx context.Context,
-	cc reconcileutils.ClientCommandRunner,
 	client client.Client,
 	log logr.Logger,
 	reporterConfig *Config,
@@ -50,7 +48,7 @@ func ProvideUploaders(
 	for _, target := range reporterConfig.UploaderTargets {
 		switch target.(type) {
 		case *u.RedHatInsightsUploader:
-			uploader, err := u.ProvideRedHatInsightsUploader(ctx, cc, log)
+			uploader, err := u.ProvideRedHatInsightsUploader(ctx, client, log)
 			if err != nil {
 				return uploaders, err
 			}
@@ -79,7 +77,7 @@ func ProvideUploaders(
 
 			uploaders = append(uploaders, uploader)
 		case *u.COSS3Uploader:
-			cosS3Config, err := provideCOSS3Config(ctx, cc, reporterConfig.DeployedNamespace, log)
+			cosS3Config, err := provideCOSS3Config(ctx, client, reporterConfig.DeployedNamespace, log)
 			if err != nil {
 				return nil, err
 			}
@@ -118,19 +116,17 @@ func ProvideUploaders(
 
 func provideCOSS3Config(
 	ctx context.Context,
-	cc reconcileutils.ClientCommandRunner,
+	client client.Client,
 	deployedNamespace string,
 	log logr.Logger,
 ) (*uploaders.COSS3UploaderConfig, error) {
 	secret := &corev1.Secret{}
 
-	result, _ := cc.Do(ctx,
-		reconcileutils.GetAction(types.NamespacedName{
-			Name:      utils.RHM_COS_UPLOADER_SECRET,
-			Namespace: deployedNamespace,
-		}, secret))
-	if !result.Is(reconcileutils.Continue) {
-		return nil, result
+	if err := client.Get(ctx, types.NamespacedName{
+		Name:      utils.RHM_COS_UPLOADER_SECRET,
+		Namespace: deployedNamespace,
+	}, secret); err != nil {
+		return nil, err
 	}
 
 	configYamlBytes, ok := secret.Data["config.yaml"]

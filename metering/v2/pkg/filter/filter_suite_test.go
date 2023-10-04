@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -45,6 +46,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var scheme *runtime.Scheme
+var k8sCluster cluster.Cluster
 
 func TestFilter(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -72,8 +74,11 @@ var _ = BeforeSuite(func() {
 	scheme = provideScheme()
 	// +kubebuilder:scaffold:scheme
 	By("starting client")
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+	k8sCluster, err = cluster.New(cfg)
 	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sClient).ToNot(BeNil())
+
+	k8sClient = k8sCluster.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 })
 

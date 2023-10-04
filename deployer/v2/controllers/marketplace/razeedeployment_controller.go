@@ -31,7 +31,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"golang.org/x/time/rate"
@@ -53,7 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
@@ -66,30 +64,15 @@ type RazeeDeploymentReconciler struct {
 	Client  client.Client
 	Scheme  *runtime.Scheme
 	Log     logr.Logger
-	cfg     *config.OperatorConfig
-	factory *manifests.Factory
-}
-
-func (r *RazeeDeploymentReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *RazeeDeploymentReconciler) InjectFactory(f *manifests.Factory) error {
-	r.factory = f
-	return nil
-}
-
-func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
+	Cfg     *config.OperatorConfig
+	Factory *manifests.Factory
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 	// This mapFn will queue the default named razeedeployment
 	mapFn := handler.MapFunc(
-		func(obj client.Object) []reconcile.Request {
+		func(ctx context.Context, obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
 					Name:      utils.RAZEE_NAME,
@@ -181,7 +164,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
 		// Should be covered by cache filter
-		// WithEventFilter(predicates.NamespacePredicate(r.cfg.DeployedNamespace)).
+		// WithEventFilter(predicates.NamespacePredicate(r.Cfg.DeployedNamespace)).
 		For(&marketplacev1alpha1.RazeeDeployment{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		WithOptions(controller.Options{
@@ -191,30 +174,24 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 300)},
 			),
 		}).
-		Watches(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-		}).
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&appsv1.Deployment{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.RazeeDeployment{}, handler.OnlyControllerOwner())).
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(p)).
-		Watches(&source.Kind{Type: &corev1.Pod{}},
+		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pp)).
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+		Watches(&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(cmp)).
 		Watches(
-			&source.Kind{Type: &razeev1alpha2.RemoteResource{}},
-			&handler.EnqueueRequestForOwner{
-				OwnerType: &razeev1alpha2.RemoteResource{},
-			},
+			&razeev1alpha2.RemoteResource{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &razeev1alpha2.RemoteResource{}),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}},
-			&handler.EnqueueRequestForOwner{
-				OwnerType: &marketplacev1alpha1.MarketplaceConfig{},
-			},
+			&marketplacev1alpha1.MarketplaceConfig{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MarketplaceConfig{}),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
@@ -584,7 +561,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	// apply watch-keeper-non-namespaced
-	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
 		return r.makeWatchKeeperNonNamespace(instance), nil
 	}); err != nil {
 		return reconcile.Result{}, err
@@ -603,7 +580,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	// apply watch-keeper-limit-poll config map
-	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
 		return r.makeWatchKeeperLimitPoll(instance), nil
 	}); err != nil {
 		return reconcile.Result{}, err
@@ -622,7 +599,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	// create razee-cluster-metadata
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.makeRazeeClusterMetaData(instance), nil
 	}); err != nil {
 		return reconcile.Result{}, err
@@ -641,7 +618,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	// create watch-keeper-config
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.makeWatchKeeperConfigV2(instance), nil
 	}); err != nil {
 		return reconcile.Result{}, err
@@ -660,7 +637,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	// create watch-keeper-secret
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		secret, err := r.makeWatchKeeperSecret(instance, request)
 		return &secret, err
 	}); err != nil {
@@ -680,7 +657,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	// create ibm-cos-reader-key
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		secret, err := r.makeCOSReaderSecret(instance, request)
 		return &secret, err
 	}); err != nil {
@@ -710,8 +687,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return reconcile.Result{}, err
 		}
 
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			dep, err := r.factory.NewRemoteResourceDeployment()
+		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			dep, err := r.Factory.NewRemoteResourceDeployment()
 			return dep, err
 		}); err != nil {
 			return reconcile.Result{}, err
@@ -733,8 +710,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	if registrationEnabled {
 		reqLogger.Info("registration enabled")
 
-		if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			dep, err := r.factory.NewWatchKeeperDeployment()
+		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			dep, err := r.Factory.NewWatchKeeperDeployment()
 			return dep, err
 		}); err != nil {
 			return reconcile.Result{}, err
@@ -825,7 +802,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return reconcile.Result{}, err
 		}
 
-		if err := r.factory.CreateOrUpdate(r.Client, rrDeployment, func() (client.Object, error) {
+		if err := r.Factory.CreateOrUpdate(r.Client, rrDeployment, func() (client.Object, error) {
 			return r.makeParentRemoteResource(instance), nil
 		}); err != nil {
 			return reconcile.Result{}, err
@@ -988,7 +965,7 @@ func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, 
 		return err
 	}
 
-	marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+	marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).
 		NewMarketplaceClient(token, tokenClaims)
 
 	if err != nil {
@@ -1032,7 +1009,7 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 		},
 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
 	}
-	r.factory.SetOwnerReference(instance, cm)
+	r.Factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1047,7 +1024,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 		},
 		Data: map[string]string{"v1_namespace": "lite", "v1_node": "lite", "config.openshift.io_v1_clusterversion": "lite", "config.openshift.io_v1_infrastructure": "lite", "config.openshift.io_v1_console": "lite"},
 	}
-	r.factory.SetOwnerReference(instance, cm)
+	r.Factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1061,7 +1038,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 	}
-	r.factory.SetOwnerReference(instance, cm)
+	r.Factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1093,7 +1070,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfigV2(
 		},
 		Data: data,
 	}
-	r.factory.SetOwnerReference(instance, cm)
+	r.Factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1130,7 +1107,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
 	}
-	r.factory.SetOwnerReference(instance, &secret)
+	r.Factory.SetOwnerReference(instance, &secret)
 	return secret, err
 }
 
@@ -1147,7 +1124,7 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 		Data: map[string][]byte{"accesskey": []byte(key)},
 	}
 
-	r.factory.SetOwnerReference(instance, &secret)
+	r.Factory.SetOwnerReference(instance, &secret)
 	return secret, err
 }
 

@@ -111,8 +111,8 @@ func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 type fakeResult struct {
-	Metric map[string]string
-	Values []interface{}
+	Metric map[string]string `json:"metric"`
+	Values []interface{}     `json:"values"`
 }
 
 type fakeData struct {

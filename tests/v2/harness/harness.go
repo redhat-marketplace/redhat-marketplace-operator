@@ -20,7 +20,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +41,6 @@ type TestHarness struct {
 	context context.Context
 
 	client.Client
-	reconcileutils.ClientCommandRunner
 
 	Config TestHarnessOptions
 
@@ -96,7 +94,6 @@ func (t *TestHarness) Start() (context.Context, error) {
 		return t.context, err
 	}
 
-	t.ClientCommandRunner = reconcileutils.NewClientCommand(t.Client, t.kscheme, t.logger)
 	return t.context, nil
 }
 
@@ -110,13 +107,13 @@ func (t *TestHarness) Stop() error {
 }
 
 func (t *TestHarness) Upsert(ctx context.Context, obj client.Object) error {
-	err := t.Create(ctx, obj)
+	err := t.Client.Create(ctx, obj)
 
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			oldObj := obj.DeepCopyObject()
 			key := client.ObjectKeyFromObject(&oldObj)
-			err := t.Get(ctx, key, oldObj)
+			err := t.Client.Get(ctx, key, oldObj)
 
 			if err != nil {
 				return err
@@ -129,7 +126,7 @@ func (t *TestHarness) Upsert(ctx context.Context, obj client.Object) error {
 			acc1.SetGeneration(acc2.GetGeneration())
 			acc1.SetResourceVersion(acc2.GetResourceVersion())
 
-			return t.Update(ctx, obj)
+			return t.Client.Update(ctx, obj)
 		}
 
 		return err

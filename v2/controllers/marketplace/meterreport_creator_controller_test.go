@@ -122,7 +122,7 @@ var _ = Describe("MeterbaseController", func() {
 				Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 				Client: k8sClient,
 				Scheme: k8sScheme,
-				cfg:    operatorCfg,
+				Cfg:    operatorCfg,
 			}
 			err := reportCreatorReconciler.SetupWithManager(k8sManager, doneChan)
 			Expect(err).ToNot(HaveOccurred())

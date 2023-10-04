@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: componentconfigs.marketplace.redhat.com
 spec:
   group: marketplace.redhat.com
@@ -89,6 +88,9 @@ spec:
                       to be consistent in form with GroupKind.String(), e.g. ReplicaSet
                       in apps group (regardless of version) would be `ReplicaSet.apps`."
                     type: object
+                  recoverPanic:
+                    description: RecoverPanic indicates if panics should be recovered.
+                    type: boolean
                 type: object
               gracefulShutDown:
                 description: GracefulShutdownTimeout is the duration given to runnable
@@ -103,7 +105,8 @@ spec:
                 properties:
                   healthProbeBindAddress:
                     description: HealthProbeBindAddress is the TCP address that the
-                      controller should bind to for serving health probes
+                      controller should bind to for serving health probes It can be
+                      set to "0" or "" to disable serving the health probe.
                     type: string
                   livenessEndpointName:
                     description: LivenessEndpointName, defaults to "healthz"
@@ -164,7 +167,7 @@ spec:
               leaderElectionId:
                 type: string
               metrics:
-                description: Metrics contains thw controller metrics configuration
+                description: Metrics contains the controller metrics configuration
                 properties:
                   bindAddress:
                     description: BindAddress is the TCP address that the controller

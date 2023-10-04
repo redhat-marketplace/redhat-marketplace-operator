@@ -205,8 +205,8 @@ var _ = BeforeSuite(func() {
 		Client:        k8sClient,
 		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
 		Scheme:        k8sScheme,
-		cfg:           operatorCfg,
-		factory:       factory,
+		Cfg:           operatorCfg,
+		Factory:       factory,
 		CatalogClient: catalogClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -215,7 +215,7 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfigReconciler"),
 		Scheme: k8sScheme,
-		cfg:    operatorCfg,
+		Cfg:    operatorCfg,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -15,7 +15,6 @@
 package inject
 
 import (
-	"github.com/pkg/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
@@ -25,7 +24,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +34,7 @@ var injectLog = ctrl.Log.WithName("injector")
 type Injectables []types.Injectable
 
 func ProvideInjectables(
-	i1 *ClientCommandInjector,
+	//	i1 *ClientCommandInjector,
 	i2 *OperatorConfigInjector,
 	i3 *PatchInjector,
 	i4 *FactoryInjector,
@@ -44,7 +42,7 @@ func ProvideInjectables(
 	i6 *CatalogClientInjector,
 	i7 *PrometheusAPIBuilderInjector,
 ) Injectables {
-	return []types.Injectable{i1, i2, i3, i4, i5, i6, i7}
+	return []types.Injectable{i2, i3, i4, i5, i6, i7}
 }
 
 type Injector struct {
@@ -70,6 +68,7 @@ func ProvideNamespace(cfg *config.OperatorConfig) managers.DeployedNamespace {
 	return managers.DeployedNamespace(cfg.DeployedNamespace)
 }
 
+/*
 func ProvideInjector(
 	mgr ctrl.Manager,
 ) (*Injector, error) {
@@ -96,10 +95,13 @@ func ProvideInjector(
 		injectables: dependencies.Injectables,
 	}, nil
 }
+*/
 
+/*
 type CommandRunner interface {
 	InjectCommandRunner(reconcileutils.ClientCommandRunner) error
 }
+*/
 
 type OperatorConfig interface {
 	InjectOperatorConfig(*config.OperatorConfig) error
@@ -125,17 +127,21 @@ type PrometheusAPIBuilder interface {
 	InjectPrometheusAPIBuilder(*prometheus.PrometheusAPIBuilder) error
 }
 
+/*
 type ClientCommandInjector struct {
 	Fields        *managers.ControllerFields
 	CommandRunner reconcileutils.ClientCommandRunner
 }
+*/
 
+/*
 func (a *ClientCommandInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(CommandRunner); ok {
 		return ii.InjectCommandRunner(a.CommandRunner)
 	}
 	return nil
 }
+*/
 
 type PatchInjector struct{}
 

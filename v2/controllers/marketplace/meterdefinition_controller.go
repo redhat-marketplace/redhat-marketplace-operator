@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,24 +57,9 @@ type MeterDefinitionReconciler struct {
 	Client client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	cfg    *config.OperatorConfig
+	Cfg    *config.OperatorConfig
 
-	prometheusAPIBuilder *prometheus.PrometheusAPIBuilder
-}
-
-func (r *MeterDefinitionReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (m *MeterDefinitionReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	m.cfg = cfg
-	return nil
-}
-
-func (m *MeterDefinitionReconciler) InjectPrometheusAPIBuilder(b *prometheus.PrometheusAPIBuilder) error {
-	m.prometheusAPIBuilder = b
-	return nil
+	PrometheusAPIBuilder *prometheus.PrometheusAPIBuilder
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -164,11 +148,11 @@ func (r *MeterDefinitionReconciler) Reconcile(ctx context.Context, request recon
 	meterbase := &v1alpha1.MeterBase{}
 	if err := r.Client.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.METERBASE_NAME,
-		Namespace: r.cfg.DeployedNamespace,
+		Namespace: r.Cfg.DeployedNamespace,
 	}, meterbase); k8serrors.IsNotFound(err) {
 		// no MeterBase, requeue
 		reqLogger.Info("meterbase not found, unable to generate meterdefinition query preview")
-		return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
+		return reconcile.Result{RequeueAfter: r.Cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -177,7 +161,7 @@ func (r *MeterDefinitionReconciler) Reconcile(ctx context.Context, request recon
 
 	if !userWorkloadMonitoringEnabled {
 		reqLogger.Info("user workload monitoring is not enabled, unable to generate meterdefinition query preview")
-		return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
+		return reconcile.Result{RequeueAfter: r.Cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 	}
 
 	// Verify reporting
@@ -214,7 +198,7 @@ func (r *MeterDefinitionReconciler) Reconcile(ctx context.Context, request recon
 	}
 
 	if requeue {
-		return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
+		return reconcile.Result{RequeueAfter: r.Cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 	}
 
 	// Generate preview
@@ -254,16 +238,16 @@ func (r *MeterDefinitionReconciler) Reconcile(ctx context.Context, request recon
 		return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 	}
 
-	reqLogger.Info("meterdef_preview", "requeue rate", r.cfg.ControllerValues.MeterDefControllerRequeueRate)
+	reqLogger.Info("meterdef_preview", "requeue rate", r.Cfg.ControllerValues.MeterDefControllerRequeueRate)
 	reqLogger.Info("finished reconciling")
 
-	return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
+	return reconcile.Result{RequeueAfter: r.Cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 }
 
 func (r *MeterDefinitionReconciler) queryPreview(instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
 
-	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
+	prometheusAPI, err := r.PrometheusAPIBuilder.Get(r.PrometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 
 	if err != nil {
 		return queryPreviewResult, err
@@ -345,8 +329,8 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *prom
 // Is Prometheus reporting on the MeterDefinition
 // Check MeterDefinition presence in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
-	reqLogger.Info("apibuilder", "api", r.prometheusAPIBuilder)
-	prometheusAPI, err := r.prometheusAPIBuilder.Get(r.prometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
+	reqLogger.Info("apibuilder", "api", r.PrometheusAPIBuilder)
+	prometheusAPI, err := r.PrometheusAPIBuilder.Get(r.PrometheusAPIBuilder.GetAPITypeFromFlag(userWorkloadMonitoringEnabled))
 
 	if err != nil {
 		return false, err
