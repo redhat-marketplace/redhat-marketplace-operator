@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -135,6 +136,14 @@ var _ = BeforeSuite(func() {
 
 	Expect(k8sClient.Create(context.TODO(), ns)).Should(Succeed(), "create operator namespace")
 
+	openshiftMarketplaceNs := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "openshift-marketplace",
+		},
+	}
+
+	Expect(k8sClient.Create(context.TODO(), openshiftMarketplaceNs)).Should(Succeed(), "create operator namespace")
+
 	// err = (&MeterBaseReconciler{
 	// 	Client:  k8sClient,
 	// 	Scheme:  scheme,
@@ -169,6 +178,15 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("RHM Subscription Controller"),
 		Scheme: k8sScheme,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&RazeeDeploymentReconciler{
+		Client:  k8sClient,
+		Log:     ctrl.Log.WithName("controllers").WithName("RazeeDeploymentReconciler"),
+		Scheme:  k8sScheme,
+		cfg:     operatorCfg,
+		factory: factory,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -218,6 +236,7 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
+	utilruntime.Must(razeev1alpha2.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	return scheme
 }

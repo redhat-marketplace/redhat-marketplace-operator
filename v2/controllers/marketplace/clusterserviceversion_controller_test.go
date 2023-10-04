@@ -176,8 +176,8 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				k8sClient.List(context.TODO(), csvList)
 
 				var csvNames []string
-				for _, mdef := range csvList.Items {
-					csvNames = append(csvNames, mdef.Name)
+				for _, csv := range csvList.Items {
+					csvNames = append(csvNames, csv.Name)
 				}
 
 				return csvNames
@@ -191,9 +191,9 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 
 		It("Should not process mismatched csv and subscriptions", func() {
 			Expect(k8sClient.Create(context.TODO(), subscriptionDifferentCSV.DeepCopy())).Should(Succeed(), "create subscription")
-			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create subscription")
+			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create csv")
 
-			Eventually(func() []string {
+			Eventually(func() []olmv1alpha1.ClusterServiceVersion {
 				csvList := &olmv1alpha1.ClusterServiceVersionList{}
 				labels := map[string]string{
 					watchTag: "lite",
@@ -203,12 +203,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				}
 				k8sClient.List(context.TODO(), csvList, listOpts...)
 
-				var csvNames []string
-				for _, mdef := range csvList.Items {
-					csvNames = append(csvNames, mdef.Name)
-				}
-
-				return csvNames
+				return csvList.Items
 			}, timeout, interval).Should(And(
 				HaveLen(0),
 			))
@@ -217,8 +212,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		It("Should not process subscriptions without labels", func() {
 			Expect(k8sClient.Create(context.TODO(), subscriptionWithoutLabels.DeepCopy())).Should(Succeed(), "create subscription")
 			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create subscription")
-
-			Eventually(func() []string {
+			Eventually(func() []olmv1alpha1.ClusterServiceVersion {
 				csvList := &olmv1alpha1.ClusterServiceVersionList{}
 				labels := map[string]string{
 					watchTag: "lite",
@@ -228,12 +222,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				}
 				k8sClient.List(context.TODO(), csvList, listOpts...)
 
-				var csvNames []string
-				for _, mdef := range csvList.Items {
-					csvNames = append(csvNames, mdef.Name)
-				}
-
-				return csvNames
+				return csvList.Items
 			}, timeout, interval).Should(And(
 				HaveLen(0),
 			))

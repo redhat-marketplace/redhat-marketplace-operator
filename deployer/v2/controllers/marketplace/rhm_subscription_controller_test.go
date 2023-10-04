@@ -71,8 +71,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 			k8sClient.List(context.TODO(), subList, listOpts...)
 
 			var subNames []string
-			for _, mdef := range subList.Items {
-				subNames = append(subNames, mdef.Name)
+			for _, sub := range subList.Items {
+				subNames = append(subNames, sub.Name)
 			}
 
 			return subNames
