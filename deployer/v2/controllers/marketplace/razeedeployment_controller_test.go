@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// . "github.com/onsi/gomega/gstruct"
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	// openshiftconfigv1 "github.com/openshift/api/config/v1"
 	// "github.com/stretchr/testify/assert"
 
 	// operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -58,7 +58,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		razeeDeploymentDeletion marketplacev1alpha1.RazeeDeployment
 		// namespObj      corev1.Namespace
 		// console        *unstructured.Unstructured
-		console *openshiftconfigv1.Console
+		// console *openshiftconfigv1.Console
 		// cluster        *unstructured.Unstructured
 		// clusterVersion *unstructured.Unstructured
 		secret corev1.Secret
@@ -121,12 +121,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 		// 	},
 		// }
 
-		console = &openshiftconfigv1.Console{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cluster",
-				Namespace: operatorNamespace,
-			},
-		}
+		// console = &openshiftconfigv1.Console{
+		// 	ObjectMeta: metav1.ObjectMeta{
+		// 		Name:      "cluster",
+		// 		Namespace: operatorNamespace,
+		// 	},
+		// }
 
 		// cluster = &unstructured.Unstructured{
 		// 	Object: map[string]interface{}{
@@ -191,28 +191,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 		// 		Name:      utils.PARENT_REMOTE_RESOURCE_NAME,
 		// 		Namespace: namespace,
 		// 	},
-		// }
-
-		// setup = func(r *ReconcilerTest) error {
-		// 	var log = logf.Log.WithName("razee_controller")
-		// 	// r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-		// 	r.SetClient(fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build())
-		// 	cfg, err := config.GetConfig()
-		// 	Expect(err).To(Succeed())
-
-		// 	factory := manifests.NewFactory(
-		// 		cfg,
-		// 		k8sScheme,
-		// 	)
-
-		// 	r.SetReconciler(&RazeeDeploymentReconciler{
-		// 		Client:  r.GetClient(),
-		// 		Scheme:  k8sScheme,
-		// 		Log:     log,
-		// 		cfg:     cfg,
-		// 		factory: factory,
-		// 	})
-		// 	return nil
 		// }
 
 		marketplaceconfig := utils.BuildMarketplaceConfigCR(operatorNamespace, "account-id")
@@ -293,7 +271,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("find all rerequisite objects", func() {
 		Expect(k8sClient.Create(context.TODO(), razeeDeployment.DeepCopy())).Should(Succeed(), "create razeedeployment")
 		Expect(k8sClient.Create(context.TODO(), secret.DeepCopy())).Should(Succeed(), "create secret")
-		Expect(k8sClient.Create(context.TODO(), console.DeepCopy())).Should(Succeed(), "create console")
+		// Expect(k8sClient.Create(context.TODO(), console.DeepCopy())).Should(Succeed(), "create console")
 
 		Eventually(func() bool {
 			ConfigMapList := &corev1.ConfigMapList{}
@@ -350,8 +328,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				configMapNames = append(configMapNames, cm.Name)
 			}
 
-			utils.PrettyPrint(configMapNames)
-
 			return !utils.Contains(configMapNames, utils.WATCH_KEEPER_NON_NAMESPACED_NAME) &&
 				!utils.Contains(configMapNames, utils.WATCH_KEEPER_LIMITPOLL_NAME) &&
 				!utils.Contains(configMapNames, utils.WATCH_KEEPER_CONFIG_NAME) &&
@@ -366,8 +342,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 			for _, secret := range secretList.Items {
 				secretNames = append(secretNames, secret.Name)
 			}
-
-			utils.PrettyPrint(secretNames)
 
 			return !utils.Contains(secretNames, utils.WATCH_KEEPER_SECRET_NAME) &&
 				!utils.Contains(secretNames, utils.RHM_OPERATOR_SECRET_NAME) &&
@@ -389,14 +363,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				!utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
 		}, timeout, interval).Should(BeTrue())
 	})
-	// 	t := GinkgoT()
-	// 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
-	// 	reconcilerTest.TestAll(t,
-	// 		ReconcileStep(opts,
-	// 			ReconcileWithExpectedResults(
-	// 				ReconcileResult{}),
-	// 		))
-	// })
 
 	It("bad name", func() {
 		razeeDeploymentLocalDeployment := razeeDeployment.DeepCopy()
@@ -411,7 +377,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 			for _, cm := range ConfigMapList.Items {
 				configMapNames = append(configMapNames, cm.Name)
 			}
-			utils.PrettyPrint(configMapNames)
+
 			return !utils.Contains(configMapNames, utils.WATCH_KEEPER_NON_NAMESPACED_NAME) &&
 				!utils.Contains(configMapNames, utils.WATCH_KEEPER_LIMITPOLL_NAME) &&
 				!utils.Contains(configMapNames, utils.WATCH_KEEPER_CONFIG_NAME) &&
@@ -427,7 +393,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				secretNames = append(secretNames, secret.Name)
 			}
 
-			utils.PrettyPrint(secretNames)
 			return !utils.Contains(secretNames, utils.WATCH_KEEPER_SECRET_NAME) &&
 				!utils.Contains(secretNames, utils.RHM_OPERATOR_SECRET_NAME) &&
 				!utils.Contains(secretNames, utils.COS_READER_KEY_NAME)
@@ -439,7 +404,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 			var catalogSourceNames []string
 			for _, catalogSource := range catalogSourceList.Items {
-				utils.PrettyPrint(catalogSource)
 				catalogSourceNames = append(catalogSourceNames, catalogSource.Name)
 			}
 

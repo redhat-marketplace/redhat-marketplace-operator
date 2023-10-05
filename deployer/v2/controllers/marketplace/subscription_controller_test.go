@@ -16,99 +16,106 @@ package marketplace
 
 import (
 	"context"
-
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
+
+	// . "github.com/onsi/gomega/gstruct"
+	// olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+
+	// corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	// "k8s.io/apimachinery/pkg/types"
+	// "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
+	// idFn := func(element interface{}) string {
+	// 	return fmt.Sprintf("%v", element)
+	// }
+
 	var (
-		name             = "new-subscription"
-		namespace        = "arbitrary-namespace"
+		// name = "new-subscription"
+		// arbitraryNamespace = "arbitrary-namespace"
+		// sourceNamespace    = "source-namespace"
 		uninstallSubName = "sub-uninstall"
 
-		req                      reconcile.Request
-		opts                     []StepOption
-		optsForDeletion          []StepOption
-		preExistingOperatorGroup *olmv1.OperatorGroup
-		subscription             *olmv1alpha1.Subscription
-		subForDeletion           *olmv1alpha1.Subscription
-		clusterServiceVersions   *olmv1alpha1.ClusterServiceVersion
-		aNamespace               *corev1.Namespace
+		// req reconcile.Request
+		// opts []StepOption
+		// optsForDeletion          []StepOption
+		// preExistingOperatorGroup *olmv1.OperatorGroup
+		// subscription             *olmv1alpha1.Subscription
+		subForDeletion         *olmv1alpha1.Subscription
+		clusterServiceVersions *olmv1alpha1.ClusterServiceVersion
+		// aNamespace               *corev1.Namespace
+		// sNamespace               *corev1.Namespace
 	)
 
 	BeforeEach(func() {
-		req = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}
-		opts = []StepOption{
-			WithRequest(req),
-		}
-		optsForDeletion = []StepOption{
-			WithRequest(reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      uninstallSubName,
-					Namespace: namespace,
-				},
-			}),
-		}
+		// req = reconcile.Request{
+		// 	NamespacedName: types.NamespacedName{
+		// 		Name:      name,
+		// 		Namespace: namespace,
+		// 	},
+		// }
+		// opts = []StepOption{
+		// 	WithRequest(req),
+		// }
+		// optsForDeletion = []StepOption{
+		// 	WithRequest(reconcile.Request{
+		// 		NamespacedName: types.NamespacedName{
+		// 			Name:      uninstallSubName,
+		// 			Namespace: namespace,
+		// 		},
+		// 	}),
+		// }
 
-		aNamespace = &corev1.Namespace{
-			ObjectMeta: v1.ObjectMeta{
-				Name: namespace,
-			},
-		}
+		// sNamespace = &corev1.Namespace{
+		// 	ObjectMeta: v1.ObjectMeta{
+		// 		Name: sourceNamespace,
+		// 	},
+		// }
 
-		preExistingOperatorGroup = &olmv1.OperatorGroup{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "existing-group",
-				Namespace: namespace,
-			},
-			Spec: olmv1.OperatorGroupSpec{
-				TargetNamespaces: []string{
-					"arbitrary-namespace",
-				},
-			},
-		}
-		subscription = &olmv1alpha1.Subscription{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-				Labels: map[string]string{
-					utils.OperatorTag: "true",
-				},
-			},
-			Spec: &olmv1alpha1.SubscriptionSpec{
-				CatalogSource:          "source",
-				CatalogSourceNamespace: "source-namespace",
-				Package:                "source-package",
-			},
-		}
+		// aNamespace = &corev1.Namespace{
+		// 	ObjectMeta: v1.ObjectMeta{
+		// 		Name: arbitraryNamespace,
+		// 	},
+		// }
+
+		// preExistingOperatorGroup = &olmv1.OperatorGroup{
+		// 	ObjectMeta: v1.ObjectMeta{
+		// 		Name:      "existing-group",
+		// 		Namespace: operatorNamespace,
+		// 	},
+		// 	Spec: olmv1.OperatorGroupSpec{
+		// 		TargetNamespaces: []string{
+		// 			operatorNamespace,
+		// 		},
+		// 	},
+		// }
+		// subscription = &olmv1alpha1.Subscription{
+		// 	ObjectMeta: v1.ObjectMeta{
+		// 		Name:      name,
+		// 		Namespace: operatorNamespace,
+		// 		Labels: map[string]string{
+		// 			utils.OperatorTag: "true",
+		// 		},
+		// 	},
+		// 	Spec: &olmv1alpha1.SubscriptionSpec{
+		// 		CatalogSource:          "source",
+		// 		CatalogSourceNamespace: "source-namespace",
+		// 		Package:                "source-package",
+		// 	},
+		// }
 
 		subForDeletion = &olmv1alpha1.Subscription{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      uninstallSubName,
-				Namespace: namespace,
-				Labels: map[string]string{
-					utils.UninstallTag: "true",
-				},
+				Namespace: operatorNamespace,
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{
 				CatalogSource:          "source",
@@ -123,179 +130,366 @@ var _ = Describe("Testing with Ginkgo", func() {
 		clusterServiceVersions = &olmv1alpha1.ClusterServiceVersion{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "csv-1",
-				Namespace: namespace,
+				Namespace: operatorNamespace,
+			},
+			Spec: olmv1alpha1.ClusterServiceVersionSpec{
+				InstallStrategy: olmv1alpha1.NamedInstallStrategy{
+					StrategySpec: olmv1alpha1.StrategyDetailsDeployment{
+						DeploymentSpecs: []olmv1alpha1.StrategyDeploymentSpec{},
+					},
+				},
 			},
 		}
+
 	})
 
-	var setup = func(r *ReconcilerTest) error {
-		var log = logf.Log.WithName("subscription_controller")
-		r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-		r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
-		return nil
-	}
+	// var setup = func(r *ReconcilerTest) error {
+	// 	var log = logf.Log.WithName("subscription_controller")
+	// 	r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
+	// 	r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
+	// 	return nil
+	// }
 
-	var testSubscriptionDelete = func(t GinkgoTInterface) {
-		t.Parallel()
-		reconcilerTest := NewReconcilerTest(setup, subForDeletion, clusterServiceVersions)
-		reconcilerTest.TestAll(t,
-			ReconcileStep(optsForDeletion,
-				ReconcileWithExpectedResults(RequeueResult)),
-			// List and check results
-			ListStep(opts,
-				ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-				ListWithFilter(
-					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
+	Context("subs and og", func() {
+		// BeforeEach(func() {
+		// 	Expect(k8sClient.Create(context.TODO(), aNamespace.DeepCopy())).Should(Succeed(), "create arbitrary ns")
+		// 	Expect(k8sClient.Create(context.TODO(), sNamespace.DeepCopy())).Should(Succeed(), "create source ns")
+		// })
+		BeforeEach(func() {
+			Expect(k8sClient.Create(context.TODO(), subForDeletion.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+			Expect(k8sClient.Create(context.TODO(), clusterServiceVersions.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+		})
 
-					assert.Truef(t, ok, "expected csv list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ReconcileStep(optsForDeletion,
-				ReconcileWithExpectedResults(DoneResult)),
-			ListStep(opts,
-				ListWithObj(&olmv1alpha1.SubscriptionList{}),
-				ListWithFilter(
-					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1alpha1.SubscriptionList)
+		// AfterEach(func() {
+		// 	aNs := &corev1.Namespace{}
+		// 	Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+		// 		Name:      arbitraryNamespace,
+		// 		Namespace: arbitraryNamespace,
+		// 	}, aNs)).Should(Succeed(), "get arbitrary namespace")
+		// 	k8sClient.Delete(context.TODO(), aNs)
 
-					assert.Truef(t, ok, "expected subscription list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithFilter(
-					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+		// 	sNs := &corev1.Namespace{}
+		// 	Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+		// 		Name:      sourceNamespace,
+		// 		Namespace: sourceNamespace,
+		// 	}, sNs)).Should(Succeed(), "get subscription")
+		// 	k8sClient.Delete(context.TODO(), sNs)
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-		)
-	}
+		// 	Eventually(func() []string {
+		// 		nsList := &corev1.NamespaceList{}
+		// 		k8sClient.List(context.TODO(), nsList)
 
-	var testNewSubscription = func(t GinkgoTInterface) {
-		t.Parallel()
-		reconcilerTest := NewReconcilerTest(setup, subscription.DeepCopy())
-		reconcilerTest.TestAll(t,
-			// Reconcile to create obj
-			ReconcileStep(opts,
-				ReconcileWithExpectedResults(DoneResult)),
-			// List and check results
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-					client.MatchingLabels(map[string]string{
-						utils.OperatorTag: "true",
-					})),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+		// 		var nsNames []string
+		// 		for _, ns := range nsList.Items {
+		// 			nsNames = append(nsNames, ns.Name)
+		// 		}
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
-				}),
-			),
-		)
-	}
+		// 		return nsNames
+		// 	}, timeout, interval).Should(And(
+		// 		HaveLen(0),
+		// 	))
 
-	var testNewSubscriptionWithOperatorGroup = func(t GinkgoTInterface) {
-		t.Parallel()
-		reconcilerTest := NewReconcilerTest(setup, subscription.DeepCopy(), preExistingOperatorGroup.DeepCopy())
-		reconcilerTest.TestAll(t,
-			ReconcileStep(opts,
-				ReconcileWithExpectedResults(DoneResult)),
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+		// })
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
-				}),
-			),
-		)
-	}
+		It("test subscription delete", func(ctx SpecContext) {
+			// Expect(k8sClient.Create(context.TODO(), subForDeletion.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+			// Expect(k8sClient.Create(context.TODO(), clusterServiceVersions.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+			Eventually(func() bool {
+				sub := &olmv1alpha1.Subscription{}
+				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+					Name:      uninstallSubName,
+					Namespace: operatorNamespace,
+				}, sub)).Should(Succeed(), "get sub for update")
+				sub.Labels = map[string]string{
+					utils.UninstallTag: "bogus",
+				}
+				sub.Status.InstalledCSV = "csv-1"
+				Expect(k8sClient.Update(context.TODO(), sub)).Should(Succeed(), "update sub")
 
-	var testDeleteOperatorGroupIfTooMany = func(t GinkgoTInterface) {
-		//t.Parallel()
-		reconcilerTest := NewReconcilerTest(setup, subscription.DeepCopy())
-		Expect(k8sClient.Create(context.TODO(), aNamespace.DeepCopy())).Should(Succeed())
+				upDatedSub := &olmv1alpha1.Subscription{}
+				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+					Name:      uninstallSubName,
+					Namespace: operatorNamespace,
+				}, upDatedSub)).Should(Succeed(), "find updated sub")
 
-		reconcilerTest.TestAll(t,
-			// Reconcile to create obj. Results in a tagged OperatorGroup generated for a Subscription
-			ReconcileStep(opts,
-				ReconcileWithExpectedResults(DoneResult)),
-			// List and check results
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-					client.MatchingLabels(map[string]string{
-						utils.OperatorTag: "true",
-					})),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+				utils.PrettyPrint(upDatedSub)
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
+				return upDatedSub.Status.InstalledCSV == "csv-1"
+			}, timeout, interval).Should(BeTrue(), "check that sub was updated")
 
-					// Create a second untagged OperatorGroup
-					r.GetClient().Create(context.TODO(), preExistingOperatorGroup.DeepCopy())
-				})),
-			// There are 2 OperatorGroups
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithFilter(
-					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+			Eventually(func() []string {
+				csvList := &olmv1alpha1.ClusterServiceVersionList{}
+				k8sClient.List(context.TODO(), csvList)
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 2, len(list.Items))
+				var csvNames []string
+				for _, csv := range csvList.Items {
+					csvNames = append(csvNames, csv.Name)
+				}
 
-				})),
-			// Reconcile again to delete the extra tagged operator group
-			ReconcileStep(opts,
-				ReconcileWithExpectedResults(DoneResult)),
-			// Check to make sure we're left with 1 OperatorGroup
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithFilter(client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+				return csvNames
+			}, timeout, interval).Should(And(
+				HaveLen(0),
+			))
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
+			// Eventually(func() []string {
+			// 	subList := &olmv1alpha1.SubscriptionList{}
+			// 	k8sClient.List(context.TODO(), subList)
 
-					r.GetClient().Create(context.TODO(), preExistingOperatorGroup.DeepCopy())
-				})),
-			// Check to make sure we deleted the tagged OperatorGroup
-			ListStep(opts,
-				ListWithObj(&olmv1.OperatorGroupList{}),
-				ListWithFilter(
-					client.InNamespace(namespace),
-					client.MatchingLabels(map[string]string{
-						utils.OperatorTag: "true",
-					})),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+			// 	var subNames []string
+			// 	for _, sub := range subList.Items {
+			// 		subNames = append(subNames, sub.Name)
+			// 	}
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
-		)
-	}
+			// 	return subNames
+			// }, timeout, interval).Should(And(
+			// 	HaveLen(0),
+			// ))
 
-	It("subscription controller", func() {
-		defaultFeatures := []string{"razee", "meterbase"}
-		viper.Set("features", defaultFeatures)
-		testNewSubscription(GinkgoT())
-		testNewSubscriptionWithOperatorGroup(GinkgoT())
-		testDeleteOperatorGroupIfTooMany(GinkgoT())
-		testSubscriptionDelete(GinkgoT())
+			// Eventually(func() []string {
+			// 	opGrpList := &olmv1.OperatorGroupList{}
+			// 	k8sClient.List(context.TODO(), opGrpList)
+
+			// 	var ogNames []string
+			// 	for _, og := range opGrpList.Items {
+			// 		ogNames = append(ogNames, og.Name)
+			// 	}
+
+			// 	return ogNames
+			// }, timeout, interval).Should(And(
+			// 	HaveLen(0),
+			// ))
+		}, SpecTimeout(time.Second*120))
+
+		// It("new subscription", func() {
+		// 	Expect(k8sClient.Create(context.TODO(), subscription.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+		// 	Eventually(func() []string {
+		// 		csvList := &olmv1.OperatorGroupList{}
+
+		// 		labels := map[string]string{
+		// 			utils.OperatorTag: "true",
+		// 		}
+		// 		listOpts := []client.ListOption{
+		// 			client.MatchingLabels(labels),
+		// 		}
+		// 		k8sClient.List(context.TODO(), csvList, listOpts...)
+
+		// 		var ogNames []string
+		// 		for _, og := range csvList.Items {
+		// 			ogNames = append(ogNames, og.Name)
+		// 		}
+
+		// 		return ogNames
+		// 	}, timeout, interval).Should(And(
+		// 		HaveLen(1),
+		// 	))
+		// })
+
+		// It("new subscription with operator group", func() {
+		// 	Expect(k8sClient.Create(context.TODO(), subscription.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+		// 	Expect(k8sClient.Create(context.TODO(), preExistingOperatorGroup.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+
+		// 	Eventually(func() []string {
+		// 		csvList := &olmv1.OperatorGroupList{}
+
+		// 		k8sClient.List(context.TODO(), csvList)
+
+		// 		var ogNames []string
+		// 		for _, og := range csvList.Items {
+		// 			ogNames = append(ogNames, og.Name)
+		// 		}
+
+		// 		return ogNames
+		// 	}, timeout, interval).Should(And(
+		// 		HaveLen(1),
+		// 		MatchAllElements(idFn, Elements{
+		// 			"existing-group": Equal("existing-group"),
+		// 		}),
+		// 	))
+		// })
+
+		// It("delete operator group if too many", func() {
+		// 	Expect(k8sClient.Create(context.TODO(), subscription.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+		// 	Expect(k8sClient.Create(context.TODO(), preExistingOperatorGroup.DeepCopy())).Should(Succeed(), "create subscription for deletion")
+
+		// 	Eventually(func() []string {
+		// 		ogList := &olmv1.OperatorGroupList{}
+
+		// 		k8sClient.List(context.TODO(), ogList)
+
+		// 		var ogNames []string
+		// 		for _, og := range ogList.Items {
+		// 			ogNames = append(ogNames, og.Name)
+		// 		}
+
+		// 		return ogNames
+		// 	}, timeout, interval).Should(And(
+		// 		HaveLen(0),
+		// 	))
+		// })
+
 	})
+
+	// var testSubscriptionDelete = func(t GinkgoTInterface) {
+	// 	t.Parallel()
+	// 	reconcilerTest := NewReconcilerTest(setup, subForDeletion, clusterServiceVersions)
+	// 	reconcilerTest.TestAll(t,
+	// 		ReconcileStep(optsForDeletion,
+	// 			ReconcileWithExpectedResults(RequeueResult)),
+	// 		// List and check results
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace)),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
+
+	// 				assert.Truef(t, ok, "expected csv list got type %T", i)
+	// 				assert.Equal(t, 0, len(list.Items))
+	// 			})),
+	// 		ReconcileStep(optsForDeletion,
+	// 			ReconcileWithExpectedResults(DoneResult)),
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1alpha1.SubscriptionList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace)),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1alpha1.SubscriptionList)
+
+	// 				assert.Truef(t, ok, "expected subscription list got type %T", i)
+	// 				assert.Equal(t, 0, len(list.Items))
+	// 			})),
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace)),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 0, len(list.Items))
+	// 			})),
+	// 	)
+	// }
+
+	// var testNewSubscription = func(t GinkgoTInterface) {
+	// 	t.Parallel()
+	// 	reconcilerTest := NewReconcilerTest(setup, subscription.DeepCopy())
+	// 	reconcilerTest.TestAll(t,
+	// 		// Reconcile to create obj
+	// 		ReconcileStep(opts,
+	// 			ReconcileWithExpectedResults(DoneResult)),
+	// 		// List and check results
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace),
+	// 				client.MatchingLabels(map[string]string{
+	// 					utils.OperatorTag: "true",
+	// 				})),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 1, len(list.Items))
+	// 			}),
+	// 		),
+	// 	)
+	// }
+
+	// var testNewSubscriptionWithOperatorGroup = func(t GinkgoTInterface) {
+	// 	t.Parallel()
+	// 	reconcilerTest := NewReconcilerTest(setup, subscription.DeepCopy(), preExistingOperatorGroup.DeepCopy())
+	// 	reconcilerTest.TestAll(t,
+	// 		ReconcileStep(opts,
+	// 			ReconcileWithExpectedResults(DoneResult)),
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 1, len(list.Items))
+	// 			}),
+	// 		),
+	// 	)
+	// }
+
+	// var testDeleteOperatorGroupIfTooMany = func(t GinkgoTInterface) {
+	// 	//t.Parallel()
+	// 	reconcilerTest := NewReconcilerTest(setup, subscription.DeepCopy())
+	// 	Expect(k8sClient.Create(context.TODO(), aNamespace.DeepCopy())).Should(Succeed())
+
+	// 	reconcilerTest.TestAll(t,
+	// 		// Reconcile to create obj. Results in a tagged OperatorGroup generated for a Subscription
+	// 		ReconcileStep(opts,
+	// 			ReconcileWithExpectedResults(DoneResult)),
+	// 		// List and check results
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace),
+	// 				client.MatchingLabels(map[string]string{
+	// 					utils.OperatorTag: "true",
+	// 				})),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 1, len(list.Items))
+
+	// 				// Create a second untagged OperatorGroup
+	// 				r.GetClient().Create(context.TODO(), preExistingOperatorGroup.DeepCopy())
+	// 			})),
+	// 		// There are 2 OperatorGroups
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace)),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 2, len(list.Items))
+
+	// 			})),
+	// 		// Reconcile again to delete the extra tagged operator group
+	// 		ReconcileStep(opts,
+	// 			ReconcileWithExpectedResults(DoneResult)),
+	// 		// Check to make sure we're left with 1 OperatorGroup
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithFilter(client.InNamespace(namespace)),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 1, len(list.Items))
+
+	// 				r.GetClient().Create(context.TODO(), preExistingOperatorGroup.DeepCopy())
+	// 			})),
+	// 		// Check to make sure we deleted the tagged OperatorGroup
+	// 		ListStep(opts,
+	// 			ListWithObj(&olmv1.OperatorGroupList{}),
+	// 			ListWithFilter(
+	// 				client.InNamespace(namespace),
+	// 				client.MatchingLabels(map[string]string{
+	// 					utils.OperatorTag: "true",
+	// 				})),
+	// 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
+	// 				list, ok := i.(*olmv1.OperatorGroupList)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				assert.Equal(t, 0, len(list.Items))
+	// 			})),
+	// 	)
+	// }
+
+	//	It("subscription controller", func() {
+	//		defaultFeatures := []string{"razee", "meterbase"}
+	//		viper.Set("features", defaultFeatures)
+	//		testNewSubscription(GinkgoT())
+	//		testNewSubscriptionWithOperatorGroup(GinkgoT())
+	//		testDeleteOperatorGroupIfTooMany(GinkgoT())
+	//		testSubscriptionDelete(GinkgoT())
+	//	})
 })
