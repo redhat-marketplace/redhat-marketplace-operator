@@ -178,17 +178,6 @@ var _ = BeforeSuite(func() {
 
 	Expect(k8sClient.Create(context.TODO(), dep)).Should(Succeed(), "create controller deployment")
 
-	// err = (&MeterBaseReconciler{
-	// 	Client:  k8sClient,
-	// 	Scheme:  scheme,
-	// 	Log:     ctrl.Log.WithName("controllers").WithName("MeterBase"),
-	// 	cfg:     operatorCfg,
-	// 	factory: factory,
-	// 	CC:      reconcileutils.NewClientCommand(k8sManager.GetClient(), scheme, ctrl.Log),
-	// 	patcher: patch.RHMDefaultPatcher,
-	// }).SetupWithManager(k8sManager)
-	// Expect(err).ToNot(HaveOccurred())
-
 	factory = manifests.NewFactory(operatorCfg, k8sScheme)
 
 	clientset, err = kubernetes.NewForConfig(cfg)
@@ -214,6 +203,21 @@ var _ = BeforeSuite(func() {
 	err = (&MarketplaceConfigReconciler{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfigReconciler"),
+		Scheme: k8sScheme,
+		Cfg:    operatorCfg,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&ClusterServiceVersionReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersionReconciler"),
+		Scheme: k8sScheme,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&MeterDefinitionReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterDefinitionReconciler"),
 		Scheme: k8sScheme,
 		Cfg:    operatorCfg,
 	}).SetupWithManager(k8sManager)
