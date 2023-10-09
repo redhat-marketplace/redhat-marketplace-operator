@@ -35,7 +35,6 @@ import (
 
 var (
 	err        error
-	namespace         = "openshift-redhat-marketplace"
 	customerID string = "accountid"
 
 	secret      *corev1.Secret
@@ -45,13 +44,13 @@ var (
 
 var _ = Describe("Testing MarketplaceConfig controller", func() {
 
-	marketplaceconfig := utils.BuildMarketplaceConfigCR(namespace, customerID)
+	marketplaceconfig := utils.BuildMarketplaceConfigCR(operatorNamespace, customerID)
 	marketplaceconfig.Spec.ClusterUUID = "test"
 	marketplaceconfig.Spec.IsDisconnected = ptr.Bool(true)
 	marketplaceconfig.Spec.ClusterName = "test-cluster"
 	marketplaceconfig.Spec.License.Accept = ptr.Bool(true)
 
-	marketplaceconfigConnected := utils.BuildMarketplaceConfigCR(namespace, customerID)
+	marketplaceconfigConnected := utils.BuildMarketplaceConfigCR(operatorNamespace, customerID)
 	marketplaceconfigConnected.Spec.ClusterUUID = "test"
 	marketplaceconfigConnected.Spec.ClusterName = "test-cluster-connected"
 	marketplaceconfigConnected.Spec.InstallIBMCatalogSource = ptr.Bool(true)
@@ -86,7 +85,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.RHMPullSecretName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Data: map[string][]byte{
 				utils.RHMPullSecretKey: []byte(tokenString),

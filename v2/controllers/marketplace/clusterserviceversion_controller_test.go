@@ -48,7 +48,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		clusterserviceversion = &olmv1alpha1.ClusterServiceVersion{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      csvName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Spec: olmv1alpha1.ClusterServiceVersionSpec{
 				InstallStrategy: olmv1alpha1.NamedInstallStrategy{
@@ -61,7 +61,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		subscription = &olmv1alpha1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      subName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 				Labels: map[string]string{
 					utils.OperatorTag: "true",
 				},
@@ -75,7 +75,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		subscriptionWithoutLabels = &olmv1alpha1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      subName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 			},
 			Spec: &olmv1alpha1.SubscriptionSpec{},
 			Status: olmv1alpha1.SubscriptionStatus{
@@ -86,7 +86,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		subscriptionDifferentCSV = &olmv1alpha1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      subName,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
 				Labels: map[string]string{
 					utils.OperatorTag: "true",
 				},
@@ -237,13 +237,13 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 		kind := "App"
 		var ann = map[string]string{
 			utils.CSV_ANNOTATION_NAME:      csvName,
-			utils.CSV_ANNOTATION_NAMESPACE: namespace,
+			utils.CSV_ANNOTATION_NAMESPACE: operatorNamespace,
 		}
 
 		ogMeter := &marketplacev1alpha1.MeterDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
-				Namespace:   namespace,
+				Namespace:   operatorNamespace,
 				Annotations: ann,
 			},
 			Spec: marketplacev1alpha1.MeterDefinitionSpec{
@@ -255,6 +255,6 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 
 		meterStr, _ := json.Marshal(ogMeter)
 
-		Expect(meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)).Should(Succeed(), "build meterdefinition from string")
+		Expect(meter.BuildMeterDefinitionFromString(string(meterStr), csvName, operatorNamespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)).Should(Succeed(), "build meterdefinition from string")
 	})
 })
