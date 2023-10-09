@@ -29,42 +29,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	// razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
-	// idFn := func(element interface{}) string {
-	// 	return fmt.Sprintf("%v", element)
-	// }
 	var (
 		name            = utils.RAZEE_NAME
-		secretName      = "rhm-operator-secret"
+		secretName      = utils.RHM_OPERATOR_SECRET_NAME
 		razeeDeployment marketplacev1alpha1.RazeeDeployment
-		// razeeDeploymentDeletion marketplacev1alpha1.RazeeDeployment
-		// namespObj      corev1.Namespace
-		// console        *unstructured.Unstructured
-		// console *openshiftconfigv1.Console
-		// cluster        *unstructured.Unstructured
-		// clusterVersion *unstructured.Unstructured
-		secret corev1.Secret
-		// cosReaderKeySecret      corev1.Secret
-		// configMap               corev1.ConfigMap
-		// deployment              appsv1.Deployment
-		// parentRRS3              razeev1alpha2.RemoteResource
+		secret          corev1.Secret
 	)
 
 	BeforeEach(func() {
 
 		name = utils.RAZEE_NAME
-		// namespace = "redhat-marketplace"
-		secretName = "rhm-operator-secret"
-
-		// req = reconcile.Request{
-		// 	NamespacedName: types.NamespacedName{
-		// 		Name:      name,
-		// 		Namespace: namespace,
-		// 	},
-		// }
+		secretName = utils.RHM_OPERATOR_SECRET_NAME
 
 		razeeDeployment = marketplacev1alpha1.RazeeDeployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -80,61 +58,10 @@ var _ = Describe("Testing with Ginkgo", func() {
 				InstallIBMCatalogSource: ptr.Bool(true),
 			},
 		}
-		/*
-			razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: operatorNamespace,
-				},
-				Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-					Enabled:          true,
-					ClusterUUID:      "foo",
-					DeploySecretName: &secretName,
-					TargetNamespace:  ptr.String(operatorNamespace),
-				},
-			}
-		*/
-
-		// console = &unstructured.Unstructured{
-		// 	Object: map[string]interface{}{
-		// 		"apiVersion": "config.openshift.io/v1",
-		// 		"kind":       "Console",
-		// 		"metadata": map[string]interface{}{
-		// 			"name": "cluster",
-		// 		},
-		// 	},
-		// }
-
-		// console = &openshiftconfigv1.Console{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      "cluster",
-		// 		Namespace: operatorNamespace,
-		// 	},
-		// }
-
-		// cluster = &unstructured.Unstructured{
-		// 	Object: map[string]interface{}{
-		// 		"apiVersion": "config.openshift.io/v1",
-		// 		"kind":       "Infrastructure",
-		// 		"metadata": map[string]interface{}{
-		// 			"name": "cluster",
-		// 		},
-		// 	},
-		// }
-
-		// clusterVersion = &unstructured.Unstructured{
-		// 	Object: map[string]interface{}{
-		// 		"apiVersion": "config.openshift.io/v1",
-		// 		"kind":       "ClusterVersion",
-		// 		"metadata": map[string]interface{}{
-		// 			"name": "version",
-		// 		},
-		// 	},
-		// }
 
 		secret = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "rhm-operator-secret",
+				Name:      utils.RHM_OPERATOR_SECRET_NAME,
 				Namespace: operatorNamespace,
 			},
 			Data: map[string][]byte{
@@ -147,35 +74,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 			},
 		}
-
-		// cosReaderKeySecret = corev1.Secret{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      utils.COS_READER_KEY_NAME,
-		// 		Namespace: namespace,
-		// 	},
-		// 	Data: map[string][]byte{
-		// 		utils.IBM_COS_READER_KEY_FIELD: []byte("rhm-cos-reader-key"),
-		// 	},
-		// }
-		// configMap = corev1.ConfigMap{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      utils.WATCH_KEEPER_CONFIG_NAME,
-		// 		Namespace: namespace,
-		// 	},
-		// }
-
-		// deployment = appsv1.Deployment{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-		// 		Namespace: namespace,
-		// 	},
-		// }
-		// parentRRS3 = razeev1alpha2.RemoteResource{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      utils.PARENT_REMOTE_RESOURCE_NAME,
-		// 		Namespace: namespace,
-		// 	},
-		// }
 
 		marketplaceconfig := utils.BuildMarketplaceConfigCR(operatorNamespace, "account-id")
 		marketplaceconfig.Spec.ClusterUUID = "test"
@@ -199,7 +97,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		operatorSecret := &corev1.Secret{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      "rhm-operator-secret",
+			Name:      utils.RHM_OPERATOR_SECRET_NAME,
 			Namespace: operatorNamespace,
 		}, operatorSecret)
 		if !k8serrors.IsNotFound(err) {
@@ -255,7 +153,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("find all rerequisite objects", func() {
 		Expect(k8sClient.Create(context.TODO(), razeeDeployment.DeepCopy())).Should(Succeed(), "create razeedeployment")
 		Expect(k8sClient.Create(context.TODO(), secret.DeepCopy())).Should(Succeed(), "create secret")
-		// Expect(k8sClient.Create(context.TODO(), console.DeepCopy())).Should(Succeed(), "create console")
 
 		Eventually(func() bool {
 			ConfigMapList := &corev1.ConfigMapList{}
