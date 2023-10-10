@@ -140,7 +140,7 @@ envtest:
 
 .PHONY: source-envtest
 source-envtest:
-	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.29.x)'"
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.27.x)'"
 
 # --COMMON--
 
