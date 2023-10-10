@@ -76,8 +76,8 @@ clean:
 
 # Run tests
 .PHONY: test
-test: fmt vet ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal ./apis ./controllers
+test: fmt vet ginkgo envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal ./apis ./controllers
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds

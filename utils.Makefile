@@ -12,6 +12,7 @@ export TAG
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
 GO_VERSION ?= 1.19
+ENVTEST_K8S_VERSION ?= 1.27.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -140,7 +141,7 @@ envtest:
 
 .PHONY: source-envtest
 source-envtest:
-	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.27.x)'"
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path $(ENVTEST_K8S_VERSION))'"
 
 # --COMMON--
 
