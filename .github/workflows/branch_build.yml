@@ -42,9 +42,6 @@ jobs:
       run: |-
         make envtest
         make source-envtest
-    - name: Test
-      run: make operator/test
-
     - name: WhiteSource Unified Agent Scan
       env:
         WS_APIKEY: ${{secrets.WS_APIKEY}}
@@ -94,6 +91,9 @@ jobs:
         - authchecker
         - metering
         - reporter
+        - operator
+        - deployer
+        - datareporter
   images:
     name: Build Images
     runs-on: ubuntu-20.04
