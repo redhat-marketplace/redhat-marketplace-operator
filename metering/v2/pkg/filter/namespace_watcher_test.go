@@ -19,11 +19,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("namespace_watcher", func() {
@@ -38,7 +38,8 @@ var _ = Describe("namespace_watcher", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
-		sut = ProvideNamespaceWatcher(logr.Discard())
+		//sut = ProvideNamespaceWatcher(logr.Discard())
+		sut = ProvideNamespaceWatcher(logf.Log.WithName("namespace_watcher_test"))
 		item1 = client.ObjectKey{Namespace: "foo", Name: "pod1"}
 		item2 = client.ObjectKey{Namespace: "foo2", Name: "pod1"}
 		item3 = client.ObjectKey{Namespace: "foo", Name: "pod2"}

@@ -111,7 +111,7 @@ func (n *NamespaceWatcher) removeNamespace(in client.ObjectKey) (alert bool) {
 	delete(n.namespaces, in)
 	after := n.listNamespaces()
 
-	if !alert && reflect.DeepEqual(before, after) {
+	if !alert && !reflect.DeepEqual(before, after) {
 		alert = true
 	}
 
@@ -120,6 +120,7 @@ func (n *NamespaceWatcher) removeNamespace(in client.ObjectKey) (alert bool) {
 
 func (n *NamespaceWatcher) RemoveNamespace(in client.ObjectKey) {
 	alert := n.removeNamespace(in)
+	n.log.Info("removing namespaces", "namespaces", fmt.Sprintf("%+v", n.listNamespaces()), "alert", alert)
 	if alert {
 		n.alert()
 	}
