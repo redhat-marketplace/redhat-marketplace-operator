@@ -16,57 +16,79 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("EngineTest", func() {
 	var err error
 
-	var cfg *Config
+	var cc *v1alpha1.ComponentConfig
+	var config *Config
 
 	var ctx context.Context
 	var cancel context.CancelFunc
 
-	var engine *EventEngine
+	//var engine *EventEngine
+	var ps *ProcessorSender
 
-	var eventone Event
-	//var eventtwo Event
+	//var eventone Event
 
 	BeforeEach(func() {
 
-		cfg = &Config{
+		cc = v1alpha1.NewComponentConfig()
+		config = &Config{
 			OutputDirectory:      os.TempDir(),
-			DataServiceTokenFile: "dataServiceTokenFile",
-			DataServiceCertFile:  "dataServiceCertFile",
-			Namespace:            "namespace",
+			DataServiceTokenFile: "/dev/null",
+			DataServiceCertFile:  "/dev/null",
+			Namespace:            namespace,
+			MaxFlushTimeout:      cc.MaxFlushTimeout,
 		}
 
 		ctx, cancel = context.WithCancel(context.Background())
 
-		eventone = Event{"one", json.RawMessage(`{"event":"one"}`)}
+		//eventone = Event{"one", json.RawMessage(`{"event":"one"}`)}
 
-		// Pass ComponentConfig that sets the mock server where we can read the request
-		engine = NewEventEngine(ctx, logf.Log, cfg, nil)
+		ps = &ProcessorSender{
+			log:           logf.Log,
+			digestersSize: 1,
+			config:        config,
+			client:        k8sClient,
+		}
 
-		err = engine.Start(ctx)
+		err = ps.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		By("stopping the engine")
+		By("stopping the processor")
 		cancel()
 	})
 
-	It("should send event after reaching the configured limit", func() {
-		for i := 0; i < 60; i++ {
-			engine.EventChan <- eventone
-		}
+	/* Processor will not start without active DataService, need to consider mock
 
-		// read the request
+	It("should send event after reaching the configured limit", func() {
+		// Send 1 less than limit
+		for i := 0; i < cc.MaxEventEntries-1; i++ {
+			utils.PrettyPrint("send one")
+			ps.EventChan <- eventone
+		}
+		Eventually(func() []string {
+			utils.PrettyPrint(engine.eventAccumulator.GetKeys())
+			return ps.eventAccumulator.GetKeys()
+		}, timeout, interval).Should(HaveLen(cc.MaxEventEntries - 1))
+
+		// Send 1 more, should Flush
+		ps.EventChan <- eventone
+		Eventually(func() []string {
+			utils.PrettyPrint(engine.eventAccumulator.GetKeys())
+			return ps.eventAccumulator.GetKeys()
+		}, timeout, interval).Should(HaveLen(0))
 	})
+	*/
+
 })
