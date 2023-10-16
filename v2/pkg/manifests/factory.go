@@ -619,6 +619,11 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 	// Keep last 3 days of data
 	j.Spec.JobTemplate.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
 
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&j.Spec.JobTemplate.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return nil, fmt.Errorf("failed to inject subscription config - name=%s - %v", j.Name, err)
+	}
+
 	return j, nil
 }
 
@@ -1031,6 +1036,11 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 
 	d.Namespace = f.namespace
 
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&d.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return nil, fmt.Errorf("failed to inject subscription config - name=%s - %v", d.Name, err)
+	}
+
 	return d, nil
 }
 
@@ -1176,6 +1186,11 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
 		}
 
 		container.Args = newArgs
+	}
+
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&sts.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return fmt.Errorf("failed to inject subscription config - name=%s - %v", sts.Name, err)
 	}
 
 	return nil
@@ -1405,6 +1420,11 @@ func (f *Factory) UpdateRemoteResourceDeployment(dep *appsv1.Deployment) error {
 		f.ReplaceImages(container)
 	}
 
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&dep.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return fmt.Errorf("failed to inject subscription config - name=%s - %v", dep.Name, err)
+	}
+
 	return nil
 }
 
@@ -1433,6 +1453,11 @@ func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
 		f.ReplaceImages(container)
+	}
+
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&dep.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return fmt.Errorf("failed to inject subscription config - name=%s - %v", dep.Name, err)
 	}
 
 	return nil

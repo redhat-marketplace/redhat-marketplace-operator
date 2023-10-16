@@ -219,6 +219,13 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
 
+// Infrastructure Discovery
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=replicasets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=clusterserviceversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {

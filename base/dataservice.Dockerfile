@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/go-toolset:1.19.10-10
+FROM registry.access.redhat.com/ubi8/go-toolset:1.19
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS

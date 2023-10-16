@@ -356,6 +356,14 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - statefulsets
   verbs:
   - create
@@ -580,6 +588,22 @@ rules:
   - delete
   - patch
   - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - route.openshift.io
   resources:

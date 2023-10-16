@@ -79,6 +79,13 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
 
+// Infrastructure Discovery
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=replicasets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=clusterserviceversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch
+
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
 func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
