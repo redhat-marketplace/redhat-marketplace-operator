@@ -161,7 +161,6 @@ const (
 	// License not accepted
 	ConditionNoLicense status.ConditionType = "NoLicense"
 
-
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
