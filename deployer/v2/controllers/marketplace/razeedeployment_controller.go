@@ -70,6 +70,23 @@ type RazeeDeploymentReconciler struct {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
+
+	// Only reconcile this deployment
+	rdPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew.GetName() == utils.RAZEE_NAME
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == utils.RAZEE_NAME
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetName() == utils.RAZEE_NAME
+		},
+	}
+
 	// This mapFn will queue the default named razeedeployment
 	mapFn := handler.MapFunc(
 		func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -166,7 +183,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		// Should be covered by cache filter
 		// WithEventFilter(predicates.NamespacePredicate(r.Cfg.DeployedNamespace)).
 		For(&marketplacev1alpha1.RazeeDeployment{},
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}, rdPred)).
 		WithOptions(controller.Options{
 			Reconciler: r,
 			RateLimiter: workqueue.NewMaxOfRateLimiter(
@@ -283,28 +300,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 				return err
 			}
 			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionRazeeNotEnabled) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{}, nil
-	}
-
-	// check name match
-	if instance.Name != utils.RAZEE_NAME {
-		reqLogger.Info("Names other than the default are not supported",
-			"supportedName", utils.RAZEE_DEPLOY_JOB_NAME,
-			"name", instance.Name,
-		)
-
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionRazeeNameMismatch) {
 				return r.Client.Status().Update(context.TODO(), instance)
 			}
 			return nil
