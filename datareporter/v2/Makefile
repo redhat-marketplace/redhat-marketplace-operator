@@ -113,8 +113,8 @@ vet: ## Run go vet against code.
 
 #this is different
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+test: manifests generate fmt vet envtest ginkgo ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -r -timeout 1m -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --show-node-events --v --trace ./...
 
 ##@ Build
 

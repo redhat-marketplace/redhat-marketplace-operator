@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const ()
@@ -51,17 +49,7 @@ type DeploymentReconciler struct {
 	Client  client.Client
 	Scheme  *runtime.Scheme
 	Log     logr.Logger
-	factory *manifests.Factory
-}
-
-func (r *DeploymentReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *DeploymentReconciler) InjectFactory(f *manifests.Factory) error {
-	r.factory = f
-	return nil
+	Factory *manifests.Factory
 }
 
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
@@ -90,29 +78,29 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, request reconcile.
 		return reconcile.Result{}, err
 	}
 
-	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
-		cm, err := r.factory.NewMOCABundleConfigMap()
+	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		cm, err := r.Factory.NewMOCABundleConfigMap()
 		return cm, err
 	}); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
-		secret, err := r.factory.NewMOServiceMonitorMetricsReaderSecret()
+	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		secret, err := r.Factory.NewMOServiceMonitorMetricsReaderSecret()
 		return secret, err
 	}); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
-		svc, err := r.factory.NewMOMetricsService()
+	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		svc, err := r.Factory.NewMOMetricsService()
 		return svc, err
 	}); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
-		sm, err := r.factory.NewMOMetricsServiceMonitor()
+	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
+		sm, err := r.Factory.NewMOMetricsServiceMonitor()
 		return sm, err
 	}); err != nil {
 		return reconcile.Result{}, err
@@ -125,7 +113,7 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 
 	// This mapFn will queue deployment/ibm-metrics-operator-controller-manager
 	mapFn := handler.MapFunc(
-		func(obj client.Object) []reconcile.Request {
+		func(ctx context.Context, obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
 					Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
@@ -211,16 +199,16 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}, builder.WithPredicates(pDeployment)).
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+		Watches(&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pConfigMap)).
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pSecret)).
-		Watches(&source.Kind{Type: &corev1.Service{}},
+		Watches(&corev1.Service{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pService)).
-		Watches(&source.Kind{Type: &monitoringv1.ServiceMonitor{}},
+		Watches(&monitoringv1.ServiceMonitor{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(pServiceMonitor)).
 		Complete(r)

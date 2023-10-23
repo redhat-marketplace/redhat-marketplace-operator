@@ -77,7 +77,7 @@ const (
 	imageStreamID     string = "rhm-meterdefinition-file-server:v1"
 	imageStreamTag    string = "v1"
 	listenerAddress   string = "127.0.0.1:2100"
-	operatorNamespace string = "openshift-redhat-marketplace"
+	operatorNamespace string = "redhat-marketplace"
 
 	timeout  = time.Second * 50
 	interval = time.Second * 5
@@ -178,17 +178,6 @@ var _ = BeforeSuite(func() {
 
 	Expect(k8sClient.Create(context.TODO(), dep)).Should(Succeed(), "create controller deployment")
 
-	// err = (&MeterBaseReconciler{
-	// 	Client:  k8sClient,
-	// 	Scheme:  scheme,
-	// 	Log:     ctrl.Log.WithName("controllers").WithName("MeterBase"),
-	// 	cfg:     operatorCfg,
-	// 	factory: factory,
-	// 	CC:      reconcileutils.NewClientCommand(k8sManager.GetClient(), scheme, ctrl.Log),
-	// 	patcher: patch.RHMDefaultPatcher,
-	// }).SetupWithManager(k8sManager)
-	// Expect(err).ToNot(HaveOccurred())
-
 	factory = manifests.NewFactory(operatorCfg, k8sScheme)
 
 	clientset, err = kubernetes.NewForConfig(cfg)
@@ -205,8 +194,8 @@ var _ = BeforeSuite(func() {
 		Client:        k8sClient,
 		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
 		Scheme:        k8sScheme,
-		cfg:           operatorCfg,
-		factory:       factory,
+		Cfg:           operatorCfg,
+		Factory:       factory,
 		CatalogClient: catalogClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -215,7 +204,22 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfigReconciler"),
 		Scheme: k8sScheme,
-		cfg:    operatorCfg,
+		Cfg:    operatorCfg,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&ClusterServiceVersionReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersionReconciler"),
+		Scheme: k8sScheme,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&MeterDefinitionReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterDefinitionReconciler"),
+		Scheme: k8sScheme,
+		Cfg:    operatorCfg,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

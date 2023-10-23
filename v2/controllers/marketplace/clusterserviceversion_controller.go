@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
@@ -314,9 +313,8 @@ func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(clusterServiceVersionPredictates)).
 		Watches(
-			&source.Kind{Type: &marketplacev1beta1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
-				IsController: false,
-				OwnerType:    &olmv1alpha1.ClusterServiceVersion{},
-			}).
+			&marketplacev1beta1.MeterDefinition{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &olmv1alpha1.ClusterServiceVersion{}),
+		).
 		Complete(r)
 }

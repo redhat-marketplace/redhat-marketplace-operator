@@ -248,5 +248,10 @@ func (i *Infrastructure) IsDefined() bool {
 func (i *Infrastructure) SubscriptionConfig() *olmv1alpha1.SubscriptionConfig {
 	i.Lock()
 	defer i.Unlock()
-	return i.openshift.SubscriptionConfig
+	if i.openshift != nil {
+		if i.openshift.SubscriptionConfig != nil {
+			return i.openshift.SubscriptionConfig
+		}
+	}
+	return &olmv1alpha1.SubscriptionConfig{}
 }

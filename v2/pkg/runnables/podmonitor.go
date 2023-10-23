@@ -19,7 +19,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,21 +41,11 @@ import (
 type PodMonitor struct {
 	Logger logr.Logger
 	Client client.Client
-	cfg    *config.OperatorConfig
-}
-
-func (r *PodMonitor) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *PodMonitor) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
+	Cfg    *config.OperatorConfig
 }
 
 func (a *PodMonitor) SetupWithManager(mgr ctrl.Manager) error {
-	namespacePredicate := predicates.NamespacePredicate(a.cfg.DeployedNamespace)
+	namespacePredicate := predicates.NamespacePredicate(a.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Pod{}, builder.WithPredicates(

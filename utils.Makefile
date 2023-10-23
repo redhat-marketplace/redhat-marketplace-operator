@@ -12,6 +12,7 @@ export TAG
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
 GO_VERSION ?= 1.19
+ENVTEST_K8S_VERSION ?= 1.27.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -29,7 +30,7 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.10.0
+CONTROLLER_GEN_VERSION=v0.12.1
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
@@ -71,7 +72,7 @@ helm:
 		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
 	}
 
-GINKGO_VERSION=v2.8.0
+GINKGO_VERSION=v2.9.5
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
@@ -140,7 +141,7 @@ envtest:
 
 .PHONY: source-envtest
 source-envtest:
-	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.19.x)'"
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path $(ENVTEST_K8S_VERSION))'"
 
 # --COMMON--
 

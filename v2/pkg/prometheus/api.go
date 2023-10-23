@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type PrometheusAPIType string
@@ -29,8 +29,8 @@ const UserWorkload PrometheusAPIType = "UserWorkload"
 const RHMWorkload PrometheusAPIType = "RHMWorkload"
 
 type PrometheusAPIBuilder struct {
-	Cfg *config.OperatorConfig
-	CC  reconcileutils.ClientCommandRunner
+	Cfg    *config.OperatorConfig
+	Client client.Client
 
 	prometheusAPIs map[PrometheusAPIType]*PrometheusAPI
 	mu             sync.Mutex
@@ -75,7 +75,7 @@ func (p *PrometheusAPIBuilder) Get(apiType PrometheusAPIType) (*PrometheusAPI, e
 
 func (p *PrometheusAPIBuilder) set(apiType PrometheusAPIType) error {
 	pApi, err := ProvidePrometheusAPI(context.TODO(),
-		p.CC,
+		p.Client,
 		p.Cfg.ControllerValues.DeploymentNamespace,
 		apiType)
 

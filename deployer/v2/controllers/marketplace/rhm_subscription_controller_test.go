@@ -15,82 +15,69 @@
 package marketplace
 
 import (
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
-	"github.com/stretchr/testify/assert"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
+	var (
+		name = rhmOperatorName
+
+		subscription = &olmv1alpha1.Subscription{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					opreqControlLabel: "true",
+				},
+			},
+			Spec: &olmv1alpha1.SubscriptionSpec{
+				CatalogSource:          "source",
+				CatalogSourceNamespace: "source-namespace",
+				Package:                "source-package",
+			},
+		}
+	)
+
+	BeforeEach(func() {
+		Expect(k8sClient.Create(context.TODO(), subscription.DeepCopy())).Should(Succeed(), "create subscription")
+	})
+
+	AfterEach(func() {
+		subscription := &olmv1alpha1.Subscription{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      name,
+			Namespace: operatorNamespace,
+		}, subscription)).Should(Succeed(), "get subscription")
+		k8sClient.Delete(context.TODO(), subscription)
+	})
+
 	It("RHM subscription controller", func() {
-		var (
-			name      = rhmOperatorName
-			namespace = "redhat-marketplace"
-
-			req = reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      name,
-					Namespace: namespace,
-				},
+		Eventually(func() []string {
+			subList := &olmv1alpha1.SubscriptionList{}
+			labels := map[string]string{
+				doNotUninstallLabel: "true",
 			}
-			opts = []StepOption{
-				WithRequest(req),
+			listOpts := []client.ListOption{
+				client.MatchingLabels(labels),
+			}
+			k8sClient.List(context.TODO(), subList, listOpts...)
+
+			var subNames []string
+			for _, sub := range subList.Items {
+				subNames = append(subNames, sub.Name)
 			}
 
-			subscription = &olmv1alpha1.Subscription{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      name,
-					Namespace: namespace,
-					Labels: map[string]string{
-						opreqControlLabel: "true",
-					},
-				},
-				Spec: &olmv1alpha1.SubscriptionSpec{
-					CatalogSource:          "source",
-					CatalogSourceNamespace: "source-namespace",
-					Package:                "source-package",
-				},
-			}
-		)
-
-		var setup = func(r *ReconcilerTest) error {
-			var log = logf.Log.WithName("rhm_sub")
-			r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-			r.Reconciler = &RHMSubscriptionController{Client: r.Client, Scheme: k8sScheme, Log: log}
-			return nil
-		}
-
-		var testUpdateSubscription = func(t GinkgoTInterface) {
-			t.Parallel()
-			reconcilerTest := NewReconcilerTest(setup, subscription)
-			reconcilerTest.TestAll(t,
-				// Reconcile to create obj
-				ReconcileStep(opts,
-					ReconcileWithUntilDone(true)),
-				// List and check results
-				ListStep(opts,
-					ListWithObj(&olmv1alpha1.SubscriptionList{}),
-					ListWithFilter(
-						client.InNamespace(namespace),
-						client.MatchingLabels(map[string]string{
-							doNotUninstallLabel: "true",
-						})),
-					ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i client.ObjectList) {
-						list, ok := i.(*olmv1alpha1.SubscriptionList)
-
-						assert.Truef(t, ok, "expected subscription list, got type %T", i)
-						assert.Equal(t, 1, len(list.Items))
-					}),
-				),
-			)
-		}
-		testUpdateSubscription(GinkgoT())
+			return subNames
+		}, timeout, interval).Should(And(
+			HaveLen(1),
+		))
 	})
 })

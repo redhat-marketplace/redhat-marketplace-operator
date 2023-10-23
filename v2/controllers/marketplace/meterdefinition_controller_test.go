@@ -15,34 +15,60 @@
 package marketplace
 
 import (
+	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("MeterDefinitionController", func() {
 	var (
-		name      = "meterdefinition"
-		namespace = "redhat-marketplace-operator"
-		req       = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}
-
-		opts = []StepOption{
-			WithRequest(req),
-		}
+		name            = "meterdefinition"
 		meterdefinition = &marketplacev1beta1.MeterDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: namespace,
+				Namespace: operatorNamespace,
+			},
+			Spec: marketplacev1beta1.MeterDefinitionSpec{
+				Group: "apps.partner.metering.com",
+				Kind:  "App",
+				ResourceFilters: []marketplacev1beta1.ResourceFilter{
+					{
+						WorkloadType: common.WorkloadTypePod,
+						Label: &marketplacev1beta1.LabelFilter{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app.kubernetes.io/name": "app",
+								},
+							},
+						},
+					},
+				},
+				Meters: []marketplacev1beta1.MeterWorkload{
+					{
+						Aggregation: "sum",
+						Period: &metav1.Duration{
+							Duration: time.Duration(time.Minute * 15),
+						},
+						Query:        "kube_pod_info{} or on() vector(0)",
+						Metric:       "meterdef_controller_test_query",
+						WorkloadType: common.WorkloadTypePod,
+						Name:         "meterdef_controller_test_query",
+					},
+				},
+			},
+		}
+
+		badMeterdefinition = &marketplacev1beta1.MeterDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: operatorNamespace,
 			},
 			Spec: marketplacev1beta1.MeterDefinitionSpec{
 				Group: "apps.partner.metering.com",
@@ -51,30 +77,24 @@ var _ = Describe("MeterDefinitionController", func() {
 		}
 	)
 
-	var setup = func(r *ReconcilerTest) error {
-		log := ctrl.Log.WithName("controllers").WithName("MeterDefinitionController")
-		r.Client = fake.NewClientBuilder().WithScheme(k8sScheme).WithObjects(r.GetGetObjects()...).Build()
-		r.Reconciler = &MeterDefinitionReconciler{
-			Client: r.Client,
-			Scheme: k8sScheme,
-			Log:    log,
-			cfg:    operatorCfg,
-		}
-		return nil
-	}
+	It("not create badMeterdefinition", func() {
+		Expect(k8sClient.Create(context.TODO(), badMeterdefinition.DeepCopy())).ShouldNot(Succeed(), "not create badMeterdefinition CR")
+	})
 
-	var testNoServiceMonitors = func(t GinkgoTInterface) {
-		t.Parallel()
-		reconcilerTest := NewReconcilerTest(setup, meterdefinition)
-		reconcilerTest.TestAll(t,
-			ReconcileStep(
-				opts,
-				ReconcileWithExpectedResults(DoneResult),
-			),
-		)
-	}
-	It("meter definition controller", func() {
+	It("create meterdefinition", func() {
+		Expect(k8sClient.Create(context.TODO(), meterdefinition.DeepCopy())).Should(Succeed(), "create meterdefinition CR")
 
-		testNoServiceMonitors(GinkgoT())
+		// Sig status updated
+		Eventually(func() bool {
+			md := &marketplacev1beta1.MeterDefinition{}
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      name,
+				Namespace: operatorNamespace,
+			}, md)).Should(Succeed(), "get meterdefinition")
+			return md.Status.Conditions.GetCondition(common.MeterDefConditionTypeSignatureVerified) != nil
+		}, timeout, interval).Should(BeTrue(), "meterdefinition has MeterDefConditionTypeSignatureVerified")
+
+		// Further test path requires OpenShift ClusterVersion, UWM config, and MeterBase Status affirming UWM enabled
+		// Once it encounters querypreview, would fail without a faked prom endpoint
 	})
 })

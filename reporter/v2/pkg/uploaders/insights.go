@@ -32,13 +32,13 @@ import (
 	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/jsonpath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type RedHatInsightsUploaderConfig struct {
@@ -116,22 +116,23 @@ func NewRedHatInsightsUploader(
 
 func ProvideRedHatInsightsUploader(
 	ctx context.Context,
-	cc reconcileutils.ClientCommandRunner,
+	client client.Client,
 	log logr.Logger,
 ) (Uploader, error) {
-	secret := &corev1.Secret{}
-	clusterVersion := &openshiftconfigv1.ClusterVersion{}
-	result, _ := cc.Do(ctx,
-		reconcileutils.GetAction(types.NamespacedName{
-			Name:      "pull-secret",
-			Namespace: "openshift-config",
-		}, secret),
-		reconcileutils.GetAction(types.NamespacedName{
-			Name: "version",
-		}, clusterVersion))
 
-	if !result.Is(reconcileutils.Continue) {
-		return nil, result
+	secret := &corev1.Secret{}
+	if err := client.Get(ctx, types.NamespacedName{
+		Name:      "pull-secret",
+		Namespace: "openshift-config",
+	}, secret); err != nil {
+		return nil, err
+	}
+
+	clusterVersion := &openshiftconfigv1.ClusterVersion{}
+	if err := client.Get(ctx, types.NamespacedName{
+		Name: "version",
+	}, clusterVersion); err != nil {
+		return nil, err
 	}
 
 	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]

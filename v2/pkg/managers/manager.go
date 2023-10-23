@@ -28,7 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+
+	//	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
 
@@ -119,6 +120,7 @@ type ControllerFields struct {
 	Config *rest.Config
 }
 
+/*
 var _ inject.Client = &ControllerFields{}
 var _ inject.Logger = &ControllerFields{}
 var _ inject.Scheme = &ControllerFields{}
@@ -143,13 +145,14 @@ func (m *ControllerFields) InjectConfig(cfg *rest.Config) error {
 	m.Config = cfg
 	return nil
 }
+*/
 
 type ClientOptions struct {
 	SyncPeriod   *time.Duration
 	DryRunClient bool
 	Namespace    string
 
-	cache.DisableDeepCopyByObject
+	ByObject map[client.Object]cache.ByObject
 }
 
 type CacheIsStarted struct{}
@@ -209,7 +212,11 @@ func ProvideCachedClient(
 	inCache cache.Cache,
 	options ClientOptions,
 ) (client.Client, error) {
-	writeObj, err := newCachedClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	writeObj, err := client.New(c, client.Options{
+		Cache:  &client.CacheOptions{Reader: inCache},
+		Mapper: mapper,
+		Scheme: scheme,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -243,11 +250,11 @@ func ProvideNewCache(
 ) (cache.Cache, error) {
 	return cache.New(c,
 		cache.Options{
-			Scheme:                        scheme,
-			Mapper:                        mapper,
-			Resync:                        options.SyncPeriod,
-			Namespace:                     options.Namespace,
-			UnsafeDisableDeepCopyByObject: options.DisableDeepCopyByObject,
+			Scheme:     scheme,
+			Mapper:     mapper,
+			SyncPeriod: options.SyncPeriod,
+			Namespaces: []string{options.Namespace},
+			ByObject:   options.ByObject,
 		})
 }
 
@@ -256,21 +263,11 @@ func ProvideManagerClient(mgr manager.Manager) client.Client {
 }
 
 func NewDynamicRESTMapper(cfg *rest.Config) (meta.RESTMapper, error) {
-	return apiutil.NewDynamicRESTMapper(cfg)
-}
-
-// newCachedClient creates the default caching client
-func newCachedClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
-	// Create the Client for Write operations.
-	c, err := client.New(config, options)
+	client, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader: ca,
-		Client:      c,
-	})
+	return apiutil.NewDynamicRESTMapper(cfg, client)
 }
 
 // newSimpleClient creates a new client

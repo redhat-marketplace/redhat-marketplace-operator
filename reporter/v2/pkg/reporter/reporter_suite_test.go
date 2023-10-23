@@ -67,7 +67,6 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "..", "..", "v2", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "..", "tests", "v2", "testdata"),
 		},
-		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
 	k8sScheme = provideScheme()

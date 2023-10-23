@@ -96,7 +96,7 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *MailboxChannelProducer) handlePop(i interface{}) error {
+func (w *MailboxChannelProducer) handlePop(i interface{}, isInInitialList bool) error {
 	deltas, ok := i.(cache.Deltas)
 	if !ok {
 		return errors.New("obj is not a delta")

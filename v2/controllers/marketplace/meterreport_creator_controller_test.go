@@ -106,7 +106,7 @@ var _ = Describe("MeterbaseController", func() {
 	Describe("check reconciller", func() {
 		var (
 			name             = utils.METERBASE_NAME
-			namespace        = "openshift-redhat-marketplace"
+			namespace        = operatorNamespace
 			createdMeterBase *marketplacev1alpha1.MeterBase
 			now              = time.Now().UTC()
 		)
@@ -122,13 +122,13 @@ var _ = Describe("MeterbaseController", func() {
 				Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 				Client: k8sClient,
 				Scheme: k8sScheme,
-				cfg:    operatorCfg,
+				Cfg:    operatorCfg,
 			}
 			err := reportCreatorReconciler.SetupWithManager(k8sManager, doneChan)
 			Expect(err).ToNot(HaveOccurred())
 
 			k8sClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-				Name: "openshift-redhat-marketplace",
+				Name: operatorNamespace,
 			}})
 
 			createdMeterBase = &marketplacev1alpha1.MeterBase{
@@ -177,7 +177,7 @@ var _ = Describe("MeterbaseController", func() {
 
 			Eventually(func() map[string]interface{} {
 				meterReportList := &marketplacev1alpha1.MeterReportList{}
-				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace("openshift-redhat-marketplace"))
+				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace(operatorNamespace))
 				Expect(err).To(Not(HaveOccurred()))
 
 				meterReportNames := []string{}

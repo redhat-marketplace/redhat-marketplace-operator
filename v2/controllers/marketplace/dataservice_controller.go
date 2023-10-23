@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // blank assignment to verify that ReconcileDataService implements reconcile.Reconciler
@@ -51,54 +49,31 @@ type DataServiceReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 
-	cfg     *config.OperatorConfig
-	factory *manifests.Factory
-}
-
-func (r *DataServiceReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *DataServiceReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
-}
-
-func (r *DataServiceReconciler) InjectFactory(f *manifests.Factory) error {
-	r.factory = f
-	return nil
+	Cfg     *config.OperatorConfig
+	Factory *manifests.Factory
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			&corev1.Secret{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner()),
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
-			&source.Kind{Type: &corev1.Service{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			&corev1.Service{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner()),
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
-			&source.Kind{Type: &appsv1.StatefulSet{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			&appsv1.StatefulSet{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner()),
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
-			&source.Kind{Type: &routev1.Route{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			&routev1.Route{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner()),
 			builder.WithPredicates(namespacePredicate)).Complete(r)
 }
 
@@ -137,12 +112,12 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		Generate custom secret instead of using service.beta.openshift.io/serving-cert-secret-name
 		The CommonName needs a *.prefix for pod-to-pod communication
 		*/
-		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
+		secret, err := r.Factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
 		if err != nil {
 			reqLogger.Error(err, "Generate Secret error: ")
 			return reconcile.Result{}, err
 		}
-		if err := r.factory.SetControllerReference(meterBase, secret); err != nil {
+		if err := r.Factory.SetControllerReference(meterBase, secret); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -160,29 +135,29 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService Service */
-		if err := r.factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
-			return r.factory.NewDataServiceService()
+		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.Factory.NewDataServiceService()
 		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		/* DataService StatefulSet */
-		if err := r.factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
-			return r.factory.NewDataServiceStatefulSet()
+		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.Factory.NewDataServiceStatefulSet()
 		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		/* DataService Route */
-		if err := r.factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
-			return r.factory.NewDataServiceRoute()
+		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.Factory.NewDataServiceRoute()
 		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
 	} else { // Remove the DataService
 		/* DataService Route*/
-		route, err := r.factory.NewDataServiceRoute()
+		route, err := r.Factory.NewDataServiceRoute()
 		if err != nil {
 			reqLogger.Error(err, "data service route error")
 			return reconcile.Result{}, err
@@ -194,7 +169,7 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService StatefulSet*/
-		statefulSet, err := r.factory.NewDataServiceStatefulSet()
+		statefulSet, err := r.Factory.NewDataServiceStatefulSet()
 		if err != nil {
 			reqLogger.Error(err, "data service route error")
 			return reconcile.Result{}, err
@@ -206,7 +181,7 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService Service */
-		service, err := r.factory.NewDataServiceService()
+		service, err := r.Factory.NewDataServiceService()
 		if err != nil {
 			reqLogger.Error(err, "data service route error")
 			return reconcile.Result{}, err
@@ -218,7 +193,7 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService Secret */
-		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
+		secret, err := r.Factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
 		if err != nil {
 			reqLogger.Error(err, "data service secret error")
 			return reconcile.Result{}, err

@@ -41,6 +41,7 @@ import (
 	k8sapiflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -140,8 +141,8 @@ func main() {
 		MinVersion:           tlsVersion,
 	}
 
-	newCacheFunc := cache.BuilderWithOptions(cache.Options{
-		SelectorsByObject: cache.SelectorsByObject{
+	cacheOptions := cache.Options{
+		ByObject: map[client.Object]cache.ByObject{
 			&v1alpha1.DataReporterConfig{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
@@ -159,7 +160,7 @@ func main() {
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
-	})
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -168,7 +169,7 @@ func main() {
 		HealthProbeBindAddress: cc.ManagerConfig.Health.HealthProbeBindAddress,
 		LeaderElection:         *cc.ManagerConfig.LeaderElection.LeaderElect,
 		LeaderElectionID:       cc.ManagerConfig.LeaderElectionID,
-		NewCache:               newCacheFunc,
+		Cache:                  cacheOptions,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

@@ -43,7 +43,7 @@ generate:
 #... Run the test
 .PHONY: test
 test: ginkgo
-	- $(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --v --trace ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --v --trace ./...
 
 # skaffold helper for ibm-metrics-operator
 .PHONY: kustomize-set-operator
