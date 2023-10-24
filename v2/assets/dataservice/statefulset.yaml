@@ -56,6 +56,11 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: rhm-data-service
+                  resource: limits.memory
           image: redhat-marketplace-data-service
           imagePullPolicy: IfNotPresent
           name: rhm-data-service
