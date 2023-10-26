@@ -84,8 +84,8 @@ type RelatedImages struct {
 	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:v4.11"`
 	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.11"`
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:v4.11"`
-	RemoteResource              string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.18_5bbfd59"`
-	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.9_5bbfd59"`
+	RemoteResource              string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
+	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
 	MeterDefFileServer          string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
@@ -101,8 +101,8 @@ type OSRelatedImages struct {
 	ConfigMapReloader           string `env:"OS_IMAGE_CONFIGMAP_RELOADER" envDefault:"quay.io/coreos/configmap-reload:v0.0.1"`
 	PrometheusConfigMapReloader string `env:"OS_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"quay.io/coreos/prometheus-config-reloader:v0.42.1"`
 	OAuthProxy                  string `env:"OS_IMAGE_OAUTH_PROXY" envDefault:"quay.io/oauth2-proxy/oauth2-proxy:v6.1.1"`
-	RemoteResource              string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.18_5bbfd59"`
-	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.9_5bbfd59"`
+	RemoteResource              string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
+	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
 	MeterDefFileServer          string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
