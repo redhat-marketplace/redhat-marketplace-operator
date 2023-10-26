@@ -63,6 +63,11 @@ spec:
           env:
           - name: GOGC
             value: 50
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: metric-state
+                resource: limits.memory
           resources:
             requests:
               cpu: 50m
