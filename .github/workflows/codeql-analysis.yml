@@ -31,6 +31,14 @@ jobs:
       fail-fast: false
       matrix:
         language: [ 'go' ]
+        project:
+        - airgap
+        - authchecker
+        - datareporter
+        - deployer
+        - metering
+        - operator
+        - reporter
         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python' ]
         # Learn more:
         # https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#changing-the-languages-that-are-analyzed
@@ -56,8 +64,12 @@ jobs:
 
     # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
     # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+#   - name: Autobuild
+#     uses: github/codeql-action/autobuild@v2
+    - id: manual-build
+      name: Manual Build ${{ matrix.project }}
+      run: |-
+        run: make ${{ matrix.project }}/build
 
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 https://git.io/JvXDl
