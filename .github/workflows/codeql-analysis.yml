@@ -48,7 +48,6 @@ jobs:
         if [ "${{ matrix.project }}" == "airgap" ]; then
         	sudo add-apt-repository ppa:dqlite/dev && sudo apt-get install libdqlite-dev
         fi
-      run: 
 
     - id: manual-build
       name: Manual Build ${{ matrix.project }}
