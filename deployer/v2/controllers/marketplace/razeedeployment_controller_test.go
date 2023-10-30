@@ -229,6 +229,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				!utils.Contains(secretNames, utils.COS_READER_KEY_NAME)
 		}, timeout, interval).Should(BeTrue())
 
+		// Catalogs are reconciled regardless of secret
 		Eventually(func() bool {
 			catalogSourceList := &operatorsv1alpha1.CatalogSourceList{}
 			k8sClient.List(context.TODO(), catalogSourceList)
@@ -240,8 +241,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 			utils.PrettyPrint(catalogSourceNames)
 
-			return !utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
-				!utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
+			return utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
+				utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
 		}, timeout, interval).Should(BeTrue())
 	})
 
