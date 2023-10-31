@@ -84,33 +84,6 @@ func (cg *configGenerator) GenerateConfig(
 		return nil, errors.Wrap(err, "parse version")
 	}
 
-	scrapeInterval := v1.Duration("30s")
-	if p.Spec.ScrapeInterval != "" {
-		scrapeInterval = p.Spec.ScrapeInterval
-	}
-
-	evaluationInterval := v1.Duration("30s")
-	if p.Spec.EvaluationInterval != "" {
-		evaluationInterval = p.Spec.EvaluationInterval
-	}
-
-	globalItems := yaml.MapSlice{
-		{Key: "evaluation_interval", Value: evaluationInterval},
-		{Key: "scrape_interval", Value: scrapeInterval},
-		{Key: "external_labels", Value: buildExternalLabels(p)},
-	}
-
-	if version.GTE(semver.MustParse("2.16.0")) && p.Spec.QueryLogFile != "" {
-		globalItems = append(globalItems, yaml.MapItem{
-			Key: "query_log_file", Value: p.Spec.QueryLogFile,
-		})
-	}
-
-	ruleFilePaths := []string{}
-	for _, name := range ruleConfigMapNames {
-		ruleFilePaths = append(ruleFilePaths, rulesDir+"/"+name+"/*.yaml")
-	}
-
 	sMonIdentifiers := make([]string, len(sMons))
 	i := 0
 	for k := range sMons {
