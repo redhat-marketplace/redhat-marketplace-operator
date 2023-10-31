@@ -70,6 +70,9 @@ func PrivateKeyFromPemFile(privateKeyFile string, privateKeyPassword string) (*r
 	var pemBlockBytes []byte
 	if privateKeyPassword != "" {
 		pemBlockBytes, err = x509.DecryptPEMBlock(pemblock, []byte(privateKeyPassword))
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		pemBlockBytes = pemblock.Bytes
 	}

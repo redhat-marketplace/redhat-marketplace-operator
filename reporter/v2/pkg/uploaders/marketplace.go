@@ -169,6 +169,9 @@ func (r *MarketplaceUploader) uploadFileRequest(fileName string, reader io.Reade
 	}
 
 	req, err = http.NewRequest("POST", fmt.Sprintf(marketplaceUploadURL, r.URL), body)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	return req, err

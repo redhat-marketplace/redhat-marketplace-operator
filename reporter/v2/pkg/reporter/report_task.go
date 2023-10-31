@@ -136,6 +136,9 @@ func (r *Task) report(ctx context.Context) error {
 	dirpath := filepath.Dir(files[0])
 	fileName := fmt.Sprintf("%s/../upload-%s.tar.gz", dirpath, reportID.String())
 	err = TargzFolder(dirpath, fileName)
+	if err != nil {
+		return errors.Wrap(err, "error creating tar.gz")
+	}
 
 	logger.Info("tarring", "outputfile", fileName)
 

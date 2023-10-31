@@ -84,8 +84,6 @@ func (cg *configGenerator) GenerateConfig(
 		return nil, errors.Wrap(err, "parse version")
 	}
 
-	cfg := yaml.MapSlice{}
-
 	scrapeInterval := v1.Duration("30s")
 	if p.Spec.ScrapeInterval != "" {
 		scrapeInterval = p.Spec.ScrapeInterval
@@ -108,16 +106,10 @@ func (cg *configGenerator) GenerateConfig(
 		})
 	}
 
-	cfg = append(cfg, yaml.MapItem{Key: "global", Value: globalItems})
-
 	ruleFilePaths := []string{}
 	for _, name := range ruleConfigMapNames {
 		ruleFilePaths = append(ruleFilePaths, rulesDir+"/"+name+"/*.yaml")
 	}
-	cfg = append(cfg, yaml.MapItem{
-		Key:   "rule_files",
-		Value: ruleFilePaths,
-	})
 
 	sMonIdentifiers := make([]string, len(sMons))
 	i := 0
