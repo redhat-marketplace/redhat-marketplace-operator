@@ -397,6 +397,9 @@ func (c *ConnectWebsite) Login(inCtx context.Context, username, password string)
 		chromedp.Submit(`#kc-login`, chromedp.ByQuery),
 		logAction("submit"),
 	)
+	if err != nil {
+		return err
+	}
 
 	timeoutCtx, cancel := context.WithTimeout(inCtx, 20*time.Second)
 	defer cancel()
@@ -592,6 +595,9 @@ func (c *ConnectWebsite) nextPage(ctx context.Context) error {
 	err := chromedp.Run(quickCtx,
 		chromedp.Nodes(nextButtonNotDisabled, &nodes, chromedp.ByQuery),
 	)
+	if err != nil {
+		return err
+	}
 
 	if len(nodes) == 0 {
 		log.Println("no more pages")
@@ -752,6 +758,9 @@ func getTags(ctx context.Context, localNode *cdp.Node) ([]string, error) {
 		err = chromedp.Run(ctx,
 			chromedp.Text("span.pf-c-label__content", &tag, chromedp.ByQuery, chromedp.FromNode(tagNode)),
 		)
+		if err != nil {
+			return nil, err
+		}
 
 		if tag != "" {
 			tags = append(tags, tag)

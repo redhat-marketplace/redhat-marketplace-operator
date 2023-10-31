@@ -432,6 +432,9 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 	}
 
 	registrations, err := getRegistrations(string(clusterDef))
+	if err != nil {
+		return "", err
+	}
 
 	var objId string
 	for _, registration := range registrations {

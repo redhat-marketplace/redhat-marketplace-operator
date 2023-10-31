@@ -217,6 +217,9 @@ func (r *RedHatInsightsUploader) uploadFileRequest(fileName string, reader io.Re
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf(insightsUploadURL, r.URL), body)
+	if err != nil {
+		return nil, err
+	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("User-Agent", getUserAgent(r.OperatorVersion, r.ClusterID))

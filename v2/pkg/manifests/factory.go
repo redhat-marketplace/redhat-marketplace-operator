@@ -741,6 +741,9 @@ func (f *Factory) prometheusOperatorDeployment() string {
 func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
 	c := f.config.PrometheusOperatorConfig
 	dep, err := f.NewDeployment(MustAssetReader(f.prometheusOperatorDeployment()))
+	if err != nil {
+		return nil, err
+	}
 
 	if len(c.NodeSelector) > 0 {
 		dep.Spec.Template.Spec.NodeSelector = c.NodeSelector
@@ -1046,6 +1049,9 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 
 func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
 	s, err := NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
+	if err != nil {
+		return nil, err
+	}
 	s.Namespace = f.namespace
 	return s, err
 }
