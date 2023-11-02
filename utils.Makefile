@@ -83,7 +83,7 @@ addlicense:
 
 GO_MOD_OUTDATED=$(PROJECT_DIR)/bin/go-mod-outdated
 go-mod-outdated:
-	$(call go-install-tool,$(GO_MOD_OUTDATED),github.com/psampaz/go-mod-outdated@latest,latest)
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install github.com/psampaz/go-mod-outdated@latest)
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:

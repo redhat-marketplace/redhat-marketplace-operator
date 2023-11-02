@@ -39,8 +39,7 @@ tidy-all:
 	cd ./airgap/v2/ && $(BUF) mod update
 
 .PHONY: go-mod-outdated-all
-go-mod-outdated-all:
-	$(MAKE) go-mod-outdated
+go-mod-outdated-all: go-mod-outdated
 	current_dir=`pwd` ; \
 	for project in $(TIDY_TARGETS) ; do \
 		echo "go-mod-outdated $$curent_dir/$$project" && cd $$current_dir/$$project && go list -u -m -json all | go-mod-outdated -update -direct  ; \
