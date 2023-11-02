@@ -42,7 +42,7 @@ tidy-all:
 go-mod-outdated-all: go-mod-outdated
 	current_dir=`pwd` ; \
 	for project in $(TIDY_TARGETS) ; do \
-		echo "go-mod-outdated $$curent_dir/$$project" && cd $$current_dir/$$project && go list -u -m -json all | go-mod-outdated -update -direct  ; \
+		echo "go-mod-outdated $$curent_dir/$$project" && cd $$current_dir/$$project && go list -u -m -json all | $(GO_MOD_OUTDATED) -update -direct  ; \
 	done
 
 .PHONY: download-all
