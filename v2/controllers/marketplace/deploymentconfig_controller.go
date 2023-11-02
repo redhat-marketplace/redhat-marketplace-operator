@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"dario.cat/mergo"
 	"github.com/go-logr/logr"
-	"github.com/imdario/mergo"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 

@@ -42,6 +42,9 @@ jobs:
       run: |-
         make envtest
         make source-envtest
+    - name: Report Outdated Modules
+      run: |-
+        make go-mod-outdated-all    
     - name: WhiteSource Unified Agent Scan
       env:
         WS_APIKEY: ${{secrets.WS_APIKEY}}

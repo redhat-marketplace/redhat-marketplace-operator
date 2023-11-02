@@ -72,7 +72,7 @@ helm:
 		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
 	}
 
-GINKGO_VERSION=v2.9.5
+GINKGO_VERSION=v2.13.0
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
@@ -81,11 +81,15 @@ LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
 	$(call go-install-tool,$(LICENSE),github.com/google/addlicense@v1.1.1,v1.1.1)
 
+GO_MOD_OUTDATED=$(PROJECT_DIR)/bin/go-mod-outdated
+go-mod-outdated:
+	$(call go-install-tool,$(GO_MOD_OUTDATED),github.com/psampaz/go-mod-outdated@latest,latest)
+
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
 	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
 
-YQ_VERSION=v4.8.0
+YQ_VERSION=v4.35.2
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:

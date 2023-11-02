@@ -49,7 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"k8s.io/client-go/util/retry"
 )
 
