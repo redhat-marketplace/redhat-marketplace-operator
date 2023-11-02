@@ -20,7 +20,7 @@ require (
 	github.com/onsi/gomega v1.29.0
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/operator-framework/api v0.18.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.67.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20231101142247-73140f7bfdcf
 	go.uber.org/zap v1.26.0
 	golang.org/x/time v0.3.0
@@ -98,7 +98,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.28.3 // indirect
 	k8s.io/component-base v0.28.3 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
+	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
@@ -119,7 +119,9 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
 	k8s.io/api => k8s.io/api v0.27.7
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.27.7
 	k8s.io/apimachinery => k8s.io/apimachinery v0.27.7
 	k8s.io/client-go => k8s.io/client-go v0.27.7
+	k8s.io/component-base => k8s.io/component-base v0.27.7
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.15.2
 )
