@@ -32,7 +32,7 @@ require (
 )
 
 require (
-	github.com/mikefarah/yq/v4 v4.35.2
+	github.com/mikefarah/yq/v4 v4.30.8
 	github.com/onsi/ginkgo/v2 v2.13.0
 )
 
