@@ -15,4 +15,4 @@ spec:
       bmeta1: bmetadata1
       cmeta1: cmetadata1
       dmeta1: dmetadata1
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api

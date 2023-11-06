@@ -57,13 +57,13 @@ spec:
       bmeta1: bmetadata1
       cmeta1: cmetadata1
       dmeta1: dmetadata1
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api
 ```
 
 ### User Configuration
 
 - The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`
-- The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`
+- The default ServiceAccount provided as an api user is `system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api`
   - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`
 
 Optional:

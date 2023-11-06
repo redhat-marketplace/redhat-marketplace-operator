@@ -62,9 +62,9 @@ spec:
     with the additional metadata\n\n```YAML\napiVersion: marketplace.redhat.com/v1alpha1\nkind:
     DataReporterConfig\nmetadata:\n  name: datareporterconfig\nspec:\n  userConfig:\n
     \ - metadata:\n      ameta1: ametadata1\n      bmeta1: bmetadata1\n      cmeta1:
-    cmetadata1\n      dmeta1: dmetadata1\n    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api\n```\n\n###
+    cmetadata1\n      dmeta1: dmetadata1\n    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api\n```\n\n###
     User Configuration\n\n- The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`\n-
-    The default ServiceAccount provided as an api user is `system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api`\n
+    The default ServiceAccount provided as an api user is `system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api`\n
     \ - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`\n\nOptional:\n\n-
     To create an additional ServiceAccount and ClusterRoleBinding for api access\n\n```SHELL\nNAMESPACE=$(oc
     config view --minify -o jsonpath='{..namespace}') && \\\noc create serviceaccount
