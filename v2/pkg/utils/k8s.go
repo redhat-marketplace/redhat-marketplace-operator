@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
-	"time"
 
-	"dario.cat/mergo"
 	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
+	"github.com/imdario/mergo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -184,7 +183,7 @@ func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			Publisher:      "IBM",
 			SourceType:     "grpc",
 			Image:          "icr.io/cpopen/ibm-operator-catalog",
-			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{RawInterval: "45m"}},
 		},
 	}
 
@@ -204,7 +203,7 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			Publisher:      "IBM",
 			SourceType:     "grpc",
 			Image:          "icr.io/cpopen/ibm-common-service-catalog",
-			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{RawInterval: "45m"}},
 		},
 	}
 
