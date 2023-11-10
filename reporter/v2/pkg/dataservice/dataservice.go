@@ -172,9 +172,7 @@ func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.File
 
 	// Always check whether os.File.Close returned an error and handle it appropriately.
 	defer func() {
-		if cErr := f.Close(); err == nil && cErr != nil {
-			err = errors.Wrap(cErr, "failed to close the file")
-		}
+		err = errors.Append(err, f.Close())
 	}()
 
 	var resp *fileserver.DownloadFileResponse
@@ -184,6 +182,8 @@ func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.File
 		resp, err = resultStream.Recv()
 
 		if err == io.EOF {
+			// done reading
+			err = nil
 			break
 		}
 
