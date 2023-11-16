@@ -122,13 +122,12 @@ oc delete secret kubeconfig --ignore-not-found
 oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 
 # Import redhat catalogs
-oc import-image certified-operator-index \
+oc import-image certified-operator-index:v4.14 \
   --request-timeout=5m \
-  --from=registry.redhat.io/redhat/certified-operator-index \
+  --from=registry.redhat.io/redhat/certified-operator-index:v4.14 \
   --reference-policy local \
   --scheduled \
-  --confirm \
-  --all
+  --confirm
 
 oc import-image redhat-marketplace-index \
   --request-timeout=5m \
@@ -147,7 +146,7 @@ cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 
-git checkout v1.0.83
+git checkout v1.0.101
 
 # Create a new SCC
 oc apply -f ansible/roles/operator-pipeline/templates/openshift/openshift-pipelines-custom-scc.yml
@@ -209,8 +208,7 @@ git push -f origin $BRANCH
 cd $TMP_DIR/operator-pipelines
 
 # latest client does not print log
-# curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
-curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/0.23.1/tkn-linux-amd64-0.23.1.tar.gz | tar -xz
+curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
 
 GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators.git
 BUNDLE_PATH=operators/${OP_NAME}/$VERSION
