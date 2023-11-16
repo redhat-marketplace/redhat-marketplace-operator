@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2
 
-go 1.19
+go 1.20
 
 require (
 	dario.cat/mergo v1.0.0
