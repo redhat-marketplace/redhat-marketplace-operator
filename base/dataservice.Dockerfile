@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/go-toolset:1.19
+FROM registry.access.redhat.com/ubi8/go-toolset:1.20
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
@@ -6,8 +6,8 @@ ENV TZ=America/New_York
 ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
 ARG GRPC_HEALTH_VERSION=v0.4.22
 ARG DQLITE_VERSION=v1.15.1
-ARG RAFT_VERSION=v0.17.1
-ARG LIBUV_VERSION=v1.46.0
+ARG RAFT_VERSION=v0.18.0
+ARG LIBUV_VERSION=v1.47.0
 ARG FIPS_DETECT_VERSION=7157dae
 ARG quay_expiration=7d
 
