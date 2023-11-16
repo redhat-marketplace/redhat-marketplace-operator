@@ -12,6 +12,7 @@ export TAG
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
 GO_VERSION ?= 1.19
+ENVTEST_K8S_VERSION ?= 1.27.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -20,7 +21,7 @@ DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 DOCKERBUILDXCACHE ?=
 
-KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.13
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.14
 
 clean-bin:
 	rm -rf $(PROJECT_DIR)/bin
@@ -29,7 +30,7 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.10.0
+CONTROLLER_GEN_VERSION=v0.12.1
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
@@ -71,7 +72,7 @@ helm:
 		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
 	}
 
-GINKGO_VERSION=v2.8.0
+GINKGO_VERSION=v2.13.0
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
@@ -80,11 +81,16 @@ LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
 	$(call go-install-tool,$(LICENSE),github.com/google/addlicense@v1.1.1,v1.1.1)
 
+GO_MOD_OUTDATED=$(PROJECT_DIR)/bin/go-mod-outdated
+go-mod-outdated:
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install github.com/psampaz/go-mod-outdated@latest)
+
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
 	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
 
-YQ_VERSION=v4.8.0
+# Last version on go1.19
+YQ_VERSION=v4.30.8
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:
@@ -140,7 +146,7 @@ envtest:
 
 .PHONY: source-envtest
 source-envtest:
-	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path 1.19.x)'"
+	@echo export KUBEBUILDER_ASSETS="'$(shell $(ENVTEST) use -p path $(ENVTEST_K8S_VERSION))'"
 
 # --COMMON--
 

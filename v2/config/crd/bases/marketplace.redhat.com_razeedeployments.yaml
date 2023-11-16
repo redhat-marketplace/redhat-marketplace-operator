@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: razeedeployments.marketplace.redhat.com
 spec:
   group: marketplace.redhat.com
@@ -243,7 +242,7 @@ spec:
                     format: int32
                     type: integer
                   completedIndexes:
-                    description: CompletedIndexes holds the completed indexes when
+                    description: completedIndexes holds the completed indexes when
                       .spec.completionMode = "Indexed" in a text format. The indexes
                       are represented as decimal integers separated by commas. The
                       numbers are listed in increasing order. Three or more consecutive
@@ -323,19 +322,19 @@ spec:
                     format: int32
                     type: integer
                   uncountedTerminatedPods:
-                    description: "UncountedTerminatedPods holds the UIDs of Pods that
+                    description: "uncountedTerminatedPods holds the UIDs of Pods that
                       have terminated but the job controller hasn't yet accounted
                       for in the status counters. \n The job controller creates pods
                       with a finalizer. When a pod terminates (succeeded or failed),
                       the controller does three steps to account for it in the job
-                      status: (1) Add the pod UID to the arrays in this field. (2)
-                      Remove the pod finalizer. (3) Remove the pod UID from the arrays
+                      status: \n 1. Add the pod UID to the arrays in this field. 2.
+                      Remove the pod finalizer. 3. Remove the pod UID from the arrays
                       while increasing the corresponding counter. \n Old jobs might
                       not be tracked using this field, in which case the field remains
                       null."
                     properties:
                       failed:
-                        description: Failed holds UIDs of failed Pods.
+                        description: failed holds UIDs of failed Pods.
                         items:
                           description: UID is a type that holds unique ID values,
                             including UUIDs.  Because we don't ONLY use UUIDs, this
@@ -345,7 +344,7 @@ spec:
                         type: array
                         x-kubernetes-list-type: set
                       succeeded:
-                        description: Succeeded holds UIDs of succeeded Pods.
+                        description: succeeded holds UIDs of succeeded Pods.
                         items:
                           description: UID is a type that holds unique ID values,
                             including UUIDs.  Because we don't ONLY use UUIDs, this

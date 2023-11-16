@@ -21,7 +21,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -31,8 +30,8 @@ import (
 )
 
 type PodMonitor struct {
-	logger     logr.Logger
-	cc         ClientCommandRunner
+	logger logr.Logger
+	//	cc         ClientCommandRunner
 	client     kubernetes.Interface
 	config     PodMonitorConfig
 	deletePods deleteQueue
@@ -46,12 +45,12 @@ type PodMonitorConfig struct {
 func NewPodMonitor(
 	logger logr.Logger,
 	client kubernetes.Interface,
-	cc ClientCommandRunner,
+	//	cc ClientCommandRunner,
 	config PodMonitorConfig,
 ) *PodMonitor {
 	return &PodMonitor{
 		logger: logger,
-		cc:     cc,
+		//		cc:     cc,
 		config: config,
 		client: client,
 	}

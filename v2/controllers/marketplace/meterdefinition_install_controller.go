@@ -26,7 +26,6 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,7 +55,7 @@ type MeterDefinitionInstallReconciler struct {
 	Client        client.Client
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
-	cfg           *config.OperatorConfig
+	Cfg           *config.OperatorConfig
 	CatalogClient *catalog.CatalogClient
 }
 
@@ -89,22 +88,6 @@ var rhmSubPredicates predicate.Funcs = predicate.Funcs{
 	},
 }
 
-func (r *MeterDefinitionInstallReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *MeterDefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
-}
-
-func (r *MeterDefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
-	r.Log.Info("catalog client")
-	r.CatalogClient = catalogClient
-	return nil
-}
-
 func (r *MeterDefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.Subscription{}, builder.WithPredicates(rhmSubPredicates)).
@@ -122,7 +105,7 @@ func (r *MeterDefinitionInstallReconciler) Reconcile(ctx context.Context, reques
 	reqLogger.Info("Reconciling Object")
 
 	instance := &marketplacev1alpha1.MeterBase{}
-	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: r.cfg.DeployedNamespace}, instance); err != nil {
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: r.Cfg.DeployedNamespace}, instance); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
 			return reconcile.Result{}, nil

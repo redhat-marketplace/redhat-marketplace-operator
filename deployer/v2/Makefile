@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.10-v4.13
+OPENSHIFT_VERSIONS ?= v4.11-v4.14
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -37,8 +37,8 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-RRS3_IMAGE ?= us.icr.io/armada-master/remoteresource:2.1.18_5bbfd59
-WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.9_5bbfd59
+RRS3_IMAGE ?= us.icr.io/armada-master/remoteresource:2.1.19_7f655fe
+WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe
 
 namespace ?= redhat-marketplace
 
@@ -67,8 +67,8 @@ clean:
 
 # Run tests
 .PHONY: test
-test: fmt vet ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal ./apis ./controllers
+test: fmt vet ginkgo envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -r -coverprofile=cover-unit.out --randomize-all --randomize-suites --cover --race --show-node-events --trace --v ./pkg ./cmd ./internal ./apis ./controllers
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds

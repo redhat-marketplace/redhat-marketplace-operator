@@ -27,7 +27,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -47,7 +46,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // blank assignment to verify that ReconcileClusterRegistration implements reconcile.Reconciler
@@ -61,7 +59,7 @@ type ClusterRegistrationReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 
-	cfg *config.OperatorConfig
+	Cfg *config.OperatorConfig
 }
 
 type SecretInfo struct {
@@ -140,7 +138,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	var rhmAccountExists bool
 	if si.Name == utils.IBMEntitlementKeySecretName {
 		tokenClaims = &marketplace.MarketplaceClaims{Env: si.Env}
-		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(jwtToken, tokenClaims)
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(jwtToken, tokenClaims)
 		if err != nil {
 			reqLogger.Error(err, "failed to build marketplaceclient")
 			return reconcile.Result{}, nil
@@ -194,10 +192,10 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	// Create a default MarketplaceConfig if a pull-secret is created, connected environment quickstart
 	if k8serrors.IsNotFound(err) {
 		marketplaceConfig.Name = utils.MARKETPLACECONFIG_NAME
-		marketplaceConfig.Namespace = r.cfg.DeployedNamespace
+		marketplaceConfig.Namespace = r.Cfg.DeployedNamespace
 
 		// IS_DISCONNECTED flag takes precedence, default IsDisconnected to false
-		if r.cfg.IsDisconnected {
+		if r.Cfg.IsDisconnected {
 			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(true)
 		} else if marketplaceConfig.Spec.IsDisconnected == nil {
 			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(false)
@@ -233,7 +231,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		dep := &appsv1.Deployment{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{
 			Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
-			Namespace: r.cfg.DeployedNamespace,
+			Namespace: r.Cfg.DeployedNamespace,
 		}, dep)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -280,7 +278,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists {
 		//only check registration status, compare pull secret from COS if we are not in a disconnected environment
-		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).
 			NewMarketplaceClient(jwtToken, tokenClaims)
 
 		if err != nil {
@@ -453,18 +451,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
-func (r *ClusterRegistrationReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	m.cfg = cfg
-	return nil
-}
-
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(namespacePredicate).
 		For(&v1.Secret{}, builder.WithPredicates(
@@ -546,8 +534,8 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 		// Since the values are dervived from the pull secret
 		// It also must reconcile due a change from IsDisconnected to connected mode
 		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}},
-			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+			&marketplacev1alpha1.MarketplaceConfig{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
 						Name:      utils.RHMPullSecretName,

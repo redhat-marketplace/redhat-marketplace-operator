@@ -20,20 +20,21 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func queryForPrometheusService(
 	ctx context.Context,
-	cc ClientCommandRunner,
+	client client.Client,
 	deployedNamespace string,
 	apiType PrometheusAPIType,
 ) (*corev1.Service, *corev1.ServicePort, error) {
 	service := &corev1.Service{}
 
 	var name types.NamespacedName
+
 	var portName string
 	if apiType == UserWorkload {
 		name = types.NamespacedName{
@@ -49,8 +50,8 @@ func queryForPrometheusService(
 		portName = "rbac"
 	}
 
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, nil, errors.Wrap(result, "failed to get prometheus service")
+	if err := client.Get(ctx, name, service); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to get prometheus service")
 	}
 
 	log.Info("retrieved prometheus service")
@@ -67,16 +68,17 @@ func queryForPrometheusService(
 }
 
 func getCertConfigMap(ctx context.Context,
-	cc ClientCommandRunner,
+	client client.Client,
 	deployedNamespace string) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 	name := types.NamespacedName{
 		Name:      utils.SERVING_CERTS_CA_BUNDLE_NAME,
 		Namespace: deployedNamespace,
 	}
+	_ = name
 
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve serving-certs-ca-bundle.")
+	if err := client.Get(ctx, name, certConfigMap); err != nil {
+		return nil, errors.Wrap(err, "Failed to retrieve serving-certs-ca-bundle.")
 	}
 
 	log.Info("retrieved configmap")
@@ -99,15 +101,15 @@ func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte,
 
 func ProvidePrometheusAPI(
 	context context.Context,
-	cc ClientCommandRunner,
+	client client.Client,
 	deployedNamespace string,
 	apiType PrometheusAPIType) (*PrometheusAPI, error) {
-	service, port, err := queryForPrometheusService(context, cc, deployedNamespace, apiType)
+	service, port, err := queryForPrometheusService(context, client, deployedNamespace, apiType)
 	if err != nil {
 		return nil, err
 	}
 
-	certConfigMap, err := getCertConfigMap(context, cc, deployedNamespace)
+	certConfigMap, err := getCertConfigMap(context, client, deployedNamespace)
 	if err != nil {
 		return nil, err
 	}

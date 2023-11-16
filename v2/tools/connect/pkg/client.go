@@ -133,11 +133,12 @@ func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectRespon
 	u, _ := url.Parse(projectURL)
 
 	resp, err := c.Post(u.String(), "application/json", strings.NewReader("{}"))
-	defer resp.Body.Close()
 
 	if err != nil {
 		return nil, err
 	}
+
+	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 
@@ -171,8 +172,6 @@ func (c *connectClient) GetTag(opsid, digest string) (*pcTag, error) {
 	req.URL.RawQuery = q.Encode()
 
 	resp, err := c.Do(req)
-	defer resp.Body.Close()
-
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +179,8 @@ func (c *connectClient) GetTag(opsid, digest string) (*pcTag, error) {
 	if resp.StatusCode != 200 {
 		return nil, errors.Errorf("non 200 response %v", resp.Status)
 	}
+
+	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	fmt.Printf("body: %s\n", string(body))

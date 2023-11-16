@@ -13,10 +13,10 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ develop, bugfix/*, feature/*, hotfix/*, master, release/* ]
+    branches: [ develop, master, release/* ]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ develop ]
+    branches: [ develop, master ]
   schedule:
     - cron: '23 4 * * 1'
 
@@ -25,7 +25,6 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: "--max_old_space_size=6000"
       ARCHS: "amd64"
     strategy:
       fail-fast: false

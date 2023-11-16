@@ -17,6 +17,8 @@ package filter
 import (
 	"context"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -32,7 +34,8 @@ var _ = Describe("namespace_watcher", func() {
 	var alertChan chan interface{}
 	var ctx context.Context
 	var cancel context.CancelFunc
-	var alertCount int
+	var alertCount atomic.Int32
+	var wg sync.WaitGroup
 
 	var types1, types2, types3, types4, types5, types6 map[string][]reflect.Type
 
@@ -64,14 +67,16 @@ var _ = Describe("namespace_watcher", func() {
 			"": {reflect.TypeOf(&corev1.Pod{})},
 		}
 		alertChan = make(chan interface{})
-		alertCount = 0
+		alertCount.Store(0)
 
+		wg.Add(1)
 		go func() {
 			defer close(alertChan)
+			defer wg.Done()
 			for {
 				select {
 				case <-alertChan:
-					alertCount = alertCount + 1
+					alertCount.Add(1)
 				case <-ctx.Done():
 					return
 				}
@@ -86,6 +91,7 @@ var _ = Describe("namespace_watcher", func() {
 
 	AfterEach(func() {
 		cancel()
+		wg.Wait()
 	})
 
 	It("should keep track of namespaces based on objects passed to it", func() {
@@ -93,7 +99,7 @@ var _ = Describe("namespace_watcher", func() {
 			And(HaveKeyWithValue("foo", ConsistOf(reflect.TypeOf(&corev1.Pod{}), reflect.TypeOf(&corev1.Service{}))),
 				HaveKeyWithValue("foo2", []reflect.Type{reflect.TypeOf(&corev1.Service{})}))) // still have item1 so "foo" should still be there
 		Eventually(func() int {
-			return alertCount
+			return int(alertCount.Load())
 		}, 5).Should(Equal(3))
 	})
 
@@ -106,7 +112,7 @@ var _ = Describe("namespace_watcher", func() {
 		sut.RemoveNamespace(item1)
 		Expect(sut.Get()).To(HaveKey("foo2"))
 		Eventually(func() int {
-			return alertCount
+			return int(alertCount.Load())
 		}, 5).Should(Equal(5))
 	})
 

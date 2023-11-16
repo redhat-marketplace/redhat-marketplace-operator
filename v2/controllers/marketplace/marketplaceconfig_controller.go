@@ -29,7 +29,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -49,7 +48,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -67,7 +65,7 @@ type MarketplaceConfigReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	cfg    *config.OperatorConfig
+	Cfg    *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
@@ -80,6 +78,13 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-razeedeployment
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
+
+// Infrastructure Discovery
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=replicasets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=clusterserviceversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
@@ -178,7 +183,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 					return reconcile.Result{}, err
 				}
 
-				marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(token, tokenClaims)
+				marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(token, tokenClaims)
 				if err != nil {
 					reqLogger.Error(err, "error constructing marketplace client")
 					return reconcile.Result{}, err
@@ -354,39 +359,20 @@ func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev
 	return err
 }
 
-func (r *MarketplaceConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	m.cfg = cfg
-	return nil
-}
-
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) error {
 	// Create a new controller
-	ownerHandler := &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-	}
+	ownerHandler := handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MarketplaceConfig{}, handler.OnlyControllerOwner())
 
-	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MarketplaceConfig{}).
 		WithEventFilter(namespacePredicate).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-		}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-		}).
+		Watches(&marketplacev1alpha1.RazeeDeployment{}, ownerHandler, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&marketplacev1alpha1.MeterBase{}, ownerHandler).
+		Watches(&marketplacev1alpha1.RazeeDeployment{}, ownerHandler, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&marketplacev1alpha1.MeterBase{}, ownerHandler).
 		Complete(r)
 }
 
@@ -396,7 +382,7 @@ func (r *MarketplaceConfigReconciler) updateDeployedNamespaceLabels(marketplaceC
 	deployedNamespace := &corev1.Namespace{}
 
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace); err != nil {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: r.Cfg.DeployedNamespace}, deployedNamespace); err != nil {
 			return err
 		}
 
@@ -455,7 +441,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		marketplaceConfigCopy := marketplaceConfig.DeepCopy()
 
 		// IS_DISCONNECTED flag takes precedence, default IsDisconnected to false
-		if r.cfg.IsDisconnected {
+		if r.Cfg.IsDisconnected {
 			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(true)
 		} else if marketplaceConfig.Spec.IsDisconnected == nil {
 			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(false)
@@ -485,7 +471,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 
 		// Initialize Catalog flag
 		if marketplaceConfig.Spec.InstallIBMCatalogSource == nil {
-			marketplaceConfig.Spec.InstallIBMCatalogSource = &r.cfg.Features.IBMCatalog
+			marketplaceConfig.Spec.InstallIBMCatalogSource = &r.Cfg.Features.IBMCatalog
 		}
 
 		// Removing EnabledMetering field so setting them all to nil
@@ -537,7 +523,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		dep := &appsv1.Deployment{}
 		err := r.Client.Get(context.TODO(), types.NamespacedName{
 			Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
-			Namespace: r.cfg.DeployedNamespace,
+			Namespace: r.Cfg.DeployedNamespace,
 		}, dep)
 		if err != nil {
 			return err
@@ -963,7 +949,7 @@ func (r *MarketplaceConfigReconciler) findRegistrationStatus(
 		}
 
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).
 			NewMarketplaceClient(token, tokenClaims)
 
 		if err != nil {
@@ -1100,7 +1086,7 @@ func (r *MarketplaceConfigReconciler) checkRHMAccountStatus(
 	}
 
 	if si.Name == utils.IBMEntitlementKeySecretName {
-		mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).NewMarketplaceClient(jwtToken, &marketplace.MarketplaceClaims{Env: si.Env})
+		mclient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(jwtToken, &marketplace.MarketplaceClaims{Env: si.Env})
 
 		if err != nil {
 			reqLogger.Error(err, "failed to build marketplaceclient")

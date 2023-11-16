@@ -17,6 +17,7 @@ package engine
 import (
 	"context"
 	"reflect"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -39,7 +40,10 @@ var _ = Describe("NamespacedCacheLister", func() {
 
 	BeforeEach(func() {
 		listWatcher1 = &RunAndStopMock{}
+		listWatcher1.ResetCount()
 		listWatcher2 = &RunAndStopMock{}
+		listWatcher2.ResetCount()
+
 		nsWatcher = filter.ProvideNamespaceWatcher(logr.Discard())
 
 		item1 = client.ObjectKey{Namespace: "foo", Name: "pod1"}
@@ -87,7 +91,7 @@ var _ = Describe("NamespacedCacheLister", func() {
 		nsWatcher.AddNamespace(item5, types5)
 
 		Eventually(func() int {
-			return len(listWatcher1.Calls) + len(listWatcher2.Calls)
+			return listWatcher1.GetCount() + listWatcher2.GetCount()
 		}, 5).Should(Equal(8))
 
 		mock.AssertExpectationsForObjects(GinkgoT(), listWatcher1, listWatcher2)
@@ -106,16 +110,16 @@ var _ = Describe("NamespacedCacheLister", func() {
 		nsWatcher.AddNamespace(item3, types3)
 
 		Eventually(func() int {
-			return len(listWatcher1.Calls)
+			return listWatcher1.GetCount()
 		}, 5).Should(Equal(4))
 
 		nsWatcher.RemoveNamespace(item2)
 
 		Eventually(func() int {
-			return len(listWatcher1.Calls)
+			return listWatcher1.GetCount()
 		}, 5).Should(Equal(5))
 
-		Expect(listWatcher2.Calls).Should(HaveLen(0))
+		Expect(listWatcher2.GetCount()).Should(Equal(0))
 		mock.AssertExpectationsForObjects(GinkgoT(), listWatcher1, listWatcher2)
 	}, NodeTimeout(time.Duration.Seconds(30)))
 
@@ -123,18 +127,31 @@ var _ = Describe("NamespacedCacheLister", func() {
 
 type RunAndStopMock struct {
 	mock.Mock
+	calledCount atomic.Int32
 }
 
 func (s *RunAndStopMock) Start(ctx context.Context) error {
 	args := s.Called(ctx)
+	s.calledCount.Add(1)
 	return args.Error(0)
 }
 
 func (s *RunAndStopMock) Stop() {
 	s.Called()
+	s.calledCount.Add(1)
 }
 
 func (g *RunAndStopMock) Get(ns string) RunAndStop {
 	args := g.Called(ns)
+	g.calledCount.Add(1)
 	return args.Get(0).(RunAndStop)
+}
+
+// Count Called, since len(Calls) is not safe
+func (r *RunAndStopMock) ResetCount() {
+	r.calledCount.Store(0)
+}
+
+func (g *RunAndStopMock) GetCount() int {
+	return int(g.calledCount.Load())
 }

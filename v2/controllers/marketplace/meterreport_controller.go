@@ -24,7 +24,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
@@ -36,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // blank assignment to verify that ReconcileMeterReport implements reconcile.Reconciler
@@ -53,32 +51,17 @@ type MeterReportReconciler struct {
 	client.Client
 	Log     logr.Logger
 	Scheme  *runtime.Scheme
-	cfg     *config.OperatorConfig
-	factory *manifests.Factory
-}
-
-func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
-	r.factory = f
-	return nil
-}
-
-func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	m.cfg = cfg
-	return nil
+	Cfg     *config.OperatorConfig
+	Factory *manifests.Factory
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
-	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&marketplacev1alpha1.MeterReport{}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 

@@ -32,11 +32,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -57,7 +59,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -109,8 +111,8 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
 
 	// only cache these Object types a Namespace scope to reduce RBAC permission requirements
-	newCacheFunc := cache.BuilderWithOptions(cache.Options{
-		SelectorsByObject: cache.SelectorsByObject{
+	cacheOptions := cache.Options{
+		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Pod{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
@@ -145,7 +147,7 @@ func main() {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
-	})
+	}
 
 	opts := ctrl.Options{
 		Scheme:                 scheme,
@@ -153,30 +155,42 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
-		NewCache:               newCacheFunc,
+		Cache:                  cacheOptions,
 	}
-
-	// Bug prevents limiting the namespaces
-	// watchNamespaces := os.Getenv("WATCH_NAMESPACE")
-
-	// if watchNamespaces != "" {
-	// 	watchNamespacesSlice := strings.Split(watchNamespaces, ",")
-	// 	watchNamespacesSlice = append(watchNamespacesSlice, "openshift-monitoring")
-	// 	opts.NewCache = cache.MultiNamespacedCacheBuilder(watchNamespacesSlice)
-	// }
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
 
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
 
-	injector, err := inject.ProvideInjector(mgr)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
-		setupLog.Error(err, "unable to inject manager")
+		setupLog.Error(err, "unable to create client", "client", "discoveryClient")
 		os.Exit(1)
 	}
+
+	mapper, err := apiutil.NewDynamicRESTMapper(mgr.GetConfig(), mgr.GetHTTPClient())
+	if err != nil {
+		setupLog.Error(err, "unable to create rest mapper")
+		os.Exit(1)
+	}
+
+	// uncached client
+	simpleClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme, Mapper: mapper})
+	if err != nil {
+		setupLog.Error(err, "unable to create client", "client", "simpleClient")
+		os.Exit(1)
+	}
+
+	opCfg, err := config.ProvideInfrastructureAwareConfig(simpleClient, discoveryClient)
+	if err != nil {
+		setupLog.Error(err, "unable to create config", "config", "operatorConfig")
+		os.Exit(1)
+	}
+
+	factory := manifests.NewFactory(opCfg, mgr.GetScheme())
 
 	if err = (&controllers.ClusterServiceVersionReconciler{
 		Client: mgr.GetClient(),
@@ -187,11 +201,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.DeploymentReconciler{
+		Client:  mgr.GetClient(),
+		Log:     ctrl.Log.WithName("controllers").WithName("DeploymentReconciler"),
+		Scheme:  mgr.GetScheme(),
+		Factory: factory,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentReconciler")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.RazeeDeploymentReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
-		Scheme: mgr.GetScheme(),
-	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		Client:  mgr.GetClient(),
+		Log:     ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
+		Scheme:  mgr.GetScheme(),
+		Cfg:     opCfg,
+		Factory: factory,
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RazeeDeployment")
 		os.Exit(1)
 	}
@@ -211,15 +237,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SubscriptionReconciler")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.DeploymentReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentReconciler"),
-		Scheme: mgr.GetScheme(),
-	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentReconciler")
 		os.Exit(1)
 	}
 
@@ -254,7 +271,7 @@ func main() {
 
 	customHandler := (&shutdownHandler{
 		client: mgr.GetClient(),
-	}).Inject(injector)
+	})
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(customHandler.SetupSignalHandler()); err != nil {
@@ -270,16 +287,6 @@ var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 type shutdownHandler struct {
 	client client.Client
 	cfg    *config.OperatorConfig
-}
-
-func (s *shutdownHandler) Inject(injector mktypes.Injectable) *shutdownHandler {
-	injector.SetCustomFields(s)
-	return s
-}
-
-func (s *shutdownHandler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	s.cfg = cfg
-	return nil
 }
 
 func (s *shutdownHandler) SetupSignalHandler() context.Context {

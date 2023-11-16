@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,7 +48,7 @@ type MeterReportCreatorReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	cfg    *config.OperatorConfig
+	Cfg    *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports,verbs=get;list;watch;create;delete
@@ -127,15 +126,6 @@ func (r *MeterReportCreatorReconciler) Reconcile(ctx context.Context, request re
 	return reconcile.Result{}, nil
 }
 
-func (r *MeterReportCreatorReconciler) Inject(injector mktypes.Injectable) {
-	injector.SetCustomFields(r)
-}
-
-func (r *MeterReportCreatorReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
-}
-
 type CheckMeterReports event.GenericEvent
 
 func (r *MeterReportCreatorReconciler) SetupWithManager(
@@ -143,7 +133,7 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 	doneChannel <-chan struct{},
 ) error {
 	events := make(chan event.GenericEvent)
-	ticker := time.NewTicker(r.cfg.ReportController.PollTime)
+	ticker := time.NewTicker(r.Cfg.ReportController.PollTime)
 
 	go func() {
 		defer close(events)
@@ -152,7 +142,7 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 		meta := &marketplacev1alpha1.MeterBase{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.METERBASE_NAME,
-				Namespace: r.cfg.DeployedNamespace,
+				Namespace: r.Cfg.DeployedNamespace,
 			},
 		}
 
@@ -186,7 +176,7 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 						return true
 					},
 				})).
-		Watches(
+		WatchesRawSource(
 			&source.Channel{Source: events},
 			&handler.EnqueueRequestForObject{}).
 		Complete(r)

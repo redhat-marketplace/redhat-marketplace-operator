@@ -170,7 +170,10 @@ func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.File
 		return
 	}
 
-	defer f.Close()
+	// Always check whether os.File.Close returned an error and handle it appropriately.
+	defer func() {
+		err = errors.Append(err, f.Close())
+	}()
 
 	var resp *fileserver.DownloadFileResponse
 	h := sha256.New()
@@ -179,6 +182,8 @@ func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.File
 		resp, err = resultStream.Recv()
 
 		if err == io.EOF {
+			// done reading
+			err = nil
 			break
 		}
 
@@ -205,12 +210,6 @@ func (d *DataService) DownloadFile(ctx context.Context, info *dataservicev1.File
 	}
 
 	checksum := fmt.Sprintf("%x", h.Sum(nil))
-
-	err = f.Close()
-	if err != nil {
-		err = errors.Wrap(err, "failed to close the file")
-		return
-	}
 
 	if info.Checksum != checksum {
 		err = errors.NewWithDetails("file checksum doesn't match", "id", info.Id, "server", info.Checksum, "client", checksum)

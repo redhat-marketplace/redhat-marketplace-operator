@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"dario.cat/mergo"
 	"github.com/go-logr/logr"
-	"github.com/imdario/mergo"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
@@ -28,12 +28,10 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -74,37 +72,16 @@ type DeploymentConfigReconciler struct {
 	Client        client.Client
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
-	cfg           *config.OperatorConfig
-	factory       *manifests.Factory
+	Cfg           *config.OperatorConfig
+	Factory       *manifests.Factory
 	CatalogClient *catalog.CatalogClient
-}
-
-func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
-	injector.SetCustomFields(r)
-	return r
-}
-
-func (r *DeploymentConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
-	r.cfg = cfg
-	return nil
-}
-
-func (r *DeploymentConfigReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
-	r.Log.Info("catalog client")
-	r.CatalogClient = catalogClient
-	return nil
-}
-
-func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
-	r.factory = f
-	return nil
 }
 
 // adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Log.Info("SetupWithManager DeploymentConfigReconciler")
 
-	nsPred := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	nsPred := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
 	meterBaseSubSectionPred := []predicate.Predicate{
 		predicate.Funcs{
@@ -154,15 +131,15 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(nsPred).
 		For(&osappsv1.DeploymentConfig{}).
 		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
+			&marketplacev1alpha1.MeterBase{},
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(meterBaseSubSectionPred...)).
 		Watches(
-			&source.Kind{Type: &osappsv1.DeploymentConfig{}},
+			&osappsv1.DeploymentConfig{},
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(deploymentConfigPred...)).
 		Watches(
-			&source.Kind{Type: &osimagev1.ImageStream{}},
+			&osimagev1.ImageStream{},
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(deploymentConfigPred...)).
 		Complete(r)
@@ -205,7 +182,7 @@ func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reco
 
 	// if SyncSystemMeterDefinitions is disabled delete all system meterdefs for csvs originating from rhm
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions {
-		isRunning := isDeploymentConfigRunning(r.Client, r.cfg.DeployedNamespace, reqLogger)
+		isRunning := isDeploymentConfigRunning(r.Client, r.Cfg.DeployedNamespace, reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for system meterdefs has been disabled, uninstalling system meterdefs")
 
@@ -220,7 +197,7 @@ func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reco
 
 	// if SyncCommunityMeterDefinitions is disabled delete all community meterdefs for csvs originating from rhm
 	if !instance.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions {
-		isRunning := isDeploymentConfigRunning(r.Client, r.cfg.DeployedNamespace, reqLogger)
+		isRunning := isDeploymentConfigRunning(r.Client, r.Cfg.DeployedNamespace, reqLogger)
 		if isRunning {
 			reqLogger.Info("sync for community meterdefs has been disabled, uninstalling system meterdefs")
 
@@ -249,7 +226,7 @@ func (r *DeploymentConfigReconciler) Reconcile(ctx context.Context, request reco
 
 	// get the latest deploymentconfig
 	dc := &osappsv1.DeploymentConfig{}
-	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.cfg.DeployedNamespace}, dc); err != nil {
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DeploymentConfigName, Namespace: r.Cfg.DeployedNamespace}, dc); err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("deployment config not found, ignoring")
 			return reconcile.Result{}, nil
@@ -611,7 +588,7 @@ func (r *DeploymentConfigReconciler) uninstallFileServerDeploymentResources() er
 func (r *DeploymentConfigReconciler) uninstallDeploymentConfig() error {
 	deploymentConfig := &osappsv1.DeploymentConfig{}
 	deploymentConfig.Name = utils.DeploymentConfigName
-	deploymentConfig.Namespace = r.cfg.DeployedNamespace
+	deploymentConfig.Namespace = r.Cfg.DeployedNamespace
 
 	if err := r.Client.Delete(context.TODO(), deploymentConfig); err != nil && !k8serrors.IsNotFound(err) {
 		return err
@@ -623,7 +600,7 @@ func (r *DeploymentConfigReconciler) uninstallDeploymentConfig() error {
 func (r *DeploymentConfigReconciler) uninstallService() error {
 	fileServerService := &corev1.Service{}
 	fileServerService.Name = utils.DeploymentConfigName
-	fileServerService.Namespace = r.cfg.DeployedNamespace
+	fileServerService.Namespace = r.Cfg.DeployedNamespace
 
 	if err := r.Client.Delete(context.TODO(), fileServerService); err != nil && !k8serrors.IsNotFound(err) {
 		return err
@@ -635,7 +612,7 @@ func (r *DeploymentConfigReconciler) uninstallService() error {
 func (r *DeploymentConfigReconciler) uninstallImageStream() error {
 	imageStream := &osimagev1.ImageStream{}
 	imageStream.Name = utils.DeploymentConfigName
-	imageStream.Namespace = r.cfg.DeployedNamespace
+	imageStream.Namespace = r.Cfg.DeployedNamespace
 
 	if err := r.Client.Delete(context.TODO(), imageStream); err != nil && !k8serrors.IsNotFound(err) {
 		return err
@@ -646,31 +623,31 @@ func (r *DeploymentConfigReconciler) uninstallImageStream() error {
 
 func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *marketplacev1alpha1.MeterBase) error {
 
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		dc, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		dc, err := r.Factory.NewMeterdefintionFileServerDeploymentConfig()
 		if err != nil {
 			return dc, err
 		}
-		r.factory.UpdateDeploymentConfigOnChange(dc)
+		r.Factory.UpdateDeploymentConfigOnChange(dc)
 		return dc, nil
 	}); err != nil {
 		return err
 	}
 
-	if err := r.factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.factory.NewMeterdefintionFileServerService()
+	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+		return r.Factory.NewMeterdefintionFileServerService()
 	}); err != nil {
 		return err
 	}
 
-	is, err := r.factory.NewMeterdefintionFileServerImageStream()
+	is, err := r.Factory.NewMeterdefintionFileServerImageStream()
 	if err != nil {
 		return err
 	}
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, is, func() error {
 
-			updateIs, err := r.factory.NewMeterdefintionFileServerImageStream()
+			updateIs, err := r.Factory.NewMeterdefintionFileServerImageStream()
 			if err != nil {
 				return err
 			}
@@ -679,7 +656,7 @@ func (r *DeploymentConfigReconciler) reconcileCatalogServerResources(instance *m
 				return err
 			}
 
-			r.factory.UpdateImageStreamOnChange(is)
+			r.Factory.UpdateImageStreamOnChange(is)
 
 			if err := controllerutil.SetControllerReference(instance, updateIs, r.Scheme); err != nil {
 				return err

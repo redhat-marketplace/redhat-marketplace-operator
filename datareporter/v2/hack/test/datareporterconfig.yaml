@@ -15,28 +15,28 @@ spec:
       bmeta1: bmetadata1
       cmeta1: cmetadata1
       dmeta1: dmetadata1
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-1
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api-1
   - metadata:
       ameta1: ametadata2
       bmeta1: bmetadata2
       cmeta1: cmetadata2
       dmeta1: dmetadata2
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-2
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api-2
   - metadata:
       ameta1: ametadata3
       bmeta1: bmetadata3
       cmeta1: cmetadata3
       dmeta1: dmetadata3
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-3
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api-3
   - metadata:
       ameta1: ametadata4
       bmeta1: bmetadata4
       cmeta1: cmetadata4
       dmeta1: dmetadata4
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-4
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api-4
   - metadata:
       ameta1: ametadata5
       bmeta1: bmetadata5
       cmeta1: cmetadata5
       dmeta1: dmetadata5
-    userName: system:serviceaccount:openshift-redhat-marketplace:ibm-data-reporter-operator-api-5
+    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api-5

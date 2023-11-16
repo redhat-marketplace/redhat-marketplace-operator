@@ -15,12 +15,17 @@ package config
 
 import (
 	"context"
+	"os"
 	"sync"
 
 	"github.com/blang/semver/v4"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,8 +38,9 @@ type KubernetesInfra struct {
 
 // OpenshiftInfra stores Openshift information (if Openshift is present)
 type OpenshiftInfra struct {
-	Version       string
-	ParsedVersion semver.Version
+	Version            string
+	ParsedVersion      semver.Version
+	SubscriptionConfig *olmv1alpha1.SubscriptionConfig
 }
 
 // Infrastructure stores Kubernetes/Openshift clients
@@ -88,9 +94,16 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 		return nil, err
 	}
 
+	subscriptionConfig, err := getSubscriptionConfig(c)
+	if err != nil {
+		log.Error(err, "Unable to get parent subscription")
+		return nil, err
+	}
+
 	return &OpenshiftInfra{
-		Version:       clusterVersionObj.Status.Desired.Version,
-		ParsedVersion: parsedVersion,
+		Version:            clusterVersionObj.Status.Desired.Version,
+		ParsedVersion:      parsedVersion,
+		SubscriptionConfig: subscriptionConfig,
 	}, nil
 }
 
@@ -104,6 +117,70 @@ func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (*Kube
 		Version:  serverVersion.String(),
 		Platform: serverVersion.Platform,
 	}, nil
+}
+
+// Get the parent Subscription.Spec.Config of the pod, used by factory to propogate SubscriptionConfig elements to operands
+// Pod > ReplicaSet > Deployment > ClusterServiceVersion.Name matches Subscription.Status.InstalledCSV
+func getSubscriptionConfig(c client.Client) (*olmv1alpha1.SubscriptionConfig, error) {
+	log.Info("find parent subscription for this operator pod")
+
+	subscriptionConfig := &olmv1alpha1.SubscriptionConfig{}
+
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		return subscriptionConfig, nil
+	}
+
+	log.Info("find parent subscription", "podname", podName)
+
+	namespace := os.Getenv("POD_NAMESPACE")
+	if namespace == "" {
+		return subscriptionConfig, nil
+	}
+
+	pod := &corev1.Pod{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: podName, Namespace: namespace}, pod); err != nil {
+		return nil, err
+	}
+	replicaSet := &appsv1.ReplicaSet{}
+	for _, podOwnerRef := range pod.OwnerReferences {
+		if podOwnerRef.Kind == "ReplicaSet" {
+			if err := c.Get(context.TODO(), types.NamespacedName{Name: podOwnerRef.Name, Namespace: namespace}, replicaSet); err != nil {
+				return nil, err
+			}
+			deployment := &appsv1.Deployment{}
+			for _, replicaSetOwnerRef := range replicaSet.OwnerReferences {
+				if replicaSetOwnerRef.Kind == "Deployment" {
+					if err := c.Get(context.TODO(), types.NamespacedName{Name: replicaSetOwnerRef.Name, Namespace: namespace}, deployment); err != nil {
+						return nil, err
+					}
+					clusterServiceVersion := &olmv1alpha1.ClusterServiceVersion{}
+					for _, deploymentOwnerRef := range deployment.OwnerReferences {
+						if deploymentOwnerRef.Kind == "ClusterServiceVersion" {
+							if err := c.Get(context.TODO(), types.NamespacedName{Name: deploymentOwnerRef.Name, Namespace: namespace}, clusterServiceVersion); err != nil {
+								return nil, err
+							}
+							subscriptionList := &olmv1alpha1.SubscriptionList{}
+							if err := c.List(context.TODO(), subscriptionList, client.InNamespace(namespace)); err != nil {
+								return nil, err
+							}
+							for _, subscription := range subscriptionList.Items {
+								if subscription.Status.InstalledCSV == clusterServiceVersion.Name {
+									log.Info("found parent subscription", "podname", podName)
+									if subscription.Spec.Config != nil {
+										return subscription.Spec.Config, nil
+									}
+									return subscriptionConfig, nil
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	log.Info("no parent subscription found", "podname", podName)
+	return subscriptionConfig, nil
 }
 
 // Version gets Kubernetes Git version
@@ -165,4 +242,16 @@ func (i *Infrastructure) IsDefined() bool {
 	i.Lock()
 	defer i.Unlock()
 	return i.openshift != nil || i.kubernetes != nil
+}
+
+// SubscriptionConfig returns the SubscriptionConfig of the Subscription owning this operator
+func (i *Infrastructure) SubscriptionConfig() *olmv1alpha1.SubscriptionConfig {
+	i.Lock()
+	defer i.Unlock()
+	if i.openshift != nil {
+		if i.openshift.SubscriptionConfig != nil {
+			return i.openshift.SubscriptionConfig
+		}
+	}
+	return &olmv1alpha1.SubscriptionConfig{}
 }

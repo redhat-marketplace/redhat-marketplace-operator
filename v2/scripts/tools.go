@@ -27,7 +27,7 @@ import (
 	_ "github.com/google/addlicense"
 	_ "github.com/google/wire"
 	_ "github.com/launchdarkly/go-options"
-	_ "github.com/mikefarah/yq/v3"
+	_ "github.com/mikefarah/yq/v4"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "github.com/spf13/cobra"
 	_ "github.com/tcnksm/ghr"

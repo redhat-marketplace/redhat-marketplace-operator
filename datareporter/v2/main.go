@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"os"
-	"runtime/debug"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -31,7 +30,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -41,6 +39,7 @@ import (
 	k8sapiflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -91,12 +90,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	quantity, err := resource.ParseQuantity(os.Getenv("LIMITSMEMORY"))
-	if err == nil {
-		setupLog.Info("setting memory limit from container resources.limits.memory", "downwardAPIEnv", "LIMITSMEMORY", "GOMEMLIMIT", quantity.String())
-		debug.SetMemoryLimit(quantity.Value())
-	}
-
 	setupLog.Info("componentConfigVar", "file", componentConfigVar)
 
 	content, err := os.ReadFile(componentConfigVar)
@@ -140,8 +133,8 @@ func main() {
 		MinVersion:           tlsVersion,
 	}
 
-	newCacheFunc := cache.BuilderWithOptions(cache.Options{
-		SelectorsByObject: cache.SelectorsByObject{
+	cacheOptions := cache.Options{
+		ByObject: map[client.Object]cache.ByObject{
 			&v1alpha1.DataReporterConfig{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
@@ -159,7 +152,7 @@ func main() {
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 		},
-	})
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -168,7 +161,7 @@ func main() {
 		HealthProbeBindAddress: cc.ManagerConfig.Health.HealthProbeBindAddress,
 		LeaderElection:         *cc.ManagerConfig.LeaderElection.LeaderElect,
 		LeaderElectionID:       cc.ManagerConfig.LeaderElectionID,
-		NewCache:               newCacheFunc,
+		Cache:                  cacheOptions,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

@@ -11,7 +11,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 )
@@ -30,8 +29,7 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (Ta
 		return nil, err
 	}
 	logrLogger := _wireLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploaders, err := ProvideUploaders(ctx, clientCommandRunner, simpleClient, logrLogger, taskConfig)
+	uploaders, err := ProvideUploaders(ctx, simpleClient, logrLogger, taskConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -41,10 +39,8 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (Ta
 	}
 	task := &Task{
 		ReportName: reportName,
-		CC:         clientCommandRunner,
 		K8SClient:  simpleClient,
 		Config:     taskConfig,
-		K8SScheme:  scheme,
 		Uploader:   uploader,
 	}
 	return task, nil
@@ -69,19 +65,16 @@ func NewEventBroadcaster(erConfig *Config) (record.EventBroadcaster, func(), err
 func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) {
 	config := task.Config
 	simpleClient := task.K8SClient
-	scheme := task.K8SScheme
-	logrLogger := _wireLogrLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
 	reportName := task.ReportName
-	meterReport, err := getMarketplaceReport(ctx, clientCommandRunner, reportName)
+	meterReport, err := getMarketplaceReport(ctx, simpleClient, reportName)
 	if err != nil {
 		return nil, err
 	}
-	marketplaceConfig, err := getMarketplaceConfig(ctx, clientCommandRunner, config)
+	marketplaceConfig, err := getMarketplaceConfig(ctx, simpleClient, config)
 	if err != nil {
 		return nil, err
 	}
-	service, err := getPrometheusService(ctx, clientCommandRunner, config)
+	service, err := getPrometheusService(ctx, simpleClient, config)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +91,7 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
+	logrLogger := _wireLogrLoggerValue
 	dataBuilder, err := ProvideDataBuilder(config, logrLogger)
 	if err != nil {
 		return nil, err
@@ -138,8 +132,7 @@ func NewUploadTask(ctx context.Context, config *Config, namespace Namespace) (Up
 	if err != nil {
 		return nil, err
 	}
-	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploaders, err := ProvideUploaders(ctx, clientCommandRunner, simpleClient, logrLogger, config)
+	uploaders, err := ProvideUploaders(ctx, simpleClient, logrLogger, config)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,10 @@ spec:
                           - amd64
                           - ppc64le
                           - s390x
+                      - key: kubernetes.io/os
+                        operator: In
+                        values:
+                          - linux
           securityContext: 
             runAsNonRoot: true              
           serviceAccount: ibm-metrics-operator-reporter

@@ -49,7 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -619,6 +619,11 @@ func (f *Factory) NewReporterCronJob(userWorkloadEnabled bool, isDisconnected bo
 	// Keep last 3 days of data
 	j.Spec.JobTemplate.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
 
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&j.Spec.JobTemplate.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return nil, fmt.Errorf("failed to inject subscription config - name=%s - %v", j.Name, err)
+	}
+
 	return j, nil
 }
 
@@ -736,6 +741,9 @@ func (f *Factory) prometheusOperatorDeployment() string {
 func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
 	c := f.config.PrometheusOperatorConfig
 	dep, err := f.NewDeployment(MustAssetReader(f.prometheusOperatorDeployment()))
+	if err != nil {
+		return nil, err
+	}
 
 	if len(c.NodeSelector) > 0 {
 		dep.Spec.Template.Spec.NodeSelector = c.NodeSelector
@@ -1031,11 +1039,19 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 
 	d.Namespace = f.namespace
 
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&d.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return nil, fmt.Errorf("failed to inject subscription config - name=%s - %v", d.Name, err)
+	}
+
 	return d, nil
 }
 
 func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
 	s, err := NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
+	if err != nil {
+		return nil, err
+	}
 	s.Namespace = f.namespace
 	return s, err
 }
@@ -1176,6 +1192,11 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
 		}
 
 		container.Args = newArgs
+	}
+
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&sts.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return fmt.Errorf("failed to inject subscription config - name=%s - %v", sts.Name, err)
 	}
 
 	return nil
@@ -1405,6 +1426,11 @@ func (f *Factory) UpdateRemoteResourceDeployment(dep *appsv1.Deployment) error {
 		f.ReplaceImages(container)
 	}
 
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&dep.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return fmt.Errorf("failed to inject subscription config - name=%s - %v", dep.Name, err)
+	}
+
 	return nil
 }
 
@@ -1433,6 +1459,11 @@ func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
 		f.ReplaceImages(container)
+	}
+
+	// Inject the SubscriptionConfig overrides
+	if err := injectSubscriptionConfig(&dep.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
+		return fmt.Errorf("failed to inject subscription config - name=%s - %v", dep.Name, err)
 	}
 
 	return nil

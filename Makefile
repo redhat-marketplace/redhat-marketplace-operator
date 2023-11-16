@@ -28,7 +28,7 @@ vet:
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
-TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 tests/v2 v2 v2/scripts v2/tools/connect v2/tools/skaffold-tdd-tool v2/tools/version deployer/v2 datareporter/v2
+TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 v2 v2/scripts v2/tools/connect v2/tools/version deployer/v2 datareporter/v2 deployer/v2/scripts
 
 .PHONY: tidy-all
 tidy-all:
@@ -37,6 +37,13 @@ tidy-all:
 		echo "go mod $$curent_dir/$$project" && cd $$current_dir/$$project && go mod tidy ; \
 	done
 	cd ./airgap/v2/ && $(BUF) mod update
+
+.PHONY: go-mod-outdated-all
+go-mod-outdated-all: go-mod-outdated
+	current_dir=`pwd` ; \
+	for project in $(TIDY_TARGETS) ; do \
+		echo "go-mod-outdated $$curent_dir/$$project" && cd $$current_dir/$$project && go list -u -m -json all | $(GO_MOD_OUTDATED) -update -direct  ; \
+	done
 
 .PHONY: download-all
 download-all:

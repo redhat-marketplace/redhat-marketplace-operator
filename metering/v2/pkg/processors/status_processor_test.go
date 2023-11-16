@@ -35,10 +35,10 @@ import (
 var _ = Describe("status_processor", func() {
 
 	var (
-		ctx              context.Context
-		mockClient       *mocks.Client
-		mockStatusWriter *mocks.StatusWriter
-		sut              *StatusProcessor
+		ctx                   context.Context
+		mockClient            *mocks.Client
+		mockSubResourceWriter *mocks.SubResourceWriter
+		sut                   *StatusProcessor
 
 		obj1 cache.Delta
 	)
@@ -46,7 +46,7 @@ var _ = Describe("status_processor", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockClient = &mocks.Client{}
-		mockStatusWriter = &mocks.StatusWriter{}
+		mockSubResourceWriter = &mocks.SubResourceWriter{}
 		obj1 = cache.Delta{Type: cache.Added, Object: &pkgtypes.MeterDefinitionEnhancedObject{
 			Object: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -80,9 +80,9 @@ var _ = Describe("status_processor", func() {
 	It("should process status changes", func() {
 		name := types.NamespacedName{Namespace: "ns1", Name: "name"}
 
-		mockClient.On("Status").Return(mockStatusWriter)
+		mockClient.On("Status").Return(mockSubResourceWriter)
 		mockClient.On("Get", mock.Anything, name, mock.Anything).Return(nil)
-		mockStatusWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+		mockSubResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 
 		err := sut.Process(ctx, obj1)
 		Expect(err).To(Succeed())

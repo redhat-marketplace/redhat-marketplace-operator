@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
-	"time"
 
 	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
@@ -184,7 +183,7 @@ func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			Publisher:      "IBM",
 			SourceType:     "grpc",
 			Image:          "icr.io/cpopen/ibm-operator-catalog",
-			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{RawInterval: "45m"}},
 		},
 	}
 
@@ -204,7 +203,7 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			Publisher:      "IBM",
 			SourceType:     "grpc",
 			Image:          "icr.io/cpopen/ibm-common-service-catalog",
-			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{RawInterval: "45m"}},
 		},
 	}
 

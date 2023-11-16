@@ -45,8 +45,10 @@ import (
 
 	goruntime "runtime"
 
+	"github.com/gotidy/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -111,12 +113,21 @@ func getClientOptions() managers.ClientOptions {
 	return managers.ClientOptions{
 		Namespace:    "",
 		DryRunClient: false,
-		DisableDeepCopyByObject: cache.DisableDeepCopyByObject{
-			&corev1.Pod{}:                   true,
-			&corev1.Service{}:               true,
-			&corev1.PersistentVolume{}:      true,
-			&corev1.PersistentVolumeClaim{}: true,
+		ByObject: map[client.Object]cache.ByObject{
+			&corev1.Pod{}:                   cache.ByObject{UnsafeDisableDeepCopy: ptr.Bool(true)},
+			&corev1.Service{}:               cache.ByObject{UnsafeDisableDeepCopy: ptr.Bool(true)},
+			&corev1.PersistentVolume{}:      cache.ByObject{UnsafeDisableDeepCopy: ptr.Bool(true)},
+			&corev1.PersistentVolumeClaim{}: cache.ByObject{UnsafeDisableDeepCopy: ptr.Bool(true)},
 		},
+
+		/*
+			DisableDeepCopyByObject: cache.DisableDeepCopyByObject{
+				&corev1.Pod{}:                   true,
+				&corev1.Service{}:               true,
+				&corev1.PersistentVolume{}:      true,
+				&corev1.PersistentVolumeClaim{}: true,
+			},
+		*/
 	}
 }
 

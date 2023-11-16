@@ -25,14 +25,12 @@ import (
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/gotidy/ptr"
-	"github.com/prometheus/common/log"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,11 +58,8 @@ type TaskRun interface {
 
 type Task struct {
 	ReportName ReportName
-
-	CC        ClientCommandRunner
-	K8SClient rhmclient.SimpleClient
-	Config    *Config
-	K8SScheme *runtime.Scheme
+	K8SClient  rhmclient.SimpleClient
+	Config     *Config
 	uploaders.Uploader
 }
 
@@ -124,7 +119,7 @@ func (r *Task) report(ctx context.Context) error {
 			},
 		)
 		if err != nil {
-			log.Error(err, "failed to update report status")
+			logger.Error(err, "failed to update report status")
 		}
 		return errors.Wrap(err, "failure to query metrics")
 	}
@@ -141,6 +136,9 @@ func (r *Task) report(ctx context.Context) error {
 	dirpath := filepath.Dir(files[0])
 	fileName := fmt.Sprintf("%s/../upload-%s.tar.gz", dirpath, reportID.String())
 	err = TargzFolder(dirpath, fileName)
+	if err != nil {
+		return errors.Wrap(err, "error creating tar.gz")
+	}
 
 	logger.Info("tarring", "outputfile", fileName)
 
@@ -225,7 +223,7 @@ func (r *Task) report(ctx context.Context) error {
 			},
 		)
 		if err != nil {
-			log.Error(err, "failed to update report status")
+			logger.Error(err, "failed to update report status")
 		}
 	}
 
@@ -261,38 +259,39 @@ func getClientOptions() managers.ClientOptions {
 
 func getMarketplaceConfig(
 	ctx context.Context,
-	cc ClientCommandRunner,
+	client client.Client,
 	cfg *Config,
 ) (config *marketplacev1alpha1.MarketplaceConfig, returnErr error) {
-	config = &marketplacev1alpha1.MarketplaceConfig{}
 
-	if result, _ := cc.Do(ctx,
-		GetAction(
-			types.NamespacedName{Namespace: cfg.DeployedNamespace, Name: utils.MARKETPLACECONFIG_NAME}, config,
-		)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result, "failed to get mkplc config")
+	config = &marketplacev1alpha1.MarketplaceConfig{}
+	if err := client.Get(
+		ctx,
+		types.NamespacedName{Namespace: cfg.DeployedNamespace, Name: utils.MARKETPLACECONFIG_NAME},
+		config); err != nil {
+		return nil, err
 	}
 
-	logger.Info("retrieved mkplc config")
+	logger.Info("retrieved marketplaceconfig")
 	return
 }
 
 func getMarketplaceReport(
 	ctx context.Context,
-	cc ClientCommandRunner,
+	client client.Client,
 	reportName ReportName,
 ) (report *marketplacev1alpha1.MeterReport, returnErr error) {
 	report = &marketplacev1alpha1.MeterReport{}
 
 	returnErr = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if result, err := cc.Do(ctx, GetAction(types.NamespacedName(reportName), report)); !result.Is(Continue) {
+
+		if err := client.Get(ctx, types.NamespacedName(reportName), report); err != nil {
 			return err
 		}
 
 		if report.Spec.ReportUUID == "" {
 			report.Spec.ReportUUID = uuid.New().String()
 
-			if result, err := cc.Exec(ctx, UpdateAction(report)); !result.Is(Continue) {
+			if err := client.Update(ctx, report); err != nil {
 				return err
 			}
 		}
@@ -310,7 +309,7 @@ func getMarketplaceReport(
 
 func getPrometheusService(
 	ctx context.Context,
-	cc ClientCommandRunner,
+	client client.Client,
 	cfg *Config,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
@@ -328,9 +327,8 @@ func getPrometheusService(
 		Namespace: cfg.PrometheusNamespace,
 	}
 
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result, "failed to get report")
-		return
+	if err := client.Get(ctx, name, service); err != nil {
+		return nil, err
 	}
 
 	logger.Info("retrieved prometheus service")
