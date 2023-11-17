@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2
 
-go 1.19
+go 1.20
 
 require (
 	emperror.dev/errors v0.8.1
