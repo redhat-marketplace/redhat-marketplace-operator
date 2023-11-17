@@ -80,7 +80,7 @@ The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to
 
 ### Provisioning Options supported
 
-  Choose one of the following options to provision storage for the ibm-metrics-operator data-service
+Choose one of the following options to provision storage for the ibm-metrics-operator data-service
 
 #### Dynamic provisioning using a default StorageClass
    - A StorageClass is defined with a `metadata.annotations: storageclass.kubernetes.io/is-default-class: "true"`
