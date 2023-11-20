@@ -81,7 +81,13 @@ Minimum system resources required:
 
 Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
 
-The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode. Te PersistentVolumeClaims are automatically created by the ibm-metrics-operator after creating a `redhat-marketplace-pull-secret` and accepting the license in `marketplaceconfig`.
+
+| NAME                                | CAPACITY | ACCESS MODES |
+| ----------------------------------- | -------- | ------------ |
+| rhm-data-service-rhm-data-service-0 | 1Gi | RWO |
+| rhm-data-service-rhm-data-service-1 | 1Gi | RWO |
+| rhm-data-service-rhm-data-service-2 | 1Gi | RWO |
 
 ### Supported Storage Providers
 
@@ -99,7 +105,54 @@ The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports
 
 ### Provisioning Options supported
 
- - Dynamic provisioning using a storageClass
+Choose one of the following options to provision storage for the ibm-metrics-operator data-service
+
+#### Dynamic provisioning using a default StorageClass
+   - A StorageClass is defined with a `metadata.annotations: storageclass.kubernetes.io/is-default-class: "true"`
+   - PersistentVolumes will be provisioned automatically for the generated PersistentVolumeClaims
+--- 
+#### Manually create each PersistentVolumeClaim with a specific StorageClass
+   - Must be performed before creating a `redhat-marketplace-pull-secret` or accepting the license in `marketplaceconfig`. Otherwise, the automatically generated PersistentVolumeClaims are immutable.
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: rhm-data-service
+  name: rhm-data-service-rhm-data-service-0
+  namespace: redhat-marketplace
+spec:
+  storageClassName: rook-cephfs
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+---
+#### Manually provision each PersistentVolume for the generated PersistentVolumeClaims with a specific StorageClass
+  - May be performed before or after creating a `redhat-marketplace-pull-secret` or accepting the license in `marketplaceconfig`.  
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: rhm-data-service-rhm-data-service-0
+spec:
+  csi:
+    driver: rook-ceph.cephfs.csi.ceph.com
+    volumeHandle: rhm-data-service-rhm-data-service-0
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: rook-cephfs
+  volumeMode: Filesystem
+  claimRef:
+    kind: PersistentVolumeClaim
+    namespace: redhat-marketplace
+    name: rhm-data-service-rhm-data-service-0
+```
 
 ### Installation
 1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
