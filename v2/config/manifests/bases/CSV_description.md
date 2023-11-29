@@ -81,7 +81,13 @@ Minimum system resources required:
 
 Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
 
-The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode. Te PersistentVolumeClaims are automatically created by the ibm-metrics-operator after creating a `redhat-marketplace-pull-secret` and accepting the license in `marketplaceconfig`.
+
+| NAME                                | CAPACITY | ACCESS MODES |
+| ----------------------------------- | -------- | ------------ |
+| rhm-data-service-rhm-data-service-0 | 1Gi | RWO |
+| rhm-data-service-rhm-data-service-1 | 1Gi | RWO |
+| rhm-data-service-rhm-data-service-2 | 1Gi | RWO |
 
 ### Supported Storage Providers
 
@@ -99,7 +105,54 @@ The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports
 
 ### Provisioning Options supported
 
- - Dynamic provisioning using a storageClass
+Choose one of the following options to provision storage for the ibm-metrics-operator data-service
+
+#### Dynamic provisioning using a default StorageClass
+   - A StorageClass is defined with a `metadata.annotations: storageclass.kubernetes.io/is-default-class: "true"`
+   - PersistentVolumes will be provisioned automatically for the generated PersistentVolumeClaims
+--- 
+#### Manually create each PersistentVolumeClaim with a specific StorageClass
+   - Must be performed before creating a `redhat-marketplace-pull-secret` or accepting the license in `marketplaceconfig`. Otherwise, the automatically generated PersistentVolumeClaims are immutable.
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: rhm-data-service
+  name: rhm-data-service-rhm-data-service-0
+  namespace: redhat-marketplace
+spec:
+  storageClassName: rook-cephfs
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+---
+#### Manually provision each PersistentVolume for the generated PersistentVolumeClaims with a specific StorageClass
+  - May be performed before or after creating a `redhat-marketplace-pull-secret` or accepting the license in `marketplaceconfig`.  
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: rhm-data-service-rhm-data-service-0
+spec:
+  csi:
+    driver: rook-ceph.cephfs.csi.ceph.com
+    volumeHandle: rhm-data-service-rhm-data-service-0
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: rook-cephfs
+  volumeMode: Filesystem
+  claimRef:
+    kind: PersistentVolumeClaim
+    namespace: redhat-marketplace
+    name: rhm-data-service-rhm-data-service-0
+```
 
 ### Installation
 1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
@@ -134,7 +187,7 @@ The IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims to store reports
     ```
 
 ### Why is a global pull secret required?
-In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).
+In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approaches, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).
 
 
 ### SecurityContextConstraints requirements
@@ -170,6 +223,14 @@ Attempting to meter a resource with a MeterDefinition without the required permi
 To plan for disaster recovery, note the PhysicalVolumeClaims `rhm-data-service-rhm-data-service-N`. 
 - In connected environments, MeterReport data upload attempts occur hourly, and are then removed from data-service. There is a low risk of losing much unreported data.
 - In an airgap environment, MeterReport data must be pulled from data-service and uploaded manually using `datactl`. To prevent data loss in a disaster scenario, the data-service volumes should be considered in a recovery plan.
+
+### Subscription Config
+
+It is possible to [configure](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md) how OLM deploys an Operator via the `config` field in the [Subscription](https://github.com/operator-framework/olm-book/blob/master/docs/subscriptions.md) object.
+
+The IBM Metrics Operator will also read the `config` and append it to the operands. The primary use case is to control scheduling using [Tolerations](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/) and [NodeSelectors](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
+
+A limitation is that the `config` elements are only appended to the operands. The elements in the operands are not removed if the `config` is removed from the `Subscripion`. The operand must be modified manually, or deleted and recreated by the controller.
 
 ### Cluster permission requirements
 

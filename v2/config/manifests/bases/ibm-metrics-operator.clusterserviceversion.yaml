@@ -101,16 +101,41 @@ spec:
     User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)**
     |          1  |     0.1       | 2x40        |   2    |\n\nMultiple nodes are required
     to provide pod scheduling for high availability for Red Hat Marketplace Data Service
-    and Prometheus.\n\nThe IBM Metrics Operator creates 3 x 1GB PersistentVolumeClaims
-    to store reports as part of the data service, with _ReadWriteOnce_ access mode.\n\n###
-    Supported Storage Providers\n\n- OpenShift Container Storage / OpenShift Data
-    Foundation version 4.x, from version 4.2 or higher\n- IBM Cloud Block storage
-    and IBM Cloud File storage\n- IBM Storage Suite for IBM Cloud Paks:\n  - File
-    storage from IBM Spectrum Fusion/Scale \n  - Block storage from IBM Spectrum Virtualize,
-    FlashSystem or DS8K\n- Portworx Storage, version 2.5.5 or above\n- Amazon Elastic
-    File Storage\n\n### Access Modes required\n\n - ReadWriteOnce (RWO)\n\n### Provisioning
-    Options supported\n\n - Dynamic provisioning using a storageClass\n\n### Installation\n1.
-    Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
+    and Prometheus.\n\nThe IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims
+    to store reports as part of the data service, with _ReadWriteOnce_ access mode.
+    Te PersistentVolumeClaims are automatically created by the ibm-metrics-operator
+    after creating a `redhat-marketplace-pull-secret` and accepting the license in
+    `marketplaceconfig`.\n\n| NAME                                | CAPACITY | ACCESS
+    MODES |\n| ----------------------------------- | -------- | ------------ |\n|
+    rhm-data-service-rhm-data-service-0 | 1Gi | RWO |\n| rhm-data-service-rhm-data-service-1
+    | 1Gi | RWO |\n| rhm-data-service-rhm-data-service-2 | 1Gi | RWO |\n\n### Supported
+    Storage Providers\n\n- OpenShift Container Storage / OpenShift Data Foundation
+    version 4.x, from version 4.2 or higher\n- IBM Cloud Block storage and IBM Cloud
+    File storage\n- IBM Storage Suite for IBM Cloud Paks:\n  - File storage from IBM
+    Spectrum Fusion/Scale \n  - Block storage from IBM Spectrum Virtualize, FlashSystem
+    or DS8K\n- Portworx Storage, version 2.5.5 or above\n- Amazon Elastic File Storage\n\n###
+    Access Modes required\n\n - ReadWriteOnce (RWO)\n\n### Provisioning Options supported\n\nChoose
+    one of the following options to provision storage for the ibm-metrics-operator
+    data-service\n\n#### Dynamic provisioning using a default StorageClass\n   - A
+    StorageClass is defined with a `metadata.annotations: storageclass.kubernetes.io/is-default-class:
+    \"true\"`\n   - PersistentVolumes will be provisioned automatically for the generated
+    PersistentVolumeClaims\n--- \n#### Manually create each PersistentVolumeClaim
+    with a specific StorageClass\n   - Must be performed before creating a `redhat-marketplace-pull-secret`
+    or accepting the license in `marketplaceconfig`. Otherwise, the automatically
+    generated PersistentVolumeClaims are immutable.\n```\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n
+    \ labels:\n    app: rhm-data-service\n  name: rhm-data-service-rhm-data-service-0\n
+    \ namespace: redhat-marketplace\nspec:\n  storageClassName: rook-cephfs\n  accessModes:\n
+    \ - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi\n```\n---\n####
+    Manually provision each PersistentVolume for the generated PersistentVolumeClaims
+    with a specific StorageClass\n  - May be performed before or after creating a
+    `redhat-marketplace-pull-secret` or accepting the license in `marketplaceconfig`.
+    \ \n```\napiVersion: v1\nkind: PersistentVolume\nmetadata:\n  name: rhm-data-service-rhm-data-service-0\nspec:\n
+    \ csi:\n    driver: rook-ceph.cephfs.csi.ceph.com\n    volumeHandle: rhm-data-service-rhm-data-service-0\n
+    \ capacity:\n    storage: 1Gi\n  accessModes:\n    - ReadWriteOnce\n  persistentVolumeReclaimPolicy:
+    Delete\n  storageClassName: rook-cephfs\n  volumeMode: Filesystem\n  claimRef:\n
+    \   kind: PersistentVolumeClaim\n    namespace: redhat-marketplace\n    name:
+    rhm-data-service-rhm-data-service-0\n```\n\n### Installation\n1. Create or get
+    your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
     Install the IBM Metrics Operator\n3. Create a Kubernetes secret in the installed
     namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET`
     with the value of the Red hat Marketplace Pull Secret.\n    ```sh\n    # Replace
@@ -141,7 +166,7 @@ spec:
     Hat Marketplace products, you will need to make the pull secret available across
     the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret
     as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
-    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
+    For alternative approaches, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
     SecurityContextConstraints requirements\n\nThe Operators and their components
     support running under the OpenShift Container Platform default restricted and
     restricted-v2 security context constraints.\n\n### Installation Namespace and
@@ -176,8 +201,16 @@ spec:
     is a low risk of losing much unreported data.\n- In an airgap environment, MeterReport
     data must be pulled from data-service and uploaded manually using `datactl`. To
     prevent data loss in a disaster scenario, the data-service volumes should be considered
-    in a recovery plan.\n\n### Cluster permission requirements\n\n|API group             |Resources
-    \             |Verbs                                     |\n|----------------------|-----------------------|------------------------------------------|\n|apps
+    in a recovery plan.\n\n### Subscription Config\n\nIt is possible to [configure](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md)
+    how OLM deploys an Operator via the `config` field in the [Subscription](https://github.com/operator-framework/olm-book/blob/master/docs/subscriptions.md)
+    object.\n\nThe IBM Metrics Operator will also read the `config` and append it
+    to the operands. The primary use case is to control scheduling using [Tolerations](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/)
+    and [NodeSelectors](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).\n\nA
+    limitation is that the `config` elements are only appended to the operands. The
+    elements in the operands are not removed if the `config` is removed from the `Subscripion`.
+    The operand must be modified manually, or deleted and recreated by the controller.\n\n###
+    Cluster permission requirements\n\n|API group             |Resources              |Verbs
+    \                                    |\n|----------------------|-----------------------|------------------------------------------|\n|apps
     \                 |statefulsets           |get;list;watch                            |\n|authentication.k8s.io
     |tokenreviews           |create                                    |\n|authorization.k8s.io
     \ |subjectaccessreviews   |create                                    |\n|config.openshift.io
