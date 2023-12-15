@@ -180,6 +180,7 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize operator-sdk yq omt
 	$(MAKE) kustomize-set
+	$(YQ) eval -i '.spec.description = (load_str("README.md"))' $(CSV_YAML_CONFIG_FILE)
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts redhat-marketplace-remoteresources3deployment,redhat-marketplace-remoteresourcedeployment,redhat-marketplace-servicemonitor-metrics-reader,redhat-marketplace-watch-keeper
