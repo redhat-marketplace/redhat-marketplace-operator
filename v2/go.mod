@@ -17,7 +17,7 @@ require (
 	github.com/goph/emperror v0.17.2
 	github.com/gotidy/ptr v1.4.0
 	github.com/hashicorp/go-retryablehttp v0.7.4
-	github.com/imdario/mergo v0.3.16 // indirect
+	github.com/imdario/mergo v0.3.16
 	github.com/jpillora/backoff v1.0.0
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/onsi/gomega v1.29.0
