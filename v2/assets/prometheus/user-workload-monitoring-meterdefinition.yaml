@@ -10,7 +10,7 @@ spec:
     - aggregation: avg
       metricId: prometheus-user-workload-uptime
       name: prometheus-user-workload-uptime
-      period: 1h
+      period: 24h
       query: avg_over_time(up{job="prometheus-user-workload"}[5m])
       workloadType: Pod
       metricType: infrastructure
