@@ -212,8 +212,10 @@ bundle-build:
 	--push \
 	.
 
+	scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md
+
 bundle-deploy:
-	docker push $(BUNDLE_IMG)
+	docker push $(BUNDLE_IMG) 
 
 bundle-run: operator-sdk
 	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace $(namespace)
