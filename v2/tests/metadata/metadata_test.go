@@ -15,7 +15,7 @@
 package metadata
 
 import (
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -37,10 +37,10 @@ var _ = Describe("Metadata", func() {
 	AssertGoldenFileMatch := func(originalFile, goldenFile string) func() {
 		return func() {
 			Skip("Needs rework")
-			dat, err := ioutil.ReadFile(originalFile)
+			dat, err := os.ReadFile(originalFile)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			goldenDat, err := ioutil.ReadFile(goldenFile)
+			goldenDat, err := os.ReadFile(goldenFile)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			datArray := strings.Split(string(dat), "---")

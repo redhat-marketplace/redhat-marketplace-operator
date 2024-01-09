@@ -18,9 +18,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -61,7 +62,7 @@ func mockResponseRoundTripper(files map[string]string, meterdefinitions []v1beta
 		Expect(req.URL.String()).To(Equal("http://localhost:9090/api/v1/query_range"), "url does not match expected")
 
 		defer req.Body.Close()
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		Expect(err).To(Succeed())
 		query, _ := url.ParseQuery(string(body))
 
@@ -70,7 +71,7 @@ func mockResponseRoundTripper(files map[string]string, meterdefinitions []v1beta
 			return &http.Response{
 				StatusCode: 200,
 				// Send response to be tested
-				Body: ioutil.NopCloser(bytes.NewBuffer(meterDefInfo)),
+				Body: io.NopCloser(bytes.NewBuffer(meterDefInfo)),
 				// Must be set to non-nil value or it panics
 				Header: headers,
 			}
@@ -83,7 +84,7 @@ func mockResponseRoundTripper(files map[string]string, meterdefinitions []v1beta
 		for _, meterdef := range meterdefinitions {
 			for _, meter := range meterdef.Spec.Meters {
 				if strings.Contains(query["query"][0], meter.Query) {
-					fileBytes, err = ioutil.ReadFile(files[meter.Query])
+					fileBytes, err = os.ReadFile(files[meter.Query])
 					Expect(err).To(Succeed())
 					break finddata
 				}
@@ -95,7 +96,7 @@ func mockResponseRoundTripper(files map[string]string, meterdefinitions []v1beta
 		return &http.Response{
 			StatusCode: 200,
 			// Send response to be tested
-			Body: ioutil.NopCloser(bytes.NewBuffer(fileBytes)),
+			Body: io.NopCloser(bytes.NewBuffer(fileBytes)),
 			// Must be set to non-nil value or it panics
 			Header: headers,
 		}
@@ -198,7 +199,7 @@ func GenerateRandomData(start, end time.Time, queries []string) string {
 		next = next.Add(24 * time.Hour)
 	}
 
-	file, err := ioutil.TempFile("", "testfilemetrics")
+	file, err := os.CreateTemp("", "testfilemetrics")
 	Expect(err).To(Succeed(), "failed to parse json")
 
 	makeData := func(query string) map[string]string {
@@ -235,7 +236,7 @@ func GenerateRandomData(start, end time.Time, queries []string) string {
 	marshallBytes, err := json.Marshal(fakem)
 	Expect(err).To(Succeed(), "failed to parse json")
 
-	err = ioutil.WriteFile(
+	err = os.WriteFile(
 		file.Name(),
 		marshallBytes,
 		0600)

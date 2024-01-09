@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 
 	emperrors "emperror.dev/errors"
@@ -277,7 +277,7 @@ func BuildMeterBaseCr(namespace string, deployMdefCatalogServer bool) *marketpla
 }
 
 func LoadYAML(filename string, i interface{}) (interface{}, error) {
-	dat, err := ioutil.ReadFile(filename)
+	dat, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
