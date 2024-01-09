@@ -31,6 +31,8 @@ echo "Operator version: $OPERATOR_VERSION"
 $OPM &>/dev/null
 [ $? -ne 0 ] && fail_exit "opm tool not installed"
 
+$OPM version
+
 catalog_dir="catalog-$OPERATOR_NAME"
 
 echo "Creating catalog directory $catalog_dir"
