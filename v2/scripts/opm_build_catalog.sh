@@ -27,10 +27,8 @@ echo "Operator name: $OPERATOR_NAME"
 echo "Operator version: $OPERATOR_VERSION"
 
 # check if opm tool is available
-opm --help
-whereis opm
-opm
-echo $?
+# make sure it's available on PATH
+[ -n "$OPM" ] && export PATH=$PATH:`dirname $OPM`
 opm &>/dev/null
 [ $? -ne 0 ] && fail_exit "opm tool not installed"
 
