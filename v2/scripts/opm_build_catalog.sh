@@ -27,9 +27,8 @@ echo "Operator name: $OPERATOR_NAME"
 echo "Operator version: $OPERATOR_VERSION"
 
 # check if opm tool is available
-# make sure it's available on PATH
-[ -n "$OPM" ] && export PATH=$PATH:`dirname $OPM`
-opm &>/dev/null
+
+eval $OPM &>/dev/null
 [ $? -ne 0 ] && fail_exit "opm tool not installed"
 
 catalog_dir="catalog-$OPERATOR_NAME"
@@ -39,13 +38,13 @@ mkdir -p "$catalog_dir"
 [ $? -ne 0 ] && fail_exit "Unable to create catalog directory"
 
 echo "Generate Dockerfile"
-opm generate dockerfile "$catalog_dir" -i registry.redhat.io/openshift4/ose-operator-registry:v4.14
+eval $OPM generate dockerfile "$catalog_dir" -i registry.redhat.io/openshift4/ose-operator-registry:v4.14
 
 echo "Populate catalog"
-opm init ibm-metrics-operator --default-channel=stable --description=$README_PATH  --output yaml > "$catalog_dir"/index.yaml 
+eval $OPM init ibm-metrics-operator --default-channel=stable --description=$README_PATH  --output yaml > "$catalog_dir"/index.yaml 
 
 echo "Adding bundle"
-opm render $BUNDLE_IMAGE --output=yaml >> "$catalog_dir"/index.yaml 
+eval $OPM render $BUNDLE_IMAGE --output=yaml >> "$catalog_dir"/index.yaml 
 
 cat <<EOT >> "$catalog_dir"/index.yaml
 ---
@@ -57,7 +56,7 @@ entries:
 EOT
 
 echo "Validate catalog"
-opm validate "$catalog_dir"
+eval $OPM validate "$catalog_dir"
 [ $? -ne 0 ] && fail_exit "Catalog validation failed"
 
 catalog_image=`echo $BUNDLE_IMAGE | sed -e 's/manifest/catalog/'`
