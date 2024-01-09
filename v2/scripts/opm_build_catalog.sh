@@ -7,7 +7,16 @@ fail_exit()
   exit 1
 }
 
+# main code starts here
+
+if [ $# -ne 2 ];
+then
+  echo "Usage: $0 <bundle image> <path to README file>"
+  exit 1
+fi
+
 BUNDLE_IMAGE=$1
+README_PATH=$2
 
 echo "Running with $*"
 
@@ -21,7 +30,7 @@ echo "Operator version: $OPERATOR_VERSION"
 opm &>/dev/null
 [ $? -ne 0 ] && fail_exit "opm tool not installed"
 
-catalog_dir="catalog-dir"
+catalog_dir="catalog-$OPERATOR_NAME"
 
 echo "Creating catalog directory $catalog_dir"
 mkdir -p "$catalog_dir"
@@ -31,7 +40,7 @@ echo "Generate Dockerfile"
 opm generate dockerfile "$catalog_dir" -i registry.redhat.io/openshift4/ose-operator-registry:v4.14
 
 echo "Populate catalog"
-opm init ibm-metrics-operator --default-channel=stable --description=./../README.md  --output yaml > "$catalog_dir"/index.yaml 
+opm init ibm-metrics-operator --default-channel=stable --description=$README_PATH  --output yaml > "$catalog_dir"/index.yaml 
 
 echo "Adding bundle"
 opm render $BUNDLE_IMAGE --output=yaml >> "$catalog_dir"/index.yaml 
