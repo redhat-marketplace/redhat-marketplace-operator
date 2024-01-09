@@ -27,6 +27,10 @@ echo "Operator name: $OPERATOR_NAME"
 echo "Operator version: $OPERATOR_VERSION"
 
 # check if opm tool is available
+opm --help
+whereis opm
+opm
+echo $?
 opm &>/dev/null
 [ $? -ne 0 ] && fail_exit "opm tool not installed"
 
