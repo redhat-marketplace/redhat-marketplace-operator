@@ -28,6 +28,8 @@ echo "Operator version: $OPERATOR_VERSION"
 
 # check if opm tool is available
 
+echo "OPM = $OPM"
+
 $OPM &>/dev/null
 [ $? -ne 0 ] && fail_exit "opm tool not installed"
 
