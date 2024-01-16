@@ -17,7 +17,7 @@ ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
 IMAGE_PUSH ?= true
-DOCKER_BUILD := docker build
+DOCKER_BUILD := podman build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 DOCKERBUILDXCACHE ?=
 
