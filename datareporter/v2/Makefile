@@ -210,6 +210,9 @@ bundle-build:
 	--push \
 	.
 
+catalog-build: opm
+	PATH="$(PWD)/../../bin:${PATH}" ../../v2/scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md
+
 .PHONY: bundle-dev-index-multiarch
  bundle-dev-index-multiarch: opm opm-builder-base
 	$(OPM) index add -u docker --generate --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" -d dev-index.Dockerfile

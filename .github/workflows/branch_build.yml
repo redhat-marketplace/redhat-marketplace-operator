@@ -395,6 +395,9 @@ jobs:
         echo "::group::Make Bundle Build"
         make bundle-build
         echo "::endgroup::"
+        echo "::group::Make Catalog Build"
+        make catalog-build
+        echo "::endgroup::"
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch
         echo "::endgroup::"
