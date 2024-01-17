@@ -203,6 +203,9 @@ bundle-build:
 	--push \
 	.
 
+catalog-build: opm
+	PATH="$(PWD)/../bin:${PATH}" ../../v2/scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md
+
 bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
