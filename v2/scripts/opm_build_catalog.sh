@@ -44,7 +44,7 @@ echo "Generate Dockerfile"
 opm generate dockerfile "$catalog_dir" -i registry.redhat.io/openshift4/ose-operator-registry:v4.14
 
 echo "Populate catalog"
-opm init ibm-metrics-operator --default-channel=stable --description=$README_PATH  --output yaml > "$catalog_dir"/index.yaml 
+opm init $OPERATOR_NAME --default-channel=stable --description=$README_PATH  --output yaml > "$catalog_dir"/index.yaml 
 
 echo "Adding bundle"
 opm render $BUNDLE_IMAGE --output=yaml >> "$catalog_dir"/index.yaml 
