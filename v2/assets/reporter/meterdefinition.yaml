@@ -9,7 +9,7 @@ spec:
     - aggregation: sum
       metricId: rhm-meter-report-job-failed
       name: rhm-meter-report-job-failed
-      period: 1h
+      period: 24h
       query: 'sum(kube_job_failed{job_name=~"rhm-meter-report-upload-.*"}) without (condition)'
       workloadType: Service
       metricType: infrastructure

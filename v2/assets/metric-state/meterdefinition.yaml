@@ -9,7 +9,7 @@ spec:
     - aggregation: avg
       metricId: rhm-metric-state-uptime
       name: rhm-metric-state-uptime
-      period: 1h
+      period: 24h
       query: avg_over_time(up{job="rhm-metric-state-service"}[5m])
       workloadType: Pod
       metricType: infrastructure
