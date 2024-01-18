@@ -211,7 +211,7 @@ bundle-build:
 	.
 
 catalog-build: opm
-	PATH="$(PWD)/../../bin:${PATH}" ../../v2/scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md
+	PATH="$(PWD)/../../bin:${PATH}" ../../v2/scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md ./icon.svg
 
 .PHONY: bundle-dev-index-multiarch
  bundle-dev-index-multiarch: opm opm-builder-base

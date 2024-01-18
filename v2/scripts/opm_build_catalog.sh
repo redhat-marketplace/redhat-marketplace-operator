@@ -9,14 +9,15 @@ fail_exit()
 
 # main code starts here
 
-if [ $# -ne 2 ];
+if [ $# -ne 3 ];
 then
-  echo "Usage: $0 <bundle image> <path to README file>"
+  echo "Usage: $0 <bundle image> <path to README file> <path to icon file>"
   exit 1
 fi
 
 BUNDLE_IMAGE=$1
 README_PATH=$2
+ICON_PATH=$3
 
 echo "Running with $*"
 
@@ -44,7 +45,7 @@ echo "Generate Dockerfile"
 opm generate dockerfile "$catalog_dir" -i registry.redhat.io/openshift4/ose-operator-registry:v4.14
 
 echo "Populate catalog"
-opm init $OPERATOR_NAME --default-channel=stable --description=$README_PATH  --output yaml > "$catalog_dir"/index.yaml 
+opm init $OPERATOR_NAME --default-channel=stable --description=$README_PATH --icon=$ICON_PATH --output yaml > "$catalog_dir"/index.yaml 
 
 echo "Adding bundle"
 opm render $BUNDLE_IMAGE --output=yaml >> "$catalog_dir"/index.yaml 
