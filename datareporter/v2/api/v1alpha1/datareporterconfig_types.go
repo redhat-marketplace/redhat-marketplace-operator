@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,13 +31,76 @@ type DataReporterConfigSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	UserConfigs []UserConfig `json:"userConfig,omitempty"`
+	DataFilters []DataFilter `json:"dataFilters,omitempty"`
 }
 
+// UserConfig defines additional metadata added to a specified users report
 type UserConfig struct {
 	// Required.
 	UserName string `json:"userName,omitempty"`
 	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// DataFilter defines json transformation and alternate event payload destinations based on selector criteria
+type DataFilter struct {
+	// Required.
+	Selector Selector `json:"selector,omitempty"`
+	// +optional
+	ManifestType string `json:"manifestType,omitempty"`
+	// +optional
+	Transformer Transformer `json:"transformer,omitempty"`
+	// +optional
+	AltDestinations []Destination `json:"altDestinations,omitempty"`
+}
+
+// Selector defines criteria for matching incoming event payload
+type Selector struct {
+	// matchExpressions is a list of label selector requirements. The requirements are ANDed.
+	// the key is expected to be a jsonpath expression
+	// the jsonpath expression is resolved and checks against the selector requirements
+	// +optional
+	MatchExpressions []metav1.LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
+
+	// matchUsers is a list of users that the dataFilter applies to.
+	// If matchUsers is not specified, the dataFilter applies to all users
+	// +optional
+	MatchUsers []string `json:"matchUsers,omitempty"`
+}
+
+// Transformer defines the type of transformer to use, and where to load the transformation configuration from
+type Transformer struct {
+	// type is the transformation engine use
+	// supported types: kazaam
+	TransformerType string `json:"type,omitempty"`
+
+	// configMapKeyRef refers to the transformation configuration residing in a ConfigMap
+	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
+}
+
+// Destination defines an additional endpoint to forward a transformed event payload to
+type Destination struct {
+	// +optional
+	Transformer Transformer `json:"transformer,omitempty"`
+
+	// url is the destination endpoint (https://hostname:port/path).
+	URL string `json:"url,omitempty"`
+
+	// InsecureSkipTLSVerify skips the validity check for the server's certificate.
+	// This will make your HTTPS connections insecure.
+	// +optional
+	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify,omitempty"`
+
+	// Sets the name of the secret that contains the headers to pass to the client
+	// +optional
+	Headers Headers `json:"headers,omitempty"`
+}
+
+// Sources of headers to append to request
+type Headers struct {
+	// Sets the name of the secret that contains the headers
+	// +optional
+	SecretRef string `json:"secretRef,omitempty"`
 }
 
 // DataReporterConfigStatus defines the observed state of DataReporterConfig
