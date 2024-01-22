@@ -27,10 +27,11 @@ import (
 
 // DataReporterConfigSpec defines the desired state of DataReporterConfig
 type DataReporterConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
+	// +optional
 	UserConfigs []UserConfig `json:"userConfig,omitempty"`
+	// DataFilter to match incoming event payload against
+	// The first DataFilter match in the array based on the Selector will be applied
+	// +optional
 	DataFilters []DataFilter `json:"dataFilters,omitempty"`
 }
 
@@ -43,13 +44,21 @@ type UserConfig struct {
 }
 
 // DataFilter defines json transformation and alternate event payload destinations based on selector criteria
+// No Selector indicates match all
 type DataFilter struct {
-	// Required.
+	// +optional
 	Selector Selector `json:"selector,omitempty"`
 	// +optional
 	ManifestType string `json:"manifestType,omitempty"`
 	// +optional
 	Transformer Transformer `json:"transformer,omitempty"`
+	// ConfirmDelivery determines the processor return code behavior, and behavior of event reports sent to data-service
+	// If ConfirmDelivery is true, a 200 will be returned to the sender after all deliveries to flagged Destinations are successful
+	// Events will not be accumulated to buffer, each report sent to data-service will contain 1 event
+	// If ConfirmDelivery is false for all Destinations, a 200 will be returned to the sender once the event is confirmed as valid json
+	// Events will be accumulated, each report sent to data-service will contain N events
+	// +optional
+	ConfirmDelivery bool `json:"confirmDelivery,omitempty"`
 	// +optional
 	AltDestinations []Destination `json:"altDestinations,omitempty"`
 }
@@ -89,11 +98,17 @@ type Destination struct {
 	// InsecureSkipTLSVerify skips the validity check for the server's certificate.
 	// This will make your HTTPS connections insecure.
 	// +optional
-	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify,omitempty"`
+	InsecureSkipTLSVerify bool `json:"insecureSkipTLSVerify,omitempty"`
 
 	// Sets the name of the secret that contains the headers to pass to the client
 	// +optional
 	Headers Headers `json:"headers,omitempty"`
+
+	// ConfirmDelivery determines the processor return code behavior
+	// If ConfirmDelivery is true, a 200 will be returned to the sender after all deliveries to flagged Destinations are successful
+	// If ConfirmDelivery is false for all Destinations, a 200 will be returned to the sender once the event is confirmed as valid json
+	// +optional
+	ConfirmDelivery bool `json:"confirmDelivery,omitempty"`
 }
 
 // Sources of headers to append to request
