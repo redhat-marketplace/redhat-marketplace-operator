@@ -206,15 +206,18 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 
 # Build the bundle image.
 .PHONY: bundle-build
-bundle-build:
+bundle-build: opm
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
   --label com.redhat.delivery.operator.bundle=true \
 	--push \
 	.
 
+catalog-build: opm
+	PATH="$(PWD)/../bin:${PATH}" scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md ./icon.svg
+
 bundle-deploy:
-	docker push $(BUNDLE_IMG)
+	docker push $(BUNDLE_IMG) 
 
 bundle-run: operator-sdk
 	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace $(namespace)
