@@ -44,5 +44,5 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-docker build -f custom-index.Dockerfile -t "${OLM_BUNDLE_REPO}:${TAG}" .
-docker push "${OLM_BUNDLE_REPO}:${TAG}"
+podman build -f custom-index.Dockerfile -t "${OLM_BUNDLE_REPO}:${TAG}" .
+podamn push "${OLM_BUNDLE_REPO}:${TAG}"

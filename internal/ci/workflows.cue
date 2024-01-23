@@ -1201,7 +1201,7 @@ _#registryLoginStep: {
 	}
 	res: _#step & {
 		name: "Login to Docker Hub"
-		uses: "docker/login-action@v2"
+		uses: "redhat-actions/podman-login@v1"
 		with: {
 			registry: "\(#args.registry)"
 			username: "\(#args.user)"

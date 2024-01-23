@@ -161,7 +161,7 @@ ARGS=--load
 endif
 endif
 else
-DOCKERCMD=docker
+DOCKERCMD=podman
 endif
 
 build:
@@ -173,11 +173,11 @@ docker-build:
 
 # Push the docker image
 docker-push:
-	docker push $(IMAGE)
+	podman push $(IMAGE)
 
 docker-manifest:
-	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
-	docker manifest push $(IMAGE)
+	podman manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
+	podman manifest push $(IMAGE)
 
 CSV_YAML_CONFIG_FILE=config/manifests/bases/ibm-metrics-operator.clusterserviceversion.yaml
 CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-metrics-operator.clusterserviceversion.yaml
@@ -213,7 +213,7 @@ bundle-build:
 	.
 
 bundle-deploy:
-	docker push $(BUNDLE_IMG)
+	podman push $(BUNDLE_IMG)
 
 bundle-run: operator-sdk
 	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace $(namespace)
@@ -253,7 +253,7 @@ opm-builder-base: opm
 
 bundle-dev-index: opm
 	$(OPM) index add -u docker --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
-	docker push $(DEV_INDEX_IMG):$(VERSION)
+	podman push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com ibm-metrics-operator-catalog
@@ -336,7 +336,7 @@ wait-and-publish:
 # Pin images in bundle
 .PHONY: bundle-pin-images
 bundle-pin-images:
-	docker run \
+	podman run \
 	--pull always \
 	-v ${HOME}/.docker:/dockercfg \
 	-v $(shell pwd)/bundle/manifests:/manifests quay.io/operator-framework/operator-manifest-tools:latest \

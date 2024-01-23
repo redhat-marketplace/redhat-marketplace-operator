@@ -24,7 +24,7 @@ else
 ARGS="--load"
 endif
 else
-DOCKERCMD=docker
+DOCKERCMD=podman
 endif
 
 # Build the docker image

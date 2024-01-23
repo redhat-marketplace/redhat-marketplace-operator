@@ -139,7 +139,7 @@ docker-build: ## Build docker image with the manager.
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push $(IMAGE)
+	podman push $(IMAGE)
 
 
 
@@ -252,7 +252,7 @@ kustomize-set:
 # Pin images in bundle
 .PHONY: bundle-pin-images
 bundle-pin-images:
-	docker run \
+	podman run \
 	--pull always \
 	-v ${HOME}/.docker:/dockercfg \
 	-v $(shell pwd)/bundle/manifests:/manifests quay.io/operator-framework/operator-manifest-tools:latest \
