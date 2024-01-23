@@ -186,12 +186,14 @@ opm-builder-base: opm
 	--progress plain \
 	.
 
+CSV_YAML_CONFIG_FILE=config/manifests/bases/ibm-data-reporter-operator.clusterserviceversion.yaml
 CSV_YAML_BUNDLE_FILE=bundle/manifests/ibm-data-reporter-operator.clusterserviceversion.yaml
 ANNOTATIONS_YAML_BUNDLE_FILE=bundle/metadata/annotations.yaml
 
 .PHONY: bundle
 bundle: clean manifests kustomize operator-sdk yq omt ## Generate bundle manifests and metadata, then validate generated files.
 	$(MAKE) kustomize-set
+	$(YQ) eval -i '.spec.description = (load_str("README.md"))' $(CSV_YAML_CONFIG_FILE)
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
