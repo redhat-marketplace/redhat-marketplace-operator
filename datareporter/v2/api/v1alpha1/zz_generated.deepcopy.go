@@ -23,8 +23,7 @@ package v1alpha1
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -325,10 +324,8 @@ func (in *Selector) DeepCopyInto(out *Selector) {
 	*out = *in
 	if in.MatchExpressions != nil {
 		in, out := &in.MatchExpressions, &out.MatchExpressions
-		*out = make([]v1.LabelSelectorRequirement, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.MatchUsers != nil {
 		in, out := &in.MatchUsers, &out.MatchUsers
@@ -372,7 +369,7 @@ func (in *Transformer) DeepCopyInto(out *Transformer) {
 	*out = *in
 	if in.ConfigMapKeyRef != nil {
 		in, out := &in.ConfigMapKeyRef, &out.ConfigMapKeyRef
-		*out = new(corev1.ConfigMapKeySelector)
+		*out = new(v1.ConfigMapKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
 }

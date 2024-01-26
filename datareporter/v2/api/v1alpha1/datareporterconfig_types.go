@@ -65,11 +65,10 @@ type DataFilter struct {
 
 // Selector defines criteria for matching incoming event payload
 type Selector struct {
-	// matchExpressions is a list of label selector requirements. The requirements are ANDed.
-	// the key is expected to be a jsonpath expression
-	// the jsonpath expression is resolved and checks against the selector requirements
+	// matchExpressions is a list of jsonpath expressions
+	// to match the selector, all jsonpath expressions must produce a result (AND)
 	// +optional
-	MatchExpressions []metav1.LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
+	MatchExpressions []string `json:"matchExpressions,omitempty"`
 
 	// matchUsers is a list of users that the dataFilter applies to.
 	// If matchUsers is not specified, the dataFilter applies to all users
