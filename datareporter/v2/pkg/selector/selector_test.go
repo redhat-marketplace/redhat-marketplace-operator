@@ -94,6 +94,13 @@ var _ = Describe("Selector", func() {
 			})
 		})
 
+		Context("with no jsonpath expressions", func() {
+			It("should match with no expressions", func() {
+				jps, _ := selector.NewJsonPathsSelector([]string{})
+				Expect(jps.Matches(in)).To(BeTrue())
+			})
+		})
+
 		Context("with a bad jsonpath expression", func() {
 			It("should parse err", func() {
 				Expect(selector.NewJsonPathsSelector([]string{jp1, jp2, jp3, jp4, jp5, jp6})).Error()
@@ -153,6 +160,14 @@ var _ = Describe("Selector", func() {
 			})
 		})
 
+		Context("with no expressions or users", func() {
+			It("should match by default", func() {
+				sel, _ := selector.NewDataFilterSelector(
+					v1alpha1.Selector{MatchExpressions: []string{}, MatchUsers: []string{}})
+				Expect(sel.Matches(events.Event{RawMessage: []byte(in), User: "user1"})).To(BeTrue())
+			})
+		})
+
 		Context("with no match event", func() {
 			It("should not match jsonpath", func() {
 				sel, _ := selector.NewDataFilterSelector(
@@ -161,7 +176,7 @@ var _ = Describe("Selector", func() {
 			})
 		})
 
-		Context("with no match user", func() {
+		Context("with no matched user", func() {
 			It("should not match user", func() {
 				sel, _ := selector.NewDataFilterSelector(
 					v1alpha1.Selector{MatchExpressions: []string{jp1, jp2, jp3, jp4, jp5}, MatchUsers: UsersSelector})

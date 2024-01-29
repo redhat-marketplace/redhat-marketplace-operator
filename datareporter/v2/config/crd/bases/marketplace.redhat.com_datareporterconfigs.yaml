@@ -35,8 +35,147 @@ spec:
           spec:
             description: DataReporterConfigSpec defines the desired state of DataReporterConfig
             properties:
+              dataFilters:
+                description: DataFilter to match incoming event payload against The
+                  first DataFilter match in the array based on the Selector will be
+                  applied
+                items:
+                  description: DataFilter defines json transformation and alternate
+                    event payload destinations based on selector criteria No Selector
+                    indicates match all
+                  properties:
+                    altDestinations:
+                      items:
+                        description: Destination defines an additional endpoint to
+                          forward a transformed event payload to
+                        properties:
+                          confirmDelivery:
+                            description: ConfirmDelivery determines the processor
+                              return code behavior If ConfirmDelivery is true, a 200
+                              will be returned to the sender after all deliveries
+                              to flagged Destinations are successful If ConfirmDelivery
+                              is false for all Destinations, a 200 will be returned
+                              to the sender once the event is confirmed as valid json
+                            type: boolean
+                          headers:
+                            description: Sets the name of the secret that contains
+                              the headers to pass to the client
+                            properties:
+                              secretRef:
+                                description: Sets the name of the secret that contains
+                                  the headers
+                                type: string
+                            type: object
+                          insecureSkipTLSVerify:
+                            description: InsecureSkipTLSVerify skips the validity
+                              check for the server's certificate. This will make your
+                              HTTPS connections insecure.
+                            type: boolean
+                          transformer:
+                            description: Transformer defines the type of transformer
+                              to use, and where to load the transformation configuration
+                              from
+                            properties:
+                              configMapKeyRef:
+                                description: configMapKeyRef refers to the transformation
+                                  configuration residing in a ConfigMap
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type:
+                                description: 'type is the transformation engine use
+                                  supported types: kazaam'
+                                type: string
+                            type: object
+                          url:
+                            description: url is the destination endpoint (https://hostname:port/path).
+                            type: string
+                        required:
+                        - url
+                        type: object
+                      type: array
+                    confirmDelivery:
+                      description: ConfirmDelivery determines the processor return
+                        code behavior, and behavior of event reports sent to data-service
+                        If ConfirmDelivery is true, a 200 will be returned to the
+                        sender after all deliveries to flagged Destinations are successful
+                        Events will not be accumulated to buffer, each report sent
+                        to data-service will contain 1 event If ConfirmDelivery is
+                        false for all Destinations, a 200 will be returned to the
+                        sender once the event is confirmed as valid json Events will
+                        be accumulated, each report sent to data-service will contain
+                        N events
+                      type: boolean
+                    manifestType:
+                      type: string
+                    selector:
+                      description: Selector defines criteria for matching incoming
+                        event payload
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of jsonpath expressions
+                            to match the selector, all jsonpath expressions must produce
+                            a result (AND)
+                          items:
+                            type: string
+                          type: array
+                        matchUsers:
+                          description: matchUsers is a list of users that the dataFilter
+                            applies to. If matchUsers is not specified, the dataFilter
+                            applies to all users
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    transformer:
+                      description: Transformer defines the type of transformer to
+                        use, and where to load the transformation configuration from
+                      properties:
+                        configMapKeyRef:
+                          description: configMapKeyRef refers to the transformation
+                            configuration residing in a ConfigMap
+                          properties:
+                            key:
+                              description: The key to select.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        type:
+                          description: 'type is the transformation engine use supported
+                            types: kazaam'
+                          type: string
+                      type: object
+                  type: object
+                type: array
               userConfig:
                 items:
+                  description: UserConfig defines additional metadata added to a specified
+                    users report
                   properties:
                     metadata:
                       additionalProperties:

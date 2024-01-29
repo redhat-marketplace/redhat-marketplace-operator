@@ -22,9 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DataReporterConfigSpec defines the desired state of DataReporterConfig
 type DataReporterConfigSpec struct {
 	// +optional
@@ -92,7 +89,7 @@ type Destination struct {
 	Transformer Transformer `json:"transformer,omitempty"`
 
 	// url is the destination endpoint (https://hostname:port/path).
-	URL string `json:"url,omitempty"`
+	URL string `json:"url"`
 
 	// InsecureSkipTLSVerify skips the validity check for the server's certificate.
 	// This will make your HTTPS connections insecure.
