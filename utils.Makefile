@@ -173,7 +173,7 @@ $(subst $(space),$(comma),$(addprefix $(2)/,$(1)))
 endef
 
 ifeq ($(BUILDX),true)
-DOCKER_BUILD := docker buildx build --platform $(call build-targets,$(ARCHS),linux)
+DOCKER_BUILD := podman buildx build --platform $(call build-targets,$(ARCHS),linux)
 endif
 
 ifneq ($(DOCKERBUILDXCACHE),)

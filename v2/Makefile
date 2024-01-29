@@ -152,7 +152,7 @@ BUILDX ?= true
 ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
-DOCKERCMD=docker buildx
+DOCKERCMD=podman buildx
 ifneq ($(PODMAN),true)
 ifeq ($(IMAGE_PUSH),true)
 ARGS=--push
@@ -206,7 +206,7 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
-	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	podman buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
   --label com.redhat.delivery.operator.bundle=true \
 	--push \
@@ -234,7 +234,7 @@ bundle-stable:
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 opm-builder-base: opm
-	docker buildx build --push \
+	podman buildx build --push \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))	 \
@@ -245,7 +245,7 @@ opm-builder-base: opm
 .PHONY:  bundle-dev-index-multiarch
  bundle-dev-index-multiarch: opm opm-builder-base
 	$(OPM) index add -u docker --generate --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" -d dev-index.Dockerfile
-	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
+	podman buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \

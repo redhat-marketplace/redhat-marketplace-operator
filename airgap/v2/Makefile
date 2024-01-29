@@ -17,7 +17,7 @@ BUILDX ?= true
 ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
-DOCKERCMD=docker buildx
+DOCKERCMD=podman buildx
 ifeq ($(IMAGE_PUSH),true)
 ARGS="--push"
 else
