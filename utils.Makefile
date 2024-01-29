@@ -177,7 +177,7 @@ DOCKER_BUILD := podman buildx build --platform $(call build-targets,$(ARCHS),lin
 endif
 
 ifneq ($(DOCKERBUILDXCACHE),)
-DOCKER_EXTRA_ARGS = --cache-from "type=local,src=$(DOCKERBUILDXCACHE)" --cache-to "type=local,dest=$(DOCKERBUILDXCACHE)" --output "type=image,push=$(IMAGE_PUSH)"
+DOCKER_EXTRA_ARGS = --output "type=image,push=$(IMAGE_PUSH)"
 else
 DOCKER_EXTRA_ARGS =
 ifneq ($(PODMAN),true)
