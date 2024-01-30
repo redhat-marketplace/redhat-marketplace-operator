@@ -90,7 +90,7 @@ spec:
               name: db
           resources:
             limits:
-              cpu: 150m
+              cpu: 200m
               memory: 250Mi
             requests:
               cpu: 50m
@@ -144,7 +144,7 @@ spec:
               name: grpc
           resources:
             limits:
-              cpu: 30m
+              cpu: 40m
               memory: 40Mi
             requests:
               cpu: 20m
@@ -191,7 +191,7 @@ spec:
               name: grpc
           resources:
             limits:
-              cpu: 30m
+              cpu: 40m
               memory: 40Mi
             requests:
               cpu: 20m
