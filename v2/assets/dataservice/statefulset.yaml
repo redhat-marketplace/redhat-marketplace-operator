@@ -90,7 +90,7 @@ spec:
               name: db
           resources:
             limits:
-              cpu: 500m
+              cpu: 600m
               memory: 250Mi
             requests:
               cpu: 50m
@@ -117,7 +117,7 @@ spec:
               cpu: 10m
               memory: 12Mi
             limits:
-              cpu: 25m
+              cpu: 30m
               memory: 24Mi
           env:
           - name: GOMEMLIMIT
@@ -144,7 +144,7 @@ spec:
               name: grpc
           resources:
             limits:
-              cpu: 80m
+              cpu: 100m
               memory: 40Mi
             requests:
               cpu: 20m
@@ -191,7 +191,7 @@ spec:
               name: grpc
           resources:
             limits:
-              cpu: 80m
+              cpu: 100m
               memory: 40Mi
             requests:
               cpu: 20m
