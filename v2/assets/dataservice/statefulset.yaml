@@ -90,10 +90,10 @@ spec:
               name: db
           resources:
             limits:
-              cpu: 600m
+              cpu: 800m
               memory: 250Mi
             requests:
-              cpu: 50m
+              cpu: 100m
               memory: 50Mi
           securityContext:
             allowPrivilegeEscalation: false
