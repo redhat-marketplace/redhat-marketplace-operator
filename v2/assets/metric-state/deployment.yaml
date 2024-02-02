@@ -133,7 +133,7 @@ spec:
               name: https
           resources:
             limits:
-              cpu: 20m
+              cpu: 100m
               memory: 40Mi
             requests:
               cpu: 10m
