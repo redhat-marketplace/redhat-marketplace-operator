@@ -23,6 +23,7 @@ import (
 
 	emperror "emperror.dev/errors"
 	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,11 +31,11 @@ import (
 
 var log = logf.Log.WithName("events_api_handler")
 
-func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config, handlerConfig datareporterv1alpha1.ApiHandlerConfig) http.Handler {
+func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, handlerConfig datareporterv1alpha1.ApiHandlerConfig) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/v1/event", func(w http.ResponseWriter, r *http.Request) {
-		EventHandler(eventEngine, eventConfig, w, r)
+		EventHandler(eventEngine, eventConfig, dataFilters, w, r)
 	})
 
 	router.HandleFunc("/v1/status", func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +56,7 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 	return muxWithMiddleware
 }
 
-func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
+func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, w http.ResponseWriter, r *http.Request) {
 	log.WithName("events_api_handler v1/event")
 
 	if eventConfig.LicenseAccept != true {
@@ -90,13 +91,25 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w
 	rawMessage := json.RawMessage(eventKeyBytes)
 	event := events.Event{User: headerUser, RawMessage: rawMessage}
 
+	// Event is sent to EventProcessor accumulator
+	// Formatted as Report
+	// Sent to DataService
+	// There is no guaranttee of receipt
 	eventEngine.EventChan <- event
 
 	log.V(4).Info("event sent to event engine", "event", event)
 
-	w.WriteHeader(http.StatusOK)
-	out, _ := json.Marshal(event)
-	w.Write(out)
+	// Send to DataFilters
+	// Events are sent to to DataFilter Destinations with confirmation before sending StatusOK
+	statusCodes := dataFilters.FilterAndUpload(event)
+
+	for _, statusCode := range statusCodes {
+		if statusCode != http.StatusOK {
+			w.WriteHeader(statusCode)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+	}
 }
 
 type StatusResponse struct {

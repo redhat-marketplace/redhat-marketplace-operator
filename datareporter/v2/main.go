@@ -23,9 +23,11 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -187,11 +189,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	rc := retryablehttp.NewClient()
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), rc)
+
 	if err = (&controllers.DataReporterConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Config: config,
-		Log:    ctrl.Log.WithName("controllers").WithName("DataReporterConfigController"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Config:      config,
+		Log:         ctrl.Log.WithName("controllers").WithName("DataReporterConfigController"),
+		DataFilters: dataFilters,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)
@@ -208,7 +214,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	h := server.NewDataReporterHandler(eventEngine, config, cc.ApiHandlerConfig)
+	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, cc.ApiHandlerConfig)
 
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
 		setupLog.Error(err, "unable to set up data reporter handler")
