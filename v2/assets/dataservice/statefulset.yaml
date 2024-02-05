@@ -144,7 +144,7 @@ spec:
               name: grpc
           resources:
             limits:
-              cpu: 100m
+              cpu: 20m
               memory: 40Mi
             requests:
               cpu: 10m
@@ -191,7 +191,7 @@ spec:
               name: grpc
           resources:
             limits:
-              cpu: 100m
+              cpu: 20m
               memory: 40Mi
             requests:
               cpu: 10m
