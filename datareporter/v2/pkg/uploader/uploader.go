@@ -36,7 +36,6 @@ import (
 	"sync"
 
 	"emperror.dev/errors"
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/ohler55/ojg/jp"
 	"github.com/ohler55/ojg/oj"
 )
@@ -46,7 +45,7 @@ const (
 )
 
 type Uploader struct {
-	client *retryablehttp.Client
+	client *http.Client
 
 	config *Config
 
@@ -81,7 +80,7 @@ type Config struct {
 // authDestHeader: the additional header map key to set on the destHeader ("Authorization")
 // authDestPrefix: the additional prefix map string value to set on the destHeader ("Bearer ")
 // parseResponse: optionally jsonpath parse the response for the authorization token
-func NewUploader(client *retryablehttp.Client, config *Config) (u *Uploader, err error) {
+func NewUploader(client *http.Client, config *Config) (u *Uploader, err error) {
 
 	u = &Uploader{
 		client: client,
@@ -185,7 +184,7 @@ func (u *Uploader) upload(destURL *url.URL, body []byte) (int, error) {
 
 func (u *Uploader) uploadToDest(destURL *url.URL, body []byte) (*http.Response, error) {
 
-	dReq, err := retryablehttp.NewRequest(http.MethodPost, destURL.String(), bytes.NewBuffer(body))
+	dReq, err := http.NewRequest(http.MethodPost, destURL.String(), bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +210,7 @@ func (u *Uploader) parseForSuffix(eventMsg []byte) (suffix string) {
 
 func (u *Uploader) callAuth() (int, error) {
 
-	aReq, err := retryablehttp.NewRequest(http.MethodPost, u.authURL.String(), nil)
+	aReq, err := http.NewRequest(http.MethodPost, u.authURL.String(), nil)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

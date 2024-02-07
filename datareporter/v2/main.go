@@ -19,6 +19,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net/url"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -31,6 +33,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -123,10 +126,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	dataServiceURL, err := url.Parse(fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, namespace))
+	if err != nil {
+		setupLog.Error(err, "failed to parse for dataServiceURL")
+		os.Exit(1)
+	}
+
 	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
 		DataServiceTokenFile: cc.DataServiceTokenFile,
 		DataServiceCertFile:  cc.DataServiceCertFile,
+		DataServiceURL:       dataServiceURL,
 		Namespace:            namespace,
 		AccMemoryLimit:       cc.AccMemoryLimit,
 		MaxFlushTimeout:      cc.MaxFlushTimeout,
@@ -183,14 +193,18 @@ func main() {
 	}
 
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, mgr.GetClient())
-	err = eventEngine.Start(ctx)
-	if err != nil {
-		setupLog.Error(err, "unable to start engine")
-		os.Exit(1)
-	}
+	eeReady := make(chan bool)
+	go func() {
+		err := eventEngine.Start(ctx, eeReady)
+		if err != nil {
+			setupLog.Error(err, "unable to start engine")
+			os.Exit(1)
+		}
+	}()
 
 	rc := retryablehttp.NewClient()
-	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), rc)
+	sc := rc.StandardClient() // *http.Client
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc)
 
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client:      mgr.GetClient(),
@@ -214,12 +228,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Add the EventEngine handler after it is ready
 	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, cc.ApiHandlerConfig)
-
-	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
-		setupLog.Error(err, "unable to set up data reporter handler")
-		os.Exit(1)
-	}
+	go func() {
+		<-eeReady
+		if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
+			setupLog.Error(err, "unable to set up data reporter handler")
+			os.Exit(1)
+		}
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

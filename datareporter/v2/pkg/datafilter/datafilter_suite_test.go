@@ -24,7 +24,9 @@ import (
 
 	"github.com/go-logr/logr"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/scheme"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -39,7 +41,6 @@ var (
 	log         logr.Logger
 	k8sClient   client.Client
 	k8sManager  ctrl.Manager
-	httpClient  *retryablehttp.Client
 	dataFilters *datafilter.DataFilters
 )
 
@@ -56,12 +57,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: testEnv.Scheme})
+	err = corev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = v1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
-	httpClient = retryablehttp.NewClient()
-	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, httpClient)
+	rc := retryablehttp.NewClient()
+	sc := rc.StandardClient()
+	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc)
 
 	// k8s Configuration Objects
 

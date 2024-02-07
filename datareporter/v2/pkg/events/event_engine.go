@@ -16,7 +16,6 @@ package events
 
 import (
 	"context"
-	"sync"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,7 +49,9 @@ func NewEventEngine(
 	return ee
 }
 
-func (e *EventEngine) Start(ctx context.Context) error {
+// EventEngine Processor channels are ready to receive event after the ready channel is closed
+// Error is returned if there is a configuration problem
+func (e *EventEngine) Start(ctx context.Context, ready chan bool) error {
 	if e.cancelFunc != nil {
 		e.mainContext = nil
 		e.localContext = nil
@@ -62,16 +63,5 @@ func (e *EventEngine) Start(ctx context.Context) error {
 	e.localContext = &localCtx
 	e.cancelFunc = cancel
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	e.log.Info("Starting Engine")
-	go func() {
-		wg.Done()
-		e.ProcessorSender.Start(localCtx)
-	}()
-
-	wg.Wait()
-
-	return nil
+	return e.ProcessorSender.Start(localCtx, ready)
 }

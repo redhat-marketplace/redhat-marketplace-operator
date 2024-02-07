@@ -16,7 +16,6 @@ package events
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -61,7 +60,7 @@ type ProcessorSender struct {
 	client client.Client
 }
 
-func (p *ProcessorSender) Start(ctx context.Context) error {
+func (p *ProcessorSender) Start(ctx context.Context, ready chan bool) error {
 	ticker := time.NewTicker(p.config.MaxFlushTimeout.Duration)
 	defer ticker.Stop()
 
@@ -144,6 +143,9 @@ func (p *ProcessorSender) Start(ctx context.Context) error {
 		}
 	}()
 
+	// Ready to receive events
+	close(ready)
+
 	<-ctx.Done()
 	p.log.Info("processor is shutting down")
 	close(p.EventChan)
@@ -205,9 +207,15 @@ func (p *ProcessorSender) SendAll(ctx context.Context) error {
 }
 
 func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceConfig, error) {
-	cert, err := os.ReadFile(p.config.DataServiceCertFile)
-	if err != nil {
-		return nil, err
+
+	var cert []byte
+	var err error
+
+	if p.config.DataServiceCertFile != "" {
+		cert, err = os.ReadFile(p.config.DataServiceCertFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var serviceAccountToken = ""
@@ -219,10 +227,8 @@ func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceCo
 		serviceAccountToken = string(content)
 	}
 
-	var dataServiceDNS = fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, p.config.Namespace)
-
 	return &dataservice.DataServiceConfig{
-		Address:          dataServiceDNS,
+		Address:          p.config.DataServiceURL.String(),
 		DataServiceToken: serviceAccountToken,
 		DataServiceCert:  cert,
 		OutputPath:       p.config.OutputDirectory,

@@ -22,7 +22,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/selector"
@@ -44,7 +43,7 @@ type DataFilter struct {
 type DataFilters struct {
 	Log         logr.Logger
 	k8sClient   client.Client
-	httpClient  *retryablehttp.Client
+	httpClient  *http.Client
 	dataFilters []DataFilter
 	mu          sync.RWMutex
 }
@@ -52,7 +51,7 @@ type DataFilters struct {
 func NewDataFilters(
 	log logr.Logger,
 	k8sClient client.Client,
-	httpClient *retryablehttp.Client,
+	httpClient *http.Client,
 ) *DataFilters {
 	return &DataFilters{Log: log, k8sClient: k8sClient, httpClient: httpClient}
 }
@@ -191,7 +190,7 @@ func (d *DataFilters) updateHttpClient(drc *v1alpha1.DataReporterConfig) {
 	newTLSClientConfig := &tls.Config{
 		InsecureSkipVerify: drc.Spec.TLSConfig.InsecureSkipVerify,
 	}
-	if tpt, ok := d.httpClient.HTTPClient.Transport.(*http.Transport); ok {
+	if tpt, ok := d.httpClient.Transport.(*http.Transport); ok {
 		tpt.TLSClientConfig = newTLSClientConfig
 	}
 }
