@@ -28,6 +28,8 @@ type EventEngine struct {
 	mainContext  *context.Context
 	localContext *context.Context
 	cancelFunc   context.CancelFunc
+
+	ready bool
 }
 
 func NewEventEngine(
@@ -51,7 +53,7 @@ func NewEventEngine(
 
 // EventEngine Processor channels are ready to receive event after the ready channel is closed
 // Error is returned if there is a configuration problem
-func (e *EventEngine) Start(ctx context.Context, ready chan bool) error {
+func (e *EventEngine) Start(ctx context.Context) error {
 	if e.cancelFunc != nil {
 		e.mainContext = nil
 		e.localContext = nil
@@ -63,5 +65,15 @@ func (e *EventEngine) Start(ctx context.Context, ready chan bool) error {
 	e.localContext = &localCtx
 	e.cancelFunc = cancel
 
+	ready := make(chan bool)
+	go func() {
+		<-ready
+		e.ready = true
+	}()
+
 	return e.ProcessorSender.Start(localCtx, ready)
+}
+
+func (e *EventEngine) IsReady() bool {
+	return e.ready
 }

@@ -59,6 +59,11 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, w http.ResponseWriter, r *http.Request) {
 	log.WithName("events_api_handler v1/event")
 
+	if !eventEngine.IsReady() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
 	if eventConfig.LicenseAccept != true {
 		w.WriteHeader(http.StatusInternalServerError)
 		err := emperror.New("license has not been accepted in marketplaceconfig. event handler will not accept events.")

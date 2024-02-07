@@ -64,8 +64,8 @@ var (
 	dataFilters    *datafilter.DataFilters
 	eventEngine    *events.EventEngine
 	eventConfig    *events.Config
-	ectx           context.Context
-	ecancel        context.CancelFunc
+	eeCtx          context.Context
+	eeCancel       context.CancelFunc
 )
 
 const (
@@ -230,11 +230,13 @@ var _ = BeforeSuite(func() {
 		MinVersion:           tlsVersion,
 	}
 
-	ectx, ecancel = context.WithCancel(context.Background())
-	eventEngine = events.NewEventEngine(ectx, ctrl.Log, eventConfig, k8sClient)
-	eeReady := make(chan bool)
-	go eventEngine.Start(ectx, eeReady)
-	<-eeReady
+	eeCtx, eeCancel = context.WithCancel(context.Background())
+	eventEngine = events.NewEventEngine(eeCtx, ctrl.Log, eventConfig, k8sClient)
+	go eventEngine.Start(eeCtx)
+
+	Eventually(func() bool {
+		return eventEngine.IsReady()
+	}).Should(BeTrue())
 
 })
 
@@ -243,7 +245,7 @@ var _ = AfterSuite(func() {
 
 	httpTestServer.Close()
 	grpcServer.Stop()
-	ecancel()
+	eeCancel()
 
 	os.RemoveAll(certDir)
 

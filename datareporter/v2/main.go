@@ -193,9 +193,8 @@ func main() {
 	}
 
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, mgr.GetClient())
-	eeReady := make(chan bool)
 	go func() {
-		err := eventEngine.Start(ctx, eeReady)
+		err := eventEngine.Start(ctx)
 		if err != nil {
 			setupLog.Error(err, "unable to start engine")
 			os.Exit(1)
@@ -230,13 +229,10 @@ func main() {
 
 	// Add the EventEngine handler after it is ready
 	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, cc.ApiHandlerConfig)
-	go func() {
-		<-eeReady
-		if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
-			setupLog.Error(err, "unable to set up data reporter handler")
-			os.Exit(1)
-		}
-	}()
+	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
+		setupLog.Error(err, "unable to set up data reporter handler")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
