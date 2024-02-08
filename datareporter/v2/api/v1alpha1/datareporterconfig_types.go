@@ -22,9 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DataReporterConfigSpec defines the desired state of DataReporterConfig
 type DataReporterConfigSpec struct {
 	// +optional
@@ -65,11 +62,10 @@ type DataFilter struct {
 
 // Selector defines criteria for matching incoming event payload
 type Selector struct {
-	// matchExpressions is a list of label selector requirements. The requirements are ANDed.
-	// the key is expected to be a jsonpath expression
-	// the jsonpath expression is resolved and checks against the selector requirements
+	// matchExpressions is a list of jsonpath expressions
+	// to match the selector, all jsonpath expressions must produce a result (AND)
 	// +optional
-	MatchExpressions []metav1.LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
+	MatchExpressions []string `json:"matchExpressions,omitempty"`
 
 	// matchUsers is a list of users that the dataFilter applies to.
 	// If matchUsers is not specified, the dataFilter applies to all users
@@ -93,7 +89,7 @@ type Destination struct {
 	Transformer Transformer `json:"transformer,omitempty"`
 
 	// url is the destination endpoint (https://hostname:port/path).
-	URL string `json:"url,omitempty"`
+	URL string `json:"url"`
 
 	// InsecureSkipTLSVerify skips the validity check for the server's certificate.
 	// This will make your HTTPS connections insecure.
