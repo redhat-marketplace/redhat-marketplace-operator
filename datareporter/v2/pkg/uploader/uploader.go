@@ -132,7 +132,7 @@ func NewUploader(client *http.Client, config *Config) (u *Uploader, err error) {
 	return
 }
 
-func (u *Uploader) TransFormAndUpload(eventMsg []byte) (int, error) {
+func (u *Uploader) TransformAndUpload(eventMsg []byte) (int, error) {
 
 	// Parse for the optional URL suffix
 	destURL, err := url.Parse(u.destURL.String())
@@ -141,7 +141,7 @@ func (u *Uploader) TransFormAndUpload(eventMsg []byte) (int, error) {
 	}
 	destURL = u.destURL.JoinPath(u.parseForSuffix(eventMsg))
 
-	// Transform
+	// TODO: Transform
 
 	// Upload
 	return u.upload(destURL, eventMsg)

@@ -1,3 +1,17 @@
+// Copyright 2024 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server_test
 
 import (
@@ -9,7 +23,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"flag"
 	"fmt"
 	"math/big"
 	"net"
@@ -20,14 +33,14 @@ import (
 	"emperror.dev/errors"
 )
 
-var (
-	host       = flag.String("host", "localhost", "Comma-separated hostnames and IPs to generate a certificate for")
-	validFrom  = flag.String("start-date", "", "Creation date formatted as Jan 1 15:04:05 2011")
-	validFor   = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for")
-	isCA       = flag.Bool("ca", false, "whether this cert should be its own Certificate Authority")
-	rsaBits    = flag.Int("rsa-bits", 2048, "Size of RSA key to generate. Ignored if --ecdsa-curve is set")
-	ecdsaCurve = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
-	ed25519Key = flag.Bool("ed25519", false, "Generate an Ed25519 key")
+const (
+	host       = "localhost"
+	validFrom  = ""
+	validFor   = 365 * 24 * time.Hour
+	isCA       = false
+	rsaBits    = 2048
+	ecdsaCurve = ""
+	ed25519Key = false
 )
 
 func publicKey(priv any) any {
@@ -44,20 +57,15 @@ func publicKey(priv any) any {
 }
 
 func genCert(certPath string, keyPath string) error {
-	flag.Parse()
-
-	if len(*host) == 0 {
-		return errors.New("Missing required --host parameter")
-	}
 
 	var priv any
 	var err error
-	switch *ecdsaCurve {
+	switch ecdsaCurve {
 	case "":
-		if *ed25519Key {
+		if ed25519Key {
 			_, priv, err = ed25519.GenerateKey(rand.Reader)
 		} else {
-			priv, err = rsa.GenerateKey(rand.Reader, *rsaBits)
+			priv, err = rsa.GenerateKey(rand.Reader, rsaBits)
 		}
 	case "P224":
 		priv, err = ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
@@ -68,7 +76,7 @@ func genCert(certPath string, keyPath string) error {
 	case "P521":
 		priv, err = ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	default:
-		return errors.New(fmt.Sprintf("Unrecognized elliptic curve: %q", *ecdsaCurve))
+		return errors.New(fmt.Sprintf("Unrecognized elliptic curve: %q", ecdsaCurve))
 	}
 	if err != nil {
 		return errors.Wrap(err, "Failed to generate private key")
@@ -85,16 +93,16 @@ func genCert(certPath string, keyPath string) error {
 	}
 
 	var notBefore time.Time
-	if len(*validFrom) == 0 {
+	if len(validFrom) == 0 {
 		notBefore = time.Now()
 	} else {
-		notBefore, err = time.Parse("Jan 2 15:04:05 2006", *validFrom)
+		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
 		if err != nil {
 			return errors.Wrap(err, "Failed to parse creation date")
 		}
 	}
 
-	notAfter := notBefore.Add(*validFor)
+	notAfter := notBefore.Add(validFor)
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -115,7 +123,7 @@ func genCert(certPath string, keyPath string) error {
 		BasicConstraintsValid: true,
 	}
 
-	hosts := strings.Split(*host, ",")
+	hosts := strings.Split(host, ",")
 	for _, h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
@@ -124,7 +132,7 @@ func genCert(certPath string, keyPath string) error {
 		}
 	}
 
-	if *isCA {
+	if isCA {
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 	}

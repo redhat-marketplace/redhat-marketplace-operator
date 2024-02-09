@@ -91,7 +91,7 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 				wg.Add(1)
 				go func(statusCodeChan chan int, dest *uploader.Uploader) {
 					defer wg.Done()
-					statusCode, err := dest.TransFormAndUpload(event.RawMessage)
+					statusCode, err := dest.TransformAndUpload(event.RawMessage)
 					if err != nil {
 						d.Log.Error(err, "failed to filter and upload", "statusCode", statusCode)
 					}
