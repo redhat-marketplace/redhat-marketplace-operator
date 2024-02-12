@@ -203,7 +203,7 @@ func main() {
 
 	rc := retryablehttp.NewClient()
 	sc := rc.StandardClient() // *http.Client
-	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc)
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config)
 
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client:      mgr.GetClient(),

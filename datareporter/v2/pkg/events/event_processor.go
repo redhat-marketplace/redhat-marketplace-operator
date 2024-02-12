@@ -36,7 +36,7 @@ import (
 type EventProcessorSender interface {
 	Start(ctx context.Context) error
 	Process(context.Context, Event) error
-	Send(context.Context, string) error
+	Send(context.Context, UserManifestType) error
 }
 
 // Process events on the Event Channel and send when conditions are met
@@ -49,7 +49,7 @@ type ProcessorSender struct {
 
 	EventProcessorSender
 
-	sendReadyChan chan string
+	sendReadyChan chan UserManifestType
 
 	eventAccumulator *EventAccumulator
 
@@ -65,10 +65,12 @@ func (p *ProcessorSender) Start(ctx context.Context, ready chan bool) error {
 	defer ticker.Stop()
 
 	p.EventChan = make(chan Event)
-	p.sendReadyChan = make(chan string)
+	p.sendReadyChan = make(chan UserManifestType)
 
 	p.eventAccumulator = &EventAccumulator{}
-	p.eventAccumulator.eventMap = make(map[string]EventJsons)
+
+	// FlushAll intializes the map
+	p.eventAccumulator.FlushAll()
 
 	// Retries until an intial connection is successful
 	dataService, err := p.provideDataService()
@@ -162,7 +164,7 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 
 	// If we are at event max, signal to send
 	if len >= p.config.MaxEventEntries {
-		p.sendReadyChan <- event.User
+		p.sendReadyChan <- UserManifestType{User: event.User, ManifestType: event.ManifestType}
 	}
 
 	// If the map is at maximum size, signal to send
@@ -170,15 +172,16 @@ func (p *ProcessorSender) Process(ctx context.Context, event Event) error {
 	return nil
 }
 
-func (p *ProcessorSender) Send(ctx context.Context, user string) error {
+// Send eventJsons for [user][manifestType]
+func (p *ProcessorSender) Send(ctx context.Context, userManifestType UserManifestType) error {
 
 	// flush entries for this key
-	eventJsons := p.eventAccumulator.Flush(user)
+	eventJsons := p.eventAccumulator.Flush(userManifestType)
 
 	// Build and Send the report to dataService
 	// There is a case where if an Userkey is removed, the metadata will no longer be available when the Report it sent
-	metadata := p.config.UserConfigs.GetMetadata(user)
-	if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
+	metadata := p.config.UserConfigs.GetMetadata(userManifestType.User)
+	if err := p.eventReporter.Report(metadata, userManifestType.ManifestType, eventJsons); err != nil {
 		return err
 	}
 	p.log.Info("Sent Report")
@@ -186,21 +189,21 @@ func (p *ProcessorSender) Send(ctx context.Context, user string) error {
 	return nil
 }
 
+// Send all eventJsons for every [user][manifestType]
 func (p *ProcessorSender) SendAll(ctx context.Context) error {
 
-	// flush entire map
+	// flush entire map [user][manifestType]eventJsons
 	eventMap := p.eventAccumulator.FlushAll()
 
-	for key := range eventMap {
-		eventJsons := eventMap[key]
-
+	for userManifestType, eventJsons := range eventMap {
 		// Build and Send the report to dataService
 		// There is a case where if an Userkey is removed, the metadata will no longer be available when the Report it sent
-		metadata := p.config.UserConfigs.GetMetadata(key)
-		if err := p.eventReporter.Report(metadata, eventJsons); err != nil {
+		metadata := p.config.UserConfigs.GetMetadata(userManifestType.User)
+		if err := p.eventReporter.Report(metadata, userManifestType.ManifestType, eventJsons); err != nil {
 			return err
 		}
 		p.log.Info("Sent Report")
+
 	}
 
 	return nil

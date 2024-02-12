@@ -140,9 +140,43 @@ var _ = BeforeSuite(func() {
 		grpcServer.Serve(grpcListen)
 	}()
 
-	// DataFilters
+	// Event Engine
+	cc := v1alpha1.NewComponentConfig()
 
-	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, httpTestClient)
+	tlsVersion, err := k8sapiflag.TLSVersion(cc.TLSConfig.MinVersion)
+	Expect(err).ToNot(HaveOccurred())
+
+	cipherSuites, err := k8sapiflag.TLSCipherSuites(cc.TLSConfig.CipherSuites)
+	Expect(err).ToNot(HaveOccurred())
+
+	dataServiceURL, err := url.Parse("localhost:8004")
+	Expect(err).ToNot(HaveOccurred())
+
+	eventConfig = &events.Config{
+		LicenseAccept:        true,
+		OutputDirectory:      os.TempDir(),
+		DataServiceTokenFile: "",
+		DataServiceCertFile:  certPath,
+		DataServiceURL:       dataServiceURL,
+		Namespace:            "default",
+		AccMemoryLimit:       cc.AccMemoryLimit,
+		MaxFlushTimeout:      cc.MaxFlushTimeout,
+		MaxEventEntries:      cc.MaxEventEntries,
+		CipherSuites:         cipherSuites,
+		MinVersion:           tlsVersion,
+	}
+
+	eeCtx, eeCancel = context.WithCancel(context.Background())
+	eventEngine = events.NewEventEngine(eeCtx, ctrl.Log, eventConfig, k8sClient)
+
+	go eventEngine.Start(eeCtx)
+
+	Eventually(func() bool {
+		return eventEngine.IsReady()
+	}).Should(BeTrue())
+
+	// DataFilters
+	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, httpTestClient, eventEngine, eventConfig)
 
 	// k8s Configuration Objects
 
@@ -203,41 +237,6 @@ var _ = BeforeSuite(func() {
 	}
 	err = k8sClient.Create(context.TODO(), &kazaamConfigMap)
 	Expect(err).ToNot(HaveOccurred())
-
-	// Event Engine
-	cc := v1alpha1.NewComponentConfig()
-
-	tlsVersion, err := k8sapiflag.TLSVersion(cc.TLSConfig.MinVersion)
-	Expect(err).ToNot(HaveOccurred())
-
-	cipherSuites, err := k8sapiflag.TLSCipherSuites(cc.TLSConfig.CipherSuites)
-	Expect(err).ToNot(HaveOccurred())
-
-	dataServiceURL, err := url.Parse("localhost:8004")
-	Expect(err).ToNot(HaveOccurred())
-
-	eventConfig = &events.Config{
-		LicenseAccept:        true,
-		OutputDirectory:      os.TempDir(),
-		DataServiceTokenFile: "",
-		DataServiceCertFile:  certPath,
-		DataServiceURL:       dataServiceURL,
-		Namespace:            "default",
-		AccMemoryLimit:       cc.AccMemoryLimit,
-		MaxFlushTimeout:      cc.MaxFlushTimeout,
-		MaxEventEntries:      cc.MaxEventEntries,
-		CipherSuites:         cipherSuites,
-		MinVersion:           tlsVersion,
-	}
-
-	eeCtx, eeCancel = context.WithCancel(context.Background())
-	eventEngine = events.NewEventEngine(eeCtx, ctrl.Log, eventConfig, k8sClient)
-	go eventEngine.Start(eeCtx)
-
-	Eventually(func() bool {
-		return eventEngine.IsReady()
-	}).Should(BeTrue())
-
 })
 
 var _ = AfterSuite(func() {
