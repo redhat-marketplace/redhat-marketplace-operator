@@ -49,6 +49,63 @@ spec:
                         description: Destination defines an additional endpoint to
                           forward a transformed event payload to
                         properties:
+                          authorization:
+                            description: Sets an optional authorization endpoint to
+                              first request a token from
+                            properties:
+                              authDestHeader:
+                                description: Sets the additional header map key to
+                                  set on the Destination header ("Authorization")
+                                type: string
+                              authDestHeaderPrefix:
+                                description: 'authDestHeaderPrefix: the additional
+                                  prefix map string value to set on the destHeader
+                                  ("Bearer ")'
+                                type: string
+                              dataSecret:
+                                description: secret containing data to POST to authorization
+                                  endpoint (apikey)
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              headerSecret:
+                                description: Sets the name of the secret that contains
+                                  the headers to pass to the client
+                                properties:
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              tokenExpr:
+                                description: 'tokenExpr: jsonpath expression to parse
+                                  the response for the authorization token'
+                                type: string
+                              url:
+                                description: url is the destination endpoint (https://hostname:port/path).
+                                type: string
+                            required:
+                            - url
+                            type: object
                           confirmDelivery:
                             description: ConfirmDelivery determines the processor
                               return code behavior If ConfirmDelivery is true, a 200
@@ -57,20 +114,17 @@ spec:
                               is false for all Destinations, a 200 will be returned
                               to the sender once the event is confirmed as valid json
                             type: boolean
-                          headers:
+                          headerSecret:
                             description: Sets the name of the secret that contains
                               the headers to pass to the client
                             properties:
-                              secretRef:
-                                description: Sets the name of the secret that contains
-                                  the headers
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind,
+                                  uid?'
                                 type: string
                             type: object
-                          insecureSkipTLSVerify:
-                            description: InsecureSkipTLSVerify skips the validity
-                              check for the server's certificate. This will make your
-                              HTTPS connections insecure.
-                            type: boolean
+                            x-kubernetes-map-type: atomic
                           transformer:
                             description: Transformer defines the type of transformer
                               to use, and where to load the transformation configuration
@@ -104,6 +158,11 @@ spec:
                             type: object
                           url:
                             description: url is the destination endpoint (https://hostname:port/path).
+                            type: string
+                          urlSuffixExpr:
+                            description: 'urlSuffixExpr: jsonpath expression to parse
+                              the event for a variable suffix to the destination url
+                              https://example/path/{URLSuffixExprResult}'
                             type: string
                         required:
                         - url
@@ -172,6 +231,119 @@ spec:
                       type: object
                   type: object
                 type: array
+              tlsConfig:
+                description: TLSConfig specifies TLS configuration parameters for
+                  outbound https requests
+                properties:
+                  ca:
+                    description: Certificate authority used when verifying server
+                      certificates.
+                    properties:
+                      configMap:
+                        description: ConfigMap containing data to use for the targets.
+                        properties:
+                          key:
+                            description: The key to select.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap or its key
+                              must be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      secret:
+                        description: Secret containing data to use for the targets.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  cert:
+                    description: Client certificate to present when doing client-authentication.
+                    properties:
+                      configMap:
+                        description: ConfigMap containing data to use for the targets.
+                        properties:
+                          key:
+                            description: The key to select.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap or its key
+                              must be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      secret:
+                        description: Secret containing data to use for the targets.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  insecureSkipVerify:
+                    description: Disable target certificate validation.
+                    type: boolean
+                  keySecret:
+                    description: Secret containing the client key file for the targets.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  serverName:
+                    description: Used to verify the hostname for the targets.
+                    type: string
+                type: object
               userConfig:
                 items:
                   description: UserConfig defines additional metadata added to a specified

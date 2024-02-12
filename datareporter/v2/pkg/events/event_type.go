@@ -16,6 +16,7 @@ package events
 
 import (
 	"encoding/json"
+	"net/url"
 	"reflect"
 	"sync"
 
@@ -29,6 +30,7 @@ type Config struct {
 	OutputDirectory      string
 	DataServiceTokenFile string
 	DataServiceCertFile  string
+	DataServiceURL       *url.URL
 	Namespace            string
 	UserConfigs          UserConfigs
 	AccMemoryLimit       resource.Quantity

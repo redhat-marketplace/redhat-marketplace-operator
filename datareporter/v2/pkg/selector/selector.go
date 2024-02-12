@@ -20,6 +20,8 @@ import (
 	"github.com/ohler55/ojg/jp"
 	"github.com/ohler55/ojg/oj"
 
+	"emperror.dev/errors"
+
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 )
@@ -88,7 +90,7 @@ type DataFilterSelector struct {
 func NewDataFilterSelector(sel v1alpha1.Selector) (DataFilterSelector, error) {
 	jps, err := NewJsonPathsSelector(sel.MatchExpressions)
 	if err != nil {
-		return DataFilterSelector{}, err
+		return DataFilterSelector{}, errors.Wrap(err, "failed to parse datafilter selector matchexpression")
 	}
 	return DataFilterSelector{JsonPathsSelector: jps, UsersSelector: sel.MatchUsers}, nil
 }

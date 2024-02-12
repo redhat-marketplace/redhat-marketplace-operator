@@ -27,6 +27,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -50,10 +51,11 @@ import (
 
 // DataReporterConfigReconciler reconciles a DataReporterConfig object
 type DataReporterConfigReconciler struct {
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	Config *events.Config
+	Client      client.Client
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Config      *events.Config
+	DataFilters *datafilter.DataFilters
 }
 
 // data-service
@@ -166,7 +168,7 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		},
 	}
 
-	// Create the Route
+	// Create the Service
 	newService := service
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, &newService, func() error {
@@ -208,6 +210,40 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return err
 	}); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Build DataFilters
+	if derr := r.DataFilters.Build(dataReporterConfig); derr != nil {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// DataFilters failed validation, update status
+			if err := r.Client.Get(context.TODO(), req.NamespacedName, dataReporterConfig); err != nil {
+				return err
+			}
+			if dataReporterConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    datareporterv1alpha1.ConditionDataFilterInvalid,
+				Status:  corev1.ConditionTrue,
+				Reason:  datareporterv1alpha1.ReasonDataFilterInvalid,
+				Message: derr.Error(),
+			}) {
+				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+			return nil
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// DataFilters valid, clear status
+			if err := r.Client.Get(context.TODO(), req.NamespacedName, dataReporterConfig); err != nil {
+				return err
+			}
+			if dataReporterConfig.Status.Conditions.RemoveCondition(status.ConditionType(datareporterv1alpha1.ReasonDataFilterInvalid)) {
+				return r.Client.Status().Update(context.TODO(), dataReporterConfig)
+			}
+			return nil
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	reqLogger.Info("reconcile complete")
