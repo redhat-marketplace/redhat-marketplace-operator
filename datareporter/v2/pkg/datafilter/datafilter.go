@@ -31,9 +31,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	defaultManifestType = "dataReporter"
+)
+
 type DataFilter struct {
 	Selector     selector.DataFilterSelector
 	Destinations []*uploader.Uploader
+	ManifestType string
 }
 
 // When DataReporterConfig reconciles, DataFilters must be locked & rebuilt, pausing any request processing
@@ -45,6 +50,8 @@ type DataFilters struct {
 	k8sClient   client.Client
 	httpClient  *http.Client
 	dataFilters []DataFilter
+	eventEngine *events.EventEngine
+	eventConfig *events.Config
 	mu          sync.RWMutex
 }
 
@@ -52,8 +59,16 @@ func NewDataFilters(
 	log logr.Logger,
 	k8sClient client.Client,
 	httpClient *http.Client,
+	eventEngine *events.EventEngine,
+	eventConfig *events.Config,
 ) *DataFilters {
-	return &DataFilters{Log: log, k8sClient: k8sClient, httpClient: httpClient}
+	return &DataFilters{
+		Log:         log,
+		k8sClient:   k8sClient,
+		httpClient:  httpClient,
+		eventEngine: eventEngine,
+		eventConfig: eventConfig,
+	}
 }
 
 // Build
@@ -80,12 +95,27 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 
 	var statusCodes []int
 	for _, df := range d.dataFilters {
-		if df.Selector.Matches(event) {
+		if df.Selector.Matches(event) { // Send to the destinations of the first matched filter and return
+
+			statusCodeChan := make(chan int)
+
+			// Transform and Upload for DataService
+
+			// Set the ManifestType
+			if len(df.ManifestType) == 0 {
+				event.ManifestType = defaultManifestType
+			} else {
+				event.ManifestType = df.ManifestType
+			}
 
 			// TODO: Transform
 
-			// Upload to Destinations
-			statusCodeChan := make(chan int)
+			// TODO: Do we need to add ConfirmDelivery option for DataService (1 event: 1 report)
+
+			// Send event to DataService
+			d.eventEngine.EventChan <- event
+
+			// Transform and Upload for Destinations
 			var wg sync.WaitGroup
 			for _, dest := range df.Destinations {
 				wg.Add(1)
@@ -105,10 +135,14 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 			for statusCode := range statusCodeChan {
 				statusCodes = append(statusCodes, statusCode)
 			}
-
 			return statusCodes
 		}
 	}
+
+	// No matches, default send as-is to DataService
+	event.ManifestType = defaultManifestType
+	d.eventEngine.EventChan <- event
+	statusCodes = append(statusCodes, http.StatusOK)
 
 	return statusCodes
 }

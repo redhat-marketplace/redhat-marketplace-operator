@@ -68,7 +68,11 @@ var _ = BeforeSuite(func() {
 
 	rc := retryablehttp.NewClient()
 	sc := rc.StandardClient()
-	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc)
+
+	// Test DataFilter Build func
+	// Does not need EventEngine pointers
+	// FilterAndUpload test via server suite
+	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc, nil, nil)
 
 	// k8s Configuration Objects
 
