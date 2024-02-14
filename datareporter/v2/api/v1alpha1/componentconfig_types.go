@@ -52,11 +52,6 @@ type ManagerConfig struct {
 	cfg.ControllerManagerConfigurationSpec `json:",inline"`
 }
 
-type TLSConfig struct {
-	CipherSuites []string `json:"cipherSuites"`
-	MinVersion   string   `json:"minVersion"`
-}
-
 // ComponentConfigStatus defines the observed state of ComponentConfig
 type ComponentConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster

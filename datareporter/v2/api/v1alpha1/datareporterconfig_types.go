@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -33,10 +31,9 @@ type DataReporterConfigSpec struct {
 	// The first DataFilter match in the array based on the Selector will be applied
 	// +optional
 	DataFilters []DataFilter `json:"dataFilters,omitempty"`
-
-	// TLSConfig specifies TLS configuration parameters for outbound https requests
+	// TLSConfig specifies TLS configuration parameters for outbound https requests from the client
 	// +optional
-	TLSConfig SafeTLSConfig `json:"tlsConfig,omitempty"`
+	TLSConfig *TLSConfig `json:"tlsConfig,omitempty"`
 }
 
 // UserConfig defines additional metadata added to a specified users report
@@ -67,81 +64,6 @@ type DataFilter struct {
 	AltDestinations []Destination `json:"altDestinations,omitempty"`
 }
 
-// SafeTLSConfig specifies safe TLS configuration parameters.
-type SafeTLSConfig struct {
-	// Certificate authority used when verifying server certificates.
-	CA SecretOrConfigMap `json:"ca,omitempty"`
-	// Client certificate to present when doing client-authentication.
-	Cert SecretOrConfigMap `json:"cert,omitempty"`
-	// Secret containing the client key file for the targets.
-	KeySecret *v1.SecretKeySelector `json:"keySecret,omitempty"`
-	// Used to verify the hostname for the targets.
-	ServerName string `json:"serverName,omitempty"`
-	// Disable target certificate validation.
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
-}
-
-// Validate semantically validates the given SafeTLSConfig.
-func (c *SafeTLSConfig) Validate() error {
-	if c.CA != (SecretOrConfigMap{}) {
-		if err := c.CA.Validate(); err != nil {
-			return fmt.Errorf("ca %s: %w", c.CA.String(), err)
-		}
-	}
-
-	if c.Cert != (SecretOrConfigMap{}) {
-		if err := c.Cert.Validate(); err != nil {
-			return fmt.Errorf("cert %s: %w", c.Cert.String(), err)
-		}
-	}
-
-	if c.Cert != (SecretOrConfigMap{}) && c.KeySecret == nil {
-		return fmt.Errorf("client cert specified without client key")
-	}
-
-	if c.KeySecret != nil && c.Cert == (SecretOrConfigMap{}) {
-		return fmt.Errorf("client key specified without client cert")
-	}
-
-	return nil
-}
-
-// SecretOrConfigMap allows to specify data as a Secret or ConfigMap. Fields are mutually exclusive.
-type SecretOrConfigMap struct {
-	// Secret containing data to use for the targets.
-	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
-	// ConfigMap containing data to use for the targets.
-	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
-}
-
-// Validate semantically validates the given SecretOrConfigMap.
-func (c *SecretOrConfigMap) Validate() error {
-	if c == nil {
-		return nil
-	}
-
-	if c.Secret != nil && c.ConfigMap != nil {
-		return fmt.Errorf("cannot specify both Secret and ConfigMap")
-	}
-
-	return nil
-}
-
-func (c *SecretOrConfigMap) String() string {
-	if c == nil {
-		return "<nil>"
-	}
-
-	switch {
-	case c.Secret != nil:
-		return fmt.Sprintf("<secret=%s,key=%s>", c.Secret.LocalObjectReference.Name, c.Secret.Key)
-	case c.ConfigMap != nil:
-		return fmt.Sprintf("<configmap=%s,key=%s>", c.ConfigMap.LocalObjectReference.Name, c.ConfigMap.Key)
-	}
-
-	return "<empty>"
-}
-
 // Selector defines criteria for matching incoming event payload
 type Selector struct {
 	// matchExpressions is a list of jsonpath expressions
@@ -160,9 +82,35 @@ type Transformer struct {
 	// type is the transformation engine use
 	// supported types: kazaam
 	TransformerType string `json:"type,omitempty"`
-
 	// configMapKeyRef refers to the transformation configuration residing in a ConfigMap
 	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
+}
+
+// TLSConfig refers to TLS configuration
+type TLSConfig struct {
+	// CACertsSecret refers to a list of secret keys that contains CA certificates in PEM. tls.Config.RootCAs
+	// +optional
+	CACerts []corev1.SecretKeySelector `json:"caCerts,omitempty"`
+	// Certificates refers to a list of X509KeyPairs consisting of the client public/private key. tls.Config.Certificates
+	// +optional
+	Certificates []Certificate `json:"certificates,omitempty"`
+	// If true, skips creation of TLSConfig with certs and creates an empty TLSConfig. tls.Config.InsecureSkipVerify (Defaults to false)
+	// +optional
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty" protobuf:"varint,4,opt,name=insecureSkipVerify"`
+	// CipherSuites is a list of enabled cipher suites. tls.Config.CipherSuites
+	// +optional
+	CipherSuites []string `json:"cipherSuites,omitempty"`
+	// MinVersion contains the minimum TLS version that is acceptable tls.Config.MinVersion
+	// +optional
+	MinVersion string `json:"minVersion,omitempty"`
+}
+
+// Certificate refers to the the X509KeyPair, consisting of the secrets containing the key and cert pem
+type Certificate struct {
+	// ClientCert refers to the secret that contains the client cert PEM
+	ClientCert *corev1.SecretKeySelector `json:"clientCert,omitempty"`
+	// ClientKey refers to the secret that contains the client key PEM
+	ClientKey *corev1.SecretKeySelector `json:"clientKey,omitempty"`
 }
 
 // Destination defines an additional endpoint to forward a transformed event payload to
