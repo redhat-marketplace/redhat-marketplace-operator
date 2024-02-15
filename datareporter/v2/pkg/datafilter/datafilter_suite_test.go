@@ -16,6 +16,7 @@ package datafilter_test
 
 import (
 	"context"
+	"crypto/x509/pkix"
 	"path/filepath"
 	"testing"
 
@@ -135,6 +136,44 @@ var _ = BeforeSuite(func() {
 		Data: kazaamMapBad,
 	}
 	err = k8sClient.Create(context.TODO(), &kazaamConfigMapBad)
+	Expect(err).ToNot(HaveOccurred())
+
+	// TLS Config
+
+	subject := pkix.Name{
+		Country:            []string{"US"},
+		Organization:       []string{"IBM"},
+		OrganizationalUnit: []string{"RHM"},
+		Locality:           []string{"L"},
+		Province:           []string{"P"},
+		StreetAddress:      []string{"Street"},
+		PostalCode:         []string{"123456"},
+		SerialNumber:       "",
+		CommonName:         "CA",
+		Names:              []pkix.AttributeTypeAndValue{},
+		ExtraNames:         []pkix.AttributeTypeAndValue{},
+	}
+	caCert, caKey, caPEMBytes, _, err := makeCA(&subject)
+	Expect(err).ToNot(HaveOccurred())
+
+	subject.CommonName = "localhost"
+	certPEMBytes, certKeyPEMBytes, err := makeCert(caCert, caKey, &subject, "localhost")
+	Expect(err).ToNot(HaveOccurred())
+
+	tlsConfigMap := make(map[string][]byte)
+	tlsConfigMap["ca.crt"] = caPEMBytes
+	tlsConfigMap["cert.crt"] = certPEMBytes
+	tlsConfigMap["key.crt"] = certKeyPEMBytes
+	tlsConfigMap["bad.crt"] = []byte("not a certificate")
+
+	tlsConfigSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tls-config-secret",
+			Namespace: "default",
+		},
+		Data: tlsConfigMap,
+	}
+	err = k8sClient.Create(context.TODO(), &tlsConfigSecret)
 	Expect(err).ToNot(HaveOccurred())
 
 })

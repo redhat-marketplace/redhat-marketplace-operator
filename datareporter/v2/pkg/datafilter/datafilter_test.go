@@ -110,8 +110,39 @@ var _ = Describe("DataFilter", func() {
 						},
 					},
 				},
-				TLSConfig: v1alpha1.SafeTLSConfig{
-					InsecureSkipVerify: true,
+				TLSConfig: &v1alpha1.TLSConfig{
+					InsecureSkipVerify: false,
+					CACerts: []corev1.SecretKeySelector{
+						corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "tls-config-secret",
+							},
+							Key: "ca.crt",
+						},
+					},
+					Certificates: []v1alpha1.Certificate{
+						v1alpha1.Certificate{
+							ClientCert: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "tls-config-secret",
+								},
+								Key: "cert.crt",
+							},
+							ClientKey: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "tls-config-secret",
+								},
+								Key: "key.crt",
+							},
+						},
+					},
+					CipherSuites: []string{"TLS_AES_128_GCM_SHA256",
+						"TLS_AES_256_GCM_SHA384",
+						"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+						"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+						"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+						"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+					MinVersion: "VersionTLS12",
 				},
 			},
 		}
@@ -255,6 +286,38 @@ var _ = Describe("DataFilter", func() {
 					Expect(err).To(HaveOccurred())
 				})
 			*/
+
+			It("should error on TLSConfig secret not found", func() {
+				drcBadTLSConfigSecretName := drc
+				drcBadTLSConfigSecretName.Spec.TLSConfig.CACerts[0].Name = "no-secret-here"
+
+				err := dataFilters.Build(&drcBadTLSConfigSecretName)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should error on TLSConfig bad secret data", func() {
+				drcBadTLSConfigKeyData := drc
+				drcBadTLSConfigKeyData.Spec.TLSConfig.CACerts[0].Key = "bad.crt"
+
+				err := dataFilters.Build(&drcBadTLSConfigKeyData)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should error on TLSConfig bad MinVersion", func() {
+				drcBadTLSConfigMinVersion := drc
+				drcBadTLSConfigMinVersion.Spec.TLSConfig.MinVersion = "not-a-version"
+
+				err := dataFilters.Build(&drcBadTLSConfigMinVersion)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should error on TLSConfig bad CipherSuites", func() {
+				drcBadTLSConfigCipherSuites := drc
+				drcBadTLSConfigCipherSuites.Spec.TLSConfig.CipherSuites = []string{"badcipher1", "badcipher2"}
+
+				err := dataFilters.Build(&drcBadTLSConfigCipherSuites)
+				Expect(err).To(HaveOccurred())
+			})
 
 		})
 
