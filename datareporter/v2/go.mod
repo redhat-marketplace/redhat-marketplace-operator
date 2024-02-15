@@ -7,6 +7,8 @@ require (
 	emperror.dev/errors v0.8.1
 	github.com/go-logr/logr v1.3.0
 	github.com/google/uuid v1.4.0
+	github.com/hashicorp/go-retryablehttp v0.7.5
+	github.com/ohler55/ojg v1.21.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.29.0
 	github.com/openshift/api v3.9.0+incompatible
@@ -14,6 +16,7 @@ require (
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210409165614-0a6355b7a700
 	github.com/ungerik/go-pool v0.0.0-20140720100922-d102a2c7872a
 	go.uber.org/zap v1.26.0
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	k8s.io/apimachinery v0.28.3
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.16.3
@@ -25,14 +28,14 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/google/pprof v0.0.0-20231101202521-4ca4178f5c7a // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/ohler55/ojg v1.21.0 // indirect
+	github.com/qntfy/jsonparser v1.0.2 // indirect
+	github.com/qntfy/kazaam/v4 v4.0.1 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20220426143752-6e78b5cdab00 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
-	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
 	golang.org/x/tools v0.17.0 // indirect
 	google.golang.org/genproto v0.0.0-20231030173426-d783a09b4405 // indirect

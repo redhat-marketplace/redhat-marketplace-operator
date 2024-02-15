@@ -20,11 +20,14 @@ import (
 	"net/http"
 	"sync"
 
+	"command-line-arguments/Users/ab/git/redhat-marketplace-operator/datareporter/v2/pkg/transformer/transformer.go"
+
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/selector"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/transformer"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/uploader"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -83,6 +86,10 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 		if df.Selector.Matches(event) {
 
 			// TODO: Transform
+			transformedJson, err = transformer.Transform("kazaam", event.RawMessage, "")
+			if err == nil {
+				event.RawMessage = transformedJson
+			}
 
 			// Upload to Destinations
 			statusCodeChan := make(chan int)
