@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"sync"
 
-	"command-line-arguments/Users/ab/git/redhat-marketplace-operator/datareporter/v2/pkg/transformer/transformer.go"
-
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
@@ -86,7 +84,7 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 		if df.Selector.Matches(event) {
 
 			// TODO: Transform
-			transformedJson, err = transformer.Transform("kazaam", event.RawMessage, "")
+			var transformedJson, err = transformer.Transform("kazaam", event.RawMessage, "")
 			if err == nil {
 				event.RawMessage = transformedJson
 			}
