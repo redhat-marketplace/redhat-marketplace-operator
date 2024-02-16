@@ -23,6 +23,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/gotidy/ptr"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
@@ -49,13 +50,14 @@ type DataFilter struct {
 // The HttpClient transport TLSConfig may change
 
 type DataFilters struct {
-	Log         logr.Logger
-	k8sClient   client.Client
-	httpClient  *http.Client
-	dataFilters []DataFilter
-	eventEngine *events.EventEngine
-	eventConfig *events.Config
-	mu          sync.RWMutex
+	Log              logr.Logger
+	k8sClient        client.Client
+	httpClient       *http.Client
+	dataFilters      []DataFilter
+	eventEngine      *events.EventEngine
+	eventConfig      *events.Config
+	apiHandlerConfig *v1alpha1.ApiHandlerConfig
+	mu               sync.RWMutex
 }
 
 func NewDataFilters(
@@ -64,13 +66,15 @@ func NewDataFilters(
 	httpClient *http.Client,
 	eventEngine *events.EventEngine,
 	eventConfig *events.Config,
+	apiHandlerConfig *v1alpha1.ApiHandlerConfig,
 ) *DataFilters {
 	return &DataFilters{
-		Log:         log,
-		k8sClient:   k8sClient,
-		httpClient:  httpClient,
-		eventEngine: eventEngine,
-		eventConfig: eventConfig,
+		Log:              log,
+		k8sClient:        k8sClient,
+		httpClient:       httpClient,
+		eventEngine:      eventEngine,
+		eventConfig:      eventConfig,
+		apiHandlerConfig: apiHandlerConfig,
 	}
 }
 
@@ -81,6 +85,11 @@ func (d *DataFilters) Build(drc *v1alpha1.DataReporterConfig) error {
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
+
+	// Update API Handler
+	if drc.Spec.ConfirmDelivery != nil {
+		d.apiHandlerConfig.ConfirmDelivery = drc.Spec.ConfirmDelivery
+	}
 
 	if err := d.updateHttpClient(drc); err != nil {
 		return errors.Wrap(err, "failed to update http client")
@@ -100,9 +109,6 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 	var statusCodes []int
 	for _, df := range d.dataFilters {
 		if df.Selector.Matches(event) { // Send to the destinations of the first matched filter and return
-
-			statusCodeChan := make(chan int)
-
 			// Transform and Upload for DataService
 
 			// Set the ManifestType
@@ -114,12 +120,19 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 
 			// TODO: Transform
 
-			// TODO: Do we need to add ConfirmDelivery option for DataService (1 event: 1 report)
-
-			// Send event to DataService
-			d.eventEngine.EventChan <- event
+			// Send to DataService. If not deliverable, return bad code and skip altDestinations
+			if ptr.ToBool(d.apiHandlerConfig.ConfirmDelivery) {
+				if err := d.eventEngine.ProcessorSender.ReportOne(event); err != nil {
+					statusCodes = append(statusCodes, http.StatusBadGateway)
+					return statusCodes
+				}
+			} else {
+				d.eventEngine.EventChan <- event
+				statusCodes = append(statusCodes, http.StatusOK)
+			}
 
 			// Transform and Upload for Destinations
+			statusCodeChan := make(chan int)
 			var wg sync.WaitGroup
 			for _, dest := range df.Destinations {
 				wg.Add(1)
@@ -135,7 +148,6 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 			wg.Wait()
 			close(statusCodeChan)
 
-			statusCodes = make([]int, len(df.Destinations))
 			for statusCode := range statusCodeChan {
 				statusCodes = append(statusCodes, statusCode)
 			}
@@ -145,8 +157,15 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 
 	// No matches, default send as-is to DataService
 	event.ManifestType = defaultManifestType
-	d.eventEngine.EventChan <- event
-	statusCodes = append(statusCodes, http.StatusOK)
+
+	if ptr.ToBool(d.apiHandlerConfig.ConfirmDelivery) {
+		if err := d.eventEngine.ProcessorSender.ReportOne(event); err != nil {
+			statusCodes = append(statusCodes, http.StatusBadGateway)
+		}
+	} else {
+		d.eventEngine.EventChan <- event
+		statusCodes = append(statusCodes, http.StatusOK)
+	}
 
 	return statusCodes
 }

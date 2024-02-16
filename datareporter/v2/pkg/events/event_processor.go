@@ -209,6 +209,17 @@ func (p *ProcessorSender) SendAll(ctx context.Context) error {
 	return nil
 }
 
+// Immediately send a single event in a single report to DataService, bypassing the accumulator
+func (p *ProcessorSender) ReportOne(event Event) error {
+	metadata := p.config.UserConfigs.GetMetadata(event.User)
+	if err := p.eventReporter.Report(metadata, event.ManifestType, EventJsons{event.RawMessage}); err != nil {
+		return err
+	}
+	p.log.Info("Sent Report")
+
+	return nil
+}
+
 func (p *ProcessorSender) provideDataServiceConfig() (*dataservice.DataServiceConfig, error) {
 
 	var cert []byte

@@ -15,6 +15,7 @@
 package datafilter_test
 
 import (
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -69,7 +70,6 @@ var _ = Describe("DataFilter", func() {
 								Key: "kazaam.json",
 							},
 						},
-						ConfirmDelivery: true,
 						AltDestinations: []v1alpha1.Destination{
 							v1alpha1.Destination{
 								Transformer: v1alpha1.Transformer{
@@ -88,7 +88,6 @@ var _ = Describe("DataFilter", func() {
 										Name: "dest-header-map-secret",
 									},
 								},
-								ConfirmDelivery: false,
 								Authorization: v1alpha1.Authorization{
 									URL: "https://test/auth",
 									HeaderSecret: v1alpha1.HeaderSecret{
@@ -144,6 +143,7 @@ var _ = Describe("DataFilter", func() {
 						"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
 					MinVersion: "VersionTLS12",
 				},
+				ConfirmDelivery: ptr.Bool(false),
 			},
 		}
 

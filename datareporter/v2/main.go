@@ -203,7 +203,7 @@ func main() {
 
 	rc := retryablehttp.NewClient()
 	sc := rc.StandardClient() // *http.Client
-	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config)
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config, &cc.ApiHandlerConfig)
 
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client:      mgr.GetClient(),
@@ -228,7 +228,7 @@ func main() {
 	}
 
 	// Add the EventEngine handler after it is ready
-	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, cc.ApiHandlerConfig)
+	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, &cc.ApiHandlerConfig)
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
 		setupLog.Error(err, "unable to set up data reporter handler")
 		os.Exit(1)
