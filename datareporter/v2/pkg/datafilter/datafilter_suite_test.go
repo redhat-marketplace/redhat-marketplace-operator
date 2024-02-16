@@ -37,12 +37,13 @@ import (
 )
 
 var (
-	testEnv     *envtest.Environment
-	cfg         *rest.Config
-	log         logr.Logger
-	k8sClient   client.Client
-	k8sManager  ctrl.Manager
-	dataFilters *datafilter.DataFilters
+	testEnv         *envtest.Environment
+	cfg             *rest.Config
+	log             logr.Logger
+	k8sClient       client.Client
+	k8sManager      ctrl.Manager
+	dataFilters     *datafilter.DataFilters
+	componentConfig *v1alpha1.ComponentConfig
 )
 
 var _ = BeforeSuite(func() {
@@ -70,10 +71,12 @@ var _ = BeforeSuite(func() {
 	rc := retryablehttp.NewClient()
 	sc := rc.StandardClient()
 
+	componentConfig = v1alpha1.NewComponentConfig()
+
 	// Test DataFilter Build func
-	// Does not need EventEngine pointers
+	// Does not need EventEngine or ApiHandler pointers
 	// FilterAndUpload test via server suite
-	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc, nil, nil)
+	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc, nil, nil, &componentConfig.ApiHandlerConfig)
 
 	// k8s Configuration Objects
 

@@ -34,6 +34,12 @@ type DataReporterConfigSpec struct {
 	// TLSConfig specifies TLS configuration parameters for outbound https requests from the client
 	// +optional
 	TLSConfig *TLSConfig `json:"tlsConfig,omitempty"`
+	// ConfirmDelivery configures the api handler. Takes priority over configuring ComponentConfig
+	// true: skips the EventEngine accumulator and generates 1 report with 1 event
+	// The handler will wait for 200 OK for DataService delivery before returning 200 OK
+	// false: enters the event into the EventEngine accumulator and generates 1 report with N events
+	// The handler will return a 200 OK for DataService delivery as long as the event json is valid
+	ConfirmDelivery *bool `json:"confirmDelivery,omitempty"`
 }
 
 // UserConfig defines additional metadata added to a specified users report
@@ -53,13 +59,6 @@ type DataFilter struct {
 	ManifestType string `json:"manifestType,omitempty"`
 	// +optional
 	Transformer Transformer `json:"transformer,omitempty"`
-	// ConfirmDelivery determines the processor return code behavior, and behavior of event reports sent to data-service
-	// If ConfirmDelivery is true, a 200 will be returned to the sender after all deliveries to flagged Destinations are successful
-	// Events will not be accumulated to buffer, each report sent to data-service will contain 1 event
-	// If ConfirmDelivery is false for all Destinations, a 200 will be returned to the sender once the event is confirmed as valid json
-	// Events will be accumulated, each report sent to data-service will contain N events
-	// +optional
-	ConfirmDelivery bool `json:"confirmDelivery,omitempty"`
 	// +optional
 	AltDestinations []Destination `json:"altDestinations,omitempty"`
 }
@@ -129,12 +128,6 @@ type Destination struct {
 	// Sets the name of the secret that contains the headers to pass to the client
 	// +optional
 	HeaderSecret HeaderSecret `json:"headerSecret,omitempty"`
-
-	// ConfirmDelivery determines the processor return code behavior
-	// If ConfirmDelivery is true, a 200 will be returned to the sender after all deliveries to flagged Destinations are successful
-	// If ConfirmDelivery is false for all Destinations, a 200 will be returned to the sender once the event is confirmed as valid json
-	// +optional
-	ConfirmDelivery bool `json:"confirmDelivery,omitempty"`
 
 	// Sets an optional authorization endpoint to first request a token from
 	// +optional

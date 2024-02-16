@@ -29,6 +29,13 @@ import (
 type ApiHandlerConfig struct {
 	// HandlerTimeout is the timeout for the datareporter operator api handler
 	HandlerTimeout metav1.Duration `json:"handlerTimeout,omitempty"`
+
+	// ConfirmDelivery configures the api handler
+	// true: skips the EventEngine accumulator and generates 1 report with 1 event
+	// The handler will wait for 200 OK for DataService delivery before returning 200 OK
+	// false: enters the event into the EventEngine accumulator and generates 1 report with N events
+	// The handler will return a 200 OK for DataService delivery as long as the event json is valid
+	ConfirmDelivery *bool `json:"confirmDelivery,omitempty"`
 }
 
 type EventEngineConfig struct {
@@ -62,6 +69,7 @@ type ComponentConfigStatus struct {
 //+kubebuilder:subresource:status
 
 // ComponentConfig is the Schema for the componentconfigs API
+// The TLSConfig in ComponentConfig modifies the TLSConfig of the DataService Client
 type ComponentConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

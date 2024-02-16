@@ -31,7 +31,7 @@ import (
 
 var log = logf.Log.WithName("events_api_handler")
 
-func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, handlerConfig datareporterv1alpha1.ApiHandlerConfig) http.Handler {
+func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, handlerConfig *datareporterv1alpha1.ApiHandlerConfig) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/v1/event", func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, d
 		return
 	}
 
-	if eventConfig.LicenseAccept != true {
+	if !eventConfig.LicenseAccept {
 		w.WriteHeader(http.StatusInternalServerError)
 		err := emperror.New("license has not been accepted in marketplaceconfig. event handler will not accept events.")
 		log.Error(err, "error with configuration")
@@ -96,25 +96,20 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, d
 	rawMessage := json.RawMessage(eventKeyBytes)
 	event := events.Event{User: headerUser, RawMessage: rawMessage}
 
-	// Event is sent to EventProcessor accumulator
-	// Formatted as Report
-	// Sent to DataService
-	// There is no guaranttee of receipt
-	eventEngine.EventChan <- event
-
-	log.V(4).Info("event sent to event engine", "event", event)
-
 	// Send to DataFilters
-	// Events are sent to to DataFilter Destinations with confirmation before sending StatusOK
+	// Events are sent to to DataService & DataFilter Destinations returning http Status
 	statusCodes := dataFilters.FilterAndUpload(event)
 
+	// Check DataFilter status codes, if not OK, report BadGateway
 	for _, statusCode := range statusCodes {
-		if statusCode != http.StatusOK {
-			w.WriteHeader(statusCode)
-		} else {
-			w.WriteHeader(http.StatusOK)
+		if !(statusCode >= 200 && statusCode < 300) {
+			w.WriteHeader(http.StatusBadGateway)
+			return
 		}
 	}
+
+	// Event was sent to DataService successfully, and any DataFilter destinations
+	w.WriteHeader(http.StatusOK)
 }
 
 type StatusResponse struct {

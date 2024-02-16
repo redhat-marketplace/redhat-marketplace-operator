@@ -64,6 +64,7 @@ var (
 	dataFilters    *datafilter.DataFilters
 	eventEngine    *events.EventEngine
 	eventConfig    *events.Config
+	cc             *v1alpha1.ComponentConfig
 	eeCtx          context.Context
 	eeCancel       context.CancelFunc
 )
@@ -176,7 +177,8 @@ var _ = BeforeSuite(func() {
 	}).Should(BeTrue())
 
 	// DataFilters
-	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, httpTestClient, eventEngine, eventConfig)
+	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"),
+		k8sClient, httpTestClient, eventEngine, eventConfig, &cc.ApiHandlerConfig)
 
 	// k8s Configuration Objects
 
