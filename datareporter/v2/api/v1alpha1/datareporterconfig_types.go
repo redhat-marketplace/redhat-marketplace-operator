@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -104,12 +103,17 @@ type TLSConfig struct {
 	MinVersion string `json:"minVersion,omitempty"`
 }
 
+type SecretKeyRef struct {
+	// ClientCert refers to the secret that contains the client cert PEM
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
 // Certificate refers to the the X509KeyPair, consisting of the secrets containing the key and cert pem
 type Certificate struct {
 	// ClientCert refers to the secret that contains the client cert PEM
-	ClientCert *corev1.SecretKeySelector `json:"clientCert,omitempty"`
+	ClientCert SecretKeyRef `json:"clientCert,omitempty"`
 	// ClientKey refers to the secret that contains the client key PEM
-	ClientKey *corev1.SecretKeySelector `json:"clientKey,omitempty"`
+	ClientKey SecretKeyRef `json:"clientKey,omitempty"`
 }
 
 // Destination defines an additional endpoint to forward a transformed event payload to
@@ -125,9 +129,9 @@ type Destination struct {
 	// +optional
 	URLSuffixExpr string `json:"urlSuffixExpr,omitempty"`
 
-	// Sets the name of the secret that contains the headers to pass to the client
+	// Sets the sources of the headers to pass to the client
 	// +optional
-	HeaderSecret HeaderSecret `json:"headerSecret,omitempty"`
+	Header Header `json:"header,omitempty"`
 
 	// Sets an optional authorization endpoint to first request a token from
 	// +optional
@@ -135,10 +139,10 @@ type Destination struct {
 }
 
 // Sources of headers to append to request
-type HeaderSecret struct {
+type Header struct {
 	// Sets the name of the secret that contains the headers
 	// +optional
-	SecretRef corev1.LocalObjectReference `json:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
+	Secret corev1.LocalObjectReference `json:"secret,omitempty"`
 }
 
 // Sources of headers to append to request
@@ -146,9 +150,9 @@ type Authorization struct {
 	// url is the destination endpoint (https://hostname:port/path).
 	URL string `json:"url"`
 
-	// Sets the name of the secret that contains the headers to pass to the client
+	// Sets the sources of the headers to pass to the client
 	// +optional
-	HeaderSecret HeaderSecret `json:"headerSecret,omitempty"`
+	Header Header `json:"header,omitempty"`
 
 	// Sets the additional header map key to set on the Destination header ("Authorization")
 	// +optional
@@ -162,9 +166,9 @@ type Authorization struct {
 	// +optional
 	TokenExpr string `json:"tokenExpr,omitempty"`
 
-	// secret containing data to POST to authorization endpoint (apikey)
+	// secret containing body data to POST to authorization endpoint (apikey)
 	// +optional
-	DataSecret *v1.SecretKeySelector `json:"dataSecret,omitempty"`
+	BodyData SecretKeyRef `json:"bodyData,omitempty"`
 }
 
 // DataReporterConfigStatus defines the observed state of DataReporterConfig

@@ -83,26 +83,28 @@ var _ = Describe("DataFilter", func() {
 								},
 								URL:           "https://test/api",
 								URLSuffixExpr: "$.subscriptionId",
-								HeaderSecret: v1alpha1.HeaderSecret{
-									SecretRef: corev1.LocalObjectReference{
+								Header: v1alpha1.Header{
+									Secret: corev1.LocalObjectReference{
 										Name: "dest-header-map-secret",
 									},
 								},
 								Authorization: v1alpha1.Authorization{
 									URL: "https://test/auth",
-									HeaderSecret: v1alpha1.HeaderSecret{
-										SecretRef: corev1.LocalObjectReference{
+									Header: v1alpha1.Header{
+										Secret: corev1.LocalObjectReference{
 											Name: "auth-header-map-secret",
 										},
 									},
 									AuthDestHeader:       "Authorization",
 									AuthDestHeaderPrefix: "Bearer ",
 									TokenExpr:            "$.token",
-									DataSecret: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "auth-data-secret",
+									BodyData: v1alpha1.SecretKeyRef{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "auth-data-secret",
+											},
+											Key: "auth",
 										},
-										Key: "auth",
 									},
 								},
 							},
@@ -121,17 +123,21 @@ var _ = Describe("DataFilter", func() {
 					},
 					Certificates: []v1alpha1.Certificate{
 						v1alpha1.Certificate{
-							ClientCert: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "tls-config-secret",
+							ClientCert: v1alpha1.SecretKeyRef{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "tls-config-secret",
+									},
+									Key: "tls.crt",
 								},
-								Key: "cert.crt",
 							},
-							ClientKey: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "tls-config-secret",
+							ClientKey: v1alpha1.SecretKeyRef{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "tls-config-secret",
+									},
+									Key: "tls.key",
 								},
-								Key: "key.crt",
 							},
 						},
 					},
@@ -238,7 +244,7 @@ var _ = Describe("DataFilter", func() {
 
 			It("should error on Destination HeaderSecret malformed", func() {
 				drcBadDestHeaderSecret := drc
-				drcBadDestHeaderSecret.Spec.DataFilters[0].AltDestinations[0].HeaderSecret.SecretRef.Name = "dest-header-secret-not-here"
+				drcBadDestHeaderSecret.Spec.DataFilters[0].AltDestinations[0].Header.Secret.Name = "dest-header-secret-not-here"
 
 				err := dataFilters.Build(&drcBadDestHeaderSecret)
 				Expect(err).To(HaveOccurred())
@@ -254,7 +260,7 @@ var _ = Describe("DataFilter", func() {
 
 			It("should error on Authorization HeaderSecret malformed", func() {
 				drcBadAuthHeaderSecret := drc
-				drcBadAuthHeaderSecret.Spec.DataFilters[0].AltDestinations[0].Authorization.HeaderSecret.SecretRef.Name = "auth-header-secret-not-here"
+				drcBadAuthHeaderSecret.Spec.DataFilters[0].AltDestinations[0].Authorization.Header.Secret.Name = "auth-header-secret-not-here"
 
 				err := dataFilters.Build(&drcBadAuthHeaderSecret)
 				Expect(err).To(HaveOccurred())

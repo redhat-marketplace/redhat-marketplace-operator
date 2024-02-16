@@ -56,6 +56,7 @@ type Uploader struct {
 	authTokenExpr     *jp.Expr
 	destHeader        http.Header
 	authHeader        http.Header
+	authBodyData      []byte
 
 	// multiple threads may attempt to refresh token
 	mu        sync.RWMutex
@@ -72,6 +73,7 @@ type Config struct {
 	AuthDestHeader       string
 	AuthDestHeaderPrefix string
 	AuthTokenExpr        string
+	AuthBodyData         []byte
 }
 
 // Optional: Defines an endpoint to call to request an authorization token used when making the destURL request
@@ -128,6 +130,8 @@ func NewUploader(client *http.Client, config *Config) (u *Uploader, err error) {
 			return nil, err
 		}
 	}
+
+	u.authBodyData = config.AuthBodyData
 
 	return
 }
@@ -210,7 +214,7 @@ func (u *Uploader) parseForSuffix(eventMsg []byte) (suffix string) {
 
 func (u *Uploader) callAuth() (int, error) {
 
-	aReq, err := http.NewRequest(http.MethodPost, u.authURL.String(), nil)
+	aReq, err := http.NewRequest(http.MethodPost, u.authURL.String(), bytes.NewReader(u.authBodyData))
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

@@ -165,8 +165,8 @@ var _ = BeforeSuite(func() {
 
 	tlsConfigMap := make(map[string][]byte)
 	tlsConfigMap["ca.crt"] = caPEMBytes
-	tlsConfigMap["cert.crt"] = certPEMBytes
-	tlsConfigMap["key.crt"] = certKeyPEMBytes
+	tlsConfigMap["tls.crt"] = certPEMBytes
+	tlsConfigMap["tls.key"] = certKeyPEMBytes
 	tlsConfigMap["bad.crt"] = []byte("not a certificate")
 
 	tlsConfigSecret := corev1.Secret{
