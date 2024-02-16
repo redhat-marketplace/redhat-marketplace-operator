@@ -212,8 +212,10 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 
 			authBodyData, err := d.getSecretData(
 				types.NamespacedName{Name: dest.Authorization.BodyData.SecretKeyRef.Name, Namespace: drc.Namespace},
-				dest.Authorization.BodyData.SecretKeyRef.Key,
-			)
+				dest.Authorization.BodyData.SecretKeyRef.Key)
+			if err != nil {
+				return errors.Wrap(err, "could not get authorization body data")
+			}
 
 			// TODO Add Transformer
 
