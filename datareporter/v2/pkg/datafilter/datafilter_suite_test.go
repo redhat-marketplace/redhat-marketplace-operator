@@ -105,14 +105,14 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(context.TODO(), &authHeaderSecret)
 	Expect(err).ToNot(HaveOccurred())
 
-	authDataMap := make(map[string]string)
-	authDataMap["auth"] = `{"token": "eyJraWQiOiIx..."}`
+	authBodyDataMap := make(map[string]string)
+	authBodyDataMap["bodydata"] = `{"apikey": "<Put the value of generated apikey>"}`
 	authDataSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "auth-data-secrett",
+			Name:      "auth-body-data-secret",
 			Namespace: "default",
 		},
-		StringData: authDataMap,
+		StringData: authBodyDataMap,
 	}
 	err = k8sClient.Create(context.TODO(), &authDataSecret)
 	Expect(err).ToNot(HaveOccurred())

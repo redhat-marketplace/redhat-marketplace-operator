@@ -101,9 +101,9 @@ var _ = Describe("DataFilter", func() {
 									BodyData: v1alpha1.SecretKeyRef{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "auth-data-secret",
+												Name: "auth-body-data-secret",
 											},
-											Key: "auth",
+											Key: "bodydata",
 										},
 									},
 								},

@@ -198,23 +198,32 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 		var destinations []*uploader.Uploader
 		for _, dest := range df.AltDestinations {
 
-			destHeader, err := d.getMapFromSecret(
-				types.NamespacedName{Name: dest.Header.Secret.Name, Namespace: drc.Namespace})
-			if err != nil {
-				return errors.Wrap(err, "could not get destination header secret")
+			destHeader := make(map[string]string)
+			if len(dest.Header.Secret.Name) != 0 {
+				destHeader, err = d.getMapFromSecret(
+					types.NamespacedName{Name: dest.Header.Secret.Name, Namespace: drc.Namespace})
+				if err != nil {
+					return errors.Wrap(err, "could not get destination header secret")
+				}
 			}
 
-			authHeader, err := d.getMapFromSecret(
-				types.NamespacedName{Name: dest.Authorization.Header.Secret.Name, Namespace: drc.Namespace})
-			if err != nil {
-				return errors.Wrap(err, "could not get authorization header secret")
+			authHeader := make(map[string]string)
+			if len(dest.Authorization.Header.Secret.Name) != 0 {
+				authHeader, err = d.getMapFromSecret(
+					types.NamespacedName{Name: dest.Authorization.Header.Secret.Name, Namespace: drc.Namespace})
+				if err != nil {
+					return errors.Wrap(err, "could not get authorization header secret")
+				}
 			}
 
-			authBodyData, err := d.getSecretData(
-				types.NamespacedName{Name: dest.Authorization.BodyData.SecretKeyRef.Name, Namespace: drc.Namespace},
-				dest.Authorization.BodyData.SecretKeyRef.Key)
-			if err != nil {
-				return errors.Wrap(err, "could not get authorization body data")
+			var authBodyData []byte
+			if dest.Authorization.BodyData.SecretKeyRef != nil {
+				authBodyData, err = d.getSecretData(
+					types.NamespacedName{Name: dest.Authorization.BodyData.SecretKeyRef.Name, Namespace: drc.Namespace},
+					dest.Authorization.BodyData.SecretKeyRef.Key)
+				if err != nil {
+					return errors.Wrap(err, "could not get authorization body data")
+				}
 			}
 
 			// TODO Add Transformer
