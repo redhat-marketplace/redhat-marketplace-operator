@@ -15,21 +15,31 @@ package transformer
 
 import (
 	"errors"
-        "github.com/qntfy/kazaam/v4/transform"
+
+	kazaam "github.com/qntfy/kazaam/v4"
 )
 
-func Transform(transformerType string, json []byte, transformerText string) ([]byte, error) {
-
+func Validate(transformerType string, transformerText string) bool {
 	switch transformerType {
 	case "kazaam":
-		k, err := NewKazaam(transformerText)
-		if err != nil {
-			errors.New("invalid transformer")
+		_, err := kazaam.NewKazaam(transformerText)
+		if err == nil {
+			return true
 		}
-		kazaamOut, err := k.Transform(json)
-		return kazaamOut, err 
+	}
+	return false
+}
+
+func Transform(transformerType string, json []byte, transformerText string) ([]byte, error) {
+	switch transformerType {
+	case "kazaam":
+		k, err := kazaam.NewKazaam(transformerText)
+		if err != nil {
+			return nil, err
+		}
+		kazaamOut, _ := k.Transform(json)
+		return kazaamOut, nil
 	default:
 		return nil, errors.New("unsuported transformer type")
 	}
-
 }
