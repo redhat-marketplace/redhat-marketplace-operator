@@ -34,6 +34,7 @@ import (
 
 type DataFilter struct {
 	Selector     selector.DataFilterSelector
+	Transformer  transformer.Transformer
 	Destinations []*uploader.Uploader
 }
 
@@ -83,8 +84,7 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 	for _, df := range d.dataFilters {
 		if df.Selector.Matches(event) {
 
-			// TODO: Transform
-			var transformedJson, err = transformer.Transform("kazaam", event.RawMessage, "")
+			var transformedJson, err = df.Transformer.Transform(event.RawMessage)
 			if err == nil {
 				event.RawMessage = transformedJson
 			}
@@ -161,7 +161,19 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				return errors.Wrap(err, "could not get authorization header secret")
 			}
 
-			// TODO Add Transformer
+			// get transformer text
+			transformerText, err := d.getMapFromSecret(
+				types.NamespacedName{Name: dest.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
+			if err != nil {
+				return errors.Wrap(err, "could not get transformer text")
+			}
+
+			var transformer = transformer.NewTransformer(dest.Transformer.TransformerType, transformerText[dest.Transformer.ConfigMapKeyRef.Key])
+
+			//validate transformer
+			if !transformer.Valid() {
+				return errors.Wrap(err, "invalid transformer found")
+			}
 
 			config := uploader.Config{
 				DestURL:              dest.URL,
@@ -174,7 +186,7 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				AuthTokenExpr:        dest.Authorization.TokenExpr,
 			}
 
-			u, err := uploader.NewUploader(nil, &config)
+			u, err := uploader.NewUploader(nil, &config, &transformer)
 			if err != nil {
 				return err
 			}
@@ -182,7 +194,21 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 			destinations = append(destinations, u)
 		}
 
-		newDataFilters = append(newDataFilters, DataFilter{Selector: sel, Destinations: destinations})
+		// get transformer text
+		transformerText, err := d.getMapFromSecret(
+			types.NamespacedName{Name: df.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
+		if err != nil {
+			return errors.Wrap(err, "could not get transformer text")
+		}
+
+		var transformer = transformer.NewTransformer(df.Transformer.TransformerType, transformerText[df.Transformer.ConfigMapKeyRef.Key])
+
+		//validate transformer
+		if !transformer.Valid() {
+			return errors.Wrap(err, "invalid transformer found")
+		}
+
+		newDataFilters = append(newDataFilters, DataFilter{Selector: sel, Transformer: transformer, Destinations: destinations})
 	}
 
 	d.dataFilters = newDataFilters

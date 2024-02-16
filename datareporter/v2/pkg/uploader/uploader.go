@@ -38,6 +38,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/ohler55/ojg/jp"
 	"github.com/ohler55/ojg/oj"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/transformer"
 )
 
 const (
@@ -48,6 +49,8 @@ type Uploader struct {
 	client *http.Client
 
 	config *Config
+
+	transformer *transformer.Transformer
 
 	// derived config values
 	destURL           *url.URL
@@ -80,11 +83,12 @@ type Config struct {
 // authDestHeader: the additional header map key to set on the destHeader ("Authorization")
 // authDestPrefix: the additional prefix map string value to set on the destHeader ("Bearer ")
 // parseResponse: optionally jsonpath parse the response for the authorization token
-func NewUploader(client *http.Client, config *Config) (u *Uploader, err error) {
+func NewUploader(client *http.Client, config *Config, transformer *transformer.Transformer) (u *Uploader, err error) {
 
 	u = &Uploader{
-		client: client,
-		config: config,
+		client:      client,
+		config:      config,
+		transformer: transformer,
 	}
 
 	// Configure Destination
@@ -141,7 +145,10 @@ func (u *Uploader) TransformAndUpload(eventMsg []byte) (int, error) {
 	}
 	destURL = u.destURL.JoinPath(u.parseForSuffix(eventMsg))
 
-	// TODO: Transform
+	var transformedJson, err1 = u.transformer.Transform(eventMsg)
+	if err1 == nil {
+		eventMsg = transformedJson
+	}
 
 	// Upload
 	return u.upload(destURL, eventMsg)

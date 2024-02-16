@@ -19,10 +19,15 @@ import (
 	kazaam "github.com/qntfy/kazaam/v4"
 )
 
-func Validate(transformerType string, transformerText string) bool {
-	switch transformerType {
+type Transformer struct {
+	transformerType string
+	transformerText string
+}
+
+func (t *Transformer) Valid() bool {
+	switch t.transformerType {
 	case "kazaam":
-		_, err := kazaam.NewKazaam(transformerText)
+		_, err := kazaam.NewKazaam(t.transformerText)
 		if err == nil {
 			return true
 		}
@@ -30,16 +35,20 @@ func Validate(transformerType string, transformerText string) bool {
 	return false
 }
 
-func Transform(transformerType string, json []byte, transformerText string) ([]byte, error) {
-	switch transformerType {
+func (t *Transformer) Transform(json []byte) ([]byte, error) {
+	switch t.transformerType {
 	case "kazaam":
-		k, err := kazaam.NewKazaam(transformerText)
+		k, err := kazaam.NewKazaam(t.transformerText)
 		if err != nil {
 			return nil, err
 		}
 		kazaamOut, _ := k.Transform(json)
 		return kazaamOut, nil
 	default:
-		return nil, errors.New("unsuported transformer type")
+		return nil, errors.New("unsupported transformer type")
 	}
+}
+
+func NewTransformer(transformerType string, transformerText string) Transformer {
+	return Transformer{transformerType: transformerType, transformerText: transformerText}
 }
