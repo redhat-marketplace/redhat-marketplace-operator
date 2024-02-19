@@ -15,6 +15,7 @@
 package datafilter_test
 
 import (
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -69,7 +70,6 @@ var _ = Describe("DataFilter", func() {
 								Key: "kazaam.json",
 							},
 						},
-						ConfirmDelivery: true,
 						AltDestinations: []v1alpha1.Destination{
 							v1alpha1.Destination{
 								Transformer: v1alpha1.Transformer{
@@ -83,36 +83,73 @@ var _ = Describe("DataFilter", func() {
 								},
 								URL:           "https://test/api",
 								URLSuffixExpr: "$.subscriptionId",
-								HeaderSecret: v1alpha1.HeaderSecret{
-									SecretRef: corev1.LocalObjectReference{
+								Header: v1alpha1.Header{
+									Secret: corev1.LocalObjectReference{
 										Name: "dest-header-map-secret",
 									},
 								},
-								ConfirmDelivery: false,
 								Authorization: v1alpha1.Authorization{
 									URL: "https://test/auth",
-									HeaderSecret: v1alpha1.HeaderSecret{
-										SecretRef: corev1.LocalObjectReference{
+									Header: v1alpha1.Header{
+										Secret: corev1.LocalObjectReference{
 											Name: "auth-header-map-secret",
 										},
 									},
 									AuthDestHeader:       "Authorization",
 									AuthDestHeaderPrefix: "Bearer ",
 									TokenExpr:            "$.token",
-									DataSecret: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "auth-data-secret",
+									BodyData: v1alpha1.SecretKeyRef{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "auth-body-data-secret",
+											},
+											Key: "bodydata",
 										},
-										Key: "auth",
 									},
 								},
 							},
 						},
 					},
 				},
-				TLSConfig: v1alpha1.SafeTLSConfig{
-					InsecureSkipVerify: true,
+				TLSConfig: &v1alpha1.TLSConfig{
+					InsecureSkipVerify: false,
+					CACerts: []corev1.SecretKeySelector{
+						corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "tls-config-secret",
+							},
+							Key: "ca.crt",
+						},
+					},
+					Certificates: []v1alpha1.Certificate{
+						v1alpha1.Certificate{
+							ClientCert: v1alpha1.SecretKeyRef{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "tls-config-secret",
+									},
+									Key: "tls.crt",
+								},
+							},
+							ClientKey: v1alpha1.SecretKeyRef{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "tls-config-secret",
+									},
+									Key: "tls.key",
+								},
+							},
+						},
+					},
+					CipherSuites: []string{"TLS_AES_128_GCM_SHA256",
+						"TLS_AES_256_GCM_SHA384",
+						"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+						"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+						"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+						"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+					MinVersion: "VersionTLS12",
 				},
+				ConfirmDelivery: ptr.Bool(false),
 			},
 		}
 
@@ -207,7 +244,7 @@ var _ = Describe("DataFilter", func() {
 
 			It("should error on Destination HeaderSecret malformed", func() {
 				drcBadDestHeaderSecret := drc
-				drcBadDestHeaderSecret.Spec.DataFilters[0].AltDestinations[0].HeaderSecret.SecretRef.Name = "dest-header-secret-not-here"
+				drcBadDestHeaderSecret.Spec.DataFilters[0].AltDestinations[0].Header.Secret.Name = "dest-header-secret-not-here"
 
 				err := dataFilters.Build(&drcBadDestHeaderSecret)
 				Expect(err).To(HaveOccurred())
@@ -223,7 +260,7 @@ var _ = Describe("DataFilter", func() {
 
 			It("should error on Authorization HeaderSecret malformed", func() {
 				drcBadAuthHeaderSecret := drc
-				drcBadAuthHeaderSecret.Spec.DataFilters[0].AltDestinations[0].Authorization.HeaderSecret.SecretRef.Name = "auth-header-secret-not-here"
+				drcBadAuthHeaderSecret.Spec.DataFilters[0].AltDestinations[0].Authorization.Header.Secret.Name = "auth-header-secret-not-here"
 
 				err := dataFilters.Build(&drcBadAuthHeaderSecret)
 				Expect(err).To(HaveOccurred())
@@ -255,6 +292,38 @@ var _ = Describe("DataFilter", func() {
 					Expect(err).To(HaveOccurred())
 				})
 			*/
+
+			It("should error on TLSConfig secret not found", func() {
+				drcBadTLSConfigSecretName := drc
+				drcBadTLSConfigSecretName.Spec.TLSConfig.CACerts[0].Name = "no-secret-here"
+
+				err := dataFilters.Build(&drcBadTLSConfigSecretName)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should error on TLSConfig bad secret data", func() {
+				drcBadTLSConfigKeyData := drc
+				drcBadTLSConfigKeyData.Spec.TLSConfig.CACerts[0].Key = "bad.crt"
+
+				err := dataFilters.Build(&drcBadTLSConfigKeyData)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should error on TLSConfig bad MinVersion", func() {
+				drcBadTLSConfigMinVersion := drc
+				drcBadTLSConfigMinVersion.Spec.TLSConfig.MinVersion = "not-a-version"
+
+				err := dataFilters.Build(&drcBadTLSConfigMinVersion)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should error on TLSConfig bad CipherSuites", func() {
+				drcBadTLSConfigCipherSuites := drc
+				drcBadTLSConfigCipherSuites.Spec.TLSConfig.CipherSuites = []string{"badcipher1", "badcipher2"}
+
+				err := dataFilters.Build(&drcBadTLSConfigCipherSuites)
+				Expect(err).To(HaveOccurred())
+			})
 
 		})
 

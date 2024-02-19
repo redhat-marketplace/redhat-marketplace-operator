@@ -17,10 +17,19 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ComponentConfig is the Schema for the componentconfigs API
+        description: ComponentConfig is the Schema for the componentconfigs API The
+          TLSConfig in ComponentConfig modifies the TLSConfig of the DataService Client
         properties:
           apiHandlerConfig:
             properties:
+              confirmDelivery:
+                description: 'ConfirmDelivery configures the api handler true: skips
+                  the EventEngine accumulator and generates 1 report with 1 event
+                  The handler will wait for 200 OK for DataService delivery before
+                  returning 200 OK false: enters the event into the EventEngine accumulator
+                  and generates 1 report with N events The handler will return a 200
+                  OK for DataService delivery as long as the event json is valid'
+                type: boolean
               handlerTimeout:
                 description: HandlerTimeout is the timeout for the datareporter operator
                   api handler
@@ -210,16 +219,102 @@ spec:
             description: ComponentConfigStatus defines the observed state of ComponentConfig
             type: object
           tlsConfig:
+            description: TLSConfig refers to TLS configuration
             properties:
+              caCerts:
+                description: CACertsSecret refers to a list of secret keys that contains
+                  CA certificates in PEM. tls.Config.RootCAs
+                items:
+                  description: SecretKeySelector selects a key of a Secret.
+                  properties:
+                    key:
+                      description: The key of the secret to select from.  Must be
+                        a valid secret key.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        TODO: Add other useful fields. apiVersion, kind, uid?'
+                      type: string
+                    optional:
+                      description: Specify whether the Secret or its key must be defined
+                      type: boolean
+                  required:
+                  - key
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              certificates:
+                description: Certificates refers to a list of X509KeyPairs consisting
+                  of the client public/private key. tls.Config.Certificates
+                items:
+                  description: Certificate refers to the the X509KeyPair, consisting
+                    of the secrets containing the key and cert pem
+                  properties:
+                    clientCert:
+                      description: ClientCert refers to the secret that contains the
+                        client cert PEM
+                      properties:
+                        secretKeyRef:
+                          description: ClientCert refers to the secret that contains
+                            the client cert PEM
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                    clientKey:
+                      description: ClientKey refers to the secret that contains the
+                        client key PEM
+                      properties:
+                        secretKeyRef:
+                          description: ClientCert refers to the secret that contains
+                            the client cert PEM
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                  type: object
+                type: array
               cipherSuites:
+                description: CipherSuites is a list of enabled cipher suites. tls.Config.CipherSuites
                 items:
                   type: string
                 type: array
+              insecureSkipVerify:
+                description: If true, skips creation of TLSConfig with certs and creates
+                  an empty TLSConfig. tls.Config.InsecureSkipVerify (Defaults to false)
+                type: boolean
               minVersion:
+                description: MinVersion contains the minimum TLS version that is acceptable
+                  tls.Config.MinVersion
                 type: string
-            required:
-            - cipherSuites
-            - minVersion
             type: object
         type: object
     served: true

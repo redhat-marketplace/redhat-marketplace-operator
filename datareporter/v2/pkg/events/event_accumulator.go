@@ -18,52 +18,56 @@ import (
 	"sync"
 )
 
-// EventAccumulator collects events associated with a key
+// EventAccumulator collects events associated with a User and ManifestType
+// [User][ManifestType]EventJsons
 type EventAccumulator struct {
-	eventMap map[string]EventJsons
+	eventMap map[UserManifestType]EventJsons
 	mu       sync.Mutex
 }
 
-// Add an Event for a Key
+// Add an Event for a [User][ManifestType]
 func (e *EventAccumulator) Add(event Event) int {
 	e.mu.Lock()
-	eventJsons := e.eventMap[event.User]
+	userManifestType := UserManifestType{User: event.User, ManifestType: event.ManifestType}
+	eventJsons := e.eventMap[userManifestType]
 	aEventJsons := append(eventJsons, event.RawMessage)
-	e.eventMap[event.User] = aEventJsons
+	e.eventMap[userManifestType] = aEventJsons
 	length := len(aEventJsons)
 	e.mu.Unlock()
 	return length
 }
 
-// Flush all Events for a Key
-func (e *EventAccumulator) Flush(user string) EventJsons {
+// Flush all Events for a [User][ManifestType]
+func (e *EventAccumulator) Flush(userManifestType UserManifestType) EventJsons {
 	e.mu.Lock()
-	flushedEvents := e.eventMap[user]
-	delete(e.eventMap, user)
+	flushedEvents := e.eventMap[userManifestType]
+	delete(e.eventMap, userManifestType)
 	e.mu.Unlock()
 	return flushedEvents
 }
 
 // Flush EventMap and reset to clear memory accumulation
-func (e *EventAccumulator) FlushAll() map[string]EventJsons {
+func (e *EventAccumulator) FlushAll() map[UserManifestType]EventJsons {
 	e.mu.Lock()
 	flushedEventMap := e.eventMap
-	e.eventMap = make(map[string]EventJsons)
+	e.eventMap = make(map[UserManifestType]EventJsons)
 	e.mu.Unlock()
 	return flushedEventMap
 }
 
-func (e *EventAccumulator) IsEmpty(user string) bool {
+// Are the events empty for a [User][ManifestType]
+func (e *EventAccumulator) IsEmpty(userManifestType UserManifestType) bool {
 	e.mu.Lock()
-	length := len(e.eventMap[user])
+	length := len(e.eventMap[userManifestType])
 	e.mu.Unlock()
 	return length == 0
 }
 
-func (e *EventAccumulator) GetKeys() []string {
+// Get the userManifestType keys
+func (e *EventAccumulator) GetKeys() []UserManifestType {
 	e.mu.Lock()
 	i := 0
-	keys := make([]string, len(e.eventMap))
+	keys := make([]UserManifestType, len(e.eventMap))
 	for k := range e.eventMap {
 		keys[i] = k
 		i++

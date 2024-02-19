@@ -35,6 +35,15 @@ spec:
           spec:
             description: DataReporterConfigSpec defines the desired state of DataReporterConfig
             properties:
+              confirmDelivery:
+                description: 'ConfirmDelivery configures the api handler. Takes priority
+                  over configuring ComponentConfig true: skips the EventEngine accumulator
+                  and generates 1 report with 1 event The handler will wait for 200
+                  OK for DataService delivery before returning 200 OK false: enters
+                  the event into the EventEngine accumulator and generates 1 report
+                  with N events The handler will return a 200 OK for DataService delivery
+                  as long as the event json is valid'
+                type: boolean
               dataFilters:
                 description: DataFilter to match incoming event payload against The
                   first DataFilter match in the array based on the Selector will be
@@ -62,40 +71,50 @@ spec:
                                   prefix map string value to set on the destHeader
                                   ("Bearer ")'
                                 type: string
-                              dataSecret:
-                                description: secret containing data to POST to authorization
-                                  endpoint (apikey)
+                              bodyData:
+                                description: secret containing body data to POST to
+                                  authorization endpoint (apikey)
                                 properties:
-                                  key:
-                                    description: The key of the secret to select from.  Must
-                                      be a valid secret key.
-                                    type: string
-                                  name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
-                                    type: string
-                                  optional:
-                                    description: Specify whether the Secret or its
-                                      key must be defined
-                                    type: boolean
-                                required:
-                                - key
+                                  secretKeyRef:
+                                    description: ClientCert refers to the secret that
+                                      contains the client cert PEM
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        description: 'Name of the referent. More info:
+                                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                          TODO: Add other useful fields. apiVersion,
+                                          kind, uid?'
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
-                                x-kubernetes-map-type: atomic
-                              headerSecret:
-                                description: Sets the name of the secret that contains
-                                  the headers to pass to the client
+                              header:
+                                description: Sets the sources of the headers to pass
+                                  to the client
                                 properties:
-                                  name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
-                                    type: string
+                                  secret:
+                                    description: Sets the name of the secret that
+                                      contains the headers
+                                    properties:
+                                      name:
+                                        description: 'Name of the referent. More info:
+                                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                          TODO: Add other useful fields. apiVersion,
+                                          kind, uid?'
+                                        type: string
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
-                                x-kubernetes-map-type: atomic
                               tokenExpr:
                                 description: 'tokenExpr: jsonpath expression to parse
                                   the response for the authorization token'
@@ -106,25 +125,23 @@ spec:
                             required:
                             - url
                             type: object
-                          confirmDelivery:
-                            description: ConfirmDelivery determines the processor
-                              return code behavior If ConfirmDelivery is true, a 200
-                              will be returned to the sender after all deliveries
-                              to flagged Destinations are successful If ConfirmDelivery
-                              is false for all Destinations, a 200 will be returned
-                              to the sender once the event is confirmed as valid json
-                            type: boolean
-                          headerSecret:
-                            description: Sets the name of the secret that contains
-                              the headers to pass to the client
+                          header:
+                            description: Sets the sources of the headers to pass to
+                              the client
                             properties:
-                              name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind,
-                                  uid?'
-                                type: string
+                              secret:
+                                description: Sets the name of the secret that contains
+                                  the headers
+                                properties:
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
                             type: object
-                            x-kubernetes-map-type: atomic
                           transformer:
                             description: Transformer defines the type of transformer
                               to use, and where to load the transformation configuration
@@ -168,18 +185,6 @@ spec:
                         - url
                         type: object
                       type: array
-                    confirmDelivery:
-                      description: ConfirmDelivery determines the processor return
-                        code behavior, and behavior of event reports sent to data-service
-                        If ConfirmDelivery is true, a 200 will be returned to the
-                        sender after all deliveries to flagged Destinations are successful
-                        Events will not be accumulated to buffer, each report sent
-                        to data-service will contain 1 event If ConfirmDelivery is
-                        false for all Destinations, a 200 will be returned to the
-                        sender once the event is confirmed as valid json Events will
-                        be accumulated, each report sent to data-service will contain
-                        N events
-                      type: boolean
                     manifestType:
                       type: string
                     selector:
@@ -233,115 +238,106 @@ spec:
                 type: array
               tlsConfig:
                 description: TLSConfig specifies TLS configuration parameters for
-                  outbound https requests
+                  outbound https requests from the client
                 properties:
-                  ca:
-                    description: Certificate authority used when verifying server
-                      certificates.
-                    properties:
-                      configMap:
-                        description: ConfigMap containing data to use for the targets.
-                        properties:
-                          key:
-                            description: The key to select.
-                            type: string
-                          name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
-                            type: string
-                          optional:
-                            description: Specify whether the ConfigMap or its key
-                              must be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      secret:
-                        description: Secret containing data to use for the targets.
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  cert:
-                    description: Client certificate to present when doing client-authentication.
-                    properties:
-                      configMap:
-                        description: ConfigMap containing data to use for the targets.
-                        properties:
-                          key:
-                            description: The key to select.
-                            type: string
-                          name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
-                            type: string
-                          optional:
-                            description: Specify whether the ConfigMap or its key
-                              must be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      secret:
-                        description: Secret containing data to use for the targets.
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
+                  caCerts:
+                    description: CACertsSecret refers to a list of secret keys that
+                      contains CA certificates in PEM. tls.Config.RootCAs
+                    items:
+                      description: SecretKeySelector selects a key of a Secret.
+                      properties:
+                        key:
+                          description: The key of the secret to select from.  Must
+                            be a valid secret key.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                        optional:
+                          description: Specify whether the Secret or its key must
+                            be defined
+                          type: boolean
+                      required:
+                      - key
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                  certificates:
+                    description: Certificates refers to a list of X509KeyPairs consisting
+                      of the client public/private key. tls.Config.Certificates
+                    items:
+                      description: Certificate refers to the the X509KeyPair, consisting
+                        of the secrets containing the key and cert pem
+                      properties:
+                        clientCert:
+                          description: ClientCert refers to the secret that contains
+                            the client cert PEM
+                          properties:
+                            secretKeyRef:
+                              description: ClientCert refers to the secret that contains
+                                the client cert PEM
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must
+                                    be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key
+                                    must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                        clientKey:
+                          description: ClientKey refers to the secret that contains
+                            the client key PEM
+                          properties:
+                            secretKeyRef:
+                              description: ClientCert refers to the secret that contains
+                                the client cert PEM
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must
+                                    be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key
+                                    must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                      type: object
+                    type: array
+                  cipherSuites:
+                    description: CipherSuites is a list of enabled cipher suites.
+                      tls.Config.CipherSuites
+                    items:
+                      type: string
+                    type: array
                   insecureSkipVerify:
-                    description: Disable target certificate validation.
+                    description: If true, skips creation of TLSConfig with certs and
+                      creates an empty TLSConfig. tls.Config.InsecureSkipVerify (Defaults
+                      to false)
                     type: boolean
-                  keySecret:
-                    description: Secret containing the client key file for the targets.
-                    properties:
-                      key:
-                        description: The key of the secret to select from.  Must be
-                          a valid secret key.
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
-                        type: string
-                      optional:
-                        description: Specify whether the Secret or its key must be
-                          defined
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  serverName:
-                    description: Used to verify the hostname for the targets.
+                  minVersion:
+                    description: MinVersion contains the minimum TLS version that
+                      is acceptable tls.Config.MinVersion
                     type: string
                 type: object
               userConfig:

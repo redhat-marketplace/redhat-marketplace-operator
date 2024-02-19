@@ -17,11 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,10 +30,15 @@ type DataReporterConfigSpec struct {
 	// The first DataFilter match in the array based on the Selector will be applied
 	// +optional
 	DataFilters []DataFilter `json:"dataFilters,omitempty"`
-
-	// TLSConfig specifies TLS configuration parameters for outbound https requests
+	// TLSConfig specifies TLS configuration parameters for outbound https requests from the client
 	// +optional
-	TLSConfig SafeTLSConfig `json:"tlsConfig,omitempty"`
+	TLSConfig *TLSConfig `json:"tlsConfig,omitempty"`
+	// ConfirmDelivery configures the api handler. Takes priority over configuring ComponentConfig
+	// true: skips the EventEngine accumulator and generates 1 report with 1 event
+	// The handler will wait for 200 OK for DataService delivery before returning 200 OK
+	// false: enters the event into the EventEngine accumulator and generates 1 report with N events
+	// The handler will return a 200 OK for DataService delivery as long as the event json is valid
+	ConfirmDelivery *bool `json:"confirmDelivery,omitempty"`
 }
 
 // UserConfig defines additional metadata added to a specified users report
@@ -56,90 +58,8 @@ type DataFilter struct {
 	ManifestType string `json:"manifestType,omitempty"`
 	// +optional
 	Transformer Transformer `json:"transformer,omitempty"`
-	// ConfirmDelivery determines the processor return code behavior, and behavior of event reports sent to data-service
-	// If ConfirmDelivery is true, a 200 will be returned to the sender after all deliveries to flagged Destinations are successful
-	// Events will not be accumulated to buffer, each report sent to data-service will contain 1 event
-	// If ConfirmDelivery is false for all Destinations, a 200 will be returned to the sender once the event is confirmed as valid json
-	// Events will be accumulated, each report sent to data-service will contain N events
-	// +optional
-	ConfirmDelivery bool `json:"confirmDelivery,omitempty"`
 	// +optional
 	AltDestinations []Destination `json:"altDestinations,omitempty"`
-}
-
-// SafeTLSConfig specifies safe TLS configuration parameters.
-type SafeTLSConfig struct {
-	// Certificate authority used when verifying server certificates.
-	CA SecretOrConfigMap `json:"ca,omitempty"`
-	// Client certificate to present when doing client-authentication.
-	Cert SecretOrConfigMap `json:"cert,omitempty"`
-	// Secret containing the client key file for the targets.
-	KeySecret *v1.SecretKeySelector `json:"keySecret,omitempty"`
-	// Used to verify the hostname for the targets.
-	ServerName string `json:"serverName,omitempty"`
-	// Disable target certificate validation.
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
-}
-
-// Validate semantically validates the given SafeTLSConfig.
-func (c *SafeTLSConfig) Validate() error {
-	if c.CA != (SecretOrConfigMap{}) {
-		if err := c.CA.Validate(); err != nil {
-			return fmt.Errorf("ca %s: %w", c.CA.String(), err)
-		}
-	}
-
-	if c.Cert != (SecretOrConfigMap{}) {
-		if err := c.Cert.Validate(); err != nil {
-			return fmt.Errorf("cert %s: %w", c.Cert.String(), err)
-		}
-	}
-
-	if c.Cert != (SecretOrConfigMap{}) && c.KeySecret == nil {
-		return fmt.Errorf("client cert specified without client key")
-	}
-
-	if c.KeySecret != nil && c.Cert == (SecretOrConfigMap{}) {
-		return fmt.Errorf("client key specified without client cert")
-	}
-
-	return nil
-}
-
-// SecretOrConfigMap allows to specify data as a Secret or ConfigMap. Fields are mutually exclusive.
-type SecretOrConfigMap struct {
-	// Secret containing data to use for the targets.
-	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
-	// ConfigMap containing data to use for the targets.
-	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
-}
-
-// Validate semantically validates the given SecretOrConfigMap.
-func (c *SecretOrConfigMap) Validate() error {
-	if c == nil {
-		return nil
-	}
-
-	if c.Secret != nil && c.ConfigMap != nil {
-		return fmt.Errorf("cannot specify both Secret and ConfigMap")
-	}
-
-	return nil
-}
-
-func (c *SecretOrConfigMap) String() string {
-	if c == nil {
-		return "<nil>"
-	}
-
-	switch {
-	case c.Secret != nil:
-		return fmt.Sprintf("<secret=%s,key=%s>", c.Secret.LocalObjectReference.Name, c.Secret.Key)
-	case c.ConfigMap != nil:
-		return fmt.Sprintf("<configmap=%s,key=%s>", c.ConfigMap.LocalObjectReference.Name, c.ConfigMap.Key)
-	}
-
-	return "<empty>"
 }
 
 // Selector defines criteria for matching incoming event payload
@@ -160,9 +80,40 @@ type Transformer struct {
 	// type is the transformation engine use
 	// supported types: kazaam
 	TransformerType string `json:"type,omitempty"`
-
 	// configMapKeyRef refers to the transformation configuration residing in a ConfigMap
 	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
+}
+
+// TLSConfig refers to TLS configuration
+type TLSConfig struct {
+	// CACertsSecret refers to a list of secret keys that contains CA certificates in PEM. tls.Config.RootCAs
+	// +optional
+	CACerts []corev1.SecretKeySelector `json:"caCerts,omitempty"`
+	// Certificates refers to a list of X509KeyPairs consisting of the client public/private key. tls.Config.Certificates
+	// +optional
+	Certificates []Certificate `json:"certificates,omitempty"`
+	// If true, skips creation of TLSConfig with certs and creates an empty TLSConfig. tls.Config.InsecureSkipVerify (Defaults to false)
+	// +optional
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty" protobuf:"varint,4,opt,name=insecureSkipVerify"`
+	// CipherSuites is a list of enabled cipher suites. tls.Config.CipherSuites
+	// +optional
+	CipherSuites []string `json:"cipherSuites,omitempty"`
+	// MinVersion contains the minimum TLS version that is acceptable tls.Config.MinVersion
+	// +optional
+	MinVersion string `json:"minVersion,omitempty"`
+}
+
+type SecretKeyRef struct {
+	// ClientCert refers to the secret that contains the client cert PEM
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+// Certificate refers to the the X509KeyPair, consisting of the secrets containing the key and cert pem
+type Certificate struct {
+	// ClientCert refers to the secret that contains the client cert PEM
+	ClientCert SecretKeyRef `json:"clientCert,omitempty"`
+	// ClientKey refers to the secret that contains the client key PEM
+	ClientKey SecretKeyRef `json:"clientKey,omitempty"`
 }
 
 // Destination defines an additional endpoint to forward a transformed event payload to
@@ -178,15 +129,9 @@ type Destination struct {
 	// +optional
 	URLSuffixExpr string `json:"urlSuffixExpr,omitempty"`
 
-	// Sets the name of the secret that contains the headers to pass to the client
+	// Sets the sources of the headers to pass to the client
 	// +optional
-	HeaderSecret HeaderSecret `json:"headerSecret,omitempty"`
-
-	// ConfirmDelivery determines the processor return code behavior
-	// If ConfirmDelivery is true, a 200 will be returned to the sender after all deliveries to flagged Destinations are successful
-	// If ConfirmDelivery is false for all Destinations, a 200 will be returned to the sender once the event is confirmed as valid json
-	// +optional
-	ConfirmDelivery bool `json:"confirmDelivery,omitempty"`
+	Header Header `json:"header,omitempty"`
 
 	// Sets an optional authorization endpoint to first request a token from
 	// +optional
@@ -194,10 +139,10 @@ type Destination struct {
 }
 
 // Sources of headers to append to request
-type HeaderSecret struct {
+type Header struct {
 	// Sets the name of the secret that contains the headers
 	// +optional
-	SecretRef corev1.LocalObjectReference `json:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
+	Secret corev1.LocalObjectReference `json:"secret,omitempty"`
 }
 
 // Sources of headers to append to request
@@ -205,9 +150,9 @@ type Authorization struct {
 	// url is the destination endpoint (https://hostname:port/path).
 	URL string `json:"url"`
 
-	// Sets the name of the secret that contains the headers to pass to the client
+	// Sets the sources of the headers to pass to the client
 	// +optional
-	HeaderSecret HeaderSecret `json:"headerSecret,omitempty"`
+	Header Header `json:"header,omitempty"`
 
 	// Sets the additional header map key to set on the Destination header ("Authorization")
 	// +optional
@@ -221,9 +166,9 @@ type Authorization struct {
 	// +optional
 	TokenExpr string `json:"tokenExpr,omitempty"`
 
-	// secret containing data to POST to authorization endpoint (apikey)
+	// secret containing body data to POST to authorization endpoint (apikey)
 	// +optional
-	DataSecret *v1.SecretKeySelector `json:"dataSecret,omitempty"`
+	BodyData SecretKeyRef `json:"bodyData,omitempty"`
 }
 
 // DataReporterConfigStatus defines the observed state of DataReporterConfig

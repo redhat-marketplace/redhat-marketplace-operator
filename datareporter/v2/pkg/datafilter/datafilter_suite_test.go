@@ -16,6 +16,7 @@ package datafilter_test
 
 import (
 	"context"
+	"crypto/x509/pkix"
 	"path/filepath"
 	"testing"
 
@@ -36,12 +37,13 @@ import (
 )
 
 var (
-	testEnv     *envtest.Environment
-	cfg         *rest.Config
-	log         logr.Logger
-	k8sClient   client.Client
-	k8sManager  ctrl.Manager
-	dataFilters *datafilter.DataFilters
+	testEnv         *envtest.Environment
+	cfg             *rest.Config
+	log             logr.Logger
+	k8sClient       client.Client
+	k8sManager      ctrl.Manager
+	dataFilters     *datafilter.DataFilters
+	componentConfig *v1alpha1.ComponentConfig
 )
 
 var _ = BeforeSuite(func() {
@@ -68,7 +70,13 @@ var _ = BeforeSuite(func() {
 
 	rc := retryablehttp.NewClient()
 	sc := rc.StandardClient()
-	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc)
+
+	componentConfig = v1alpha1.NewComponentConfig()
+
+	// Test DataFilter Build func
+	// Does not need EventEngine or ApiHandler pointers
+	// FilterAndUpload test via server suite
+	dataFilters = datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), k8sClient, sc, nil, nil, &componentConfig.ApiHandlerConfig)
 
 	// k8s Configuration Objects
 
@@ -97,14 +105,14 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(context.TODO(), &authHeaderSecret)
 	Expect(err).ToNot(HaveOccurred())
 
-	authDataMap := make(map[string]string)
-	authDataMap["auth"] = `{"token": "eyJraWQiOiIx..."}`
+	authBodyDataMap := make(map[string]string)
+	authBodyDataMap["bodydata"] = `{"apikey": "<Put the value of generated apikey>"}`
 	authDataSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "auth-data-secret",
+			Name:      "auth-body-data-secret",
 			Namespace: "default",
 		},
-		StringData: authDataMap,
+		StringData: authBodyDataMap,
 	}
 	err = k8sClient.Create(context.TODO(), &authDataSecret)
 	Expect(err).ToNot(HaveOccurred())
@@ -131,6 +139,44 @@ var _ = BeforeSuite(func() {
 		Data: kazaamMapBad,
 	}
 	err = k8sClient.Create(context.TODO(), &kazaamConfigMapBad)
+	Expect(err).ToNot(HaveOccurred())
+
+	// TLS Config
+
+	subject := pkix.Name{
+		Country:            []string{"US"},
+		Organization:       []string{"IBM"},
+		OrganizationalUnit: []string{"RHM"},
+		Locality:           []string{"L"},
+		Province:           []string{"P"},
+		StreetAddress:      []string{"Street"},
+		PostalCode:         []string{"123456"},
+		SerialNumber:       "",
+		CommonName:         "CA",
+		Names:              []pkix.AttributeTypeAndValue{},
+		ExtraNames:         []pkix.AttributeTypeAndValue{},
+	}
+	caCert, caKey, caPEMBytes, _, err := makeCA(&subject)
+	Expect(err).ToNot(HaveOccurred())
+
+	subject.CommonName = "localhost"
+	certPEMBytes, certKeyPEMBytes, err := makeCert(caCert, caKey, &subject, "localhost")
+	Expect(err).ToNot(HaveOccurred())
+
+	tlsConfigMap := make(map[string][]byte)
+	tlsConfigMap["ca.crt"] = caPEMBytes
+	tlsConfigMap["tls.crt"] = certPEMBytes
+	tlsConfigMap["tls.key"] = certKeyPEMBytes
+	tlsConfigMap["bad.crt"] = []byte("not a certificate")
+
+	tlsConfigSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tls-config-secret",
+			Namespace: "default",
+		},
+		Data: tlsConfigMap,
+	}
+	err = k8sClient.Create(context.TODO(), &tlsConfigSecret)
 	Expect(err).ToNot(HaveOccurred())
 
 })
