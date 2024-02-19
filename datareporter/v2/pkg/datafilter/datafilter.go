@@ -28,6 +28,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/selector"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/transformer"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/uploader"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,6 +42,7 @@ const (
 
 type DataFilter struct {
 	Selector     selector.DataFilterSelector
+	Transformer  transformer.Transformer
 	Destinations []*uploader.Uploader
 	ManifestType string
 }
@@ -118,7 +120,10 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 				event.ManifestType = df.ManifestType
 			}
 
-			// TODO: Transform
+			var transformedJson, err = df.Transformer.Transform(event.RawMessage)
+			if err == nil {
+				event.RawMessage = transformedJson
+			}
 
 			// Send to DataService. If not deliverable, return bad code and skip altDestinations
 			if ptr.ToBool(d.apiHandlerConfig.ConfirmDelivery) {
@@ -185,6 +190,24 @@ func (d *DataFilters) getMapFromSecret(namespacedName types.NamespacedName) (map
 	return secretMap, nil
 }
 
+func (d *DataFilters) getMapFromConfigMap(namespacedName types.NamespacedName) (map[string]string, error) {
+	dataMap := make(map[string]string)
+
+	if len(namespacedName.Name) != 0 {
+		configMap := corev1.ConfigMap{}
+		err := d.k8sClient.Get(context.TODO(), namespacedName, &configMap)
+		if err != nil {
+			return dataMap, err
+		}
+
+		for k, v := range configMap.Data {
+			dataMap[k] = string(v)
+		}
+	}
+
+	return dataMap, nil
+}
+
 func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error {
 	var newDataFilters []DataFilter
 
@@ -226,7 +249,17 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				}
 			}
 
-			// TODO Add Transformer
+			// get transformer text
+			transformerText, err := d.getMapFromConfigMap(
+				types.NamespacedName{Name: dest.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
+			if err != nil {
+				return errors.Wrap(err, "could not get transformer text")
+			}
+
+			t, err := transformer.NewTransformer(dest.Transformer.TransformerType, transformerText[dest.Transformer.ConfigMapKeyRef.Key])
+			if err != nil {
+				return errors.Wrap(err, "could not initialize transformer")
+			}
 
 			config := uploader.Config{
 				DestURL:              dest.URL,
@@ -240,8 +273,8 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				AuthBodyData:         authBodyData,
 			}
 
-			// TODO set client
-			u, err := uploader.NewUploader(nil, &config)
+      // TODO set client
+			u, err := uploader.NewUploader(nil, &config, &t)
 			if err != nil {
 				return err
 			}
@@ -249,7 +282,19 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 			destinations = append(destinations, u)
 		}
 
-		newDataFilters = append(newDataFilters, DataFilter{Selector: sel, Destinations: destinations})
+		// get transformer text
+		transformerText, err := d.getMapFromConfigMap(
+			types.NamespacedName{Name: df.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
+		if err != nil {
+			return errors.Wrap(err, "could not get transformer text")
+		}
+
+		t, err := transformer.NewTransformer(df.Transformer.TransformerType, transformerText[df.Transformer.ConfigMapKeyRef.Key])
+		if err != nil {
+			return errors.Wrap(err, "could not initialize transformer")
+		}
+
+		newDataFilters = append(newDataFilters, DataFilter{Selector: sel, Transformer: t, Destinations: destinations})
 	}
 
 	d.dataFilters = newDataFilters
