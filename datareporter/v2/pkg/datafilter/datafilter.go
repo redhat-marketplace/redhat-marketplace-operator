@@ -168,11 +168,9 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				return errors.Wrap(err, "could not get transformer text")
 			}
 
-			var transformer = transformer.NewTransformer(dest.Transformer.TransformerType, transformerText[dest.Transformer.ConfigMapKeyRef.Key])
-
-			//validate transformer
-			if !transformer.Valid() {
-				return errors.Wrap(err, "invalid transformer found")
+			t, err := transformer.NewTransformer(dest.Transformer.TransformerType, transformerText[dest.Transformer.ConfigMapKeyRef.Key])
+			if err != nil {
+				return errors.Wrap(err, "could not initialize transformer")
 			}
 
 			config := uploader.Config{
@@ -186,7 +184,7 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				AuthTokenExpr:        dest.Authorization.TokenExpr,
 			}
 
-			u, err := uploader.NewUploader(nil, &config, &transformer)
+			u, err := uploader.NewUploader(nil, &config, &t)
 			if err != nil {
 				return err
 			}
@@ -201,14 +199,12 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 			return errors.Wrap(err, "could not get transformer text")
 		}
 
-		var transformer = transformer.NewTransformer(df.Transformer.TransformerType, transformerText[df.Transformer.ConfigMapKeyRef.Key])
-
-		//validate transformer
-		if !transformer.Valid() {
-			return errors.Wrap(err, "invalid transformer found")
+		t, err := transformer.NewTransformer(df.Transformer.TransformerType, transformerText[df.Transformer.ConfigMapKeyRef.Key])
+		if err != nil {
+			return errors.Wrap(err, "could not initialize transformer")
 		}
 
-		newDataFilters = append(newDataFilters, DataFilter{Selector: sel, Transformer: transformer, Destinations: destinations})
+		newDataFilters = append(newDataFilters, DataFilter{Selector: sel, Transformer: t, Destinations: destinations})
 	}
 
 	d.dataFilters = newDataFilters

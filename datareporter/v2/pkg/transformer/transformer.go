@@ -14,41 +14,36 @@
 package transformer
 
 import (
-	"errors"
+	"emperror.dev/errors"
 
 	kazaam "github.com/qntfy/kazaam/v4"
 )
 
 type Transformer struct {
-	transformerType string
-	transformerText string
-}
-
-func (t *Transformer) Valid() bool {
-	switch t.transformerType {
-	case "kazaam":
-		_, err := kazaam.NewKazaam(t.transformerText)
-		if err == nil {
-			return true
-		}
-	}
-	return false
+	transformerType   string
+	transformerText   string
+	kazaamTransformer *kazaam.Kazaam
 }
 
 func (t *Transformer) Transform(json []byte) ([]byte, error) {
 	switch t.transformerType {
 	case "kazaam":
-		k, err := kazaam.NewKazaam(t.transformerText)
-		if err != nil {
-			return nil, err
-		}
-		kazaamOut, _ := k.Transform(json)
-		return kazaamOut, nil
+		kazaamOut, err := t.kazaamTransformer.Transform(json)
+		return kazaamOut, err
 	default:
 		return nil, errors.New("unsupported transformer type")
 	}
 }
 
-func NewTransformer(transformerType string, transformerText string) Transformer {
-	return Transformer{transformerType: transformerType, transformerText: transformerText}
+func NewTransformer(transformerType string, transformerText string) (Transformer, error) {
+	switch transformerType {
+	case "kazaam":
+		var k, err = kazaam.NewKazaam(transformerText)
+		if err != nil {
+			return Transformer{}, errors.Wrap(err, "invalid transformer string")
+		} else {
+			return Transformer{transformerType: transformerType, transformerText: transformerText, kazaamTransformer: k}, nil
+		}
+	}
+	return Transformer{}, errors.New("unsupported transformer type")
 }

@@ -145,8 +145,8 @@ func (u *Uploader) TransformAndUpload(eventMsg []byte) (int, error) {
 	}
 	destURL = u.destURL.JoinPath(u.parseForSuffix(eventMsg))
 
-	var transformedJson, err1 = u.transformer.Transform(eventMsg)
-	if err1 == nil {
+	transformedJson, err := u.transformer.Transform(eventMsg)
+	if err == nil {
 		eventMsg = transformedJson
 	}
 
