@@ -136,6 +136,24 @@ func (d *DataFilters) getMapFromSecret(namespacedName types.NamespacedName) (map
 	return secretMap, nil
 }
 
+func (d *DataFilters) getMapFromConfigMap(namespacedName types.NamespacedName) (map[string]string, error) {
+	dataMap := make(map[string]string)
+
+	if len(namespacedName.Name) != 0 {
+		configMap := corev1.ConfigMap{}
+		err := d.k8sClient.Get(context.TODO(), namespacedName, &configMap)
+		if err != nil {
+			return dataMap, err
+		}
+
+		for k, v := range configMap.Data {
+			dataMap[k] = string(v)
+		}
+	}
+
+	return dataMap, nil
+}
+
 func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error {
 	var newDataFilters []DataFilter
 
@@ -162,7 +180,7 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 			}
 
 			// get transformer text
-			transformerText, err := d.getMapFromSecret(
+			transformerText, err := d.getMapFromConfigMap(
 				types.NamespacedName{Name: dest.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
 			if err != nil {
 				return errors.Wrap(err, "could not get transformer text")
@@ -193,7 +211,7 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 		}
 
 		// get transformer text
-		transformerText, err := d.getMapFromSecret(
+		transformerText, err := d.getMapFromConfigMap(
 			types.NamespacedName{Name: df.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
 		if err != nil {
 			return errors.Wrap(err, "could not get transformer text")

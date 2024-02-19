@@ -101,7 +101,7 @@ var _ = BeforeSuite(func() {
 	authDataMap["auth"] = `{"token": "eyJraWQiOiIx..."}`
 	authDataSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "auth-data-secrett",
+			Name:      "auth-data-secret",
 			Namespace: "default",
 		},
 		StringData: authDataMap,
