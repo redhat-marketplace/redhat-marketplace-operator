@@ -71,6 +71,8 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=route.openshift.io,namespace=system,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch
 
 func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
@@ -212,8 +214,10 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
+	r.Log.Info("building datafilters")
 	// Build DataFilters
 	if derr := r.DataFilters.Build(dataReporterConfig); derr != nil {
+		r.Log.Error(derr, "failed to build datafilters")
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// DataFilters failed validation, update status
 			if err := r.Client.Get(context.TODO(), req.NamespacedName, dataReporterConfig); err != nil {
@@ -320,6 +324,12 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			&corev1.Service{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(svcPred)).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(mapFn)).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(mapFn)).
 		Watches(
 			&routev1.Route{},
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &v1alpha1.DataReporterConfig{}, handler.OnlyControllerOwner()),

@@ -198,16 +198,32 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 		var destinations []*uploader.Uploader
 		for _, dest := range df.AltDestinations {
 
-			destHeader, err := d.getMapFromSecret(
-				types.NamespacedName{Name: dest.HeaderSecret.SecretRef.Name, Namespace: drc.Namespace})
-			if err != nil {
-				return errors.Wrap(err, "could not get destination header secret")
+			destHeader := make(map[string]string)
+			if len(dest.Header.Secret.Name) != 0 {
+				destHeader, err = d.getMapFromSecret(
+					types.NamespacedName{Name: dest.Header.Secret.Name, Namespace: drc.Namespace})
+				if err != nil {
+					return errors.Wrap(err, "could not get destination header secret")
+				}
 			}
 
-			authHeader, err := d.getMapFromSecret(
-				types.NamespacedName{Name: dest.Authorization.HeaderSecret.SecretRef.Name, Namespace: drc.Namespace})
-			if err != nil {
-				return errors.Wrap(err, "could not get authorization header secret")
+			authHeader := make(map[string]string)
+			if len(dest.Authorization.Header.Secret.Name) != 0 {
+				authHeader, err = d.getMapFromSecret(
+					types.NamespacedName{Name: dest.Authorization.Header.Secret.Name, Namespace: drc.Namespace})
+				if err != nil {
+					return errors.Wrap(err, "could not get authorization header secret")
+				}
+			}
+
+			var authBodyData []byte
+			if dest.Authorization.BodyData.SecretKeyRef != nil {
+				authBodyData, err = d.getSecretData(
+					types.NamespacedName{Name: dest.Authorization.BodyData.SecretKeyRef.Name, Namespace: drc.Namespace},
+					dest.Authorization.BodyData.SecretKeyRef.Key)
+				if err != nil {
+					return errors.Wrap(err, "could not get authorization body data")
+				}
 			}
 
 			// TODO Add Transformer
@@ -221,8 +237,10 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				AuthDestHeader:       dest.Authorization.AuthDestHeader,
 				AuthDestHeaderPrefix: dest.Authorization.AuthDestHeaderPrefix,
 				AuthTokenExpr:        dest.Authorization.TokenExpr,
+				AuthBodyData:         authBodyData,
 			}
 
+			// TODO set client
 			u, err := uploader.NewUploader(nil, &config)
 			if err != nil {
 				return err
@@ -297,16 +315,16 @@ func (d *DataFilters) getTLSConfig(drc *v1alpha1.DataReporterConfig) (*tls.Confi
 	certificates := []tls.Certificate{}
 	for _, pair := range drc.Spec.TLSConfig.Certificates {
 		// Must have a pair
-		if pair.ClientCert == nil || pair.ClientKey == nil {
+		if pair.ClientCert.SecretKeyRef == nil || pair.ClientKey.SecretKeyRef == nil {
 			return tlsConfig, errors.New("missing key/cert pair for tlsconfig certificates")
 		}
 		// Key
-		keyData, err := d.getSecretData(types.NamespacedName{Name: pair.ClientKey.Name, Namespace: drc.Namespace}, pair.ClientKey.Key)
+		keyData, err := d.getSecretData(types.NamespacedName{Name: pair.ClientKey.SecretKeyRef.Name, Namespace: drc.Namespace}, pair.ClientKey.SecretKeyRef.Key)
 		if err != nil {
 			return tlsConfig, errors.Wrap(err, "error getting client key data")
 		}
 		// Cert
-		certData, err := d.getSecretData(types.NamespacedName{Name: pair.ClientCert.Name, Namespace: drc.Namespace}, pair.ClientCert.Key)
+		certData, err := d.getSecretData(types.NamespacedName{Name: pair.ClientCert.SecretKeyRef.Name, Namespace: drc.Namespace}, pair.ClientCert.SecretKeyRef.Key)
 		if err != nil {
 			return tlsConfig, errors.Wrap(err, "error getting client cert data")
 		}

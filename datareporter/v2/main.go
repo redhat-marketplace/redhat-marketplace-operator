@@ -155,6 +155,14 @@ func main() {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
+			&corev1.ConfigMap{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&corev1.Secret{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
 			&routev1.Route{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
