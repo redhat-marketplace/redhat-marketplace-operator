@@ -173,58 +173,53 @@ var _ = Describe("DataFilter", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			// TODO: implement transformer
-			/*
+			It("should error on Transformer ConfigMap Name not found", func() {
+				drcBadTransformerCM := drc
+				drcBadTransformerCM.Spec.DataFilters[0].Transformer.ConfigMapKeyRef.Name = "name-not-here"
 
-				It("should error on Transformer ConfigMap Name not found", func() {
-					drcBadTransformerCM := drc
-					drcBadTransformerCM.Spec.DataFilters[0].Transformer.ConfigMapKeyRef.Name = "name-not-here"
+				err := dataFilters.Build(&drcBadTransformerCM)
+				Expect(err).To(HaveOccurred())
+			})
 
-					err := dataFilters.Build(&drcBadTransformerCM)
-					Expect(err).To(HaveOccurred())
-				})
+			It("should error on Transformer ConfigMap Key not found", func() {
+				drcBadTransformerKey := drc
+				drcBadTransformerKey.Spec.DataFilters[0].Transformer.ConfigMapKeyRef.Key = "key-not-here"
 
-				It("should error on Transformer ConfigMap Key not found", func() {
-					drcBadTransformerKey := drc
-					drcBadTransformerKey.Spec.DataFilters[0].Transformer.ConfigMapKeyRef.Key = "key-not-here"
+				err := dataFilters.Build(&drcBadTransformerKey)
+				Expect(err).To(HaveOccurred())
+			})
 
-					err := dataFilters.Build(&drcBadTransformerKey)
-					Expect(err).To(HaveOccurred())
-				})
+			It("should error on kazaam Transformer configuration malformed", func() {
+				drcBadTransformerConfig := drc
+				drcBadTransformerConfig.Spec.DataFilters[0].Transformer.ConfigMapKeyRef.Name = "kazaam-configmap-bad"
 
-				It("should error on kazaam Transformer configuration malformed", func() {
-					drcBadTransformerConfig := drc
-					drcBadTransformerConfig.Spec.DataFilters[0].Transformer.ConfigMapKeyRef.Name = "kazaam-configmap-bad"
+				err := dataFilters.Build(&drcBadTransformerConfig)
+				Expect(err).To(HaveOccurred())
+			})
 
-					err := dataFilters.Build(&drcBadTransformerConfig)
-					Expect(err).To(HaveOccurred())
-				})
+			It("should error on Destination Transformer ConfigMap Name not found", func() {
+				drcBadDestTransformerCM := drc
+				drcBadDestTransformerCM.Spec.DataFilters[0].AltDestinations[0].Transformer.ConfigMapKeyRef.Name = "name-not-here"
 
+				err := dataFilters.Build(&drcBadDestTransformerCM)
+				Expect(err).To(HaveOccurred())
+			})
 
-					It("should error on Destination Transformer ConfigMap Name not found", func() {
-						drcBadDestTransformerCM := drc
-						drcBadDestTransformerCM.Spec.DataFilters[0].AltDestinations[0].Transformer.ConfigMapKeyRef.Name = "name-not-here"
+			It("should error on Destination Transformer ConfigMap Key not found", func() {
+				drcBadDestTransformerKey := drc
+				drcBadDestTransformerKey.Spec.DataFilters[0].AltDestinations[0].Transformer.ConfigMapKeyRef.Key = "key-not-here"
 
-						err := dataFilters.Build(&drcBadDestTransformerCM)
-						Expect(err).To(HaveOccurred())
-					})
+				err := dataFilters.Build(&drcBadDestTransformerKey)
+				Expect(err).To(HaveOccurred())
+			})
 
-					It("should error on Destination Transformer ConfigMap Key not found", func() {
-						drcBadDestTransformerKey := drc
-						drcBadDestTransformerKey.Spec.DataFilters[0].AltDestinations[0].Transformer.ConfigMapKeyRef.Key = "key-not-here"
+			It("should error on kazaam Destination Transformer configuration malformed", func() {
+				drcBadDestTransformerConfig := drc
+				drcBadDestTransformerConfig.Spec.DataFilters[0].AltDestinations[0].Transformer.ConfigMapKeyRef.Name = "kazaam-configmap-bad"
 
-						err := dataFilters.Build(&drcBadDestTransformerKey)
-						Expect(err).To(HaveOccurred())
-					})
-
-					It("should error on kazaam Destination Transformer configuration malformed", func() {
-						drcBadDestTransformerConfig := drc
-						drcBadDestTransformerConfig.Spec.DataFilters[0].AltDestinations[0].Transformer.ConfigMapKeyRef.Name = "kazaam-configmap-bad"
-
-						err := dataFilters.Build(&drcBadDestTransformerConfig)
-						Expect(err).To(HaveOccurred())
-					})
-			*/
+				err := dataFilters.Build(&drcBadDestTransformerConfig)
+				Expect(err).To(HaveOccurred())
+			})
 
 			It("should error on Destination URL malformed", func() {
 				drcBadDestURL := drc

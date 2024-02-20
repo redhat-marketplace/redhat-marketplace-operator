@@ -15,6 +15,8 @@
 package transformer_test
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,4 +26,20 @@ import (
 func TestTransformer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Transformer Suite")
+}
+
+func checkJSONBytesEqual(item1, item2 []byte) (bool, error) {
+	var out1, out2 interface{}
+
+	err := json.Unmarshal(item1, &out1)
+	if err != nil {
+		return false, nil
+	}
+
+	err = json.Unmarshal(item2, &out2)
+	if err != nil {
+		return false, nil
+	}
+
+	return reflect.DeepEqual(out1, out2), nil
 }

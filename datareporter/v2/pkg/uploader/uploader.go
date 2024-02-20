@@ -12,20 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-  - altDestinations:
-    - confirmDelivery: false
-      headers:
-        secretRef: header-map-secret
-      insecureSkipTLSVerify: false
-      transformer:
-        configMapKeyRef:
-          key: kazaam.json
-          name: kazaam-configmap
-        type: kazaam
-      url: https://cmmEndpoint.x.y.z:1234/api/stuff
-*/
-
 package uploader
 
 import (

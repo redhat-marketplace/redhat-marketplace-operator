@@ -249,14 +249,17 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				}
 			}
 
-			// get transformer text
-			transformerText, err := d.getMapFromConfigMap(
-				types.NamespacedName{Name: dest.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
+			tConfig, err := d.getConfigMapData(
+				types.NamespacedName{Name: dest.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace},
+				dest.Transformer.ConfigMapKeyRef.Key)
 			if err != nil {
-				return errors.Wrap(err, "could not get transformer text")
+				return errors.WrapWithDetails(err, "could not get transformer config",
+					"configmap", df.Transformer.ConfigMapKeyRef.Name,
+					"key", df.Transformer.ConfigMapKeyRef.Key,
+				)
 			}
 
-			t, err := transformer.NewTransformer(dest.Transformer.TransformerType, transformerText[dest.Transformer.ConfigMapKeyRef.Key])
+			t, err := transformer.NewTransformer(df.Transformer.TransformerType, tConfig)
 			if err != nil {
 				return errors.Wrap(err, "could not initialize transformer")
 			}
@@ -273,8 +276,7 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 				AuthBodyData:         authBodyData,
 			}
 
-      // TODO set client
-			u, err := uploader.NewUploader(nil, &config, &t)
+			u, err := uploader.NewUploader(d.httpClient, &config, &t)
 			if err != nil {
 				return err
 			}
@@ -282,14 +284,17 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 			destinations = append(destinations, u)
 		}
 
-		// get transformer text
-		transformerText, err := d.getMapFromConfigMap(
-			types.NamespacedName{Name: df.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace})
+		tConfig, err := d.getConfigMapData(
+			types.NamespacedName{Name: df.Transformer.ConfigMapKeyRef.Name, Namespace: drc.Namespace},
+			df.Transformer.ConfigMapKeyRef.Key)
 		if err != nil {
-			return errors.Wrap(err, "could not get transformer text")
+			return errors.WrapWithDetails(err, "could not get transformer config",
+				"configmap", df.Transformer.ConfigMapKeyRef.Name,
+				"key", df.Transformer.ConfigMapKeyRef.Key,
+			)
 		}
 
-		t, err := transformer.NewTransformer(df.Transformer.TransformerType, transformerText[df.Transformer.ConfigMapKeyRef.Key])
+		t, err := transformer.NewTransformer(df.Transformer.TransformerType, tConfig)
 		if err != nil {
 			return errors.Wrap(err, "could not initialize transformer")
 		}
@@ -413,6 +418,19 @@ func (d *DataFilters) getSecretData(nsn types.NamespacedName, key string) ([]byt
 	data, ok := secret.Data[key]
 	if !ok {
 		return data, errors.NewWithDetails("key not found for secret", "secret", nsn.Name, "key", key)
+	}
+	return data, nil
+}
+
+func (d *DataFilters) getConfigMapData(nsn types.NamespacedName, key string) (string, error) {
+	var data string
+	cm := &corev1.ConfigMap{}
+	if err := d.k8sClient.Get(context.TODO(), nsn, cm); err != nil {
+		return data, errors.Wrap(err, "error getting configmap")
+	}
+	data, ok := cm.Data[key]
+	if !ok {
+		return data, errors.NewWithDetails("key not found for configmap", "configmap", nsn.Name, "key", key)
 	}
 	return data, nil
 }
