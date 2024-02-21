@@ -16,6 +16,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -24,8 +25,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -67,11 +70,88 @@ var (
 	cc             *v1alpha1.ComponentConfig
 	eeCtx          context.Context
 	eeCancel       context.CancelFunc
+	metadataMap    map[string]string
 )
 
 const (
-	testData    = `{"event":"myevent"}`
+	usagePath = "/metering/api/1.0/usage"
+	// productId should be parsed as the added suffix to the path called
+	suffixUsagePath = "/metering/api/1.0/usage/1234"
+	tokenPath       = "/api/2.0/accounts/1234/apikeys/token"
+
+	testData = `{
+		"anonymousId": "f5d26e39-d421-4367-b623-4c8a7bbf6cbf",
+		"event": "Account Contractual Usage",
+		"properties": {
+			"accountId": "US_123456",
+			"accountIdType": "countryCode_ICN",
+			"accountPlan": "STL",
+			"chargePlanType": 2,
+			"daysToExpiration": 9999,
+			"environment": "PRODUCTION",
+			"eventId": "1234567890123",
+			"frequency": "Hourly",
+			"hyperscalerChannel": "ibm",
+			"hyperscalerFormat": "saas",
+			"hyperscalerProvider": "aws",
+			"instanceGuid": "123456789012-testcorp",
+			"instanceName": "",
+			"productCode": "WW1234",
+			"productCodeType": "WWPC",
+			"productId": "1234-M12",
+			"productTitle": "Test Application Suite",
+			"productVersion": "1.23.4",
+			"quantity": 123,
+			"salesOrderNumber": "1234X",
+			"source": "123456789abc",
+			"subscriptionId": "1234",
+			"tenantId": "1234",
+			"unit": "Points",
+			"unitDescription": "Points Description",
+			"unitMetadata": {
+				"data": {
+					"assist-Users": 0,
+					"core-Install": 100,
+					"health-AuthorizedUsers": 0,
+					"health-ConcurrentUsers": 0,
+					"health-MAS-Internal-Scores": 0,
+					"hputilities-MAS-AIO-Models": 0,
+					"hputilities-MAS-AIO-Scores": 0,
+					"hputilities-MAS-External-Scores": 0,
+					"manage-Database-replicas": 0,
+					"manage-Install": 150,
+					"manage-MAS-Base": 0,
+					"manage-MAS-Base-Authorized": 0,
+					"manage-MAS-Limited": 0,
+					"manage-MAS-Limited-Authorized": 0,
+					"manage-MAS-Premium": 0,
+					"manage-MAS-Premium-Authorized": 5,
+					"monitor-IOPoints": 0,
+					"monitor-KPIPoints": 0,
+					"predict-MAS-Models-Trained": 0,
+					"predict-MAS-Predictions-Count": 0,
+					"visualinspection-MAS-Images-Inferred": 0,
+					"visualinspection-MAS-Models-Trained": 0,
+					"visualinspection-MAS-Videos-Inferred": 0
+				},
+				"version": "1"
+			},
+			"UT30": "12BH3"
+		},
+		"timestamp": "2024-01-18T11:00:11.159442+00:00",
+		"type": "track",
+		"userId": "ABCid-123456789abc-owner",
+		"writeKey": "write-key"
+	}`
+
+	goodResult = `{"instances":[{"metricUsage":[{"quantity":123,"metricId":"Points"}],"instanceId":"123456789abc","startTime":"2024-01-18T11:00:11.159442+00:00","endTime":"2024-01-18T11:00:11.159442+00:00"}],"subscriptionId":"1234-M12"}`
+
 	testDataBad = `{"event":"myevent"`
+
+	myApiKey      = `{"apikey": "myapikey"}`
+	myBearerToken = "Bearer mytoken"
+	myTokenResp   = `{"token": "mytoken"}`
+	appJsonHeader = "application/json"
 )
 
 var _ = BeforeSuite(func() {
@@ -102,17 +182,65 @@ var _ = BeforeSuite(func() {
 
 	// Test HTTP Server & Client
 
+	fmt.Println("httpTestServerdefine")
+	logf.Log.Info("httpTestDefine")
 	httpTestServer = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If the token is not authorized, 401 and the datafilter should attempt the authorization endpoint
+		// Check that the data arriving is the expected transformed data
+		fmt.Println("httpTestServer handle request")
+		switch r.URL.Path {
 
-		// TODO: Server got transformed data
-		fmt.Println("checking data")
-		bodyBytes, err := io.ReadAll(r.Body)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(string(bodyBytes)).To(Equal(testData))
-		fmt.Println("good data")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "Hello, client")
+		// productId is parsed as teh
+		case suffixUsagePath:
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
+				logf.Log.Error(err, "usage bad body")
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			if r.Header.Get("Authorization") != myBearerToken {
+				logf.Log.Info("httpTest", "usage authorization", http.StatusUnauthorized, "header", r.Header, "body", string(bodyBytes))
+				w.WriteHeader(http.StatusUnauthorized)
+			} else {
+				ok, err := checkJSONBytesEqual(bodyBytes, []byte(goodResult))
+				if err != nil || !ok {
+					logf.Log.Error(err, "usage bytes not equal", "header", r.Header, "body", string(bodyBytes))
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+				logf.Log.Info("httpTest", "usage status", http.StatusOK)
+				w.WriteHeader(http.StatusOK)
+			}
+
+		case tokenPath:
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
+				logf.Log.Error(err, "token bad body")
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			if (r.Header.Get("accept") != appJsonHeader) || (r.Header.Get("Content-Type") != appJsonHeader) {
+				logf.Log.Info("httpTest", "token status", http.StatusBadRequest, "header", r.Header, "body", string(bodyBytes))
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				ok, err := checkJSONBytesEqual(bodyBytes, []byte(myApiKey))
+				if err != nil || !ok {
+					logf.Log.Error(err, "token apikey not correct", "header", r.Header, "body", string(bodyBytes))
+					w.WriteHeader(http.StatusBadRequest)
+				}
+				logf.Log.Info("httpTest", "token status", http.StatusOK)
+				w.Write([]byte(myTokenResp))
+			}
+
+		default:
+			logf.Log.Info("httpTest", "default status", http.StatusNotFound, "path", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
+	logf.Log.Info("httpTest server started", "url", httpTestServer.URL)
+
+	httpTestURL, err := url.Parse(httpTestServer.URL)
+	Expect(err).ToNot(HaveOccurred())
+
+	usageURL := httpTestURL.JoinPath(usagePath)
+	tokenURL := httpTestURL.JoinPath(tokenPath)
 
 	httpTestClient = httpTestServer.Client()
 
@@ -181,13 +309,123 @@ var _ = BeforeSuite(func() {
 		k8sClient, httpTestClient, eventEngine, eventConfig, &cc.ApiHandlerConfig)
 
 	// k8s Configuration Objects
-
+	metadataMap = make(map[string]string)
+	metadataMap["k"] = "v"
 	dataReporterConfig := &v1alpha1.DataReporterConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "datareporterconfig",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.DataReporterConfigSpec{},
+		Spec: v1alpha1.DataReporterConfigSpec{
+			UserConfigs: []v1alpha1.UserConfig{
+				v1alpha1.UserConfig{
+					UserName: "testuser",
+					Metadata: metadataMap,
+				},
+			},
+			DataFilters: []v1alpha1.DataFilter{
+				v1alpha1.DataFilter{
+					Selector: v1alpha1.Selector{
+						MatchExpressions: []string{
+							`$.properties.productId`,
+							`$[?($.properties.source != null)]`,
+							`$[?($.properties.unit == "Points")]`,
+							`$[?($.properties.quantity >= 0)]`,
+							`$[?($.timestamp != null)]`,
+						},
+						MatchUsers: []string{"testuser"},
+					},
+					ManifestType: "dataReporter",
+					Transformer: v1alpha1.Transformer{
+						TransformerType: "kazaam",
+						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "kazaam-configmap",
+							},
+							Key: "kazaam.json",
+						},
+					},
+					AltDestinations: []v1alpha1.Destination{
+						v1alpha1.Destination{
+							Transformer: v1alpha1.Transformer{
+								TransformerType: "kazaam",
+								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "kazaam-configmap",
+									},
+									Key: "kazaam.json",
+								},
+							},
+							URL:           usageURL.String(),
+							URLSuffixExpr: "$.properties.subscriptionId",
+							Header: v1alpha1.Header{
+								Secret: corev1.LocalObjectReference{
+									Name: "dest-header-map-secret",
+								},
+							},
+							Authorization: v1alpha1.Authorization{
+								URL: tokenURL.String(),
+								Header: v1alpha1.Header{
+									Secret: corev1.LocalObjectReference{
+										Name: "auth-header-map-secret",
+									},
+								},
+								AuthDestHeader:       "Authorization",
+								AuthDestHeaderPrefix: "Bearer ",
+								TokenExpr:            "$.token",
+								BodyData: v1alpha1.SecretKeyRef{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "auth-body-data-secret",
+										},
+										Key: "bodydata",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			TLSConfig: &v1alpha1.TLSConfig{
+				InsecureSkipVerify: false,
+				CACerts: []corev1.SecretKeySelector{
+					corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "tls-config-secret",
+						},
+						Key: "ca.crt",
+					},
+				},
+				Certificates: []v1alpha1.Certificate{
+					v1alpha1.Certificate{
+						ClientCert: v1alpha1.SecretKeyRef{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "tls-config-secret",
+								},
+								Key: "tls.crt",
+							},
+						},
+						ClientKey: v1alpha1.SecretKeyRef{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "tls-config-secret",
+								},
+								Key: "tls.key",
+							},
+						},
+					},
+				},
+				CipherSuites: []string{"TLS_AES_128_GCM_SHA256",
+					"TLS_AES_256_GCM_SHA384",
+					"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+					"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+					"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+					"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+				MinVersion: "VersionTLS12",
+			},
+			ConfirmDelivery: ptr.Bool(false),
+		},
 	}
 	Expect(k8sClient.Create(context.TODO(), dataReporterConfig)).Should(Succeed(), "create datareporterconfig")
 
@@ -217,10 +455,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	authDataMap := make(map[string]string)
-	authDataMap["auth"] = `{"token": "eyJraWQiOiIx..."}`
+	authDataMap["bodydata"] = myApiKey
 	authDataSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "auth-data-secrett",
+			Name:      "auth-body-data-secret",
 			Namespace: "default",
 		},
 		StringData: authDataMap,
@@ -238,6 +476,9 @@ var _ = BeforeSuite(func() {
 		Data: kazaamMap,
 	}
 	err = k8sClient.Create(context.TODO(), &kazaamConfigMap)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = dataFilters.Build(dataReporterConfig)
 	Expect(err).ToNot(HaveOccurred())
 })
 
@@ -259,4 +500,20 @@ var _ = AfterSuite(func() {
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Server Suite")
+}
+
+func checkJSONBytesEqual(item1, item2 []byte) (bool, error) {
+	var out1, out2 interface{}
+
+	err := json.Unmarshal(item1, &out1)
+	if err != nil {
+		return false, nil
+	}
+
+	err = json.Unmarshal(item2, &out2)
+	if err != nil {
+		return false, nil
+	}
+
+	return reflect.DeepEqual(out1, out2), nil
 }

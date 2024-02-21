@@ -112,7 +112,6 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 	for _, df := range d.dataFilters {
 		if df.Selector.Matches(event) { // Send to the destinations of the first matched filter and return
 			// Transform and Upload for DataService
-
 			// Set the ManifestType
 			if len(df.ManifestType) == 0 {
 				event.ManifestType = defaultManifestType
@@ -120,19 +119,20 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 				event.ManifestType = df.ManifestType
 			}
 
-			var transformedJson, err = df.Transformer.Transform(event.RawMessage)
+			dsEvent := event
+			var transformedJson, err = df.Transformer.Transform(dsEvent.RawMessage)
 			if err == nil {
-				event.RawMessage = transformedJson
+				dsEvent.RawMessage = transformedJson
 			}
 
 			// Send to DataService. If not deliverable, return bad code and skip altDestinations
 			if ptr.ToBool(d.apiHandlerConfig.ConfirmDelivery) {
-				if err := d.eventEngine.ProcessorSender.ReportOne(event); err != nil {
+				if err := d.eventEngine.ProcessorSender.ReportOne(dsEvent); err != nil {
 					statusCodes = append(statusCodes, http.StatusBadGateway)
 					return statusCodes
 				}
 			} else {
-				d.eventEngine.EventChan <- event
+				d.eventEngine.EventChan <- dsEvent
 				statusCodes = append(statusCodes, http.StatusOK)
 			}
 
@@ -150,12 +150,15 @@ func (d *DataFilters) FilterAndUpload(event events.Event) []int {
 					statusCodeChan <- statusCode
 				}(statusCodeChan, dest)
 			}
-			wg.Wait()
-			close(statusCodeChan)
+			go func() {
+				wg.Wait()
+				close(statusCodeChan)
+			}()
 
 			for statusCode := range statusCodeChan {
 				statusCodes = append(statusCodes, statusCode)
 			}
+
 			return statusCodes
 		}
 	}
@@ -265,6 +268,7 @@ func (d *DataFilters) updateDataFilters(drc *v1alpha1.DataReporterConfig) error 
 			}
 
 			config := uploader.Config{
+				Log:                  d.Log,
 				DestURL:              dest.URL,
 				DestHeader:           destHeader,
 				DestURLSuffixExpr:    dest.URLSuffixExpr,
@@ -324,7 +328,9 @@ func (d *DataFilters) updateHttpClient(drc *v1alpha1.DataReporterConfig) error {
 			return errors.New("httpclient transport is not of type http.Transport")
 		}
 	} else {
-		return errors.New("httpclient transport is not of type retryablehttp.roundtripper")
+		// Log only, as this is the case with httpTest
+		d.Log.Error(errors.New("httpclient transport is not of type retryablehttp.roundtripper"), "expected httpclient transport type retryablehttp.roundtripper")
+		return nil
 	}
 }
 

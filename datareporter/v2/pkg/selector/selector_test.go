@@ -34,59 +34,76 @@ var _ = Describe("Selector", func() {
 
 	BeforeEach(func() {
 		in = `{
-		"anonymousId": "22d09868-c4dd-4e22-9dcc-fb3dc3670592",
-		"context": {
-			"library": {
-				"name": "unknown",
-				"version": "unknown"
-			},
-			"protocols": {
-				"sourceId": "GDbmc9ffEx"
-			}
-		},
-		"event": "Account Contractual Usage",
-		"integrations": {
-		},
-		"messageId": "api-2FzZT63MioGiVg2ocBLkWgfYfaG",
-		"originalTimestamp": "2022-10-11T14:00:10.535087+00:00",
-		"properties": {
-			"accountId": "U***_I***_I***",
-			"accountIdType": "countryCode_ICN",
-			"accountPlan": "STL",
-			"chargePlanType": 2,
-			"daysToExpiration": 95,
-			"environment": "PRODUCTION",
-			"frequency": "Hourly",
-			"productId": "5737-M66",
-			"productTitle": "Maximo Application Suite",
-			"productVersion": "8.8.1",
-			"quantity": 450,
-			"quantityEntitled": 105,
-			"salesOrderNumber": "None",
-			"source": "10005a141d2b",
-			"unit": "AppPoints",
-			"unitDescription": "Account level AppPoint usage",
-			"unitMetadata": {
-				"data": {
-					"concurrent": 0,
-					"denied": 0,
-					"reserved": 450
+			"anonymousId": "f5d26e39-d421-4367-b623-4c8a7bbf6cbf",
+			"event": "Account Contractual Usage",
+			"properties": {
+				"accountId": "US_123456",
+				"accountIdType": "countryCode_ICN",
+				"accountPlan": "STL",
+				"chargePlanType": 2,
+				"daysToExpiration": 9999,
+				"environment": "PRODUCTION",
+				"eventId": "1234567890123",
+				"frequency": "Hourly",
+				"hyperscalerChannel": "ibm",
+				"hyperscalerFormat": "saas",
+				"hyperscalerProvider": "aws",
+				"instanceGuid": "123456789012-testcorp",
+				"instanceName": "",
+				"productCode": "WW1234",
+				"productCodeType": "WWPC",
+				"productId": "1234-M12",
+				"productTitle": "Test Application Suite",
+				"productVersion": "1.23.4",
+				"quantity": 123,
+				"salesOrderNumber": "1234X",
+				"source": "123456789abc",
+				"subscriptionId": "1234",
+				"tenantId": "1234",
+				"unit": "Points",
+				"unitDescription": "Points Description",
+				"unitMetadata": {
+					"data": {
+						"assist-Users": 0,
+						"core-Install": 100,
+						"health-AuthorizedUsers": 0,
+						"health-ConcurrentUsers": 0,
+						"health-MAS-Internal-Scores": 0,
+						"hputilities-MAS-AIO-Models": 0,
+						"hputilities-MAS-AIO-Scores": 0,
+						"hputilities-MAS-External-Scores": 0,
+						"manage-Database-replicas": 0,
+						"manage-Install": 150,
+						"manage-MAS-Base": 0,
+						"manage-MAS-Base-Authorized": 0,
+						"manage-MAS-Limited": 0,
+						"manage-MAS-Limited-Authorized": 0,
+						"manage-MAS-Premium": 0,
+						"manage-MAS-Premium-Authorized": 5,
+						"monitor-IOPoints": 0,
+						"monitor-KPIPoints": 0,
+						"predict-MAS-Models-Trained": 0,
+						"predict-MAS-Predictions-Count": 0,
+						"visualinspection-MAS-Images-Inferred": 0,
+						"visualinspection-MAS-Models-Trained": 0,
+						"visualinspection-MAS-Videos-Inferred": 0
+					},
+					"version": "1"
 				},
-				"version": "1"
-			}
-		},
-		"receivedAt": "2022-10-11T14:01:16.860Z",
-		"timestamp": "2022-10-11T14:00:10.535Z",
-		"type": "track",
-		"userId": "M***-1***-o***"
-	    }`
+				"UT30": "12BH3"
+			},
+			"timestamp": "2024-01-18T11:00:11.159442+00:00",
+			"type": "track",
+			"userId": "ABCid-123456789abc-owner",
+			"writeKey": "write-key"
+		}`
 
 		badin = `{unclosed`
 
 		// Match: true
 		jp1 = `$.properties.productId`
 		jp2 = `$[?($.properties.source != null)]`
-		jp3 = `$[?($.properties.unit == "AppPoints")]`
+		jp3 = `$[?($.properties.unit == "Points")]`
 		jp4 = `$[?($.properties.quantity >= 0)]`
 		jp5 = `$[?($.timestamp != null)]`
 

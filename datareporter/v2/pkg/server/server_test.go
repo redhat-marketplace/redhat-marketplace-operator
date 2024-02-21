@@ -27,56 +27,6 @@ import (
 
 var _ = Describe("Selector", func() {
 
-	/*
-		in := `{
-			"anonymousId": "22d09868-c4dd-4e22-9dcc-fb3dc3670592",
-			"context": {
-				"library": {
-					"name": "unknown",
-					"version": "unknown"
-				},
-				"protocols": {
-					"sourceId": "GDbmc9ffEx"
-				}
-			},
-			"event": "Account Contractual Usage",
-			"integrations": {
-			},
-			"messageId": "api-2FzZT63MioGiVg2ocBLkWgfYfaG",
-			"originalTimestamp": "2022-10-11T14:00:10.535087+00:00",
-			"properties": {
-				"accountId": "U***_I***_I***",
-				"accountIdType": "countryCode_ICN",
-				"accountPlan": "STL",
-				"chargePlanType": 2,
-				"daysToExpiration": 95,
-				"environment": "PRODUCTION",
-				"frequency": "Hourly",
-				"productId": "5737-M66",
-				"productTitle": "Maximo Application Suite",
-				"productVersion": "8.8.1",
-				"quantity": 450,
-				"quantityEntitled": 105,
-				"salesOrderNumber": "None",
-				"source": "10005a141d2b",
-				"unit": "AppPoints",
-				"unitDescription": "Account level AppPoint usage",
-				"unitMetadata": {
-					"data": {
-						"concurrent": 0,
-						"denied": 0,
-						"reserved": 450
-					},
-					"version": "1"
-				}
-			},
-			"receivedAt": "2022-10-11T14:01:16.860Z",
-			"timestamp": "2022-10-11T14:00:10.535Z",
-			"type": "track",
-			"userId": "M***-1***-o***"
-			}`
-	*/
-
 	BeforeEach(func() {
 
 	})
@@ -90,6 +40,7 @@ var _ = Describe("Selector", func() {
 				server.EventHandler(eventEngine, eventConfig, dataFilters, w, req)
 				resp := w.Result()
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
 			})
 		})
 
