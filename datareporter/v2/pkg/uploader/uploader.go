@@ -22,6 +22,8 @@ import (
 	"sync"
 
 	"emperror.dev/errors"
+	"github.com/go-logr/logr"
+	"github.com/ohler55/ojg/alt"
 	"github.com/ohler55/ojg/jp"
 	"github.com/ohler55/ojg/oj"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/transformer"
@@ -32,6 +34,8 @@ const (
 )
 
 type Uploader struct {
+	log logr.Logger
+
 	client *http.Client
 
 	config *Config
@@ -54,6 +58,7 @@ type Uploader struct {
 
 // Uploader config for construction
 type Config struct {
+	Log                  logr.Logger
 	DestURL              string
 	DestHeader           map[string]string
 	DestURLSuffixExpr    string
@@ -74,6 +79,7 @@ type Config struct {
 func NewUploader(client *http.Client, config *Config, transformer *transformer.Transformer) (u *Uploader, err error) {
 
 	u = &Uploader{
+		log:         config.Log,
 		client:      client,
 		config:      config,
 		transformer: transformer,
@@ -129,11 +135,7 @@ func NewUploader(client *http.Client, config *Config, transformer *transformer.T
 func (u *Uploader) TransformAndUpload(eventMsg []byte) (int, error) {
 
 	// Parse for the optional URL suffix
-	destURL, err := url.Parse(u.destURL.String())
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-	destURL = u.destURL.JoinPath(u.parseForSuffix(eventMsg))
+	destURL := u.destURL.JoinPath(u.parseForSuffix(eventMsg))
 
 	transformedJson, err := u.transformer.Transform(eventMsg)
 	if err == nil {
@@ -153,7 +155,7 @@ func (u *Uploader) upload(destURL *url.URL, body []byte) (int, error) {
 
 	defer dResp.Body.Close()
 
-	if dResp.StatusCode == http.StatusForbidden && u.authURL != nil {
+	if dResp.StatusCode == http.StatusUnauthorized && u.authURL != nil {
 		// Request was not authorized, attempt to request a authorization token
 		statusCode, err := u.callAuth()
 		if err != nil {
@@ -171,6 +173,8 @@ func (u *Uploader) upload(destURL *url.URL, body []byte) (int, error) {
 		if adResp.StatusCode != http.StatusOK {
 			return adResp.StatusCode, errors.NewWithDetails(Non200Response, "url", u.destURL.String(), "statuscode", adResp.StatusCode)
 		}
+
+		return adResp.StatusCode, nil
 
 	} else if dResp.StatusCode != http.StatusOK {
 		return dResp.StatusCode, errors.NewWithDetails(Non200Response, "url", u.destURL.String(), "statuscode", dResp.StatusCode)
@@ -197,9 +201,14 @@ func (u *Uploader) uploadToDest(destURL *url.URL, body []byte) (*http.Response, 
 func (u *Uploader) parseForSuffix(eventMsg []byte) (suffix string) {
 	// Parse for the optional URL suffix
 	if u.destURLSuffixExpr != nil {
-		results := u.destURLSuffixExpr.Get(eventMsg)
+		obj, err := oj.Parse(eventMsg)
+		if err != nil {
+			return
+		}
+
+		results := u.destURLSuffixExpr.Get(obj)
 		if len(results) != 0 {
-			suffix = oj.JSON(results[0])
+			suffix = alt.String(results[0])
 		}
 	}
 	return
@@ -232,9 +241,14 @@ func (u *Uploader) callAuth() (int, error) {
 
 	// If an expression is configured, parse the body for the first result as token
 	if u.authTokenExpr != nil {
-		results := u.authTokenExpr.Get(aBody)
+		obj, err := oj.Parse(aBody)
+		if err != nil {
+			return http.StatusInternalServerError, errors.New("could not parse response body data from authorization endpoint")
+		}
+		results := u.authTokenExpr.Get(obj)
 		if len(results) != 0 {
-			u.setAuthToken(oj.JSON(results[0]))
+
+			u.setAuthToken(alt.String(results[0]))
 		}
 	} else {
 		u.setAuthToken(string(aBody))

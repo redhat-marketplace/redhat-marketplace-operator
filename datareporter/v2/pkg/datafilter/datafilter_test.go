@@ -54,7 +54,7 @@ var _ = Describe("DataFilter", func() {
 							MatchExpressions: []string{
 								`$.properties.productId`,
 								`$[?($.properties.source != null)]`,
-								`$[?($.properties.unit == "AppPoints")]`,
+								`$[?($.properties.unit == "Points")]`,
 								`$[?($.properties.quantity >= 0)]`,
 								`$[?($.timestamp != null)]`,
 							},
@@ -270,23 +270,22 @@ var _ = Describe("DataFilter", func() {
 			})
 
 			// TODO: implement payload
-			/*
-				It("should error on Authorization Data Secret Name not found", func() {
-					drcBadAuthDataSecretName := drc
-					drcBadAuthDataSecretName.Spec.DataFilters[0].AltDestinations[0].Authorization.DataSecret.Name = "auth-data-secret-name-not-here"
 
-					err := dataFilters.Build(&drcBadAuthDataSecretName)
-					Expect(err).To(HaveOccurred())
-				})
+			It("should error on Authorization Body Data Secret Name not found", func() {
+				drcBadAuthDataSecretName := drc
+				drcBadAuthDataSecretName.Spec.DataFilters[0].AltDestinations[0].Authorization.BodyData.SecretKeyRef.Name = "auth-data-secret-name-not-here"
 
-				It("should error on Authorization Data Secret Key not found", func() {
-					drcBadAuthDataSecretKey := drc
-					drcBadAuthDataSecretKey.Spec.DataFilters[0].AltDestinations[0].Authorization.DataSecret.Key = "auth-data-secret-key-not-here"
+				err := dataFilters.Build(&drcBadAuthDataSecretName)
+				Expect(err).To(HaveOccurred())
+			})
 
-					err := dataFilters.Build(&drcBadAuthDataSecretKey)
-					Expect(err).To(HaveOccurred())
-				})
-			*/
+			It("should error on Authorization Body Data Secret Key not found", func() {
+				drcBadAuthDataSecretKey := drc
+				drcBadAuthDataSecretKey.Spec.DataFilters[0].AltDestinations[0].Authorization.BodyData.SecretKeyRef.Key = "auth-data-secret-key-not-here"
+
+				err := dataFilters.Build(&drcBadAuthDataSecretKey)
+				Expect(err).To(HaveOccurred())
+			})
 
 			It("should error on TLSConfig secret not found", func() {
 				drcBadTLSConfigSecretName := drc
