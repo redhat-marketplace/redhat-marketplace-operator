@@ -43,6 +43,8 @@ The operator releases adhere to semantic versioning and provides a seamless upgr
 Optional:
 - Configure the Custom Resource Definition `DataReporterConfig` named `datareporterconfig` as per the following sample
   - Configuration that can not be reconciled successfully will be reported on the DataReporterConfig Status
+  - jsonPath expressions are handled by: https://github.com/ohler55/ojg
+    - jsonPath comparison: https://cburgmer.github.io/json-path-comparison/
 
 Sample DataReporterConfig:
 ```YAML
