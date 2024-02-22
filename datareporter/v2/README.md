@@ -6,15 +6,15 @@ The IBM Data Reporter Operator accepts events and transforms them into reports s
 
 # Details
 
-The IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Data Service. The IBM Data Service periodically uploads the reports to Red Hat Marketplace.
+The IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Metrics Operator's Data Service. The IBM Metrics Operator Data Service periodically uploads the reports to Red Hat Marketplace. It can also filter, transform and forward events to alternate endpoints.
 
 ## Prerequisites
 
 - OpenShift Container Platform, major version 4 with any available supported minor version
-- Install IBM Metrics Operator and Red Hat Marketplace Deployment Operator
-  - IBM Data Reporter Operator prerequisties the IBM Metrics Operator data-service and registration with Red Hat Marketplace
+- Install IBM Metrics Operator
+  - IBM Data Reporter Operator prerequisties the IBM Metrics Operator's Data Service
   - Register the Cluster by creating a `redhat-marketplace-pull-secret`, as per the instructions
-  - `rhm-data-service` has started
+  - Once `rhm-data-service` has started IBM Data Reporter Operator will accept requests
 
 ## SecurityContextConstraints Requirements
 
@@ -31,7 +31,7 @@ The IBM Data Reporter Operator deploys a service that exposes an endpoint to whi
 ## Installing
 
 - A user with the cluster administrator role.
-- Install this operator in the same namespace as the IBM Metrics Operator and Red Hat Marketplace Deployment Operator
+- Install this operator in the same namespace as the IBM Metrics Operator
   - default namespace: `redhat-marketplace`
 
 ## Upgrade Policy
@@ -41,17 +41,82 @@ The operator releases adhere to semantic versioning and provides a seamless upgr
 # Configuration
 
 Optional:
-- Configure the DataReporterConfig named `datareporterconfig` as per the following example
-- Reference the service account name that will be used to access the service
-  - Reports generated for events sent by this user will be decorated with the additional metadata
+- Configure the Custom Resource Definition `DataReporterConfig` named `datareporterconfig` as per the following sample
+  - Configuration that can not be reconciled successfully will be reported on the DataReporterConfig Status
 
+Sample DataReporterConfig:
 ```YAML
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: DataReporterConfig
 metadata:
   name: datareporterconfig
 spec:
-  userConfig:
+  # true: report generated for 1 event and provide return code from data-service, confirming delivery
+  # false: events will be accumulated before building report, and immediately return 200, delivery unfconfirmed
+  confirmDelivery: false
+  dataFilters:   # dataFilters matches the first dataFilter selector, applies transforms and forwards to data-service and destinations
+  - altDestinations:   # List of desintations to transform and foward events to
+    - authorization:   # optional endpoint if an authorization token must first be requested 
+        authDestHeader: Authorization   # http header key to be appended to destination request
+        authDestHeaderPrefix: 'Bearer '   # optional prefix for constructing destination request http header value
+        bodyData:   # body data to send to authorization request, often an apiKey
+          secretKeyRef:
+            name: auth-body-data-secret
+            key: bodydata
+        header:   # secret map to use for authorization request headers
+          secret:
+            name: auth-header-map-secret
+        tokenExpr: $.token   # optionally extract the returned body data using a jsonPath expression
+        url: https://127.0.0.1:8443/api/2.0/accounts/my_account_id/apikeys/token   # the url to make an authorization request to
+      header:   # secret map to use for destination request headers
+        secret:
+          name: dest-header-map-secret
+      transformer:   # The transformer to apply to event for this destination
+        configMapKeyRef:
+          key: kazaam.json
+          name: kazaam-configmap
+        type: kazaam
+      url: https://127.0.0.1:8443/metering/api/1.0/usage   # the url to send the event to
+      urlSuffixExpr: $.properties.productId   # optional jsonPath expression on the event to extract and set a suffix to the url path
+    manifestType: dataReporter   # override manifestType of report sent to data-service
+    selector:   # Matches against event data and a user. Empty selector matches all.
+      matchExpressions:   # jsonPath expression must return a result for all expressions to match (AND)
+      - $[?($.event == "Account Contractual Usage")]
+      - $.properties.productId
+      - $[?($.properties.source != null)]
+      - $[?($.properties.unit == "AppPoints")]
+      - $[?($.properties.quantity >= 0)]
+      - $[?($.timestamp != null)]
+      matchUsers:   # must match one of these users (OR). Omitting users matches any user
+      - system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api
+    transformer:   # The transformer to apply to the event for data-service
+      configMapKeyRef:
+        key: kazaam.json
+        name: kazaam-configmap
+      type: kazaam
+  tlsConfig:   # TLS configuration for requests outbound to destinations
+    caCerts:
+    - name: tls-ca-certificates
+      key: ca.crt
+    certificates:
+    - clientCert:
+        secretKeyRef:
+          name: tls-ca-certificates
+          key: tls.crt
+      clientKey:
+        secretKeyRef:
+          name: tls-ca-certificates
+          key: tls.key
+    cipherSuites: 
+    - TLS_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    insecureSkipVerify: false
+    minVersion: VersionTLS12
+  userConfig:   # Optional metadata to apply to report sent to data-service for a specific user
   - metadata:
       ameta1: ametadata1
       bmeta1: bmetadata1
@@ -60,7 +125,52 @@ spec:
     userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api
 ```
 
-### User Configuration
+Sample Header Secrets:
+```YAML
+apiVersion: v1
+stringData:
+  accept: | 
+    */*
+kind: Secret
+metadata:
+  name: dest-header-map-secret
+type: Opaque
+---
+apiVersion: v1
+stringData:
+  accept: application/json
+  Content-Type: application/json
+kind: Secret
+metadata:
+  name: auth-header-map-secret
+type: Opaque
+```
+
+Sample Authentication Body Secret:
+```YAML
+apiVersion: v1
+stringData:
+  bodydata: |
+    {"apikey": "myapikey"}
+kind: Secret
+metadata:
+  name: auth-body-data-secret
+type: Opaque
+```
+
+Sample TLS Secret:
+```YAML
+apiVersion: v1
+data:
+  ca.crt: LS0t...
+  tls.key: LS0t...
+  tls.crt: LS0t...
+kind: Secret
+metadata:
+  name: tls-ca-certificates
+```
+
+### API Service User Configuration
 
 - The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`
 - The default ServiceAccount provided as an api user is `system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api`
@@ -78,7 +188,7 @@ oc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-da
 
 - Update datareporterconfig to attach metadata to reports associated with this user
 
-## Usage
+## API Service Usage
 
 - Get Token & Host
 
