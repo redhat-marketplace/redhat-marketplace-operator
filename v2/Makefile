@@ -196,6 +196,16 @@ bundle: clean manifests kustomize operator-sdk yq omt
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/disconnected" = "true"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/fips-compliant" = "true"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/proxy-aware" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/tls-profiles" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/token-auth-aws" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/token-auth-azure" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/token-auth-gcp" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/cnf" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/cni" = "false"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/csi" = "false"' $(CSV_YAML_BUNDLE_FILE)
 	$(OMT) pinning pin ./bundle/manifests
 	$(OPERATOR_SDK) bundle validate ./bundle
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
