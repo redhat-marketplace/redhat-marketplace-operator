@@ -189,7 +189,7 @@ bundle: clean manifests kustomize operator-sdk yq omt
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/disconnected" = "true"' $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/fips-compliant" = "true"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/fips-compliant" = "false"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/proxy-aware" = "false"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/tls-profiles" = "false"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."features.operators.openshift.io/token-auth-aws" = "false"' $(CSV_YAML_BUNDLE_FILE)
