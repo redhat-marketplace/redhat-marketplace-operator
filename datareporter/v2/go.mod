@@ -12,6 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.29.0
 	github.com/openshift/api v3.9.0+incompatible
+	github.com/qntfy/kazaam/v4 v4.0.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 v2.0.0-00010101000000-000000000000
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210409165614-0a6355b7a700
 	github.com/ungerik/go-pool v0.0.0-20140720100922-d102a2c7872a
@@ -33,7 +34,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/qntfy/jsonparser v1.0.2 // indirect
-	github.com/qntfy/kazaam/v4 v4.0.1 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20220426143752-6e78b5cdab00 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
@@ -101,7 +101,7 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/grpc v1.59.0 // indirect
+	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -122,6 +122,7 @@ replace (
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/common => github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.44.0
+	github.com/qntfy/kazaam/v4 => github.com/willie68/kazaam/v4 v4.0.0-20230518091049-08094afa110e // timestamp fix
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 => ../../deployer/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2

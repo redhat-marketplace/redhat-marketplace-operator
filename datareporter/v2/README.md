@@ -73,7 +73,7 @@ spec:
       header:   # secret map to use for destination request headers
         secret:
           name: dest-header-map-secret
-      transformer:   # The transformer to apply to event for this destination
+      transformer:   # The transformer to apply to event data for this destination
         configMapKeyRef:
           key: kazaam.json
           name: kazaam-configmap
