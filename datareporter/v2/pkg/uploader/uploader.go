@@ -194,7 +194,7 @@ func (u *Uploader) uploadToDest(destURL *url.URL, body []byte) (*http.Response, 
 		return nil, err
 	}
 
-	dReq.Header = u.destHeader
+	dReq.Header = u.destHeader.Clone()
 	if len(u.config.AuthDestHeader) != 0 && len(u.getAuthToken()) != 0 {
 		dReq.Header.Set(u.config.AuthDestHeader, u.config.AuthDestHeaderPrefix+u.getAuthToken())
 	}
@@ -225,7 +225,7 @@ func (u *Uploader) callAuth() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	aReq.Header = u.authHeader
+	aReq.Header = u.authHeader.Clone()
 
 	u.log.V(5).Info("authentication request", "url", aReq.URL, "header", aReq.Header, "body", string(u.authBodyData))
 
