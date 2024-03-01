@@ -31,7 +31,6 @@ import (
 	osimagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/assets"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -54,22 +53,6 @@ import (
 )
 
 const (
-	PrometheusOperatorDeploymentV46 = "prometheus-operator/deployment-v4.6.yaml"
-	PrometheusOperatorServiceV46    = "prometheus-operator/service-v4.6.yaml"
-
-	PrometheusAdditionalScrapeConfig = "prometheus/additional-scrape-configs.yaml"
-	PrometheusHtpasswd               = "prometheus/htpasswd-secret.yaml"
-	PrometheusRBACProxySecret        = "prometheus/kube-rbac-proxy-secret.yaml"
-	PrometheusDeploymentV46          = "prometheus/prometheus-v4.6.yaml"
-	PrometheusProxySecret            = "prometheus/proxy-secret.yaml"
-	PrometheusService                = "prometheus/service.yaml"
-	PrometheusDatasourcesSecret      = "prometheus/prometheus-datasources-secret.yaml"
-	PrometheusServingCertsCABundle   = "prometheus/serving-certs-ca-bundle.yaml"
-	PrometheusKubeletServingCABundle = "prometheus/kubelet-serving-ca-bundle.yaml"
-	PrometheusServiceMonitor         = "prometheus/service-monitor.yaml"
-	PrometheusMeterDefinition        = "prometheus/meterdefinition.yaml"
-
-	ReporterJob             = "reporter/job.yaml"
 	ReporterCronJob         = "reporter/cronjob.yaml"
 	ReporterMeterDefinition = "reporter/meterdefinition.yaml"
 
@@ -78,13 +61,8 @@ const (
 	MetricStateService           = "metric-state/service.yaml"
 	MetricStateMeterDefinition   = "metric-state/meterdefinition.yaml"
 
-	// ose-prometheus v4.6
-	MetricStateRHMOperatorSecret   = "metric-state/secret.yaml"
-	KubeStateMetricsService        = "metric-state/kube-state-metrics-service.yaml"
-	KubeStateMetricsServiceMonitor = "metric-state/kube-state-metrics-service-monitor.yaml"
-	KubeletServiceMonitor          = "metric-state/kubelet-service-monitor.yaml"
+	KubeStateMetricsService = "metric-state/kube-state-metrics-service.yaml"
 
-	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
 	RRControllerDeployment = "razee/rr-controller-deployment.yaml"
@@ -189,10 +167,6 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		envChanges.Append(addPodName)
 	case container.Name == "reporter":
 		container.Image = f.config.RelatedImages.Reporter
-	case container.Name == "prometheus-operator":
-		container.Image = f.config.RelatedImages.PrometheusOperator
-	case container.Name == "prometheus-proxy":
-		container.Image = f.config.RelatedImages.OAuthProxy
 	case container.Name == "rhm-data-service":
 		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == "rhm-meterdefinition-file-server":
@@ -649,21 +623,6 @@ func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
 	return nil
 }
 
-func (f *Factory) NewPrometheus(
-	manifest io.Reader,
-) (*monitoringv1.Prometheus, error) {
-	p, err := NewPrometheus(manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	if p.GetNamespace() == "" {
-		p.SetNamespace(f.namespace)
-	}
-
-	return p, nil
-}
-
 func (f *Factory) NewMeterDefinition(
 	manifest io.Reader,
 ) (*marketplacev1beta1.MeterDefinition, error) {
@@ -679,241 +638,11 @@ func (f *Factory) NewMeterDefinition(
 	return m, nil
 }
 
-func (f *Factory) PrometheusService(instanceName string) (*v1.Service, error) {
-	s, err := f.NewService(MustAssetReader(PrometheusService))
-	if err != nil {
-		return nil, err
-	}
-
-	s.Namespace = f.namespace
-
-	s.Labels["app"] = "prometheus"
-	s.Labels["prometheus"] = instanceName
-
-	s.Spec.Selector["prometheus"] = instanceName
-
-	return s, nil
-}
-
-func (f *Factory) PrometheusRBACProxySecret() (*v1.Secret, error) {
-	s, err := f.NewSecret(MustAssetReader(PrometheusRBACProxySecret))
-	if err != nil {
-		return nil, err
-	}
-
-	s.Namespace = f.namespace
-
-	return s, nil
-}
-
-func (f *Factory) PrometheusProxySecret() (*v1.Secret, error) {
-	s, err := f.NewSecret(MustAssetReader(PrometheusProxySecret))
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := GeneratePassword(43)
-	if err != nil {
-		return nil, err
-	}
-	s.Data["session_secret"] = []byte(p)
-	s.Namespace = f.namespace
-
-	return s, nil
-}
-
-func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, error) {
-	s, err := f.NewSecret(MustAssetReader(PrometheusAdditionalScrapeConfig))
-	if err != nil {
-		return nil, err
-	}
-
-	s.Data["meterdef.yaml"] = data
-	s.Namespace = f.namespace
-
-	return s, nil
-}
-
-func (f *Factory) prometheusOperatorDeployment() string {
-	return PrometheusOperatorDeploymentV46
-}
-
-func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
-	c := f.config.PrometheusOperatorConfig
-	dep, err := f.NewDeployment(MustAssetReader(f.prometheusOperatorDeployment()))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(c.NodeSelector) > 0 {
-		dep.Spec.Template.Spec.NodeSelector = c.NodeSelector
-	}
-
-	if len(c.Tolerations) > 0 {
-		dep.Spec.Template.Spec.Tolerations = c.Tolerations
-	}
-
-	if c.ServiceAccountName != "" {
-		dep.Spec.Template.Spec.ServiceAccountName = c.ServiceAccountName
-	}
-
-	replacer := strings.NewReplacer(
-		"{{NAMESPACE}}", f.namespace,
-		"{{NAMESPACES}}", strings.Join(ns, ","),
-		"{{CONFIGMAP_RELOADER_IMAGE}}", f.config.RelatedImages.ConfigMapReloader,
-		"{{PROM_CONFIGMAP_RELOADER_IMAGE}}", f.config.RelatedImages.PrometheusConfigMapReloader,
-	)
-
-	for i := range dep.Spec.Template.Spec.Containers {
-		container := &dep.Spec.Template.Spec.Containers[i]
-		newArgs := []string{}
-
-		err := f.ReplaceImages(container)
-
-		if err != nil {
-			return nil, err
-		}
-
-		for _, arg := range container.Args {
-			newArg := replacer.Replace(arg)
-			newArgs = append(newArgs, newArg)
-		}
-
-		container.Args = newArgs
-	}
-
-	return dep, err
-}
-
-func (f *Factory) prometheusDeployment() string {
-	return PrometheusDeploymentV46
-}
-
-func (f *Factory) NewPrometheusDeployment(
-	cr *marketplacev1alpha1.MeterBase,
-	cfg *corev1.Secret,
-) (*monitoringv1.Prometheus, error) {
-	logger := log.WithValues("func", "NewPrometheusDeployment")
-	p, err := f.NewPrometheus(MustAssetReader(f.prometheusDeployment()))
-
-	if err != nil {
-		logger.Error(err, "failed to read the file")
-		return p, err
-	}
-
-	p.Name = cr.Name
-	p.ObjectMeta.Name = cr.Name
-
-	return p, nil
-}
-
-func (f *Factory) prometheusOperatorService() string {
-	return PrometheusOperatorServiceV46
-}
-
-func (f *Factory) NewPrometheusOperatorService() (*corev1.Service, error) {
-	service, err := f.NewService(MustAssetReader(f.prometheusOperatorService()))
-
-	return service, err
-}
-
-func (f *Factory) PrometheusKubeletServingCABundle(data string) (*v1.ConfigMap, error) {
-	c, err := f.NewConfigMap(MustAssetReader(PrometheusKubeletServingCABundle))
-	if err != nil {
-		return nil, err
-	}
-
-	c.Namespace = f.namespace
-	c.Data = map[string]string{
-		"ca-bundle.crt": data,
-	}
-
-	return c, nil
-}
-
-func (f *Factory) PrometheusDatasources() (*v1.Secret, error) {
-	s, err := f.NewSecret(MustAssetReader(PrometheusDatasourcesSecret))
-	if err != nil {
-		return nil, err
-	}
-
-	secret, err := GeneratePassword(255)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Data == nil {
-		s.Data = make(map[string][]byte)
-	}
-
-	s.Data["basicAuthSecret"] = []byte(secret)
-
-	s.Namespace = f.namespace
-
-	return s, nil
-}
-
-func (f *Factory) PrometheusHtpasswdSecret(password string) (*v1.Secret, error) {
-	s, err := f.NewSecret(MustAssetReader(PrometheusHtpasswd))
-	if err != nil {
-		return nil, err
-	}
-
-	f.generateHtpasswdSecret(s, password)
-	return s, nil
-}
-
 func (f *Factory) generateHtpasswdSecret(s *v1.Secret, password string) {
 	h := sha1.New()
 	h.Write([]byte(password))
 	s.Data["auth"] = []byte("internal:{SHA}" + base64.StdEncoding.EncodeToString(h.Sum(nil)))
 	s.Namespace = f.namespace
-}
-
-func (f *Factory) PrometheusServingCertsCABundle() (*v1.ConfigMap, error) {
-	c, err := f.NewConfigMap(MustAssetReader(PrometheusServingCertsCABundle))
-	if err != nil {
-		return nil, err
-	}
-
-	c.Namespace = f.namespace
-
-	return c, nil
-}
-
-func (f *Factory) PrometheusMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
-	m, err := f.NewMeterDefinition(MustAssetReader(PrometheusMeterDefinition))
-	if err != nil {
-		return nil, err
-	}
-
-	m.Namespace = f.namespace
-
-	return m, nil
-}
-
-func (f *Factory) PrometheusServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
-	sm, err := f.NewServiceMonitor(MustAssetReader(PrometheusServiceMonitor))
-	if err != nil {
-		return nil, err
-	}
-
-	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-prometheus-meterbase.%s.svc", f.namespace)
-	sm.Namespace = f.namespace
-
-	return sm, nil
-}
-
-func (f *Factory) UserWorkloadMonitoringServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
-	sm, err := f.NewServiceMonitor(MustAssetReader(UserWorkloadMonitoringServiceMonitor))
-	if err != nil {
-		return nil, err
-	}
-
-	sm.Namespace = f.namespace
-
-	return sm, nil
 }
 
 func (f *Factory) UserWorkloadMonitoringMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
@@ -923,92 +652,6 @@ func (f *Factory) UserWorkloadMonitoringMeterDefinition() (*marketplacev1beta1.M
 	}
 
 	return m, nil
-}
-
-func (f *Factory) ReporterJob(
-	report *marketplacev1alpha1.MeterReport,
-	backoffLimit *int32,
-	uploadTarget string,
-) (*batchv1.Job, error) {
-	j, err := f.NewJob(MustAssetReader(ReporterJob))
-
-	if err != nil {
-		return nil, err
-	}
-
-	j.Spec.BackoffLimit = backoffLimit
-	container := &j.Spec.Template.Spec.Containers[0]
-	container.Image = f.config.RelatedImages.Reporter
-	f.ReplaceImages(container)
-
-	j.Name = report.GetName()
-	container.Args = append(container.Args,
-		"--name",
-		report.Name,
-		"--namespace",
-		report.Namespace,
-	)
-
-	if len(report.Spec.ExtraArgs) > 0 {
-		container.Args = append(container.Args, report.Spec.ExtraArgs...)
-	}
-
-	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
-
-		container.Args = append(container.Args, dataServiceArgs...)
-
-		dataServiceVolumeMounts := []v1.VolumeMount{
-			{
-				Name:      "data-service-token-vol",
-				ReadOnly:  true,
-				MountPath: "/etc/data-service-sa",
-			},
-			{
-				Name:      "ibm-metrics-operator-serving-certs-ca-bundle",
-				MountPath: "/etc/configmaps/ibm-metrics-operator-serving-certs-ca-bundle",
-				ReadOnly:  false,
-			},
-		}
-
-		container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
-
-		dataServiceTokenVols := []v1.Volume{
-			{
-				Name: "ibm-metrics-operator-serving-certs-ca-bundle",
-				VolumeSource: v1.VolumeSource{
-					ConfigMap: &v1.ConfigMapVolumeSource{
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: "ibm-metrics-operator-serving-certs-ca-bundle",
-						},
-					},
-				},
-			},
-			{
-				Name: "data-service-token-vol",
-				VolumeSource: v1.VolumeSource{
-					Projected: &v1.ProjectedVolumeSource{
-						Sources: []v1.VolumeProjection{
-							{
-								ServiceAccountToken: &v1.ServiceAccountTokenProjection{
-									Audience:          utils.DataServiceAudience(f.namespace),
-									ExpirationSeconds: ptr.Int64(3600),
-									Path:              "data-service-token",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
-	}
-
-	// Keep last 3 days of data
-	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
-
-	return j, nil
 }
 
 func (f *Factory) ReporterMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
@@ -1045,15 +688,6 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	}
 
 	return d, nil
-}
-
-func (f *Factory) ServiceAccountPullSecret() (*corev1.Secret, error) {
-	s, err := NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
-	if err != nil {
-		return nil, err
-	}
-	s.Namespace = f.namespace
-	return s, err
 }
 
 func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.ServiceMonitor, error) {
@@ -1105,28 +739,6 @@ func (f *Factory) KubeStateMetricsService() (*corev1.Service, error) {
 	s.Namespace = f.namespace
 
 	return s, nil
-}
-
-func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
-	sm, err := f.NewServiceMonitor(MustAssetReader(KubeStateMetricsServiceMonitor))
-	if err != nil {
-		return nil, err
-	}
-
-	sm.Namespace = f.namespace
-
-	return sm, nil
-}
-
-func (f *Factory) KubeletServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
-	sm, err := f.NewServiceMonitor(MustAssetReader(KubeletServiceMonitor))
-	if err != nil {
-		return nil, err
-	}
-
-	sm.Namespace = f.namespace
-
-	return sm, nil
 }
 
 func (f *Factory) MetricStateService() (*v1.Service, error) {
@@ -1293,16 +905,6 @@ func NewConfigMap(manifest io.Reader) (*v1.ConfigMap, error) {
 
 func NewService(manifest io.Reader) (*v1.Service, error) {
 	s := v1.Service{}
-	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&s)
-	if err != nil {
-		return nil, err
-	}
-
-	return &s, nil
-}
-
-func NewPrometheus(manifest io.Reader) (*monitoringv1.Prometheus, error) {
-	s := monitoringv1.Prometheus{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&s)
 	if err != nil {
 		return nil, err

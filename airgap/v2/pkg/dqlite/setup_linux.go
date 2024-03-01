@@ -23,7 +23,6 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -104,7 +103,7 @@ func (dc *DatabaseConfig) initDqlite() error {
 		if err != nil {
 			return err
 		}
-		caCert, err := ioutil.ReadFile(dc.CACert)
+		caCert, err := os.ReadFile(dc.CACert)
 		if err != nil {
 			return err
 		}

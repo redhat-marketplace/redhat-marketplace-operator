@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"emperror.dev/errors"
@@ -72,7 +71,7 @@ var SignCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		pubKey, err := ioutil.ReadFile(publickey)
+		pubKey, err := os.ReadFile(publickey)
 		if err != nil {
 			log.Error(err, "Could not read public key file")
 			os.Exit(1)
