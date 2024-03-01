@@ -31,6 +31,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -210,6 +211,7 @@ func main() {
 	}()
 
 	rc := retryablehttp.NewClient()
+	rc.Logger = logger.NewRetryableHTTPLogger()
 	sc := rc.StandardClient() // *http.Client
 	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config, &cc.ApiHandlerConfig)
 

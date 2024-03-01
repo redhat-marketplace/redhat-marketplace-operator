@@ -155,6 +155,8 @@ func (u *Uploader) upload(destURL *url.URL, body []byte) (int, error) {
 
 	defer dResp.Body.Close()
 
+	u.log.V(5).Info("upload response", "url", dResp.Request.URL, "header", dResp.Header)
+
 	if dResp.StatusCode == http.StatusUnauthorized && u.authURL != nil {
 		// Request was not authorized, attempt to request a authorization token
 		statusCode, err := u.callAuth()
@@ -170,13 +172,15 @@ func (u *Uploader) upload(destURL *url.URL, body []byte) (int, error) {
 
 		defer adResp.Body.Close()
 
-		if adResp.StatusCode != http.StatusOK {
+		u.log.V(5).Info("upload response", "url", dResp.Request.URL, "header", dResp.Header)
+
+		if !(adResp.StatusCode >= 200 && adResp.StatusCode < 300) {
 			return adResp.StatusCode, errors.NewWithDetails(Non200Response, "url", u.destURL.String(), "statuscode", adResp.StatusCode)
 		}
 
 		return adResp.StatusCode, nil
 
-	} else if dResp.StatusCode != http.StatusOK {
+	} else if !(dResp.StatusCode >= 200 && dResp.StatusCode < 300) {
 		return dResp.StatusCode, errors.NewWithDetails(Non200Response, "url", u.destURL.String(), "statuscode", dResp.StatusCode)
 	}
 
@@ -190,11 +194,11 @@ func (u *Uploader) uploadToDest(destURL *url.URL, body []byte) (*http.Response, 
 		return nil, err
 	}
 
-	dReq.Header = u.destHeader
+	dReq.Header = u.destHeader.Clone()
 	if len(u.config.AuthDestHeader) != 0 && len(u.getAuthToken()) != 0 {
 		dReq.Header.Set(u.config.AuthDestHeader, u.config.AuthDestHeaderPrefix+u.getAuthToken())
 	}
-
+	u.log.V(5).Info("upload request", "url", dReq.URL, "header", dReq.Header, "body", string(body))
 	return u.client.Do(dReq)
 }
 
@@ -221,7 +225,9 @@ func (u *Uploader) callAuth() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	aReq.Header = u.authHeader
+	aReq.Header = u.authHeader.Clone()
+
+	u.log.V(5).Info("authentication request", "url", aReq.URL, "header", aReq.Header, "body", string(u.authBodyData))
 
 	aResp, err := u.client.Do(aReq)
 	if err != nil {
@@ -230,7 +236,9 @@ func (u *Uploader) callAuth() (int, error) {
 
 	defer aResp.Body.Close()
 
-	if aResp.StatusCode != http.StatusOK {
+	u.log.V(5).Info("authentication response", "url", aResp.Request.URL, "header", aResp.Header)
+
+	if !(aResp.StatusCode >= 200 && aResp.StatusCode < 300) {
 		return aResp.StatusCode, errors.NewWithDetails(Non200Response, "url", u.authURL.String(), "statuscode", aResp.StatusCode)
 	}
 
@@ -238,6 +246,8 @@ func (u *Uploader) callAuth() (int, error) {
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
+
+	u.log.V(5).Info("authentication response", "url", aResp.Request.URL, "header", aResp.Header, "body", string(aBody))
 
 	// If an expression is configured, parse the body for the first result as token
 	if u.authTokenExpr != nil {
