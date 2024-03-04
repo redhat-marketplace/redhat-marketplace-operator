@@ -16,7 +16,7 @@ package reporter
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -32,14 +32,14 @@ func provideDataServiceConfig(
 	dataServiceTokenFile := reporterConfig.DataServiceTokenFile
 	dataServiceCertFile := reporterConfig.DataServiceCertFile
 
-	cert, err := ioutil.ReadFile(dataServiceCertFile)
+	cert, err := os.ReadFile(dataServiceCertFile)
 	if err != nil {
 		return nil, err
 	}
 
 	var serviceAccountToken = ""
 	if dataServiceTokenFile != "" {
-		content, err := ioutil.ReadFile(dataServiceTokenFile)
+		content, err := os.ReadFile(dataServiceTokenFile)
 		if err != nil {
 			return nil, err
 		}

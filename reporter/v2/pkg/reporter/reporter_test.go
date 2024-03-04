@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,8 +63,8 @@ var _ = Describe("Reporter", func() {
 	BeforeEach(func() {
 		uploader = &uploaders.NoOpUploader{}
 
-		dir, err = ioutil.TempDir("", "report")
-		dir2, err = ioutil.TempDir("", "targz")
+		dir, err = os.MkdirTemp("", "report")
+		dir2, err = os.MkdirTemp("", "targz")
 
 		Expect(err).To(Succeed())
 
@@ -222,7 +221,7 @@ var _ = Describe("Reporter", func() {
 			for _, file := range files {
 				By(fmt.Sprintf("testing file %s", file))
 				Expect(file).To(BeAnExistingFile())
-				fileBytes, err := ioutil.ReadFile(file)
+				fileBytes, err := os.ReadFile(file)
 				Expect(err).To(Succeed(), "file does not exist")
 				data := make(map[string]interface{})
 				err = json.Unmarshal(fileBytes, &data)
@@ -472,7 +471,7 @@ var _ = Describe("Reporter", func() {
 			for _, file := range files {
 				By(fmt.Sprintf("testing file %s", file))
 				Expect(file).To(BeAnExistingFile())
-				fileBytes, err := ioutil.ReadFile(file)
+				fileBytes, err := os.ReadFile(file)
 				Expect(err).To(Succeed(), "file does not exist")
 				data := make(map[string]interface{})
 				err = json.Unmarshal(fileBytes, &data)

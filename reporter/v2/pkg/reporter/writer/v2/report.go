@@ -17,7 +17,6 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -102,7 +101,7 @@ func (r *ReportWriter) WriteReport(
 			filedir,
 			fmt.Sprintf("%s.json", reportSliceID.String()))
 
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filename,
 			marshallBytes,
 			0600)
@@ -128,7 +127,7 @@ func (r *ReportWriter) WriteReport(
 
 	filename := filepath.Join(filedir, "manifest.json")
 
-	err = ioutil.WriteFile(filename, marshallBytes, 0600)
+	err = os.WriteFile(filename, marshallBytes, 0600)
 	if err != nil {
 		logger.Error(err, "failed to write file", "file", filename)
 		return nil, err

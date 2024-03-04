@@ -23,6 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// The RHMWorkload is no longer supported, but the selector may be useful in the future
+// So the logic is left in place
+
 type PrometheusAPIType string
 
 const UserWorkload PrometheusAPIType = "UserWorkload"

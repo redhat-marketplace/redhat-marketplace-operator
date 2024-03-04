@@ -19,8 +19,8 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
@@ -151,7 +151,7 @@ func providePrometheusAPIForReporter(
 
 	var auth = ""
 	if setup.TokenFilePath != "" {
-		content, err := ioutil.ReadFile(setup.TokenFilePath)
+		content, err := os.ReadFile(setup.TokenFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +177,7 @@ func providePrometheusAPIForReporter(
 }
 
 func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
-	content, err := ioutil.ReadFile(apiTokenPath)
+	content, err := os.ReadFile(apiTokenPath)
 	if err != nil {
 		return "", err
 	}
@@ -186,7 +186,7 @@ func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 }
 
 func GetAuthTokenForKubeAdm() (token string, returnErr error) {
-	content, err := ioutil.ReadFile("/etc/kubeadmin/token")
+	content, err := os.ReadFile("/etc/kubeadmin/token")
 	if err != nil {
 		return "", err
 	}
@@ -282,7 +282,7 @@ func GenerateCACertPool(files ...string) (*tls.Config, error) {
 	}
 
 	for _, file := range files {
-		caCert, err := ioutil.ReadFile(file)
+		caCert, err := os.ReadFile(file)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load cert file")
 		}

@@ -20,7 +20,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -159,7 +159,7 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(catalogRequest *Catalo
 
 	defer response.Body.Close()
 
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.Logger.Error(err, "error reading body")
 		return nil, err
@@ -210,7 +210,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	defer response.Body.Close()
 
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.Logger.Error(err, "error reading body")
 		return nil, err
@@ -251,7 +251,7 @@ func (c *CatalogClient) GetCommunityMeterdefIndexLabels(csvName string, packageN
 
 	defer response.Body.Close()
 
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.Logger.Error(err, "error reading body")
 		return nil, err
@@ -292,7 +292,7 @@ func (c *CatalogClient) GetSystemMeterDefIndexLabels(csvName string, packageName
 
 	defer response.Body.Close()
 
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.Logger.Error(err, "error reading body")
 		return nil, err
@@ -331,7 +331,7 @@ func (c *CatalogClient) GetGlobalCommunityMeterdefIndexLabel() (map[string]strin
 
 	defer response.Body.Close()
 
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.Logger.Error(err, "error reading body")
 		return nil, err
@@ -370,7 +370,7 @@ func (c *CatalogClient) GetGlobalSystemMeterDefIndexLabels() (map[string]string,
 
 	defer response.Body.Close()
 
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.Logger.Error(err, "error reading body")
 		return nil, err

@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"emperror.dev/errors"
@@ -57,7 +56,7 @@ func Decode(reader io.Reader) ([]unstructured.Unstructured, error) {
 }
 
 func PrivateKeyFromPemFile(privateKeyFile string, privateKeyPassword string) (*rsa.PrivateKey, error) {
-	privPEMData, err := ioutil.ReadFile(privateKeyFile)
+	privPEMData, err := os.ReadFile(privateKeyFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to read private key file")
 	}
@@ -95,7 +94,7 @@ func PrivateKeyFromPemFile(privateKeyFile string, privateKeyPassword string) (*r
 }
 
 func CertificateFromPemFile(pemFile string) (*x509.Certificate, error) {
-	pemData, err := ioutil.ReadFile(pemFile)
+	pemData, err := os.ReadFile(pemFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to read pem file")
 	}
