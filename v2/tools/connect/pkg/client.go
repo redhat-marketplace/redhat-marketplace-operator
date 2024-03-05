@@ -17,7 +17,7 @@ package pkg
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -140,7 +140,7 @@ func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectRespon
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	fmt.Printf("publishResults %s\n", string(body))
 
@@ -182,7 +182,7 @@ func (c *connectClient) GetTag(opsid, digest string) (*pcTag, error) {
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	fmt.Printf("body: %s\n", string(body))
 
 	if err != nil {

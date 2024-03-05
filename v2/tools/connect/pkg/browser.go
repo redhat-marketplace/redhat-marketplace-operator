@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -51,7 +51,7 @@ var GetPublishStatusCommand = &cobra.Command{
 	Short: "Retrieves the current status of publish",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !verbose {
-			log.SetOutput(ioutil.Discard)
+			log.SetOutput(io.Discard)
 		} else {
 			log.SetOutput(cmd.OutOrStderr())
 		}
@@ -103,7 +103,7 @@ var PublishCommand = &cobra.Command{
 	Short: "Publish's the image on PC.",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !verbose {
-			log.SetOutput(ioutil.Discard)
+			log.SetOutput(io.Discard)
 		} else {
 			log.SetOutput(cmd.OutOrStderr())
 		}
@@ -801,7 +801,7 @@ func captureScreenshot(name string) chromedp.ActionFunc {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(name, buf, 0644); err != nil {
+		if err := os.WriteFile(name, buf, 0644); err != nil {
 			log.Fatal(err)
 		}
 		return nil

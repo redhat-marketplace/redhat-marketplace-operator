@@ -15,7 +15,7 @@
 package marketplace
 
 import (
-	ioutil "io/ioutil"
+	"os"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -153,7 +153,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/" + PullSecretEndpoint
-			body, err := ioutil.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
+			body, err := os.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
 			if err != nil {
 				panic(err)
 			}
@@ -187,7 +187,7 @@ var _ = Describe("Marketplace Config Status", func() {
 			statusCode = 200
 			path = "/" + RegistrationEndpoint
 
-			body, _ = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
+			body, _ = os.ReadFile("../../tests/mockresponses/registration-response.json")
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", path, "accountId=accountid&uuid=test"),

@@ -20,7 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	ioutil "io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -264,7 +264,7 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 	}
 
 	logger.Info("RegistrationStatus status code", "httpstatus", resp.StatusCode)
-	clusterDef, err := ioutil.ReadAll(resp.Body)
+	clusterDef, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
 	if err != nil {
@@ -363,7 +363,7 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 	}
 	defer resp.Body.Close()
 
-	rhOperatorSecretDef, err := ioutil.ReadAll(resp.Body)
+	rhOperatorSecretDef, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
@@ -424,7 +424,7 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 		return "", err
 	}
 
-	clusterDef, err := ioutil.ReadAll(resp.Body)
+	clusterDef, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
 	if err != nil {

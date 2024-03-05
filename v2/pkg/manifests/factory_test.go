@@ -24,22 +24,6 @@ import (
 )
 
 var files = []string{
-	PrometheusOperatorDeploymentV46,
-	PrometheusOperatorServiceV46,
-
-	PrometheusAdditionalScrapeConfig,
-	PrometheusHtpasswd,
-	PrometheusRBACProxySecret,
-	PrometheusDeploymentV46,
-	PrometheusProxySecret,
-	PrometheusService,
-	PrometheusDatasourcesSecret,
-	PrometheusServingCertsCABundle,
-	PrometheusKubeletServingCABundle,
-	PrometheusServiceMonitor,
-	PrometheusMeterDefinition,
-
-	ReporterJob,
 	ReporterMeterDefinition,
 
 	MetricStateDeployment,
@@ -47,13 +31,8 @@ var files = []string{
 	MetricStateService,
 	MetricStateMeterDefinition,
 
-	// ose-prometheus v4.6
-	MetricStateRHMOperatorSecret,
 	KubeStateMetricsService,
-	KubeStateMetricsServiceMonitor,
-	KubeletServiceMonitor,
 
-	UserWorkloadMonitoringServiceMonitor,
 	UserWorkloadMonitoringMeterDefinition,
 }
 
