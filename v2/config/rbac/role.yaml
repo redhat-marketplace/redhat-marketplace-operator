@@ -271,9 +271,7 @@ rules:
   - ""
   resourceNames:
   - kube-state-metrics
-  - prometheus-operator
   - rhm-metric-state-service
-  - rhm-prometheus-meterbase
   resources:
   - services
   verbs:
@@ -312,7 +310,6 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - prometheus-operator
   - rhm-metric-state
   resources:
   - deployments
@@ -581,7 +578,6 @@ rules:
   - redhat-marketplace-kube-state-metrics
   - redhat-marketplace-kubelet
   - rhm-metric-state
-  - rhm-prometheus-meterbase
   resources:
   - servicemonitors
   verbs:

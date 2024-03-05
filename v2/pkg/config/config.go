@@ -20,7 +20,6 @@ import (
 	"net"
 	"net/url"
 	"reflect"
-	"strconv"
 	"sync"
 	"time"
 
@@ -74,36 +73,26 @@ type Resources struct {
 
 // RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
-	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.14"`
-	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
-	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
-	DQLite                      string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
-	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:v4.11"`
-	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:v4.11"`
-	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:v4.11"`
-	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.11"`
-	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:v4.11"`
-	RemoteResource              string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
-	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
-	MeterDefFileServer          string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
+	Reporter           string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
+	KubeRbacProxy      string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.14"`
+	MetricState        string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
+	AuthChecker        string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
+	DQLite             string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
+	RemoteResource     string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
+	WatchKeeper        string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
+	MeterDefFileServer string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
 // OSRelatedImages stores open source related images for the operator
 type OSRelatedImages struct {
-	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy               string `env:"OS_IMAGE_KUBE_RBAC_PROXY" envDefault:"quay.io/coreos/kube-rbac-proxy:v0.5.0"`
-	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
-	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
-	DQLite                      string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
-	Prometheus                  string `env:"OS_IMAGE_PROMETHEUS" envDefault:"quay.io/prometheus/prometheus:v2.24.0"`
-	PrometheusOperator          string `env:"OS_IMAGE_PROMETHEUS_OPERATOR" envDefault:"quay.io/coreos/prometheus-operator:v0.42.1"`
-	ConfigMapReloader           string `env:"OS_IMAGE_CONFIGMAP_RELOADER" envDefault:"quay.io/coreos/configmap-reload:v0.0.1"`
-	PrometheusConfigMapReloader string `env:"OS_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"quay.io/coreos/prometheus-config-reloader:v0.42.1"`
-	OAuthProxy                  string `env:"OS_IMAGE_OAUTH_PROXY" envDefault:"quay.io/oauth2-proxy/oauth2-proxy:v6.1.1"`
-	RemoteResource              string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
-	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
-	MeterDefFileServer          string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
+	Reporter           string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
+	KubeRbacProxy      string `env:"OS_IMAGE_KUBE_RBAC_PROXY" envDefault:"quay.io/brancz/kube-rbac-proxy:latest"`
+	MetricState        string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
+	AuthChecker        string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
+	DQLite             string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
+	RemoteResource     string `env:"RELATED_IMAGE_RHM_RRS_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
+	WatchKeeper        string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
+	MeterDefFileServer string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
 // Features store feature flags
@@ -215,25 +204,6 @@ func ProvideInfrastructureAwareConfig(
 		err = env.ParseWithFuncs(cfg, customUnmarshalers)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse config")
-		}
-
-		// Use OCP version related images on Openshift 4.6+ instead of default v4.5 images
-		// Do not override RelatedImages in disconnected environment
-		if inf.HasOpenshift() && !cfg.IsDisconnected {
-			ocpVersion := inf.OpenshiftParsedVersion()
-			if ocpVersion != nil {
-				ocpTag := strconv.FormatUint(ocpVersion.Major, 10) + "." + strconv.FormatUint(ocpVersion.Minor, 10)
-
-				log.Info("using version override on images", "version", ocpTag)
-
-				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v" + ocpTag
-				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v" + ocpTag
-				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v" + ocpTag
-				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v" + ocpTag
-				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v" + ocpTag
-			} else {
-				log.Info("couldn't determind version, using default images")
-			}
 		}
 
 		if !inf.HasOpenshift() {

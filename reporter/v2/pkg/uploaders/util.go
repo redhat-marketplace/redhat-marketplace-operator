@@ -17,8 +17,8 @@ package uploaders
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"emperror.dev/errors"
 )
@@ -61,7 +61,7 @@ func GenerateCACertPool(
 	}
 
 	for _, file := range files {
-		caCert, err := ioutil.ReadFile(file)
+		caCert, err := os.ReadFile(file)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load cert file")
 		}

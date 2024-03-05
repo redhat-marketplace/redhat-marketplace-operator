@@ -216,17 +216,17 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-prometheus-meterbase;prometheus-operator;rhm-metric-state-service;kube-state-metrics,resources=services,verbs=update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-metric-state-service;kube-state-metrics,resources=services,verbs=update;patch;delete
 // +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-metric-state;prometheus-operator
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-metric-state
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
-// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=servicemonitors,verbs=update;patch;delete,resourceNames=rhm-metric-state;kube-state-metrics;rhm-prometheus-meterbase;redhat-marketplace-kubelet;prometheus-user-workload;redhat-marketplace-kube-state-metrics
+// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=servicemonitors,verbs=update;patch;delete,resourceNames=rhm-metric-state;kube-state-metrics;redhat-marketplace-kubelet;prometheus-user-workload;redhat-marketplace-kube-state-metrics
 // +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=cronjobs,verbs=update;patch;delete,resourceNames=rhm-meter-report-upload
 
@@ -344,15 +344,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	// Install Objects
 	// ---
 	//
-
-	// Uninstall old Prometheus
-	if err := r.uninstallPrometheus(instance); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if err := r.cleanup(); err != nil {
-		return reconcile.Result{}, err
-	}
 
 	if err := r.checkUWMDefaultStorageClassPrereq(instance); err != nil {
 		return reconcile.Result{}, err
@@ -571,200 +562,6 @@ func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplac
 
 	return nil
 }
-
-/*
-func (r *MeterBaseReconciler) uninstallPrometheusOperator(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
-	deployment, _ := r.Factory.NewPrometheusOperatorDeployment([]string{})
-	service, _ := r.Factory.NewPrometheusOperatorService()
-
-	return []ClientAction{
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
-			OnContinue(DeleteAction(service))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
-			OnContinue(DeleteAction(deployment))),
-	}
-}
-*/
-
-/*
-func (r *MeterBaseReconciler) uninstallMetricState(
-	instance *marketplacev1alpha1.MeterBase,
-) []ClientAction {
-	deployment, _ := r.Factory.MetricStateDeployment()
-	service, _ := r.Factory.MetricStateService()
-	sm0, _ := r.Factory.MetricStateServiceMonitor(nil)
-	sm1, _ := r.Factory.KubeStateMetricsServiceMonitor()
-	sm2, _ := r.Factory.KubeletServiceMonitor()
-	sm3, _ := r.Factory.KubeStateMetricsService()
-	msmd, _ := r.Factory.MetricStateMeterDefinition()
-	rmd, _ := r.Factory.ReporterMeterDefinition()
-
-	return []ClientAction{
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: rmd.Namespace, Name: rmd.Name}, rmd),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(rmd))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: msmd.Namespace, Name: msmd.Name}, msmd),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(msmd))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: sm0.Namespace, Name: sm0.Name}, sm0),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(sm0))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: sm1.Namespace, Name: sm1.Name}, sm1),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(sm1))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: sm2.Namespace, Name: sm2.Name}, sm2),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(sm2))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: sm3.Namespace, Name: sm3.Name}, sm3),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(sm3))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(service))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(deployment))),
-	}
-}
-*/
-
-func (r *MeterBaseReconciler) uninstallPrometheus(instance *marketplacev1alpha1.MeterBase) error {
-	secret0, _ := r.Factory.PrometheusDatasources()
-	secret1, _ := r.Factory.PrometheusProxySecret()
-	secret2, _ := r.Factory.PrometheusHtpasswdSecret("foo")
-	secret3, _ := r.Factory.PrometheusRBACProxySecret()
-	prom, _ := r.Factory.NewPrometheusDeployment(instance, nil)
-	service, _ := r.Factory.PrometheusService(instance.Name)
-	serviceMonitor, _ := r.Factory.PrometheusServiceMonitor()
-	meterDefinition, _ := r.Factory.PrometheusMeterDefinition()
-	operaterDeployment, _ := r.Factory.NewPrometheusOperatorDeployment([]string{})
-	operatorService, _ := r.Factory.NewPrometheusOperatorService()
-
-	if err := r.Client.Delete(context.TODO(), secret0); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), secret1); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), secret2); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), secret3); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), prom); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), service); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), serviceMonitor); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), meterDefinition); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), operaterDeployment); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), operatorService); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	return nil
-}
-
-// Delete old resources no longer applicable after operator split
-func (r *MeterBaseReconciler) cleanup() error {
-
-	// ConfigMaps
-	pConfigMap, err := r.Factory.PrometheusServingCertsCABundle()
-	if err != nil {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), pConfigMap); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
-	pkConfigMap, err := r.Factory.PrometheusKubeletServingCABundle("")
-	if err != nil {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), pkConfigMap); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
-	// ServiceMonitors
-	ksmServiceMonitor, err := r.Factory.KubeStateMetricsServiceMonitor()
-	if err != nil {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), ksmServiceMonitor); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
-	kServiceMonitor, err := r.Factory.KubeletServiceMonitor()
-	if err != nil {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), kServiceMonitor); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
-	uwmServiceMonitor, err := r.Factory.UserWorkloadMonitoringServiceMonitor()
-	if err != nil {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), uwmServiceMonitor); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
-	return nil
-}
-
-/*
-func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle() error {
-	configMap, err := r.Factory.PrometheusServingCertsCABundle()
-	if err != nil {
-		return err
-	}
-	if err := r.Client.Delete(context.TODO(), configMap); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	return nil
-}
-*/
-
-/*
-func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
-	sm, _ := r.Factory.UserWorkloadMonitoringServiceMonitor()
-	md, _ := r.Factory.UserWorkloadMonitoringMeterDefinition()
-
-	return []ClientAction{
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(sm))),
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: md.Namespace, Name: md.Name}, md),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(md))),
-	}
-}
-*/
 
 func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase, userWorkloadEnabled bool, isDisconnected bool) (reconcile.Result, error) {
 	cronJob, err := r.Factory.NewReporterCronJob(userWorkloadEnabled, isDisconnected)

@@ -18,11 +18,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
-
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/api"
@@ -118,11 +118,11 @@ func MockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefin
 
 		Expect(req.URL.String()).To(Equal("http://localhost:9090/api/v1/query_range"), "url does not match expected")
 
-		fileBytes, err := ioutil.ReadFile(file)
+		fileBytes, err := os.ReadFile(file)
 
 		Expect(err).To(Succeed(), "failed to load mock file for response")
 		defer req.Body.Close()
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 
 		Expect(err).To(Succeed())
 
@@ -134,7 +134,7 @@ func MockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefin
 			return &http.Response{
 				StatusCode: 200,
 				// Send response to be tested
-				Body: ioutil.NopCloser(bytes.NewBuffer(meterDefInfo)),
+				Body: io.NopCloser(bytes.NewBuffer(meterDefInfo)),
 				// Must be set to non-nil value or it panics
 				Header: headers,
 			}
@@ -143,7 +143,7 @@ func MockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefin
 		return &http.Response{
 			StatusCode: 200,
 			// Send response to be tested
-			Body: ioutil.NopCloser(bytes.NewBuffer(fileBytes)),
+			Body: io.NopCloser(bytes.NewBuffer(fileBytes)),
 			// Must be set to non-nil value or it panics
 			Header: headers,
 		}
