@@ -45,6 +45,8 @@ Optional:
   - Configuration that can not be reconciled successfully will be reported on the DataReporterConfig Status
   - jsonPath expressions are handled by: https://github.com/ohler55/ojg
     - jsonPath comparison: https://cburgmer.github.io/json-path-comparison/
+  - Transformer type currently supported is `kazaam`
+    - https://github.com/willie68/kazaam
 
 Sample DataReporterConfig:
 ```YAML
@@ -170,6 +172,44 @@ data:
 kind: Secret
 metadata:
   name: tls-ca-certificates
+```
+
+Sample Kazaam ConfigMap:
+```YAML
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kazaam-configmap
+data:
+  kazaam.json: |
+    [
+        {
+            "operation": "timestamp",
+            "spec": {
+                "timestamp": {
+                "inputFormat": "2006-01-02T15:04:05.999999+00:00",
+                "outputFormat": "$unixmilli"
+                }
+            }
+        },
+        {
+            "operation": "shift",
+            "spec": {
+                "instances[0].instanceId": "properties.source",
+                "instances[0].startTime": "timestamp",
+                "instances[0].endTime": "timestamp",
+                "instances[0].metricUsage[0].metricId": "properties.unit",
+                "instances[0].metricUsage[0].quantity": "properties.quantity"
+            }
+        },
+        {
+            "operation": "default",
+            "spec": {
+                "meteringModel": "point-in-time",
+                "meteringPlan": "contract"
+            }
+        }
+    ]
 ```
 
 ### API Service User Configuration
