@@ -85,8 +85,8 @@ func NewDataFilters(
 // Updates the httpClient transport
 func (d *DataFilters) Build(drc *v1alpha1.DataReporterConfig) error {
 
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	// Update API Handler
 	if drc.Spec.ConfirmDelivery != nil {

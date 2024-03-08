@@ -167,7 +167,7 @@ func (u *Uploader) upload(destURL *url.URL, body []byte) (int, error) {
 		// With new token, try destination again
 		adResp, err := u.uploadToDest(destURL, body)
 		if err != nil {
-			return adResp.StatusCode, err
+			return http.StatusInternalServerError, err
 		}
 
 		defer adResp.Body.Close()

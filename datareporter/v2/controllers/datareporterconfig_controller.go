@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"sync"
 
 	"dario.cat/mergo"
 	"github.com/go-logr/logr"
@@ -51,11 +52,13 @@ import (
 
 // DataReporterConfigReconciler reconciles a DataReporterConfig object
 type DataReporterConfigReconciler struct {
-	Client      client.Client
-	Scheme      *runtime.Scheme
-	Log         logr.Logger
-	Config      *events.Config
-	DataFilters *datafilter.DataFilters
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	Config        *events.Config
+	DataFilters   *datafilter.DataFilters
+	secretsSet    watchSet
+	configMapsSet watchSet
 }
 
 // data-service
@@ -107,6 +110,10 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	reqLogger.Info("datareporterconfig found")
+
+	// Only Watch/Reconcile for Secret/ConfigMap updates that are referenced in the datareporterconfig
+	// This prevents unnecessary reconciliation & rebuild of DataFilters, impacting request response
+	r.setSecretConfigMapList(dataReporterConfig)
 
 	// check license and update status
 	if r.Config.LicenseAccept {
@@ -302,6 +309,38 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		},
 	}
 
+	cmPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+
+			return r.configMapsSet.Exists(e.ObjectNew.GetName())
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return r.configMapsSet.Exists(e.Object.GetName())
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return r.configMapsSet.Exists(e.Object.GetName())
+		},
+	}
+
+	secretPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+
+			return r.secretsSet.Exists(e.ObjectNew.GetName())
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return r.secretsSet.Exists(e.Object.GetName())
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return r.secretsSet.Exists(e.Object.GetName())
+		},
+	}
+
 	mapFn := func(ctx context.Context, a client.Object) []reconcile.Request {
 		return []reconcile.Request{
 			{
@@ -326,10 +365,12 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			builder.WithPredicates(svcPred)).
 		Watches(
 			&corev1.ConfigMap{},
-			handler.EnqueueRequestsFromMapFunc(mapFn)).
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(cmPred)).
 		Watches(
 			&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(mapFn)).
+			handler.EnqueueRequestsFromMapFunc(mapFn),
+			builder.WithPredicates(secretPred)).
 		Watches(
 			&routev1.Route{},
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &v1alpha1.DataReporterConfig{}, handler.OnlyControllerOwner()),
@@ -340,4 +381,66 @@ func generateKey() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return fmt.Sprintf("%x", b)
+}
+
+func (r *DataReporterConfigReconciler) setSecretConfigMapList(drc *v1alpha1.DataReporterConfig) {
+	secretSet := make(map[string]struct{})
+	configMapSet := make(map[string]struct{})
+	empty := struct{}{}
+
+	if drc.Spec.TLSConfig != nil {
+		for _, cacert := range drc.Spec.TLSConfig.CACerts {
+			secretSet[cacert.LocalObjectReference.Name] = empty
+		}
+
+		for _, cert := range drc.Spec.TLSConfig.Certificates {
+			if cert.ClientCert.SecretKeyRef != nil {
+				secretSet[cert.ClientCert.SecretKeyRef.LocalObjectReference.Name] = empty
+			}
+			if cert.ClientKey.SecretKeyRef != nil {
+				secretSet[cert.ClientKey.SecretKeyRef.LocalObjectReference.Name] = empty
+			}
+		}
+	}
+
+	for _, df := range drc.Spec.DataFilters {
+		if df.Transformer.ConfigMapKeyRef != nil {
+			configMapSet[df.Transformer.ConfigMapKeyRef.Name] = empty
+		}
+
+		for _, dest := range df.AltDestinations {
+			if dest.Transformer.ConfigMapKeyRef != nil {
+				configMapSet[dest.Transformer.ConfigMapKeyRef.Name] = empty
+			}
+
+			if dest.Authorization.BodyData.SecretKeyRef != nil {
+				secretSet[dest.Authorization.BodyData.SecretKeyRef.Name] = empty
+			}
+
+			secretSet[dest.Header.Secret.Name] = empty
+
+			secretSet[dest.Authorization.Header.Secret.Name] = empty
+		}
+	}
+
+	r.configMapsSet.Set(configMapSet)
+	r.secretsSet.Set(secretSet)
+}
+
+type watchSet struct {
+	items map[string]struct{}
+	mu    sync.RWMutex
+}
+
+func (w *watchSet) Set(items map[string]struct{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.items = items
+}
+
+func (w *watchSet) Exists(item string) bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	_, ok := w.items[item]
+	return ok
 }
