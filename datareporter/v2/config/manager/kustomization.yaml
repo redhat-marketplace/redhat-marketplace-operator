@@ -6,3 +6,10 @@ configMapGenerator:
 - files:
   - component_config.yaml
   name: component-config
+images:
+- name: ibm-data-reporter-operator
+  newName: image-registry.openshift-image-registry.svc:5000/openshift/ibm-data-reporter-operator
+  newTag: tag-1709851136
+commonAnnotations:
+  operatorImage: image-registry.openshift-image-registry.svc:5000/openshift/ibm-data-reporter-operator:tag-1709851136
+  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.14

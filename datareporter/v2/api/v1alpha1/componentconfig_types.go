@@ -95,7 +95,7 @@ func init() {
 }
 
 func NewComponentConfig() *ComponentConfig {
-	handlerDuration, _ := time.ParseDuration("3s")
+	handlerDuration, _ := time.ParseDuration("30s")
 	accMemLimit, _ := resource.ParseQuantity("50mi")
 	maxFlushTimeout, _ := time.ParseDuration("300s")
 
