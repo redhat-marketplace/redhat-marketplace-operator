@@ -45,7 +45,7 @@ spec:
                   - redhat-marketplace
                 topologyKey: kubernetes.io/hostname
               weight: 100
-      terminationGracePeriodSeconds: 45
+      terminationGracePeriodSeconds: 120
       securityContext: 
         runAsNonRoot: true
       containers:
@@ -90,8 +90,8 @@ spec:
               name: db
           resources:
             limits:
-              cpu: 100m
-              memory: 250Mi
+              cpu: 1
+              memory: 1Gi
             requests:
               cpu: 25m
               memory: 50Mi
