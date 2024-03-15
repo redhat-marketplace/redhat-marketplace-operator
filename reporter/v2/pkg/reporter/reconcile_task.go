@@ -48,9 +48,16 @@ type ReconcileTask struct {
 	NewUpload func(ctx context.Context, config *Config, namespace Namespace) (UploadRun, error)
 }
 
+// Report: 10 minute ctx timeout
+// Upload: 45 minute ctx timeout, possible large batch of data-reporter uploads
+// activeDeadlineSeconds: 55 minutes, with hourly cron
+
 func (r *ReconcileTask) Run(ctx context.Context) error {
 	reportErr := r.report(ctx)
-	uploadErr := r.upload(ctx)
+
+	uctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
+	defer cancel()
+	uploadErr := r.upload(uctx)
 
 	err := errors.Combine(reportErr, uploadErr)
 	if err != nil {
