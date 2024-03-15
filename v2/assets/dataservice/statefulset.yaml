@@ -45,7 +45,7 @@ spec:
                   - redhat-marketplace
                 topologyKey: kubernetes.io/hostname
               weight: 100
-      terminationGracePeriodSeconds: 120
+      terminationGracePeriodSeconds: 45
       securityContext: 
         runAsNonRoot: true
       containers:
