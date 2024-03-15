@@ -52,7 +52,7 @@ var ReconcileCmd = &cobra.Command{
 			return errors.New("namespace not provided")
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 		defer cancel()
 
 		tmpDir := os.TempDir()
