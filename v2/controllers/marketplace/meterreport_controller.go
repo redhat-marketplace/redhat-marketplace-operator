@@ -44,6 +44,9 @@ var _ reconcile.Reconciler = &MeterReportReconciler{}
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range;/api/v1/targets,verbs=get;create
 
+// reporter cronjob
+// +kubebuilder:rbac:urls=/dataservice.v1.fileserver.FileServer/*,verbs=get;create
+
 // MeterReportReconciler reconciles a MeterReport object
 type MeterReportReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client

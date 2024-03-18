@@ -217,7 +217,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-metric-state-service;kube-state-metrics,resources=services,verbs=update;patch;delete
-// +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-metric-state
@@ -233,6 +233,12 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // The operator SA token is used by rhm-prom ServiceMonitors. Must be able to scrape metrics.
 // +kubebuilder:rbac:groups="",resources=nodes/metrics,verbs=get
 // +kubebuilder:rbac:urls=/metrics,verbs=get
+
+// metric-state
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorgroups,verbs=get;list;watch
+// +kubebuilder:rbac:groups="monitoring.coreos.com",resources=servicemonitors,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
