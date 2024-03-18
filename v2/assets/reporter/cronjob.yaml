@@ -34,7 +34,7 @@ spec:
                           - linux
           securityContext: 
             runAsNonRoot: true              
-          serviceAccount: ibm-metrics-operator-reporter
+          serviceAccount: ibm-metrics-operator-controller-manager
           restartPolicy: Never
           schedule: '*/10 * * * *'
           containers:
