@@ -151,18 +151,22 @@ The Operators and their components support running under the OpenShift Container
 ### Installation Namespace and ClusterRoleBinding requirements
 
 The IBM Metrics Operator components require specific ClusterRoleBindings.
-- The metric-state component requires a ClusterRoleBinding for the the `view` ClusterRole. 
-- The reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view` ClusterRole. 
+- The metric-state component requires a ClusterRoleBinding for the the `view` ClusterRole.
+  - Ability to read non-sensitive CustomResources. 
+  - The `view` ClusterRole dynamically adds new CustomResourceDefinitions.
+- The operator & reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view` ClusterRole.
+  - Ability to view Prometheus metrics. 
+  - The underlying ClusterRole RBAC often updated between OpenShift versions.
 
-Due to limitations of Operator Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically for arbitrary installation target namespaces.
+Due to limitations of Operator Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided dynamically for arbitrary installation target namespaces.
 
-A ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `openshift-redhat-marketplace`, `ibm-common-services`.
+A static ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `openshift-redhat-marketplace`, `ibm-common-services`.
 
-To update the ClusterRoleBindings for installation to an alternate namespace
+To create the ClusterRoleBindings for installation to an alternate namespace
 ```
-oc patch clusterrolebinding ibm-metrics-operator-metric-state-view-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "ibm-metrics-operator-metric-state","namespace": "NAMESPACE" }}]'
-
-oc patch clusterrolebinding ibm-metrics-operator-reporter-cluster-monitoring-binding --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "ibm-metrics-operator-reporter","namespace": "NAMESPACE" }}]'
+oc project INSTALL-NAMESPACE
+oc adm policy add-cluster-role-to-user view -z ibm-metrics-operator-metric-state
+oc adm policy add-cluster-role-to-user cluster-monitoring-view -z ibm-metrics-operator-controller-manager,ibm-metrics-operator-reporter
 ```
 
 ### Metric State scoping requirements
