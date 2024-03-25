@@ -16,6 +16,7 @@ package events
 
 import (
 	"encoding/json"
+	"net/url"
 	"reflect"
 	"sync"
 
@@ -29,6 +30,7 @@ type Config struct {
 	OutputDirectory      string
 	DataServiceTokenFile string
 	DataServiceCertFile  string
+	DataServiceURL       *url.URL
 	Namespace            string
 	UserConfigs          UserConfigs
 	AccMemoryLimit       resource.Quantity
@@ -80,6 +82,12 @@ func (a *UserConfigs) GetMetadata(userName string) Metadata {
 type Event struct {
 	User string // x-remote-user the Event was posted by
 	json.RawMessage
+	ManifestType string // dataReporter or override
+}
+
+type UserManifestType struct {
+	User         string
+	ManifestType string
 }
 
 type Events []Event

@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: ComponentConfig
 apiHandlerConfig:
-  handlerTimeout: "3s"
+  handlerTimeout: "30s"
 eventHandlerConfig:
   memoryLimit: "50Mi"
   maxFlushTimeout: "300s"

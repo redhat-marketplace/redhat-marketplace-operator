@@ -23,6 +23,7 @@ import (
 
 	emperror "emperror.dev/errors"
 	datareporterv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,11 +31,11 @@ import (
 
 var log = logf.Log.WithName("events_api_handler")
 
-func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config, handlerConfig datareporterv1alpha1.ApiHandlerConfig) http.Handler {
+func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, handlerConfig *datareporterv1alpha1.ApiHandlerConfig) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/v1/event", func(w http.ResponseWriter, r *http.Request) {
-		EventHandler(eventEngine, eventConfig, w, r)
+		EventHandler(eventEngine, eventConfig, dataFilters, w, r)
 	})
 
 	router.HandleFunc("/v1/status", func(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +56,15 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 	return muxWithMiddleware
 }
 
-func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w http.ResponseWriter, r *http.Request) {
+func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, dataFilters *datafilter.DataFilters, w http.ResponseWriter, r *http.Request) {
 	log.WithName("events_api_handler v1/event")
 
-	if eventConfig.LicenseAccept != true {
+	if !eventEngine.IsReady() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	if !eventConfig.LicenseAccept {
 		w.WriteHeader(http.StatusInternalServerError)
 		err := emperror.New("license has not been accepted in marketplaceconfig. event handler will not accept events.")
 		log.Error(err, "error with configuration")
@@ -90,13 +96,20 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, w
 	rawMessage := json.RawMessage(eventKeyBytes)
 	event := events.Event{User: headerUser, RawMessage: rawMessage}
 
-	eventEngine.EventChan <- event
+	// Send to DataFilters
+	// Events are sent to to DataService & DataFilter Destinations returning http Status
+	statusCodes := dataFilters.FilterAndUpload(event)
 
-	log.V(4).Info("event sent to event engine", "event", event)
+	// Check DataFilter status codes, if not OK, report BadGateway
+	for _, statusCode := range statusCodes {
+		if !(statusCode >= 200 && statusCode < 300) {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+	}
 
+	// Event was sent to DataService successfully, and any DataFilter destinations
 	w.WriteHeader(http.StatusOK)
-	out, _ := json.Marshal(event)
-	w.Write(out)
 }
 
 type StatusResponse struct {

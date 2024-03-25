@@ -334,6 +334,11 @@ jobs:
         echo "::group::Make Bundle Build"
         make bundle-build
         echo "::endgroup::"
+
+        echo "::group::Make Catalog Build"
+        make catalog-build
+        echo "::endgroup::"
+
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch
         echo "::endgroup::"
@@ -361,6 +366,9 @@ jobs:
         echo "::group::Make Bundle Build"
         make bundle-build
         echo "::endgroup::"
+        echo "::group::Make Catalog Build"
+        make catalog-build
+        echo "::endgroup::"
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch
         echo "::endgroup::"
@@ -386,6 +394,9 @@ jobs:
         export VERSION=$IMAGE_TAG
         echo "::group::Make Bundle Build"
         make bundle-build
+        echo "::endgroup::"
+        echo "::group::Make Catalog Build"
+        make catalog-build
         echo "::endgroup::"
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch
@@ -437,6 +448,47 @@ jobs:
           spec:
             displayName: IBM Data Reporter Operator Test
             image: quay.io/rh-marketplace/ibm-data-reporter-operator-dev-index:${{ env.TAG }}
+            publisher: ''
+            sourceType: grpc
+          ```
+    - uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: devindex
+        recreate: "true"
+        message: |-
+          Available to test with file base catalog on openshift using a catalogsource:
+
+          ``` yaml
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: CatalogSource
+          metadata:
+            name: ibm-metrics-operator-test
+            namespace: openshift-marketplace
+          spec:
+            displayName: IBM Metrics Operator Test
+            image: quay.io/rh-marketplace/ibm-metrics-operator-catalog:${{ env.TAG }}
+            publisher: ''
+            sourceType: grpc
+          ---
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: CatalogSource
+          metadata:
+            name: rhm-operator-test
+            namespace: openshift-marketplace
+          spec:
+            displayName: RHM Operator Test
+            image: quay.io/rh-marketplace/redhat-marketplace-operator-catalog:${{ env.TAG }}
+            publisher: ''
+            sourceType: grpc
+          ---
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: CatalogSource
+          metadata:
+            name: ibm-data-reporter-operator-test
+            namespace: openshift-marketplace
+          spec:
+            displayName: IBM Data Reporter Operator Test
+            image: quay.io/rh-marketplace/ibm-data-reporter-operator-catalog:${{ env.TAG }}
             publisher: ''
             sourceType: grpc
           ```

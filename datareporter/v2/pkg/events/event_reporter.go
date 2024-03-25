@@ -49,7 +49,7 @@ func NewEventReporter(
 	}, nil
 }
 
-func (r *EventReporter) Report(metadata Metadata, eventJsons EventJsons) error {
+func (r *EventReporter) Report(metadata Metadata, manifestType string, eventJsons EventJsons) error {
 
 	dir, err := os.MkdirTemp(r.config.OutputDirectory, "datareporter-")
 	if err != nil {
@@ -57,7 +57,7 @@ func (r *EventReporter) Report(metadata Metadata, eventJsons EventJsons) error {
 	}
 	defer os.RemoveAll(dir)
 
-	archiveFilePath, err := r.writeReport(dir, metadata, eventJsons)
+	archiveFilePath, err := r.writeReport(dir, metadata, manifestType, eventJsons)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (r *EventReporter) Report(metadata Metadata, eventJsons EventJsons) error {
 }
 
 // write the report to disk and return archivePath
-func (r *EventReporter) writeReport(dir string, metadata Metadata, eventJsons EventJsons) (string, error) {
+func (r *EventReporter) writeReport(dir string, metadata Metadata, manifestType string, eventJsons EventJsons) (string, error) {
 
 	// subdir for json files
 	filesDir := filepath.Join(dir, "archive")
@@ -80,7 +80,7 @@ func (r *EventReporter) writeReport(dir string, metadata Metadata, eventJsons Ev
 	}
 
 	// Generate and write manifest
-	manifest := Manifest{Type: "dataReporter", Version: "1"}
+	manifest := Manifest{Type: manifestType, Version: "1"}
 
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {

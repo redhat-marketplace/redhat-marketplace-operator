@@ -109,59 +109,68 @@ func (r *UploadTask) RunGeneric(ctx context.Context) error {
 	logger := r.logger
 	logger.Info("upload task run generic start")
 
-	// List the files from DataService
-	logger.Info("Listing files in data-service")
-	fileList, err := r.fileStorage.ListFiles(ctx)
-	if err != nil {
-		return err
-	}
+	retry := true
+	for retry {
 
-	logger.Info("ListFiles", "files", fileList)
+		// List the files from DataService
+		logger.Info("Listing files in data-service")
+		fileList, err := r.fileStorage.ListFiles(ctx)
 
-	for _, file := range fileList {
-		if file.GetDeletedAt() != nil && !file.GetDeletedAt().AsTime().IsZero() {
-			logger.Info("Skipping deleted file")
-			continue
+		if len(fileList) != 0 && err != nil { // Partial list returned, but likely too many to list, upload and retry
+			logger.Error(err, "partial ListFiles returned, proceeding.")
+		} else if err != nil {
+			return err
+		} else { // Full list returned, upload and quit
+			retry = false
 		}
 
-		file, err = r.fileStorage.GetFile(ctx, file.Id)
-		if err != nil {
-			logger.Error(err, "failed to get file", "id", file.Id)
-			continue
-		}
+		logger.Info("ListFiles", "files", fileList)
 
-		if file.Metadata == nil {
-			file.Metadata = map[string]string{}
-		}
-
-		var uploadAttemptsInt int
-		if uploadAttemptsStr, ok := file.Metadata[uploadAttempts]; ok {
-			uploadAttemptsInt, err = strconv.Atoi(uploadAttemptsStr)
-			if err != nil {
-				uploadAttemptsInt = 0
+		for _, file := range fileList {
+			if file.GetDeletedAt() != nil && !file.GetDeletedAt().AsTime().IsZero() {
+				logger.Info("Skipping deleted file")
+				continue
 			}
-		}
 
-		if uploadAttemptsInt >= maxUploadAttempts {
-			continue
-		}
-
-		statuses := r.uploadFile(ctx, file)
-		success, _ := findStatus(statuses)
-
-		if !success && uploadAttemptsInt < maxUploadAttempts {
-			logger.Info("failed to complete upload without an issue, will not delete the file", "attempts", uploadAttemptsInt)
-			uploadAttemptsInt = uploadAttemptsInt + 1
-			file.Metadata[uploadAttempts] = fmt.Sprintf("%d", uploadAttemptsInt)
-			err := r.fileStorage.UpdateMetadata(ctx, file)
+			file, err = r.fileStorage.GetFile(ctx, file.Id)
 			if err != nil {
-				logger.Error(err, "failed to update metadata")
+				logger.Error(err, "failed to get file", "id", file.Id)
+				continue
 			}
-			continue
-		}
 
-		if err = r.deleteFile(ctx, file); err != nil {
-			logger.Error(err, "failed to delete metadata")
+			if file.Metadata == nil {
+				file.Metadata = map[string]string{}
+			}
+
+			var uploadAttemptsInt int
+			if uploadAttemptsStr, ok := file.Metadata[uploadAttempts]; ok {
+				uploadAttemptsInt, err = strconv.Atoi(uploadAttemptsStr)
+				if err != nil {
+					uploadAttemptsInt = 0
+				}
+			}
+
+			if uploadAttemptsInt >= maxUploadAttempts {
+				continue
+			}
+
+			statuses := r.uploadFile(ctx, file)
+			success, _ := findStatus(statuses)
+
+			if !success && uploadAttemptsInt < maxUploadAttempts {
+				logger.Info("failed to complete upload without an issue, will not delete the file", "attempts", uploadAttemptsInt)
+				uploadAttemptsInt = uploadAttemptsInt + 1
+				file.Metadata[uploadAttempts] = fmt.Sprintf("%d", uploadAttemptsInt)
+				err := r.fileStorage.UpdateMetadata(ctx, file)
+				if err != nil {
+					logger.Error(err, "failed to update metadata")
+				}
+				continue
+			}
+
+			if err = r.deleteFile(ctx, file); err != nil {
+				logger.Error(err, "failed to delete metadata")
+			}
 		}
 	}
 

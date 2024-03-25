@@ -59,8 +59,9 @@ var _ = Describe("EngineTest", func() {
 			config:        config,
 			client:        k8sClient,
 		}
+		ready := make(chan bool)
 
-		err = ps.Start(ctx)
+		err = ps.Start(ctx, ready)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

@@ -50,6 +50,7 @@ type ReconcileTask struct {
 
 func (r *ReconcileTask) Run(ctx context.Context) error {
 	reportErr := r.report(ctx)
+
 	uploadErr := r.upload(ctx)
 
 	err := errors.Combine(reportErr, uploadErr)
