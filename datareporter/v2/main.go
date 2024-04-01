@@ -19,16 +19,22 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net/url"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,10 +127,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	dataServiceURL, err := url.Parse(fmt.Sprintf("%s.%s.svc:8004", utils.DATA_SERVICE_NAME, namespace))
+	if err != nil {
+		setupLog.Error(err, "failed to parse for dataServiceURL")
+		os.Exit(1)
+	}
+
 	config := &events.Config{
 		OutputDirectory:      os.TempDir(),
 		DataServiceTokenFile: cc.DataServiceTokenFile,
 		DataServiceCertFile:  cc.DataServiceCertFile,
+		DataServiceURL:       dataServiceURL,
 		Namespace:            namespace,
 		AccMemoryLimit:       cc.AccMemoryLimit,
 		MaxFlushTimeout:      cc.MaxFlushTimeout,
@@ -140,6 +153,14 @@ func main() {
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
 			&corev1.Service{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&corev1.ConfigMap{}: {
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+			},
+			&corev1.Secret{}: {
 				Field: fields.SelectorFromSet(fields.Set{
 					"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
@@ -181,17 +202,25 @@ func main() {
 	}
 
 	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, mgr.GetClient())
-	err = eventEngine.Start(ctx)
-	if err != nil {
-		setupLog.Error(err, "unable to start engine")
-		os.Exit(1)
-	}
+	go func() {
+		err := eventEngine.Start(ctx)
+		if err != nil {
+			setupLog.Error(err, "unable to start engine")
+			os.Exit(1)
+		}
+	}()
+
+	rc := retryablehttp.NewClient()
+	rc.Logger = logger.NewRetryableHTTPLogger()
+	sc := rc.StandardClient() // *http.Client
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config, &cc.ApiHandlerConfig)
 
 	if err = (&controllers.DataReporterConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Config: config,
-		Log:    ctrl.Log.WithName("controllers").WithName("DataReporterConfigController"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Config:      config,
+		Log:         ctrl.Log.WithName("controllers").WithName("DataReporterConfigController"),
+		DataFilters: dataFilters,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataReporterConfig")
 		os.Exit(1)
@@ -208,8 +237,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	h := server.NewDataReporterHandler(eventEngine, config, cc.ApiHandlerConfig)
-
+	// Add the EventEngine handler after it is ready
+	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, &cc.ApiHandlerConfig)
 	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
 		setupLog.Error(err, "unable to set up data reporter handler")
 		os.Exit(1)

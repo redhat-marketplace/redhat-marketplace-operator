@@ -101,7 +101,7 @@ OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
 	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
 
-OPM_VERSION=v1.23.0
+OPM_VERSION=v1.34.0
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
@@ -141,7 +141,7 @@ buf:
 
 ENVTEST=$(PROJECT_DIR)/bin/setup-envtest
 envtest:
-	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@c7e1dc9b5302d649d5531e19168dd7ea0013736d)
 
 .PHONY: source-envtest
 source-envtest:

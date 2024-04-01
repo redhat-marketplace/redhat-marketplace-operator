@@ -122,9 +122,9 @@ oc delete secret kubeconfig --ignore-not-found
 oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 
 # Import redhat catalogs
-oc import-image certified-operator-index:v4.14 \
+oc import-image certified-operator-index:v4.15 \
   --request-timeout=5m \
-  --from=registry.redhat.io/redhat/certified-operator-index:v4.14 \
+  --from=registry.redhat.io/redhat/certified-operator-index:v4.15 \
   --reference-policy local \
   --scheduled \
   --confirm
@@ -146,7 +146,7 @@ cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 
-git checkout v1.0.115
+git checkout v1.0.120
 
 # Create a new SCC
 oc apply -f ansible/roles/operator-pipeline/templates/openshift/openshift-pipelines-custom-scc.yml

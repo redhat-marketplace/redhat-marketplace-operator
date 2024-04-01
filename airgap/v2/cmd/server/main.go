@@ -98,7 +98,7 @@ func main() {
 			cleanAfter := viper.GetDuration("cleanAfter")
 			fs, err := cfg.InitDB(cleanAfter)
 			if err != nil {
-				log.Error(err, "failed to migrate")
+				log.Error(err, "failed to initialize db connection")
 				return err
 			}
 
@@ -115,6 +115,7 @@ func main() {
 			// Attempt migration and start scheduler
 			err = cfg.TryMigrate()
 			if err != nil {
+				log.Error(err, "failed to migrate")
 				return err
 			}
 

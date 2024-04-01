@@ -188,6 +188,7 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize operator-sdk yq omt
 	$(MAKE) kustomize-set
+	$(YQ) eval -i '.spec.description = (load_str("README.md"))' $(CSV_YAML_CONFIG_FILE)
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
 	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
@@ -215,15 +216,18 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 
 # Build the bundle image.
 .PHONY: bundle-build
-bundle-build:
+bundle-build: opm
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
   --label com.redhat.delivery.operator.bundle=true \
 	--push \
 	.
 
+catalog-build: opm
+	PATH="$(PWD)/../bin:${PATH}" scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md ./icon.svg
+
 bundle-deploy:
-	docker push $(BUNDLE_IMG)
+	docker push $(BUNDLE_IMG) 
 
 bundle-run: operator-sdk
 	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace $(namespace)

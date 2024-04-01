@@ -4,17 +4,16 @@ ARG TARGETARCH
 ARG TARGETOS
 ENV TZ=America/New_York
 ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
-ARG GRPC_HEALTH_VERSION=v0.4.22
-ARG DQLITE_VERSION=v1.15.1
-ARG RAFT_VERSION=v0.18.0
-ARG LIBUV_VERSION=v1.47.0
+ARG GRPC_HEALTH_VERSION=v0.4.25
+ARG DQLITE_VERSION=v1.16.4
+ARG LIBUV_VERSION=v1.48.0
 ARG FIPS_DETECT_VERSION=7157dae
 ARG quay_expiration=7d
 
 USER 0
 
 # libuv-devel is only available from CRB with subscription, build it ourselves
-# raft, dqlite not available on UBI or EPEL, build it ourselves
+# dqlite not available on UBI or EPEL, build it ourselves
 
 RUN mkdir -p /opt/app-root/src/go/bin && \
     mkdir -p /opt/app-root/src/go/pkg && \
@@ -26,11 +25,8 @@ RUN mkdir -p /opt/app-root/src/go/bin && \
     git clone -b $LIBUV_VERSION -v https://github.com/libuv/libuv.git && \
     cd libuv && sh autogen.sh && ./configure --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf libuv && \
-    git clone -b $RAFT_VERSION -v https://github.com/canonical/raft.git && \
-    cd raft && autoreconf -i && ./configure --prefix=/usr --libdir=/usr/lib64 && make && make install && \
-    cd .. && rm -Rf raft && \
     git clone -b $DQLITE_VERSION -v https://github.com/canonical/dqlite.git && \
-    cd dqlite && autoreconf -i && ./configure --prefix=/usr --libdir=/usr/lib64 && make && make install && \
+    cd dqlite && autoreconf -i && ./configure --enable-build-raft --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf dqlite && \
     go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION} && \
     go install github.com/acardace/fips-detect@${FIPS_DETECT_VERSION} && \

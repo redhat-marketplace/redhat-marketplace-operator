@@ -135,6 +135,10 @@ func (dc *DatabaseConfig) initDqlite() error {
 		return err
 	}
 
+	// Prevent "database is locked" errors
+	// Single writer, currently no app retry logic
+	conn.SetMaxOpenConns(1)
+
 	dc.app = app
 	dc.dqliteDB = conn
 	return conn.Ping()
