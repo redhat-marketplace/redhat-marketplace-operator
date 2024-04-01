@@ -110,6 +110,8 @@ func EventHandler(eventEngine *events.EventEngine, eventConfig *events.Config, d
 
 	// Event was sent to DataService successfully, and any DataFilter destinations
 	w.WriteHeader(http.StatusOK)
+	out, _ := json.Marshal(event)
+	w.Write(out)
 }
 
 type StatusResponse struct {
