@@ -134,9 +134,9 @@ spec:
                       deployment, defaults to true when not set
                     type: boolean
                   meterDefinitionCatalogServer:
-                    description: EnableMeterDefinitionCatalogServer represents the
-                      enablement of the meterdefinition catalog server, defaults to
-                      true when not set
+                    description: '[DEPRECATED] EnableMeterDefinitionCatalogServer
+                      represents the enablement of the meterdefinition catalog server,
+                      defaults to true when not set'
                     type: boolean
                   registration:
                     description: Registration represents the enablement of the registration

@@ -61,13 +61,10 @@ import (
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
-	"k8s.io/client-go/kubernetes"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -156,9 +153,6 @@ func main() {
 			&routev1.Route{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			&osappsv1.DeploymentConfig{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
 			&osimagev1.ImageStream{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
@@ -225,20 +219,6 @@ func main() {
 
 	factory := manifests.NewFactory(opCfg, mgr.GetScheme())
 
-	clientset, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		setupLog.Error(err, "unable to create clientset")
-		os.Exit(1)
-	}
-
-	authBuilderConfig := rhmotransport.ProvideAuthBuilder(mgr.GetClient(), opCfg, clientset, ctrl.Log)
-
-	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, opCfg, ctrl.Log)
-	if err != nil {
-		setupLog.Error(err, "unable to create client", "client", "catalogClient")
-		os.Exit(1)
-	}
-
 	prometheusAPIBuilder := &prometheus.PrometheusAPIBuilder{
 		Cfg:    opCfg,
 		Client: mgr.GetClient(),
@@ -284,18 +264,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DeploymentConfigReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:        mgr.GetScheme(),
-		Cfg:           opCfg,
-		Factory:       factory,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
-		os.Exit(1)
-	}
-
 	if err = (&controllers.MarketplaceConfigReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
@@ -327,17 +295,6 @@ func main() {
 		PrometheusAPIBuilder: prometheusAPIBuilder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterDefinition")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.MeterDefinitionInstallReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
-		Scheme:        mgr.GetScheme(),
-		Cfg:           opCfg,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
 		os.Exit(1)
 	}
 
