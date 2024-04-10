@@ -36,7 +36,6 @@ import (
 	osappsv1 "github.com/openshift/api/apps/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -70,7 +69,6 @@ var k8sScheme *runtime.Scheme
 var factory *manifests.Factory
 var clientset *kubernetes.Clientset
 var authBuilderConfig *rhmotransport.AuthBuilderConfig
-var catalogClient *catalog.CatalogClient
 var doneChan chan struct{}
 
 const (
@@ -184,21 +182,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	authBuilderConfig = rhmotransport.ProvideAuthBuilder(k8sClient, operatorCfg, clientset, ctrl.Log)
-
-	catalogClient, err = catalog.ProvideCatalogClient(authBuilderConfig, operatorCfg, ctrl.Log)
-	Expect(err).ToNot(HaveOccurred())
-
-	catalogClient.UseInsecureClient()
-
-	err = (&DeploymentConfigReconciler{
-		Client:        k8sClient,
-		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:        k8sScheme,
-		Cfg:           operatorCfg,
-		Factory:       factory,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
 
 	err = (&MarketplaceConfigReconciler{
 		Client: k8sClient,
