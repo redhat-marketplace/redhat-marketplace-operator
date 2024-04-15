@@ -54,7 +54,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240131063105-cef0da442825
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.67.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
 )
 
 require (
@@ -95,7 +95,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
 	github.com/prometheus-community/prom-label-proxy v0.7.0 // indirect
-	github.com/prometheus-operator/prometheus-operator/pkg/client v0.67.1 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/client v0.66.0 // indirect
 	github.com/prometheus/alertmanager v0.26.0 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/prometheus v0.44.0 // indirect
@@ -114,8 +114,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.22.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240412170617-26222e5d3d56 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240412170617-26222e5d3d56 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240415151819-79826c84ba32 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415151819-79826c84ba32 // indirect
 	google.golang.org/grpc v1.63.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	k8s.io/kms v0.28.8 // indirect
@@ -196,6 +196,8 @@ replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock => github.com/golang/mock v1.4.4
+	github.com/prometheus-operator/prometheus-operator => github.com/prometheus-operator/prometheus-operator v0.66.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring => github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
 	k8s.io/api => k8s.io/api v0.28.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
 	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8

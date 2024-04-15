@@ -11,8 +11,8 @@ require (
 	github.com/onsi/gomega v1.29.0
 	github.com/openshift/api v0.0.0-20240304080513-3e8192a10b13
 	github.com/operator-framework/api v0.18.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.70.0
-	github.com/prometheus-operator/prometheus-operator/pkg/client v0.67.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
+	github.com/prometheus-operator/prometheus-operator/pkg/client v0.66.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20230512153729-85566ee3f06b
 	github.com/spf13/cobra v1.7.0
