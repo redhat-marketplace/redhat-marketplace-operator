@@ -50,8 +50,6 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	_ "net/http/pprof"
-
 	osappsv1 "github.com/openshift/api/apps/v1"
 	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/controllers/marketplace"
