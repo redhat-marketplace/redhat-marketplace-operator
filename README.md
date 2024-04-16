@@ -1,4 +1,4 @@
-# IBM&reg; Red Hat Marketplace Operators
+# IBM&reg; IBM Software Central Operators
 
 | Branch  |                                                                                                            Builds                                                                                                             |
 | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
@@ -7,35 +7,24 @@
 
 ## Description
 
-The Red Hat Marketplace Operators are a collection of operators for reporting workload metrics and integrating product install lifecycle through [https://marketplace.redhat.com](https://marketplace.redhat.com).
+The IBM Software Central Operators (formerly Red Hat Marketplace Operators) are a collection of operators for reporting workload metrics and integrating product install lifecycle through [https://swc.saas.ibm.com](https://swc.saas.ibm.com).
 
 ### [IBM Metrics Operator](v2/README.md)
 
-The [IBM Metrics Operator](v2/README.md) is used to meter workloads and report usage from Prometheus on an OpenShift cluster, and reports it to Red Hat Marketplace.
+The [IBM Metrics Operator](v2/README.md) is used to meter workloads and report usage from Prometheus on an OpenShift cluster, and reports it to IBM Software Central.
 
 ### [IBM Data Reporter Operator](datareporter/v2/README.md)
 
-The [IBM Data Reporter Operator](datareporter/v2/README.md) is used as a push event interface into the IBM Metrics Operator's data-service, for reporting to Red Hat Marketplace.
+The [IBM Data Reporter Operator](datareporter/v2/README.md) is used as a push event interface into the IBM Metrics Operator's data-service, for reporting to IBM Software Central.
 
 ### [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md)
 
-The [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md) is used for integrating cluster and operator subscription management on an OpenShift cluster via [https://marketplace.redhat.com](https://marketplace.redhat.com).
+The [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md) is used for integrating cluster and operator subscription management on an OpenShift cluster via [https://swc.saas.ibm.com](https://swc.saas.ibm.com).
 
 
 ## Installation
 
-### **Upgrade Notice**
-
-The Red Hat Marketplace Operator metering and deployment functionalities have been separated into two operators.
-  - The metering functionality is included in the IBM Metrics Operator
-    - Admin level functionality and permissions are removed from the IBM Metrics Operator
-    - ClusterServiceVersion/ibm-metrics-operator
-  - The deployment functionality remains as part of the Red Hat Marketplace Deployment Operator
-    - The Red Hat Marketplace Deployment Operator prerequisites the IBM Metrics Operator
-    - Some admin level RBAC permissions are required for deployment functionality
-    - ClusterServiceVersion/redhat-marketplace-operator
-
-Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+Full registration and visibility of usage metrics on [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Upgrade Policy
 
@@ -139,7 +128,7 @@ spec:
 
 ### Installing
 
-For installation and configuration see the [Red Hat Marketplace documentation](https://marketplace.redhat.com/en-us/documentation/getting-started/).
+For installation and configuration see the [Red Hat Marketplace documentation](https://swc.saas.ibm.com/en-us/documentation/getting-started/).
 
 
 ## Additional information
@@ -198,7 +187,7 @@ This is a high level visual representation of how the operators interact with Pr
 
 ### Documentation
 
-[Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation)
+[Red Hat Marketplace](https://swc.saas.ibm.com/en-us/documentation)
 
 [Wiki](https://github.com/redhat-marketplace/redhat-marketplace-operator/wiki/Home)
  

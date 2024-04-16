@@ -134,8 +134,8 @@ const (
 
 	DeploymentConfigName = "rhm-meterdefinition-file-server"
 	FileServerAudience   = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
-	ProductionURL        = "https://marketplace.redhat.com"
-	StageURL             = "https://sandbox.marketplace.redhat.com"
+	ProductionURL        = "https://swc.saas.ibm.com"
+	StageURL             = "https://sandbox.swc.saas.ibm.com"
 
 	ProdEnv  = "production"
 	StageEnv = "stage"
