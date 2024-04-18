@@ -1,4 +1,4 @@
-# IBM&reg; IBM Software Central Operators
+# IBM&reg; IBM Software Central & Red Hat Marketplace Operators
 
 | Branch  |                                                                                                            Builds                                                                                                             |
 | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
@@ -7,7 +7,7 @@
 
 ## Description
 
-The IBM Software Central Operators (formerly Red Hat Marketplace Operators) are a collection of operators for reporting workload metrics and integrating product install lifecycle through [https://swc.saas.ibm.com](https://swc.saas.ibm.com).
+The operators provide functionality for reporting workload metrics and integrating product install lifecycle through [https://swc.saas.ibm.com](https://swc.saas.ibm.com).
 
 ### [IBM Metrics Operator](v2/README.md)
 
@@ -15,16 +15,20 @@ The [IBM Metrics Operator](v2/README.md) is used to meter workloads and report u
 
 ### [IBM Data Reporter Operator](datareporter/v2/README.md)
 
-The [IBM Data Reporter Operator](datareporter/v2/README.md) is used as a push event interface into the IBM Metrics Operator's data-service, for reporting to IBM Software Central.
+The [IBM Data Reporter Operator](datareporter/v2/README.md) provides a push event interface into the IBM Metrics Operator's data-service, for reporting metrics to IBM Software Central.
 
 ### [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md)
 
 The [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md) is used for integrating cluster and operator subscription management on an OpenShift cluster via [https://swc.saas.ibm.com](https://swc.saas.ibm.com).
 
+### Note
+
+Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account, and does not require Red Hat Marketplace Deployment Operator.
+
+Full cluster registration and software lifecycle management through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+
 
 ## Installation
-
-Full registration and visibility of usage metrics on [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Upgrade Policy
 
@@ -51,7 +55,7 @@ Minimum system resources required:
 | --------- | ----------- | ----------- | --------- | ----- |
 | **[Openshift User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)** |          1  |     0.1       | 2x40        |   2    |
 
-Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
+Multiple nodes are required to provide pod scheduling for high availability for IBM Metrics Operator Data Service and Prometheus.
 
 The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode. Te PersistentVolumeClaims are automatically created by the ibm-metrics-operator after creating a `redhat-marketplace-pull-secret` and accepting the license in `marketplaceconfig`.
 
@@ -126,9 +130,9 @@ spec:
     name: rhm-data-service-rhm-data-service-0
 ```
 
-### Installing
+### Getting Started with the platform
 
-For installation and configuration see the [Red Hat Marketplace documentation](https://swc.saas.ibm.com/en-us/documentation/getting-started/).
+To get started with the platform, see the [documentation](https://swc.saas.ibm.com/en-us/documentation/getting-started/).
 
 
 ## Additional information
@@ -181,13 +185,13 @@ A limitation is that the `config` elements are only appended to the operands. Th
 
 ### Operators Visual Diagram
 
-This is a high level visual representation of how the operators interact with Prometheus, CustomResources, with each other, and with Red Hat Marketplace.
+This is a high level visual representation of how the operators interact with Prometheus, CustomResources, with each other, and with IBM Software Central.
 
 ![Operators Visual Diagram](diagram.png)
 
 ### Documentation
 
-[Red Hat Marketplace](https://swc.saas.ibm.com/en-us/documentation)
+[IBM Software Central](https://swc.saas.ibm.com/en-us/documentation)
 
 [Wiki](https://github.com/redhat-marketplace/redhat-marketplace-operator/wiki/Home)
  

@@ -1,8 +1,10 @@
-The Red Hat Marketplace Deployment Operator by IBM provides cluster and operator management for Red Hat Marketplace customers.
+The Red Hat Marketplace Deployment Operator by IBM provides cluster and operator management for IBM Software Central and Red Hat Marketplace customers.
 ### **Important Note**
 A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [swc.saas.ibm.com](https://swc.saas.ibm.com).
 
-Full registration and visibility of usage metrics on [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account, and does not require Red Hat Marketplace Deployment Operator.
+
+Full cluster registration and software lifecycle management through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Upgrade Policy
 
@@ -61,14 +63,14 @@ The operator releases adhere to semantic versioning and provides a seamless upgr
     ```
 
 ### Installation
-1. Create or get your pull secret from [Red Hat Marketplace](https://swc.saas.ibm.com/en-us/documentation/clusters#get-pull-secret).
+1. Create or get your [pull secret](https://swc.saas.ibm.com/en-us/documentation/clusters#get-pull-secret).
 2. Install the IBM Metrics Operator and Red Hat Marketplace Deployment Operator
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
     ```sh
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-    oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+    oc create secret generic redhat-marketplace-pull-secret -n redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
-4. Use of the Red Hat Marketplace platform is governed by the:
+4. Use of the platform is governed by the:
 
     [IBM Cloud Services Agreement](https://www.ibm.com/support/customer/csol/terms/?id=Z126-6304_WS&_ga=2.116312197.2046730452.1684328846-812467790.1684328846) (or other base agreement between you and IBM such as a [Passport Advantage Agreement](https://www.ibm.com/software/passportadvantage/pa_agreements.html?_ga=2.116312197.2046730452.1684328846-812467790.1684328846)) and the [Service Description for the Red Hat Marketplace](https://www.ibm.com/support/customer/csol/terms/?id=i126-8719&_ga=2.83289621.2046730452.1684328846-812467790.1684328846).
 
@@ -81,7 +83,7 @@ The operator releases adhere to semantic versioning and provides a seamless upgr
     These steps require `oc`, `jq`, and `base64` to be available on your machine.
 
     ```sh
-    # Create the docker pull secret file using your PULL_SECRET from IBM Software Central.
+    # Create the docker pull secret file using your pull secret.
     # Store it in a file called entitledregistryconfigjson.
     oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=client --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
     # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
@@ -132,7 +134,7 @@ A limitation is that the `config` elements are only appended to the operands. Th
 You can find our documentation [here.](https://swc.saas.ibm.com/en-us/documentation/)
 
 ### Getting help
-If you encounter any issues while using Red Hat Marketplace operator, you can create an issue on our [Github
+If you encounter any issues while using the operators, you can create an issue on our [Github
 repo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for bugs, enhancements, or other requests. You can also visit our main page and
 review our [support](https://swc.saas.ibm.com/en-us/support) and [documentation](https://swc.saas.ibm.com/en-us/documentation/).
 
