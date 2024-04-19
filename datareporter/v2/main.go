@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 
@@ -48,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	//+kubebuilder:scaffold:imports
 
@@ -175,10 +177,28 @@ func main() {
 		},
 	}
 
+	// Due to controller-manager v0.16 change, the handler must now be defined before NewManager
+	// Thus mgr.GetClient() is not yet available, as such Client is set to nil for now
+
+	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, nil)
+
+	rc := retryablehttp.NewClient()
+	rc.Logger = logger.NewRetryableHTTPLogger()
+	sc := rc.StandardClient() // *http.Client
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), nil, sc, eventEngine, config, &cc.ApiHandlerConfig)
+
+	// Add the EventEngine handler
+	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, &cc.ApiHandlerConfig)
+	extraHandlers := make(map[string]http.Handler)
+	extraHandlers["/"] = h
+	metricsOpts := metricsserver.Options{
+		BindAddress:   cc.Metrics.BindAddress,
+		ExtraHandlers: extraHandlers,
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     cc.Metrics.BindAddress,
-		Port:                   9443,
+		Metrics:                metricsOpts,
 		HealthProbeBindAddress: cc.ManagerConfig.Health.HealthProbeBindAddress,
 		LeaderElection:         *cc.ManagerConfig.LeaderElection.LeaderElect,
 		LeaderElectionID:       cc.ManagerConfig.LeaderElectionID,
@@ -197,23 +217,9 @@ func main() {
 	})
 
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-
-	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, mgr.GetClient())
-	go func() {
-		err := eventEngine.Start(ctx)
-		if err != nil {
-			setupLog.Error(err, "unable to start engine")
-			os.Exit(1)
-		}
-	}()
-
-	rc := retryablehttp.NewClient()
-	rc.Logger = logger.NewRetryableHTTPLogger()
-	sc := rc.StandardClient() // *http.Client
-	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config, &cc.ApiHandlerConfig)
 
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client:      mgr.GetClient(),
@@ -237,12 +243,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add the EventEngine handler after it is ready
-	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, &cc.ApiHandlerConfig)
-	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
-		setupLog.Error(err, "unable to set up data reporter handler")
-		os.Exit(1)
-	}
+	// mgr.GetClient() is now available
+	eventEngine.SetKubeClient(mgr.GetClient())
+	dataFilters.SetKubeClient(mgr.GetClient())
+
+	go func() {
+		err := eventEngine.Start(ctx)
+		if err != nil {
+			setupLog.Error(err, "unable to start engine")
+			os.Exit(1)
+		}
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

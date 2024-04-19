@@ -85,6 +85,11 @@ func NewDataFilters(
 // Updates the httpClient transport
 func (d *DataFilters) Build(drc *v1alpha1.DataReporterConfig) error {
 
+	// Check client was set
+	if d.k8sClient == nil {
+		return errors.New("dataFilters k8sclient is nil")
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -102,6 +107,10 @@ func (d *DataFilters) Build(drc *v1alpha1.DataReporterConfig) error {
 	}
 
 	return nil
+}
+
+func (d *DataFilters) SetKubeClient(k8sClient client.Client) {
+	d.k8sClient = k8sClient
 }
 
 func (d *DataFilters) FilterAndUpload(event events.Event) []int {

@@ -248,13 +248,15 @@ func ProvideNewCache(
 	options ClientOptions,
 
 ) (cache.Cache, error) {
+	defaultNamespaces := make(map[string]cache.Config)
+	defaultNamespaces[options.Namespace] = cache.Config{}
 	return cache.New(c,
 		cache.Options{
-			Scheme:     scheme,
-			Mapper:     mapper,
-			SyncPeriod: options.SyncPeriod,
-			Namespaces: []string{options.Namespace},
-			ByObject:   options.ByObject,
+			Scheme:            scheme,
+			Mapper:            mapper,
+			SyncPeriod:        options.SyncPeriod,
+			DefaultNamespaces: defaultNamespaces,
+			ByObject:          options.ByObject,
 		})
 }
 
