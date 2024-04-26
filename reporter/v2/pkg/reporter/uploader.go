@@ -145,8 +145,8 @@ func provideCOSS3Config(
 }
 
 const (
-	MktplProductionURL = "https://marketplace.redhat.com"
-	MktplStageURL      = "https://sandbox.marketplace.redhat.com"
+	MktplProductionURL = "https://swc.saas.ibm.com"
+	MktplStageURL      = "https://sandbox.swc.saas.ibm.com"
 )
 
 func provideMarketplaceConfig(

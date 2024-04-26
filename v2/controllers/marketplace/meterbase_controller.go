@@ -68,8 +68,8 @@ const (
 	RELATED_IMAGE_PROM_SERVER      = "RELATED_IMAGE_PROM_SERVER"
 	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
 
-	PROM_DEP_NEW_WARNING_MSG     = "Use of redhat-marketplace-operator Prometheus is deprecated. Configuration of user workload monitoring is required https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
-	PROM_DEP_UPGRADE_WARNING_MSG = "Use of redhat-marketplace-operator Prometheus is deprecated, and will be removed next release. Configure user workload monitoring https://marketplace.redhat.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
+	PROM_DEP_NEW_WARNING_MSG     = "Use of redhat-marketplace-operator Prometheus is deprecated. Configuration of user workload monitoring is required https://swc.saas.ibm.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
+	PROM_DEP_UPGRADE_WARNING_MSG = "Use of redhat-marketplace-operator Prometheus is deprecated, and will be removed next release. Configure user workload monitoring https://swc.saas.ibm.com/en-us/documentation/red-hat-marketplace-operator#integration-with-openshift-container-platform-monitoring"
 )
 
 var (
