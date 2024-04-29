@@ -1,19 +1,10 @@
-The IBM Metrics Operator provides workload metering and reporting for IBM and Red Hat Marketplace customers.
+The IBM Metrics Operator provides workload metering and reporting for IBM Software Central and Red Hat Marketplace customers.
 ### **Important Note**
-A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).
+A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [swc.saas.ibm.com](https://swc.saas.ibm.com).
 
-### **Upgrade Notice**
+Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account, and does not require Red Hat Marketplace Deployment Operator.
 
-The Red Hat Marketplace Operator metering and deployment functionalities have been separated into two operators.
-  - The metering functionality is included in this IBM Metrics Operator
-    - Admin level functionality and permissions are removed from the IBM Metrics Operator
-    - ClusterServiceVersion/ibm-metrics-operator
-  - The deployment functionality remains as part of the Red Hat Marketplace Deployment Operator by IBM
-    - The Red Hat Marketplace Deployment Operator prerequisites the IBM Metrics Operator
-    - Some admin level RBAC permissions are required for deployment functionality
-    - ClusterServiceVersion/redhat-marketplace-operator
-
-Full registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+Full cluster registration and software lifecycle management through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
 
 ### Upgrade Policy
 
@@ -79,7 +70,7 @@ Minimum system resources required:
 | --------- | ----------- | ----------- | --------- | ----- |
 | **[Openshift User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)** |          1  |     0.1       | 2x40        |   2    |
 
-Multiple nodes are required to provide pod scheduling for high availability for Red Hat Marketplace Data Service and Prometheus.
+Multiple nodes are required to provide pod scheduling for high availability for IBM Metrics Operator Data Service and Prometheus.
 
 The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to store reports as part of the data service, with _ReadWriteOnce_ access mode. Te PersistentVolumeClaims are automatically created by the ibm-metrics-operator after creating a `redhat-marketplace-pull-secret` and accepting the license in `marketplaceconfig`.
 
@@ -155,14 +146,14 @@ spec:
 ```
 
 ### Installation
-1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
+1. Create or get your [pull secret](https://swc.saas.ibm.com/en-us/documentation/clusters#get-pull-secret).
 2. Install the IBM Metrics Operator
-3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
+3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the pull secret.
     ```sh
-    # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-    oc create secret generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+    # Replace ${PULL_SECRET} with your pull secret
+    oc create secret generic redhat-marketplace-pull-secret -n redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
-4. Use of the Red Hat Marketplace platform is governed by the:
+4. Use of the platform is governed by the:
 
     [IBM Cloud Services Agreement](https://www.ibm.com/support/customer/csol/terms/?id=Z126-6304_WS&_ga=2.116312197.2046730452.1684328846-812467790.1684328846) (or other base agreement between you and IBM such as a [Passport Advantage Agreement](https://www.ibm.com/software/passportadvantage/pa_agreements.html?_ga=2.116312197.2046730452.1684328846-812467790.1684328846)) and the [Service Description for the Red Hat Marketplace](https://www.ibm.com/support/customer/csol/terms/?id=i126-8719&_ga=2.83289621.2046730452.1684328846-812467790.1684328846).
     
@@ -170,12 +161,12 @@ spec:
     ```
     oc patch marketplaceconfig marketplaceconfig -n redhat-marketplace --type='merge' -p '{"spec": {"license": {"accept": true}}}'
     ```
-6. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
+6. Install the pull secret as a global pull secret on the cluster.
 
     These steps require `oc`, `jq`, and `base64` to be available on your machine.
 
     ```sh
-    # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
+    # Create the docker pull secret file using your pull secret.
     # Store it in a file called entitledregistryconfigjson.
     oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=client --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
     # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
@@ -187,7 +178,7 @@ spec:
     ```
 
 ### Why is a global pull secret required?
-In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approaches, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).
+In order to successfully install the products hosted by the container image registry, you will need to make the pull secret available across the cluster. This can be achieved by applying the pull as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approaches, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).
 
 
 ### SecurityContextConstraints requirements
@@ -256,12 +247,12 @@ A limitation is that the `config` elements are only appended to the operands. Th
 
 
 ### Documentation
-You can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)
+You can find our documentation [here.](https://swc.saas.ibm.com/en-us/documentation/)
 
 ### Getting help
-If you encounter any issues while using Red Hat Marketplace operator, you can create an issue on our [Github
+If you encounter any issues while using the operators, you can create an issue on our [Github
 repo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for bugs, enhancements, or other requests. You can also visit our main page and
-review our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).
+review our [support](https://swc.saas.ibm.com/en-us/support) and [documentation](https://swc.saas.ibm.com/en-us/documentation/).
 
 ### Readme
 You can find our readme [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/README.md)

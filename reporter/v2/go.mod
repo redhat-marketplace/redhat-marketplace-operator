@@ -24,6 +24,10 @@ require (
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210409165614-0a6355b7a700
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
+	github.com/stretchr/testify v1.8.4
+	golang.org/x/net v0.24.0
+	golang.org/x/oauth2 v0.16.0
+	google.golang.org/grpc v1.62.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.19.0

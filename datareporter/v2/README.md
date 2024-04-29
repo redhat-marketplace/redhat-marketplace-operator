@@ -2,11 +2,11 @@
 
 # Introduction
 
-The IBM Data Reporter Operator accepts events and transforms them into reports submitted to the Data Service of the IBM Metrics Operator.
+The IBM Data Reporter Operator accepts events and transforms them into reports submitted to the IBM Metrics Operator Data Service.
 
 # Details
 
-The IBM Data Reporter Operator deploys a service that exposes an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Metrics Operator's Data Service. The IBM Metrics Operator Data Service periodically uploads the reports to Red Hat Marketplace. It can also filter, transform and forward events to alternate endpoints.
+The IBM Data Reporter Operator deploys a service that provides an endpoint to which callers can send raw json event data. The event data is transformed into a report and is sent to the IBM Metrics Operator's Data Service. The IBM Metrics Operator Data Service periodically uploads the reports to IBM Software Central. It can also filter, transform and forward events to alternate endpoints.
 
 ## Prerequisites
 
