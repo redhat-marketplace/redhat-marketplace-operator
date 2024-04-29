@@ -17,6 +17,7 @@ package events
 import (
 	"context"
 
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -54,6 +55,12 @@ func NewEventEngine(
 // EventEngine Processor channels are ready to receive event after the ready channel is closed
 // Error is returned if there is a configuration problem
 func (e *EventEngine) Start(ctx context.Context) error {
+
+	// Check client was set
+	if e.client == nil {
+		return errors.New("eventEngine k8sclient is nil")
+	}
+
 	if e.cancelFunc != nil {
 		e.mainContext = nil
 		e.localContext = nil
@@ -76,4 +83,8 @@ func (e *EventEngine) Start(ctx context.Context) error {
 
 func (e *EventEngine) IsReady() bool {
 	return e.ready
+}
+
+func (e *EventEngine) SetKubeClient(client client.Client) {
+	e.client = client
 }

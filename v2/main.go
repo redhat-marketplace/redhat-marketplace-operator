@@ -50,10 +50,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"net/http"
-	"net/http/pprof"
-	_ "net/http/pprof"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -61,13 +58,10 @@ import (
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
-	"k8s.io/client-go/kubernetes"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -101,8 +95,10 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var profBindAddress string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&profBindAddress, "pprof-bind-address", "0", "The address the pprof endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -156,9 +152,6 @@ func main() {
 			&routev1.Route{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
-			&osappsv1.DeploymentConfig{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
-			},
 			&osimagev1.ImageStream{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
 			},
@@ -174,10 +167,15 @@ func main() {
 		},
 	}
 
+	metricsOpts := metricsserver.Options{
+		BindAddress: metricsAddr,
+	}
+
 	opts := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		Metrics:                metricsOpts,
 		HealthProbeBindAddress: probeAddr,
+		PprofBindAddress:       profBindAddress,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "metering.marketplace.redhat.com",
 		Cache:                  cacheOptions,
@@ -225,20 +223,6 @@ func main() {
 
 	factory := manifests.NewFactory(opCfg, mgr.GetScheme())
 
-	clientset, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		setupLog.Error(err, "unable to create clientset")
-		os.Exit(1)
-	}
-
-	authBuilderConfig := rhmotransport.ProvideAuthBuilder(mgr.GetClient(), opCfg, clientset, ctrl.Log)
-
-	catalogClient, err := catalog.ProvideCatalogClient(authBuilderConfig, opCfg, ctrl.Log)
-	if err != nil {
-		setupLog.Error(err, "unable to create client", "client", "catalogClient")
-		os.Exit(1)
-	}
-
 	prometheusAPIBuilder := &prometheus.PrometheusAPIBuilder{
 		Cfg:    opCfg,
 		Client: mgr.GetClient(),
@@ -284,18 +268,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DeploymentConfigReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
-		Scheme:        mgr.GetScheme(),
-		Cfg:           opCfg,
-		Factory:       factory,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
-		os.Exit(1)
-	}
-
 	if err = (&controllers.MarketplaceConfigReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
@@ -327,17 +299,6 @@ func main() {
 		PrometheusAPIBuilder: prometheusAPIBuilder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterDefinition")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.MeterDefinitionInstallReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
-		Scheme:        mgr.GetScheme(),
-		Cfg:           opCfg,
-		CatalogClient: catalogClient,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
 		os.Exit(1)
 	}
 
@@ -384,21 +345,6 @@ func main() {
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
-	}
-
-	// if debug enabled
-	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
-		r := http.NewServeMux()
-		r.HandleFunc("/debug/pprof/", pprof.Index)
-		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
-
-		if err := mgr.AddMetricsExtraHandler("/", r); err != nil {
-			setupLog.Error(err, "unable to set up pprof")
-			os.Exit(1)
-		}
 	}
 
 	customHandler := (&shutdownHandler{

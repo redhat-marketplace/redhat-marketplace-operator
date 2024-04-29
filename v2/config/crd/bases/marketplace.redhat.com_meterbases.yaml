@@ -84,8 +84,8 @@ spec:
                   False will suspend controller operations for metering components.
                 type: boolean
               meterdefinitionCatalogServerConfig:
-                description: MeterdefinitionCatalogServerConfig holds configuration
-                  for the Meterdefinition Catalog Server.
+                description: '[DEPRECATED] MeterdefinitionCatalogServerConfig holds
+                  configuration for the Meterdefinition Catalog Server.'
                 properties:
                   deployMeterDefinitionCatalogServer:
                     description: DeployMeterDefinitionCatalogServer controls whether
@@ -273,9 +273,10 @@ spec:
                   type: object
                 type: array
               meterdefinitionCatalogServerStatus:
-                description: MeterdefinitionCatalogServerStatus is the most recent
-                  observed status of the Meterdefinition Catalog Server. Read-only.
-                  Not included when requesting from the apiserver, only from the Prometheus
+                description: '[DEPRECATED] MeterdefinitionCatalogServerStatus is the
+                  most recent observed status of the Meterdefinition Catalog Server.
+                  Read-only. Not included when requesting from the apiserver, only
+                  from the Prometheus'
                 properties:
                   conditions:
                     description: MeterdefinitionCatalogServerConditions represent

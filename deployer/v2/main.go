@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -48,10 +49,6 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"net/http"
-	"net/http/pprof"
-	_ "net/http/pprof"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
@@ -94,8 +91,10 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var profBindAddress string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&profBindAddress, "pprof-bind-address", "0", "The address the pprof endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -149,10 +148,15 @@ func main() {
 		},
 	}
 
+	metricsOpts := metricsserver.Options{
+		BindAddress: metricsAddr,
+	}
+
 	opts := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		Metrics:                metricsOpts,
 		HealthProbeBindAddress: probeAddr,
+		PprofBindAddress:       profBindAddress,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
 		Cache:                  cacheOptions,
@@ -252,21 +256,6 @@ func main() {
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
-	}
-
-	// if debug enabled
-	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
-		r := http.NewServeMux()
-		r.HandleFunc("/debug/pprof/", pprof.Index)
-		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
-
-		if err := mgr.AddMetricsExtraHandler("/", r); err != nil {
-			setupLog.Error(err, "unable to set up pprof")
-			os.Exit(1)
-		}
 	}
 
 	customHandler := (&shutdownHandler{

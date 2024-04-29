@@ -34,7 +34,7 @@ type Features struct {
 	// +optional
 	Registration *bool `json:"registration,omitempty"`
 
-	// EnableMeterDefinitionCatalogServer represents the enablement of the meterdefinition catalog server, defaults to true when not set
+	// [DEPRECATED] EnableMeterDefinitionCatalogServer represents the enablement of the meterdefinition catalog server, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable MeterDefinition Catalog Server Deployment"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
@@ -43,7 +43,7 @@ type Features struct {
 }
 
 // TODO: not using omit empty here, we don't want these to default to false because the dc controller looks for false to uninstall
-// MeterDefinitionCatalogServerConfig represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
+// [DEPRECATED] MeterDefinitionCatalogServerConfig represents a list of features that can be enabled or disabled for the Meterdefinition Catalog Server.
 // +kubebuilder:object:generate:=true
 type MeterDefinitionCatalogServerConfig struct {
 	// SyncCommunityMeterDefinitions represents the enablement of logic that will sync community meterdefinitions from the meterdefinition catalog, defaults to true when not set

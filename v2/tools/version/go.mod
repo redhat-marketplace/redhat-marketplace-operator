@@ -17,8 +17,12 @@ replace (
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
-	k8s.io/api => k8s.io/api v0.27.7
-	k8s.io/apimachinery => k8s.io/apimachinery v0.27.7
-	k8s.io/client-go => k8s.io/client-go v0.27.7
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.15.2
+	k8s.io/api => k8s.io/api v0.28.8
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
+	k8s.io/apiserver => k8s.io/apiserver v0.28.8
+	k8s.io/client-go => k8s.io/client-go v0.28.8
+	k8s.io/component-base => k8s.io/component-base v0.28.8
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.5
 )

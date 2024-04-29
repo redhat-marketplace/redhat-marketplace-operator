@@ -72,10 +72,6 @@ const (
 	DataServiceRoute       = "dataservice/route.yaml"
 	DataServiceTLSSecret   = "dataservice/secret.yaml"
 
-	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
-	MeterdefinitionFileServerService          = "catalog-server/service.yaml"
-	MeterdefinitionFileServerImageStream      = "catalog-server/image-stream.yaml"
-
 	// ibm-metrics-operator olm manifests
 	MOServiceMonitorMetricsReaderSecret = "ibm-metrics-operator/servicemonitor-metrics-reader-secret.yaml"
 	MOMetricsServiceMonitor             = "ibm-metrics-operator/metrics-service-monitor.yaml"
@@ -820,34 +816,6 @@ func (f *Factory) NewDataServiceRoute() (*routev1.Route, error) {
 
 func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
 	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
-}
-
-func (f *Factory) NewMeterdefintionFileServerDeploymentConfig() (*osappsv1.DeploymentConfig, error) {
-	return f.NewDeploymentConfig(MustAssetReader(MeterdefinitionFileServerDeploymentConfig))
-}
-
-func (f *Factory) NewMeterdefintionFileServerImageStream() (*osimagev1.ImageStream, error) {
-	return f.NewImageStream(MustAssetReader(MeterdefinitionFileServerImageStream))
-}
-
-func (f *Factory) NewMeterdefintionFileServerService() (*corev1.Service, error) {
-	s, err := f.NewService(MustAssetReader(MeterdefinitionFileServerService))
-	if err != nil {
-		return nil, err
-	}
-
-	if v, ok := s.GetAnnotations()["service.beta.openshift.io/serving-cert-secret-name"]; !ok || v != "rhm-meterdefinition-file-server-tls" {
-		annotations := s.GetAnnotations()
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-
-		annotations["service.beta.openshift.io/serving-cert-secret-name"] = "rhm-meterdefinition-file-server-tls"
-
-		s.SetAnnotations(annotations)
-	}
-
-	return s, nil
 }
 
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
