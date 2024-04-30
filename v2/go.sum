@@ -540,8 +540,8 @@ github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3I
 github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 h1:rc3tiVYb5z54aKaDfakKn0dDjIyPpTtszkjuMzyt7ec=
 github.com/openshift/api v0.0.0-20240304080513-3e8192a10b13 h1:KNaEkpcVi4XGb86cA6FMJ8Wia7KWAembCUv8blIksTY=
 github.com/openshift/api v0.0.0-20240304080513-3e8192a10b13/go.mod h1:yimSGmjsI+XF1mr+AKBs2//fSXIOhhetHGbMlBEfXbs=
-github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240131063105-cef0da442825 h1:EI7zxhtbxt+w918BXGZW5sMPzj3AvOlAPGJlF1pAM1U=
-github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240131063105-cef0da442825/go.mod h1:k420O2JH7kTX/b8+KsC++Ad/pq7YY1KZwIMS+w7r8r0=
+github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240417033437-1839fb4d246a h1:xwmkEnl8LaDQBZCirOQdroUI+PPvTgZG6/CcvWCDIgw=
+github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240417033437-1839fb4d246a/go.mod h1:k420O2JH7kTX/b8+KsC++Ad/pq7YY1KZwIMS+w7r8r0=
 github.com/openshift/library-go v0.0.0-20230120214501-9bc305884fcb h1:ru6U+KzNbVFZXSfUkuH6WfHGCZ8rpBvKkJo8nXF+n5k=
 github.com/openshift/library-go v0.0.0-20230120214501-9bc305884fcb/go.mod h1:wrrjvk/CK+nte9Wxend9/K6apy6Zep28lzM27/aJar8=
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
