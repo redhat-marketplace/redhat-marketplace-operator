@@ -85,7 +85,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/openshift/api v0.0.0-20240304080513-3e8192a10b13 // indirect
-	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240131063105-cef0da442825 // indirect
+	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240417033437-1839fb4d246a // indirect
 	github.com/openshift/library-go v0.0.0-20230120214501-9bc305884fcb // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/prometheus-operator/prometheus-operator v0.66.0 // indirect
