@@ -118,5 +118,17 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+          ports:
+            - containerPort: 8443
+              protocol: TCP
+              name: https
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: ibm-metrics-operator-controller-manager-metrics-service-tls
+              readOnly: false
       terminationGracePeriodSeconds: 10
       serviceAccountName: controller-manager
+      volumes:
+        - name: ibm-metrics-operator-controller-manager-metrics-service-tls
+          secret:
+            secretName: ibm-metrics-operator-controller-manager-metrics-service-tls
