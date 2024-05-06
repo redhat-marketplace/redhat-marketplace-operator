@@ -110,5 +110,9 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        ports:
+          - containerPort: 8443
+            protocol: TCP
+            name: https
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

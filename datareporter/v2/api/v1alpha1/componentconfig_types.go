@@ -104,7 +104,7 @@ func NewComponentConfig() *ComponentConfig {
 			HealthProbeBindAddress: ":8081",
 		},
 		Metrics: cfg.ControllerMetrics{
-			BindAddress: "127.0.0.1:8080",
+			BindAddress: ":8443",
 		},
 		Webhook: cfg.ControllerWebhook{
 			Port: ptr.Int(9443),
