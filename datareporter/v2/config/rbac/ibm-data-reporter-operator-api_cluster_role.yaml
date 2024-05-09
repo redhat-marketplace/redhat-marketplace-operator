@@ -13,3 +13,4 @@ rules:
   - "/v1/event"
   verbs:
   - create
+  - post

@@ -14,8 +14,6 @@ spec:
       path: /metrics
       port: https
       scheme: https
-      tlsConfig:
-        insecureSkipVerify: true
   selector:
     matchLabels:
       control-plane: controller-manager

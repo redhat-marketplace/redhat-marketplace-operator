@@ -41,6 +41,11 @@ type Options struct {
 	Namespace     string
 	Version       bool
 
+	TLSCert         string
+	TLSKey          string
+	TLSMinVersion   string
+	TLSCipherSuites []string
+
 	EnableGZIPEncoding bool
 
 	flags *pflag.FlagSet
@@ -82,8 +87,8 @@ func (o *Options) AddFlags() {
 	o.flags.StringVar(&o.Apiserver, "apiserver", "", `The URL of the apiserver to use as a master`)
 	o.flags.StringVar(&o.Kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file")
 	o.flags.BoolVarP(&o.Help, "help", "h", false, "Print Help text")
-	o.flags.IntVar(&o.Port, "port", 8080, `Port to expose metrics on.`)
-	o.flags.StringVar(&o.Host, "host", "0.0.0.0", `Host to expose metrics on.`)
+	o.flags.IntVar(&o.Port, "port", 8443, `Port to expose metrics on.`)
+	o.flags.StringVar(&o.Host, "host", "", `Host to expose metrics on.`)
 	o.flags.IntVar(&o.TelemetryPort, "telemetry-port", 8081, `Port to expose kube-state-metrics self metrics on.`)
 	o.flags.StringVar(&o.TelemetryHost, "telemetry-host", "0.0.0.0", `Host to expose kube-state-metrics self metrics on.`)
 	o.flags.Var(&o.Namespaces, "namespaces", fmt.Sprintf("Comma-separated list of namespaces to be enabled. Defaults to %q", &DefaultNamespaces))
@@ -92,6 +97,20 @@ func (o *Options) AddFlags() {
 	o.flags.StringVar(&o.Namespace, "pod-namespace", "", "Name of the namespace of the pod specified by --pod.")
 	o.flags.BoolVarP(&o.Version, "version", "", false, "kube-state-metrics build version information")
 	o.flags.BoolVar(&o.EnableGZIPEncoding, "enable-gzip-encoding", false, "Gzip responses when requested by clients via 'Accept-Encoding: gzip' header.")
+
+	o.flags.StringVar(&o.TLSCert, "tls-cert-file", "/etc/tls/private/tls.crt", "TLS certificate file path")
+	o.flags.StringVar(&o.TLSKey, "tls-private-key-file", "/etc/tls/private/tls.key", "TLS private key file path")
+	o.flags.StringVar(&o.TLSMinVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
+	o.flags.StringSliceVar(&o.TLSCipherSuites,
+		"tls-cipher-suites",
+		[]string{"TLS_AES_128_GCM_SHA256",
+			"TLS_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+		"Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, a subset will be used")
+
 }
 
 func (o *Options) Mount(addFlags func(newSet *pflag.FlagSet)) {

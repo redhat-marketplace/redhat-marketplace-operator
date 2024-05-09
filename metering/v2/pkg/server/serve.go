@@ -17,6 +17,7 @@ package server
 import (
 	"compress/gzip"
 	"context"
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
@@ -25,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -35,6 +37,7 @@ import (
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
@@ -42,14 +45,19 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	k8sapiflag "k8s.io/component-base/cli/flag"
 
 	goruntime "runtime"
 
 	"github.com/gotidy/ptr"
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 )
 
 const (
@@ -65,6 +73,7 @@ type Service struct {
 	metricsRegistry *prometheus.Registry
 	engine          *engine.Engine
 	prometheusData  *metrics.PrometheusData
+	cluster         cluster.Cluster
 
 	*isReady `wire:"-"`
 }
@@ -105,7 +114,7 @@ func (s *Service) Serve(done <-chan struct{}) error {
 		s.isReady.MarkReady()
 	}()
 
-	s.serveMetrics(s.opts.Host, s.opts.Port, s.opts.EnableGZIPEncoding)
+	s.serveMetrics()
 	return nil
 }
 
@@ -139,15 +148,75 @@ func provideContext() context.Context {
 	return context.Background()
 }
 
-//nolint:errcheck
-func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
-	// Address to listen on for web interface and telemetry
-	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
+func provideCluster(restConfig *rest.Config, scheme *runtime.Scheme) (cluster.Cluster, error) {
+	return cluster.New(restConfig, func(o *cluster.Options) { o.Scheme = scheme })
+}
 
+/*
+It could be novel to use controller-utils metrics server
+https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.0/pkg/metrics/server
+and register metrics on the global prometheus registry
+*/
+
+//nolint:errcheck
+func (s *Service) serveMetrics() {
+
+	// validate TLS flags
+	tlsMV, err := k8sapiflag.TLSVersion(s.opts.TLSMinVersion)
+	if err != nil {
+		log.Error(err, "tls-min-version TLS min version invalid", "flag", "tls-min-version")
+		panic(err)
+	}
+
+	tlsCS, err := k8sapiflag.TLSCipherSuites(s.opts.TLSCipherSuites)
+	if err != nil {
+		log.Error(err, "failed to convert TLS cipher suite name to ID", "flag", "tls-cipher-suites")
+		panic(err)
+	}
+
+	// Setup Context
+	ctx := ctrl.SetupSignalHandler()
+
+	// Initialize a new cert watcher with cert/key pair
+	watcher, err := certwatcher.New(s.opts.TLSCert, s.opts.TLSKey)
+	if err != nil {
+		log.Error(err, "failed to watch TLS certificate and key", "flag", "tls-cert", "flag", "tls-key")
+		panic(err)
+	}
+
+	// Start goroutine with certwatcher running fsnotify against supplied certdir
+	go func() {
+		if err := watcher.Start(ctx); err != nil {
+			log.Error(err, "failed to start certificate watcher")
+			panic(err)
+		}
+	}()
+
+	// Setup TLS listener using GetCertficate for fetching the cert when changes
+	listenAddress := net.JoinHostPort(s.opts.Host, strconv.Itoa(s.opts.Port))
+	listener, err := tls.Listen("tcp", listenAddress, &tls.Config{
+		GetCertificate: watcher.GetCertificate,
+		MinVersion:     tlsMV,
+		CipherSuites:   tlsCS,
+	})
+	if err != nil {
+		log.Error(err, "failed to listen", "address", listenAddress)
+		panic(err)
+	}
+
+	// Address to listen on for web interface and telemetry
 	log.Info("Starting metrics server", "listenAddress", listenAddress)
+
+	// use auth filter
+	authFilter, err := filters.WithAuthenticationAndAuthorization(s.cluster.GetConfig(), s.cluster.GetHTTPClient())
+	if err != nil {
+		log.Error(err, "failed to initialize authentication filter")
+		panic(err)
+	}
 
 	mux := http.NewServeMux()
 
+	// Add pprof if debug is enabled
 	if debug := os.Getenv("PPROF_DEBUG"); debug == trueStr {
 		goruntime.SetMutexProfileFraction(5)
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -157,7 +226,12 @@ func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 
-	m := &metricHandler{s.prometheusData, enableGZIPEncoding}
+	// wrap metricsPath handler with auth filter
+	m, err := authFilter(log, &metricHandler{s.prometheusData, s.opts.EnableGZIPEncoding})
+	if err != nil {
+		log.Error(err, "failed to wrap metrics handler with authentication filter")
+		panic(err)
+	}
 	mux.Handle(metricsPath, m)
 
 	// Add healthzPath
@@ -166,6 +240,7 @@ func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
 		w.Write([]byte(http.StatusText(http.StatusOK)))
 	})
 
+	// Add readyzPath
 	mux.HandleFunc(readyzPath, func(w http.ResponseWriter, r *http.Request) {
 		if s.isReady.IsReady() {
 			w.WriteHeader(http.StatusOK)
@@ -190,11 +265,29 @@ func (s *Service) serveMetrics(host string, port int, enableGZIPEncoding bool) {
              </body>
              </html>`))
 	})
-	err := http.ListenAndServe(listenAddress, mux)
-	if err != nil {
-		log.Error(err, "failing to listen and serve")
+
+	// Initialize tls server
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	// Start goroutine for handling server shutdown.
+	go func() {
+		<-ctx.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			panic(err)
+		}
+	}()
+
+	// Serve
+	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+		log.Error(err, "failed to serve http")
 		panic(err)
 	}
+
 }
 
 type metricHandler struct {

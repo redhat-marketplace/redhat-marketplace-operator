@@ -51,13 +51,15 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: https
+              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8080
+              port: https
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
           env:
@@ -85,8 +87,12 @@ spec:
             runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           ports:
-            - containerPort: 8080
-              name: web
+            - containerPort: 8443
+              name: https
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: rhm-metric-state-tls
+              readOnly: false
         - image: redhat-marketplace-authcheck:latest
           name: authcheck
           env:
@@ -117,49 +123,6 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
-        - args:
-            - --secure-listen-address=:9092
-            - --tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-            - --tls-min-version=VersionTLS12
-            - --upstream=http://127.0.0.1:8080/
-            - --tls-cert-file=/etc/tls/private/tls.crt
-            - --tls-private-key-file=/etc/tls/private/tls.key
-            - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
-          image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
-          imagePullPolicy: IfNotPresent
-          name: kube-rbac-proxy-1
-          ports:
-            - containerPort: 9092
-              name: https
-          resources:
-            limits:
-              cpu: 20m
-              memory: 40Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
-          env:
-          - name: GOMEMLIMIT
-            valueFrom:
-              resourceFieldRef:
-                containerName: kube-rbac-proxy-1
-                resource: limits.memory
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            privileged: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true 
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-            - mountPath: /etc/tls/private
-              name: rhm-metric-state-tls
-              readOnly: false
-            - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: ibm-metrics-operator-serving-certs-ca-bundle
-              readOnly: false
       priorityClassName: system-cluster-critical
       serviceAccountName: ibm-metrics-operator-metric-state
       tolerations:
@@ -170,6 +133,3 @@ spec:
         - name: rhm-metric-state-tls
           secret:
             secretName: rhm-metric-state-tls
-        - configMap:
-            name: ibm-metrics-operator-serving-certs-ca-bundle
-          name: ibm-metrics-operator-serving-certs-ca-bundle

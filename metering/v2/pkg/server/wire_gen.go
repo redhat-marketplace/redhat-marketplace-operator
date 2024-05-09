@@ -37,11 +37,16 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	cluster, err := provideCluster(restConfig, scheme)
+	if err != nil {
+		return nil, err
+	}
 	service := &Service{
 		opts:            opts,
 		metricsRegistry: registry,
 		engine:          engineEngine,
 		prometheusData:  prometheusData,
+		cluster:         cluster,
 	}
 	return service, nil
 }

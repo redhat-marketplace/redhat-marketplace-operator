@@ -17,30 +17,28 @@ limitations under the License.
 package main
 
 import (
-	"context"
-	"flag"
+	"crypto/tls"
 	"os"
-	"os/signal"
-	"syscall"
 
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	flag "github.com/spf13/pflag"
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/util/retry"
+	k8sapiflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -92,12 +90,30 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var profBindAddress string
+	var tlsCert string
+	var tlsKey string
+	var tlsMinVersion string
+	var tlsCipherSuites []string
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&profBindAddress, "pprof-bind-address", "0", "The address the pprof endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&tlsCert, "tls-cert-file", "/etc/tls/private/tls.crt", "TLS certificate file path")
+	flag.StringVar(&tlsKey, "tls-private-key-file", "/etc/tls/private/tls.key", "TLS private key file path")
+	flag.StringVar(&tlsMinVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
+	flag.StringSliceVar(&tlsCipherSuites,
+		"tls-cipher-suites",
+		[]string{"TLS_AES_128_GCM_SHA256",
+			"TLS_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+		"Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, a subset will be used")
+
 	flag.Parse()
 
 	encoderConfig := func(ec *zapcore.EncoderConfig) {
@@ -108,6 +124,39 @@ func main() {
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zapOpts))
+
+	ctx := ctrl.SetupSignalHandler()
+
+	//
+	// TLS Configuration
+	//
+
+	tlsMV, err := k8sapiflag.TLSVersion(tlsMinVersion)
+	if err != nil {
+		setupLog.Error(err, "tls-min-version TLS min version invalid", "flag", "tls-min-version")
+		os.Exit(1)
+	}
+
+	tlsCS, err := k8sapiflag.TLSCipherSuites(tlsCipherSuites)
+	if err != nil {
+		setupLog.Error(err, "failed to convert TLS cipher suite name to ID", "flag", "tls-cipher-suites")
+		os.Exit(1)
+	}
+
+	// Initialize a new cert watcher with cert/key pair
+	watcher, err := certwatcher.New(tlsCert, tlsKey)
+	if err != nil {
+		setupLog.Error(err, "failed to create certwatcher")
+		os.Exit(1)
+	}
+
+	// Start goroutine with certwatcher running fsnotify against supplied certdir
+	go func() {
+		if err := watcher.Start(ctx); err != nil {
+			setupLog.Error(err, "failed to start certwatcher")
+			os.Exit(1)
+		}
+	}()
 
 	// only cache these Object types a Namespace scope to reduce RBAC permission requirements
 	cacheOptions := cache.Options{
@@ -149,7 +198,16 @@ func main() {
 	}
 
 	metricsOpts := metricsserver.Options{
-		BindAddress: metricsAddr,
+		BindAddress:    metricsAddr,
+		SecureServing:  true,
+		FilterProvider: filters.WithAuthenticationAndAuthorization,
+		TLSOpts: []func(*tls.Config){
+			func(cfg *tls.Config) {
+				cfg.GetCertificate = watcher.GetCertificate
+				cfg.MinVersion = tlsMV
+				cfg.CipherSuites = tlsCS
+			},
+		},
 	}
 
 	opts := ctrl.Options{
@@ -258,89 +316,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	customHandler := (&shutdownHandler{
-		client: mgr.GetClient(),
-	})
-
 	setupLog.Info("starting manager")
-	if err := mgr.Start(customHandler.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 	close(doneChan)
-}
-
-var onlyOneSignalHandler = make(chan struct{})
-var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
-
-type shutdownHandler struct {
-	client client.Client
-	cfg    *config.OperatorConfig
-}
-
-func (s *shutdownHandler) SetupSignalHandler() context.Context {
-	close(onlyOneSignalHandler) // panics when called twice
-
-	ctx, cancel := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, shutdownSignals...)
-	go func() {
-		<-c
-		setupLog.Info("shutdown signal received")
-		cancel()
-		<-c
-		setupLog.Info("second shutdown signal received, killing")
-		os.Exit(1) // second signal. Exit directly.
-	}()
-
-	return ctx
-}
-
-func (s *shutdownHandler) cleanupOperatorGroup() error {
-	var operatorGroupEnvVar = "OPERATOR_GROUP"
-
-	operatorGroupName, found := os.LookupEnv(operatorGroupEnvVar)
-
-	if found && len(operatorGroupName) != 0 {
-		setupLog.Info("operatorGroup found, attempting to update")
-		operatorGroup := &olmv1.OperatorGroup{}
-		subscription := &olmv1alpha1.Subscription{}
-
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := s.client.Get(context.TODO(),
-				types.NamespacedName{Name: "redhat-marketplace-operator", Namespace: s.cfg.DeployedNamespace},
-				subscription,
-			)
-
-			if !k8serrors.IsNotFound(err) {
-				setupLog.Info("subscription found, not cleaning operator group")
-				return nil
-			}
-
-			err = s.client.Get(context.TODO(),
-				types.NamespacedName{Name: operatorGroupName, Namespace: s.cfg.DeployedNamespace},
-				operatorGroup,
-			)
-
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return err
-			} else if err == nil {
-				operatorGroup.Spec.TargetNamespaces = []string{s.cfg.DeployedNamespace}
-				operatorGroup.Spec.Selector = nil
-
-				err = s.client.Update(context.TODO(), operatorGroup)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-
-		if err != nil {
-			setupLog.Error(err, "error updating operatorGroup")
-			return err
-		}
-	}
-
-	return nil
 }
