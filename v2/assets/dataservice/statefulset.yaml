@@ -137,7 +137,7 @@ spec:
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-1
           ports:
             - containerPort: 8004
@@ -184,7 +184,7 @@ spec:
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-2
           ports:
             - containerPort: 8008

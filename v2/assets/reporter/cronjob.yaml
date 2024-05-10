@@ -40,7 +40,7 @@ spec:
           containers:
           - name: reporter
             image: redhat-markplace-reporter
-            imagePullPolicy: Always
+            imagePullPolicy: IfNotPresent
             # additional args are added in factory
             args:
               - 'reconcile'
