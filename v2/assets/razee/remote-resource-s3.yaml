@@ -74,7 +74,7 @@ spec:
                   name: razeedeploy-overrides
                   key: CRD_WATCH_TIMEOUT_SECONDS
                   optional: true
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: remoteresource-controller
           livenessProbe:
             exec:
