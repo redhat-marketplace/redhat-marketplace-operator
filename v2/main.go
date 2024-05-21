@@ -26,7 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
@@ -162,56 +162,89 @@ func main() {
 		}
 	}()
 
+	// Reconciler does not operate on copies.
+	csvLabelSelector, err := labels.Parse("!olm.copiedFrom")
+	if err != nil {
+		setupLog.Error(err, "failed to create csvLabelSelector")
+		os.Exit(1)
+	}
+
+	// This pod namespace
+	nsScopePod := make(map[string]cache.Config)
+	nsScopePod[os.Getenv("POD_NAMESPACE")] = cache.Config{}
+
+	// openshift-marketplace CatalogSources
+	nsScopeMkt := make(map[string]cache.Config)
+	nsScopeMkt[utils.OPERATOR_MKTPLACE_NS] = cache.Config{}
+
+	// Local StatefulSet and User Workload Monitoring
+	nsScopeStS := make(map[string]cache.Config)
+	nsScopeStS[os.Getenv("POD_NAMESPACE")] = cache.Config{}
+	nsScopeStS[utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE] = cache.Config{}
+
 	// only cache these Object types a Namespace scope to reduce RBAC permission requirements
 	cacheOptions := cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Pod{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&corev1.ServiceAccount{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&corev1.PersistentVolumeClaim{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&appsv1.Deployment{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
+			},
+			&appsv1.StatefulSet{}: {
+				Namespaces: nsScopeStS,
 			},
 			&batchv1.CronJob{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&batchv1.Job{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&marketplacev1alpha1.MarketplaceConfig{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&marketplacev1alpha1.MeterBase{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&marketplacev1alpha1.MeterReport{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&marketplacev1alpha1.RazeeDeployment{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&routev1.Route{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&osimagev1.ImageStream{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&olmv1alpha1.CatalogSource{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": utils.OPERATOR_MKTPLACE_NS}),
+				Namespaces: nsScopeMkt,
 			},
 			&monitoringv1.Prometheus{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
 			},
 			&monitoringv1.ServiceMonitor{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": os.Getenv("POD_NAMESPACE")}),
+				Namespaces: nsScopePod,
+			},
+			// ClusterServiceVersion Spec is a large cache memory consumer.
+			// Reconciler only operates on its metadata, and does not operate on copies.
+			&olmv1alpha1.ClusterServiceVersion{}: {
+				Label: csvLabelSelector,
+				Transform: func(obj interface{}) (interface{}, error) {
+					csv := obj.(*olmv1alpha1.ClusterServiceVersion)
+					csv.Spec = olmv1alpha1.ClusterServiceVersionSpec{}
+					return csv, nil
+				},
 			},
 		},
 	}

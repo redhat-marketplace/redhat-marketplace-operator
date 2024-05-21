@@ -106,7 +106,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			{
 				NamespacedName: types.NamespacedName{
 					Name:      "rhm-marketplaceconfig-meterbase",
-					Namespace: a.GetNamespace(),
+					Namespace: r.Cfg.DeployedNamespace,
 				},
 			},
 		}
