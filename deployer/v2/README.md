@@ -1,4 +1,9 @@
 The Red Hat Marketplace Deployment Operator by IBM provides cluster and operator management for IBM Software Central and Red Hat Marketplace customers.
+
+### **Deprecation Notice**
+
+Red Hat Marketplace Deployment Operator v4.15 is the final release. Integration with the Red Hat Marketplace website's automated operator installation functionality will be removed at a future date. Administrators are advised to install their software through their OpenShift cluster's OperatorHub.
+
 ### **Important Note**
 A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [swc.saas.ibm.com](https://swc.saas.ibm.com).
 
