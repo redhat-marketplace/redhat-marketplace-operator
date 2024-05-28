@@ -29,6 +29,7 @@ const (
 	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
 	RAZEE_JOB_NAME                         = "rhm-razeedeploy-job"
 	PARENT_REMOTE_RESOURCE_NAME            = "parent"
+	CHILD_REMOTE_RESOURCE_NAME             = "child"
 	COS_READER_KEY_NAME                    = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME                   = "razee-uninstall-job"
 	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"

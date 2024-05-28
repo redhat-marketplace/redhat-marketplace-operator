@@ -14,6 +14,9 @@ subjects:
 - kind: ServiceAccount
   name: ibm-metrics-operator-metric-state
   namespace: ibm-common-services
+- kind: ServiceAccount
+  name: ibm-metrics-operator-metric-state
+  namespace: ibm-software-central
 roleRef:
   kind: ClusterRole
   name: view
@@ -33,6 +36,9 @@ subjects:
 - kind: ServiceAccount
   name: ibm-metrics-operator-reporter
   namespace: ibm-common-services
+- kind: ServiceAccount
+  name: ibm-metrics-operator-reporter
+  namespace: ibm-software-central
 roleRef:
   kind: ClusterRole
   name: cluster-monitoring-view
@@ -52,6 +58,9 @@ subjects:
 - kind: ServiceAccount
   name: ibm-data-reporter-operator-controller-manager
   namespace: ibm-common-services
+- kind: ServiceAccount
+  name: ibm-data-reporter-operator-controller-manager
+  namespace: ibm-software-central
 roleRef:
   kind: ClusterRole
   name: cluster-monitoring-view

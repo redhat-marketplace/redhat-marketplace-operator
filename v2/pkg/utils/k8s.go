@@ -172,11 +172,15 @@ func BuildNewOpSrc() *unstructured.Unstructured {
 
 // BuildNewIBMCatalogSrc returns a new IBM Catalog Source
 func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
+	labels := make(map[string]string)
+	labels[OperatorTag] = OperatorTagValue
+
 	catalogSrc := &operatorsv1alpha1.CatalogSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: IBM_CATALOGSRC_NAME,
 			// Must always be openshift-marketplace
 			Namespace: OPERATOR_MKTPLACE_NS,
+			Labels:    labels,
 		},
 		Spec: operatorsv1alpha1.CatalogSourceSpec{
 			DisplayName:    "IBM Operator Catalog",
@@ -192,11 +196,15 @@ func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
 
 // BuildNewOpencloudCatalogSrc returns a new Opencloud Catalog Source
 func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
+	labels := make(map[string]string)
+	labels[OperatorTag] = OperatorTagValue
+
 	catalogSrc := &operatorsv1alpha1.CatalogSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: OPENCLOUD_CATALOGSRC_NAME,
 			// Must always be openshift-marketplace
 			Namespace: OPERATOR_MKTPLACE_NS,
+			Labels:    labels,
 		},
 		Spec: operatorsv1alpha1.CatalogSourceSpec{
 			DisplayName:    "IBMCS Operators",

@@ -40,7 +40,7 @@ OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 RRS3_IMAGE ?= us.icr.io/armada-master/remoteresource:2.1.19_7f655fe
 WATCHKEEPER_IMAGE ?= us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe
 
-namespace ?= redhat-marketplace
+namespace ?= ibm-software-central
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(OPERATOR_IMAGE)
