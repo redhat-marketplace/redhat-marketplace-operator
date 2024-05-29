@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2
 
-go 1.20
+go 1.21
 
 require (
 	emperror.dev/errors v0.8.1
