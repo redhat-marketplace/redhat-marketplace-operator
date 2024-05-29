@@ -34,7 +34,7 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-namespace ?= redhat-marketplace
+namespace ?= ibm-software-central
 
 IMG ?= $(OPERATOR_IMAGE)
 IMAGE ?= $(OPERATOR_IMAGE)

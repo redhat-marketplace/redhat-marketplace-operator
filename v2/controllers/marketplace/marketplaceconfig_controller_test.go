@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -255,6 +256,19 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 
 			return notFound
 		}, timeout, interval).ShouldNot(BeTrue())
+
+		Eventually(func() bool {
+			catalogSourceList := &operatorsv1alpha1.CatalogSourceList{}
+			k8sClient.List(context.TODO(), catalogSourceList)
+
+			var catalogSourceNames []string
+			for _, catalogSource := range catalogSourceList.Items {
+				catalogSourceNames = append(catalogSourceNames, catalogSource.Name)
+			}
+
+			return utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
+				utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
+		}, timeout, interval).Should(BeTrue())
 
 		Expect(*mc.Spec.Features.Deployment).Should(BeTrue())
 		Expect(*mc.Spec.Features.Registration).Should(BeTrue())

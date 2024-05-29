@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -32,9 +33,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	corev1 "k8s.io/api/core/v1"
-
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,6 +78,10 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-razeedeployment
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
+
+// CatalogSource
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog;opencloud-operators
 
 // Infrastructure Discovery
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
@@ -254,6 +258,14 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	// Create or update RazeeDeployment, set derived values
 	if result, err := r.createOrUpdateRazeeRazeeDeployment(request); err != nil {
 		return result, err
+	}
+
+	// Create CatalogSource
+
+	for _, catalogSrcName := range [2]string{utils.IBM_CATALOGSRC_NAME, utils.OPENCLOUD_CATALOGSRC_NAME} {
+		if result, err := r.createCatalogSource(marketplaceConfig, catalogSrcName); err != nil {
+			return result, err
+		}
 	}
 
 	// Install is complete, set Status
@@ -1104,4 +1116,78 @@ func (r *MarketplaceConfigReconciler) checkRHMAccountStatus(
 	} else {
 		return true, nil
 	}
+}
+
+// Begin installation or deletion of Catalog Source
+func (r *MarketplaceConfigReconciler) createCatalogSource(instance *marketplacev1alpha1.MarketplaceConfig, catalogName string) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("func", "createCatalogSource", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
+
+	return reconcile.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+
+		catalogSrc := &operatorsv1alpha1.CatalogSource{}
+		catalogSrcNamespacedName := types.NamespacedName{
+			Name:      catalogName,
+			Namespace: utils.OPERATOR_MKTPLACE_NS}
+
+		// If InstallIBMCatalogSource is true: install Catalog Source
+		// if InstallIBMCatalogSource is false: do not install Catalog Source, and delete existing one (if it exists)
+		if ptr.ToBool(instance.Spec.InstallIBMCatalogSource) {
+			// If the Catalog Source does not exist, create one
+			if err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc); err != nil && k8serrors.IsNotFound(err) {
+				// Create catalog source
+				var newCatalogSrc *operatorsv1alpha1.CatalogSource
+				if utils.IBM_CATALOGSRC_NAME == catalogName {
+					newCatalogSrc = utils.BuildNewIBMCatalogSrc()
+				} else { // utils.OPENCLOUD_CATALOGSRC_NAME
+					newCatalogSrc = utils.BuildNewOpencloudCatalogSrc()
+				}
+
+				reqLogger.Info("Creating catalog source")
+				if err := r.Client.Create(context.TODO(), newCatalogSrc); err != nil {
+					reqLogger.Error(err, "Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
+					return err
+				}
+
+				ok := instance.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
+					Message: catalogName + " catalog source installed.",
+				})
+
+				if ok {
+					return r.Client.Status().Update(context.TODO(), instance)
+				}
+
+				return nil
+			} else if err != nil {
+				// Could not get catalog source
+				reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+				return err
+			}
+		} else {
+			// Delete catalog source, if it contains our label
+			if err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc); err != nil {
+				if catalogSrc.Labels[utils.OperatorTag] == utils.OperatorTagValue {
+					if err := r.Client.Delete(context.TODO(), catalogSrc); err != nil {
+						reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
+						return err
+					}
+
+					ok := instance.Status.Conditions.SetCondition(status.Condition{
+						Type:    marketplacev1alpha1.ConditionInstalling,
+						Status:  corev1.ConditionTrue,
+						Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
+						Message: catalogName + " catalog source deleted.",
+					})
+
+					if ok {
+						return r.Client.Status().Update(context.TODO(), instance)
+					}
+				}
+			}
+		}
+
+		return nil
+	})
 }
