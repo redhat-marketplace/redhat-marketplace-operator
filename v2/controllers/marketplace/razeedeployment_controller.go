@@ -21,8 +21,6 @@ import (
 	"reflect"
 	"time"
 
-	golangerrors "errors"
-
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -34,7 +32,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -281,10 +278,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return reconcile.Result{}, err
 		}
 
-		if err := r.removeRazeeDeployments(instance); err != nil {
-			return reconcile.Result{}, err
-		}
-
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 				return err
@@ -450,34 +443,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 	reqLogger.V(0).Info("all secret values found")
 
 	reqLogger.V(0).Info("All required razee configuration values have been found")
-
-	//
-	// rhm-remoteresource-controller
-	//
-
-	// Cleanup remaining Deployment artifacts,
-	rrDeploymentEnabled := false
-	if !rrDeploymentEnabled {
-		//razee deployment disabled - if the deployment was found, delete it
-		if err := r.removeRazeeDeployments(instance); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		//Deployment is disabled - update status
-		reqLogger.V(0).Info("RemoteResource deployment is disabled")
-		//update status to reflect disabled
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionResourceDeploymentDisabled) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
 
 	//
 	// rhm-watch-keeper
@@ -666,6 +631,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 			dep, err := r.Factory.NewWatchKeeperDeployment()
+			dep.Spec.Template.Spec.ServiceAccountName = "ibm-metrics-operator-watch-keeper"
 			return dep, err
 		}); err != nil {
 			return reconcile.Result{}, err
@@ -1033,170 +999,6 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 
 	r.Factory.SetOwnerReference(instance, &secret)
 	return secret, err
-}
-
-// Undeploy the razee deployment and parent
-func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
-	req *marketplacev1alpha1.RazeeDeployment,
-) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("removing razee deployment resources: childRR, parentRR, RR deployment")
-
-	maxRetry := 3
-
-	childRR := unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha2",
-			"kind":       "RemoteResource",
-			"metadata": map[string]interface{}{
-				"name":      utils.CHILD_REMOTE_RESOURCE_NAME,
-				"namespace": *req.Spec.TargetNamespace,
-			},
-		},
-	}
-
-	err := utils.Retry(func() error {
-		reqLogger.Info("Listing childRR")
-
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.CHILD_REMOTE_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &childRR)
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResource")
-			return err
-		}
-
-		if err != nil && errors.IsNotFound((err)) {
-			reqLogger.Info("ChildRR deleted")
-			return nil
-		}
-
-		err = r.Client.Delete(context.TODO(), &childRR)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete childRR")
-			return err
-		}
-
-		return fmt.Errorf("error on deletion of childRR %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Info("retry limit exceeded, removing finalizers on childRR", "err", err.Error())
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key := client.ObjectKeyFromObject(&childRR)
-
-			err := r.Client.Get(context.TODO(), key, &childRR)
-			if err != nil {
-				return err
-			}
-
-			if utils.Contains(childRR.GetFinalizers(), utils.RR_FINALIZER) {
-				childRR.SetFinalizers(utils.RemoveKey(childRR.GetFinalizers(), utils.CONTROLLER_FINALIZER))
-			}
-
-			return r.Client.Update(context.TODO(), &childRR)
-		})
-
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "error updating childRR finalizers")
-			return err
-		}
-
-		if errors.IsNotFound(err) {
-			reqLogger.Info("removed finalizers on child rr")
-		}
-	}
-
-	parentRR := unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha2",
-			"kind":       "RemoteResource",
-			"metadata": map[string]interface{}{
-				"name":      utils.PARENT_REMOTE_RESOURCE_NAME,
-				"namespace": *req.Spec.TargetNamespace,
-			},
-		},
-	}
-
-	err = utils.Retry(func() error {
-		reqLogger.Info("Listing parentRR")
-
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_REMOTE_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRR)
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResource")
-			return err
-		}
-
-		if err != nil && errors.IsNotFound((err)) {
-			reqLogger.Info("ParentRR deleted")
-			return nil
-		}
-
-		err = r.Client.Delete(context.TODO(), &parentRR)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRR")
-			return err
-		}
-
-		return fmt.Errorf("error on deletion of parentRR %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Info("retry limit exceeded, removing finalizers on parentRR", "err", err.Error())
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key := client.ObjectKeyFromObject(&parentRR)
-
-			err := r.Client.Get(context.TODO(), key, &parentRR)
-			if err != nil {
-				return err
-			}
-
-			if utils.Contains(parentRR.GetFinalizers(), utils.RR_FINALIZER) {
-				parentRR.SetFinalizers(utils.RemoveKey(parentRR.GetFinalizers(), utils.RR_FINALIZER))
-			}
-
-			return r.Client.Update(context.TODO(), &parentRR)
-		})
-
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "error updating updatingRR finalizers")
-			return err
-		}
-
-		if errors.IsNotFound(err) {
-			reqLogger.Info("removed finlizers on parent rr")
-		}
-	}
-
-	//Delete the deployment
-	err = utils.Retry(func() error {
-		deployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
-				Namespace: *req.Spec.TargetNamespace,
-			},
-		}
-
-		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
-		err = r.Client.Delete(context.TODO(), deployment)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("rr deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
-				return nil
-			}
-
-			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
-			return err
-		}
-
-		return fmt.Errorf("error on deletion of rr deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Error(err, "error deleting rr deployment resources")
-	}
-
-	return nil
 }
 
 // Undeploy the watchkeeper deployment

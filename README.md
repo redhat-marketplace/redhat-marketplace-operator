@@ -96,7 +96,7 @@ metadata:
   labels:
     app: rhm-data-service
   name: rhm-data-service-rhm-data-service-0
-  namespace: redhat-marketplace
+  namespace: ibm-software-central
 spec:
   storageClassName: rook-cephfs
   accessModes:
@@ -126,7 +126,7 @@ spec:
   volumeMode: Filesystem
   claimRef:
     kind: PersistentVolumeClaim
-    namespace: redhat-marketplace
+    namespace: ibm-software-central
     name: rhm-data-service-rhm-data-service-0
 ```
 

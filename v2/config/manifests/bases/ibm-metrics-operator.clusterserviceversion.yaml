@@ -9,7 +9,7 @@ metadata:
     description: The IBM Metrics Operator provides workload metering and reporting
       for IBM and Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.2.0'
-    operatorframework.io/suggested-namespace: redhat-marketplace
+    operatorframework.io/suggested-namespace: ibm-software-central
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources.deploy.razee.io]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
@@ -124,7 +124,7 @@ spec:
     or accepting the license in `marketplaceconfig`. Otherwise, the automatically
     generated PersistentVolumeClaims are immutable.\n```\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n
     \ labels:\n    app: rhm-data-service\n  name: rhm-data-service-rhm-data-service-0\n
-    \ namespace: redhat-marketplace\nspec:\n  storageClassName: rook-cephfs\n  accessModes:\n
+    \ namespace: ibm-software-central\nspec:\n  storageClassName: rook-cephfs\n  accessModes:\n
     \ - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi\n```\n---\n####
     Manually provision each PersistentVolume for the generated PersistentVolumeClaims
     with a specific StorageClass\n  - May be performed before or after creating a
@@ -133,7 +133,7 @@ spec:
     \ csi:\n    driver: rook-ceph.cephfs.csi.ceph.com\n    volumeHandle: rhm-data-service-rhm-data-service-0\n
     \ capacity:\n    storage: 1Gi\n  accessModes:\n    - ReadWriteOnce\n  persistentVolumeReclaimPolicy:
     Delete\n  storageClassName: rook-cephfs\n  volumeMode: Filesystem\n  claimRef:\n
-    \   kind: PersistentVolumeClaim\n    namespace: redhat-marketplace\n    name:
+    \   kind: PersistentVolumeClaim\n    namespace: ibm-software-central\n    name:
     rhm-data-service-rhm-data-service-0\n```\n\n### Installation\n1. Create or get
     your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
     Install the IBM Metrics Operator\n3. Create a Kubernetes secret in the installed
