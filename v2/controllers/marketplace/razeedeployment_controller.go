@@ -200,7 +200,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription;rhm-cos-reader-key
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-watch-keeper
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 
@@ -260,6 +260,11 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		}); err != nil {
 			return reconcile.Result{}, err
 		}
+	}
+
+	// If this was an upgrade, and Deployment Operator was removed, delete remoteresource-controller
+	if err := r.removeRazeeDeployments(instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// if not enabled then exit
@@ -829,6 +834,35 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 
 	r.Factory.SetOwnerReference(instance, &secret)
 	return secret, err
+}
+
+// Undeploy the razee deployment and parent
+func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
+	req *marketplacev1alpha1.RazeeDeployment,
+) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+
+	// RemoteResource CR/CRD would be deleted with parent operator
+	// Need to remove remoteresource-controller Deployment owned by RazeeDeployment CR
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
+			Namespace: *req.Spec.TargetNamespace,
+		},
+	}
+
+	if err := r.Client.Delete(context.TODO(), deployment); err != nil {
+		if errors.IsNotFound(err) { // already deleted
+			return nil
+		} else {
+			return err
+		}
+	} else {
+		reqLogger.Info("rr deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
+	}
+
+	return nil
 }
 
 // Undeploy the watchkeeper deployment
