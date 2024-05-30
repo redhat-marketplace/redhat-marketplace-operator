@@ -848,7 +848,7 @@ func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
-			Namespace: *req.Spec.TargetNamespace,
+			Namespace: req.Namespace,
 		},
 	}
 
