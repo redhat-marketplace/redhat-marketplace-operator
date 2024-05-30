@@ -324,21 +324,12 @@ rules:
   - deployments/finalizers
   verbs:
   - create
+  - delete
   - get
   - list
-  - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - rhm-remoteresources3-controller
-  - rhm-watch-keeper
-  resources:
-  - deployments
-  - deployments/finalizers
-  verbs:
-  - delete
   - patch
   - update
+  - watch
 - apiGroups:
   - apps
   resourceNames:
