@@ -136,7 +136,7 @@ spec:
             - mountPath: /home/node/envs/watch-keeper-secret
               name: watch-keeper-secret
               readOnly: true
-      serviceAccountName: redhat-marketplace-watch-keeper
+      serviceAccountName: ibm-metrics-operator-watch-keeper
       volumes:
         - configMap:
             defaultMode: 288

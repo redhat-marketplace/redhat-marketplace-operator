@@ -26,7 +26,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -201,19 +200,12 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription;rhm-cos-reader-key
 // +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;get;delete,resourceNames=rhm-remoteresource-controller
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-watch-keeper
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 
 // operator_config
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
-
-// cleanup required for finalizers & ownerrefs
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
 
 // Infrastructure Discovery
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
@@ -631,7 +623,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 			dep, err := r.Factory.NewWatchKeeperDeployment()
-			dep.Spec.Template.Spec.ServiceAccountName = "ibm-metrics-operator-watch-keeper"
 			return dep, err
 		}); err != nil {
 			return reconcile.Result{}, err
@@ -647,24 +638,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return nil
 		}); err != nil {
 			return reconcile.Result{}, err
-		}
-
-		needsMigration, err := r.checkChildMigrationStatus(request, instance, reqLogger)
-		if err != nil {
-			return reconcile.Result{}, err
-
-		}
-
-		if needsMigration {
-			err := r.migrateChildRRS3(request, reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			err = r.setChildMigrationStatus(request, instance, reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
 		}
 	}
 
@@ -724,149 +697,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
-}
-
-func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, reqLogger logr.Logger) error {
-	rrs3Deployment := &appsv1.Deployment{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, rrs3Deployment)
-	if err != nil && !errors.IsNotFound(err) {
-		reqLogger.Error(err, "could not get legacy rrs3 deployment")
-		return err
-	}
-
-	if !errors.IsNotFound(err) {
-		err = r.Client.Delete(context.TODO(), rrs3Deployment)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete rrs3 deployment")
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment, reqLogger logr.Logger) (bool, error) {
-	reqLogger.Info("checking child migration status")
-
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.MARKETPLACECONFIG_NAME,
-			Namespace: request.Namespace,
-		}, marketplaceConfig); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return false, err
-	}
-
-	childRRS3Migrated := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionChildMigrationComplete)
-	clusterRegsitered := marketplaceConfig.Status.Conditions.IsTrueFor(marketplacev1alpha1.ConditionRegistered)
-
-	if childRRS3Migrated == nil && clusterRegsitered {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (r *RazeeDeploymentReconciler) setChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment, reqLogger logr.Logger) error {
-	reqLogger.Info("setting child migration status")
-
-	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionChildRRS3MigrationComplete) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *RazeeDeploymentReconciler) makeMigrationCall(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) error {
-	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-		AccountId:   marketplaceConfig.Spec.RhmAccountID,
-		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-	}
-
-	reqLogger.Info("attempting to migrate child rrs3", "marketplace client account", marketplaceClientAccount)
-
-	err := marketplaceClient.MigrateChildRRS3(marketplaceClientAccount)
-	if err != nil {
-		reqLogger.Error(err, "migrate failed")
-		return err
-	}
-
-	return err
-}
-
-func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, reqLogger logr.Logger) error {
-	reqLogger.Info("migrating child RRS3")
-	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
-	si, err := secretFetcher.ReturnSecret()
-	if err != nil {
-		return err
-	}
-
-	reqLogger.Info("found secret", "secret", si.Name)
-
-	if si.Secret == nil {
-		return nil
-	}
-
-	token, err := secretFetcher.ParseAndValidate(si)
-	if err != nil {
-		reqLogger.Error(err, "error validating secret")
-		return err
-	}
-
-	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-	if err != nil {
-		reqLogger.Error(err, "error parsing token")
-		return err
-	}
-
-	marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).
-		NewMarketplaceClient(token, tokenClaims)
-
-	if err != nil {
-		reqLogger.Error(err, "error constructing marketplace client")
-		return err
-	}
-
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.MARKETPLACECONFIG_NAME,
-			Namespace: request.Namespace,
-		}, marketplaceConfig); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	err = r.makeMigrationCall(marketplaceConfig, marketplaceClient, request, reqLogger)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
 }
 
 // Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr
