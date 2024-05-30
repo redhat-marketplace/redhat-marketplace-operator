@@ -18,8 +18,10 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 
@@ -31,10 +33,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/events"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/filters"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/server"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,9 +49,11 @@ import (
 	k8sapiflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	//+kubebuilder:scaffold:imports
 
@@ -70,15 +76,35 @@ func init() {
 func main() {
 
 	var namespace string
+	var tlsCert string
+	var tlsKey string
+	var tlsMinVersion string
+	var tlsCipherSuites []string
 	var componentConfigVar string
 
-	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
+	pflag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace where the operator is deployed")
+
+	// TLS
+	pflag.StringVar(&tlsCert, "tls-cert-file", "/etc/tls/private/tls.crt", "TLS certificate file path")
+	pflag.StringVar(&tlsKey, "tls-private-key-file", "/etc/tls/private/tls.key", "TLS private key file path")
+	pflag.StringVar(&tlsMinVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
+	pflag.StringSliceVar(&tlsCipherSuites,
+		"tls-cipher-suites",
+		[]string{"TLS_AES_128_GCM_SHA256",
+			"TLS_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+		"Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, a subset will be used")
 
 	// componentconfig path
-	flag.StringVar(&componentConfigVar, "config", "",
+	pflag.StringVar(&componentConfigVar, "config", "",
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
+
+	pflag.Parse()
 
 	opts := zap.Options{
 		Development: true,
@@ -89,7 +115,6 @@ func main() {
 		},
 	}
 	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -114,6 +139,8 @@ func main() {
 		setupLog.Error(err, "unable to load the config file")
 		os.Exit(1)
 	}
+
+	// Outbound TLS to DataService, from ComponentConfig
 
 	tlsVersion, err := k8sapiflag.TLSVersion(cc.TLSConfig.MinVersion)
 	if err != nil {
@@ -146,6 +173,37 @@ func main() {
 		MinVersion:           tlsVersion,
 	}
 
+	//
+	// Service TLS Configuration, from CommandLine flagset
+	//
+
+	tlsMV, err := k8sapiflag.TLSVersion(tlsMinVersion)
+	if err != nil {
+		setupLog.Error(err, "tls-min-version TLS min version invalid", "flag", "tls-min-version")
+		os.Exit(1)
+	}
+
+	tlsCS, err := k8sapiflag.TLSCipherSuites(tlsCipherSuites)
+	if err != nil {
+		setupLog.Error(err, "failed to convert TLS cipher suite name to ID", "flag", "tls-cipher-suites")
+		os.Exit(1)
+	}
+
+	// Initialize a new cert watcher with cert/key pair
+	watcher, err := certwatcher.New(tlsCert, tlsKey)
+	if err != nil {
+		setupLog.Error(err, "failed to create certwatcher")
+		os.Exit(1)
+	}
+
+	// Start goroutine with certwatcher running fsnotify against supplied certdir
+	go func() {
+		if err := watcher.Start(ctx); err != nil {
+			setupLog.Error(err, "failed to start certwatcher")
+			os.Exit(1)
+		}
+	}()
+
 	cacheOptions := cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&v1alpha1.DataReporterConfig{}: {
@@ -175,10 +233,38 @@ func main() {
 		},
 	}
 
+	// Due to controller-manager v0.16 change, the handler must now be defined before NewManager
+	// Thus mgr.GetClient() is not yet available, as such Client is set to nil for now
+
+	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, nil)
+
+	rc := retryablehttp.NewClient()
+	rc.Logger = logger.NewRetryableHTTPLogger()
+	sc := rc.StandardClient() // *http.Client
+	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), nil, sc, eventEngine, config, &cc.ApiHandlerConfig)
+
+	// Add the EventEngine handler
+	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, &cc.ApiHandlerConfig)
+	extraHandlers := make(map[string]http.Handler)
+	extraHandlers["/"] = h
+
+	metricsOpts := metricsserver.Options{
+		BindAddress:    cc.Metrics.BindAddress,
+		SecureServing:  true,
+		FilterProvider: filters.WithAuthenticationAndAuthorization,
+		ExtraHandlers:  extraHandlers,
+		TLSOpts: []func(*tls.Config){
+			func(cfg *tls.Config) {
+				cfg.GetCertificate = watcher.GetCertificate
+				cfg.MinVersion = tlsMV
+				cfg.CipherSuites = tlsCS
+			},
+		},
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     cc.Metrics.BindAddress,
-		Port:                   9443,
+		Metrics:                metricsOpts,
 		HealthProbeBindAddress: cc.ManagerConfig.Health.HealthProbeBindAddress,
 		LeaderElection:         *cc.ManagerConfig.LeaderElection.LeaderElect,
 		LeaderElectionID:       cc.ManagerConfig.LeaderElectionID,
@@ -197,23 +283,9 @@ func main() {
 	})
 
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-
-	eventEngine := events.NewEventEngine(ctx, ctrl.Log, config, mgr.GetClient())
-	go func() {
-		err := eventEngine.Start(ctx)
-		if err != nil {
-			setupLog.Error(err, "unable to start engine")
-			os.Exit(1)
-		}
-	}()
-
-	rc := retryablehttp.NewClient()
-	rc.Logger = logger.NewRetryableHTTPLogger()
-	sc := rc.StandardClient() // *http.Client
-	dataFilters := datafilter.NewDataFilters(ctrl.Log.WithName("datafilter"), mgr.GetClient(), sc, eventEngine, config, &cc.ApiHandlerConfig)
 
 	if err = (&controllers.DataReporterConfigReconciler{
 		Client:      mgr.GetClient(),
@@ -237,12 +309,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add the EventEngine handler after it is ready
-	h := server.NewDataReporterHandler(eventEngine, config, dataFilters, &cc.ApiHandlerConfig)
-	if err := mgr.AddMetricsExtraHandler("/", h); err != nil {
-		setupLog.Error(err, "unable to set up data reporter handler")
-		os.Exit(1)
-	}
+	// mgr.GetClient() is now available
+	eventEngine.SetKubeClient(mgr.GetClient())
+	dataFilters.SetKubeClient(mgr.GetClient())
+
+	go func() {
+		err := eventEngine.Start(ctx)
+		if err != nil {
+			setupLog.Error(err, "unable to start engine")
+			os.Exit(1)
+		}
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

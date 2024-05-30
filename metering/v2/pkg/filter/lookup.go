@@ -140,7 +140,7 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 
 func (s *MeterDefinitionLookupFilter) installedByNamespace(
 	instance *v1beta1.MeterDefinition,
-	csv *olmv1alpha1.ClusterServiceVersion,
+	csv client.Object,
 ) ([]string, error) {
 	reqLogger := s.log.WithValues("func", "installedByNamespace", "meterdef", instance.Name+"/"+instance.Namespace).V(4)
 
@@ -155,7 +155,7 @@ func (s *MeterDefinitionLookupFilter) installedByNamespace(
 	}
 
 	if ok && olmGroup == "global-operators" && olmNamespace == "openshift-operators" {
-		if olmNamespace == csv.Namespace {
+		if olmNamespace == csv.GetNamespace() {
 			reqLogger.Info("operatorGroup is for all namespaces")
 			return []string{corev1.NamespaceAll}, nil
 		} else {
@@ -188,11 +188,21 @@ func (s *MeterDefinitionLookupFilter) findNamespacesForResource(
 	}
 
 	if resourceFilter.Namespace.UseOperatorGroup {
-		csv := &olmv1alpha1.ClusterServiceVersion{}
+
+		// Use PartialObjectMetadata such that we are only using metadata client
+		// Do not ListWatch full CSV in all namespaces, potentially memory intensive
+		csvMeta := &metav1.PartialObjectMetadata{}
+
+		kinds, _, err := s.client.Scheme().ObjectKinds(&olmv1alpha1.ClusterServiceVersion{})
+		if err != nil {
+			return namespaces, err
+		}
+
+		csvMeta.SetGroupVersionKind(kinds[0])
 
 		if instance.Spec.InstalledBy != nil {
 			reqLogger.Info("using installedBy")
-			err := s.client.Get(context.TODO(), instance.Spec.InstalledBy.ToTypes(), csv)
+			err := s.client.Get(context.TODO(), instance.Spec.InstalledBy.ToTypes(), csvMeta)
 
 			if err != nil && k8serrors.IsNotFound(err) {
 				reqLogger.Info("installedBy not found, falling back to namespace")
@@ -205,13 +215,12 @@ func (s *MeterDefinitionLookupFilter) findNamespacesForResource(
 				return namespaces, err
 			}
 
-			return s.installedByNamespace(instance, csv)
+			return s.installedByNamespace(instance, csvMeta)
 		}
 
 		reqLogger.Info("looking for operator group")
 		operatorGroups := &olmv1.OperatorGroupList{}
-		err := s.client.List(context.TODO(), operatorGroups, client.InNamespace(instance.Namespace))
-		if err != nil && k8serrors.IsNotFound(err) {
+		if err := s.client.List(context.TODO(), operatorGroups, client.InNamespace(instance.Namespace)); err != nil && k8serrors.IsNotFound(err) {
 			reqLogger.Info("installedBy not found, falling back to namespace")
 			return namespaces, nil
 		}

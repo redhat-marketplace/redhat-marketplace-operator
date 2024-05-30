@@ -10,11 +10,8 @@ metadata:
 spec:
   ports:
     - name: https
-      port: 9092
+      port: 8443
       targetPort: https
-    - name: https-metrics
-      port: 9093
-      targetPort: https-metrics
   selector:
     app.kubernetes.io/component: controller
     app.kubernetes.io/name: rhm-metric-state

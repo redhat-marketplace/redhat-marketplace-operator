@@ -111,6 +111,18 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true   
+            runAsNonRoot: true
+          ports:
+            - containerPort: 8443
+              protocol: TCP
+              name: https
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: redhat-marketplace-controller-manager-metrics-service-tls
+              readOnly: false
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator
+      volumes:
+        - name: redhat-marketplace-controller-manager-metrics-service-tls
+          secret:
+            secretName: redhat-marketplace-controller-manager-metrics-service-tls

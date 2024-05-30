@@ -51,7 +51,7 @@ spec:
           - name: NODE_ENV
             value: "production"
         image: "us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: watch-keeper
         resources:
           limits:

@@ -94,7 +94,7 @@ type MeterBaseSpec struct {
 	// +optional
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
-	// MeterdefinitionCatalogServerConfig holds configuration for the Meterdefinition Catalog Server.
+	// [DEPRECATED] MeterdefinitionCatalogServerConfig holds configuration for the Meterdefinition Catalog Server.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
@@ -144,7 +144,7 @@ type MeterBaseStatus struct {
 	// +optional
 	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
 
-	// MeterdefinitionCatalogServerStatus is the most recent observed status of the Meterdefinition Catalog Server. Read-only. Not
+	// [DEPRECATED] MeterdefinitionCatalogServerStatus is the most recent observed status of the Meterdefinition Catalog Server. Read-only. Not
 	// included when requesting from the apiserver, only from the Prometheus
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
@@ -170,7 +170,7 @@ type MeterBaseStatus struct {
 	Targets []common.Target `json:"targets,omitempty"`
 }
 
-// MeterdefinitionCatalogServerStatus defines the observed state of the MeterdefinitionCatalogServer.
+// [DEPRECATED] MeterdefinitionCatalogServerStatus defines the observed state of the MeterdefinitionCatalogServer.
 // +k8s:openapi-gen=true
 type MeterdefinitionCatalogServerStatus struct {
 	// MeterdefinitionCatalogServerConditions represent the latest available observations of an object's stateonfig
