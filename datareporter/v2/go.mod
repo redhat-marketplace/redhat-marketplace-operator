@@ -138,7 +138,6 @@ replace (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring => github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
 	github.com/qntfy/kazaam/v4 => github.com/willie68/kazaam/v4 v4.0.0-20230518091049-08094afa110e // timestamp fix
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
-	github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2 => ../../deployer/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
