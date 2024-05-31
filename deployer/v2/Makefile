@@ -79,7 +79,7 @@ KUTTL_INT_TESTS ?= "(^register-test$$|^features-test$$)"
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	SKIP_DEPLOY=true kubectl kuttl test --namespace redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
+	SKIP_DEPLOY=true kubectl kuttl test --namespace ibm-software-central --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
@@ -221,14 +221,14 @@ bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
 bundle-run: operator-sdk
-	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace redhat-marketplace
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace ibm-software-central
 
 bundle-run-install:
 	$(MAKE) skaffold-build bundle bundle-build bundle-deploy bundle-run
 
 bundle-run-uninstall:
 	for NAME in marketplaceconfigs.marketplace.redhat.com subscriptions.operators.coreos.com csv operatorgroup catalogsources.operators.coreos.com ; do \
-		kubectl delete $$NAME --all -n redhat-marketplace ; \
+		kubectl delete $$NAME --all -n ibm-software-central ; \
 	done
 
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)

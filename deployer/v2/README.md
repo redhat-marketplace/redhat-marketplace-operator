@@ -68,7 +68,7 @@ The operator releases adhere to semantic versioning and provides a seamless upgr
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
     ```sh
     # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-    oc create secret generic redhat-marketplace-pull-secret -n redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+    oc create secret generic redhat-marketplace-pull-secret -n ibm-software-central --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
 4. Use of the platform is governed by the:
 
@@ -76,7 +76,7 @@ The operator releases adhere to semantic versioning and provides a seamless upgr
 
 5. Update MarketplaceConfig to accept the license.
     ```
-    oc patch marketplaceconfig marketplaceconfig -n redhat-marketplace --type='merge' -p '{"spec": {"license": {"accept": true}}}'
+    oc patch marketplaceconfig marketplaceconfig -n ibm-software-central --type='merge' -p '{"spec": {"license": {"accept": true}}}'
     ```
 6. Install the pull secret as a global pull secret on the cluster.
 
