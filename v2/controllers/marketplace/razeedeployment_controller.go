@@ -203,6 +203,10 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 
+// OwnerRef deletion chain via rhm-remoteresource-controller
+// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
+
 // operator_config
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 

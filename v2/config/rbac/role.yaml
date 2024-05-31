@@ -413,6 +413,26 @@ rules:
   - list
   - watch
 - apiGroups:
+  - deploy.razee.io
+  resources:
+  - remoteresources
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - deploy.razee.io
+  resourceNames:
+  - child
+  - parent
+  resources:
+  - remoteresources
+  verbs:
+  - delete
+  - patch
+  - update
+- apiGroups:
   - marketplace.redhat.com
   resources:
   - events
