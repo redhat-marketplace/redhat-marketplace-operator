@@ -3,8 +3,8 @@ set -uo pipefail
 
 echo "Setting up environment"
 make setup-minikube
-kubectl create ns redhat-marketplace
-kubectl config set-context --current --namespace=redhat-marketplace
+kubectl create ns ibm-software-central
+kubectl config set-context --current --namespace=ibm-software-central
 kubectl apply -f deploy/role.yaml -f deploy/service_account.yaml -f deploy/role_binding.yaml
 
 sleep 10

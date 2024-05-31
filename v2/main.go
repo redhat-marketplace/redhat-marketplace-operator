@@ -404,6 +404,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.RazeeDeploymentReconciler{
+		Client:  mgr.GetClient(),
+		Log:     ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
+		Scheme:  mgr.GetScheme(),
+		Cfg:     opCfg,
+		Factory: factory,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RazeeDeployment")
+		os.Exit(1)
+	}
+
 	doneChan := make(chan struct{})
 	reportCreatorReconciler := &controllers.MeterReportCreatorReconciler{
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),

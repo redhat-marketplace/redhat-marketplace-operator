@@ -99,6 +99,13 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	})
 
 	AfterEach(func() {
+		pullSecret := &corev1.Secret{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHMPullSecretName,
+			Namespace: operatorNamespace,
+		}, pullSecret)).Should(Succeed(), "get RHM pull secret")
+		k8sClient.Delete(context.TODO(), pullSecret)
+
 		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
 			Name:      utils.MARKETPLACECONFIG_NAME,
@@ -132,13 +139,6 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			Namespace: operatorNamespace,
 		}, razeeDeployment)).Should(Succeed(), "get razeedeployment")
 		k8sClient.Delete(context.TODO(), razeeDeployment)
-
-		pullSecret := &corev1.Secret{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHMPullSecretName,
-			Namespace: operatorNamespace,
-		}, pullSecret)).Should(Succeed(), "get RHM pull secret")
-		k8sClient.Delete(context.TODO(), pullSecret)
 
 		server.Close()
 	})

@@ -324,33 +324,12 @@ rules:
   - deployments/finalizers
   verbs:
   - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - rhm-remoteresource-controller
-  resources:
-  - deployments
-  - deployments/finalizers
-  verbs:
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps
-  resourceNames:
-  - rhm-remoteresources3-controller
-  - rhm-watch-keeper
-  resources:
-  - deployments
-  - deployments/finalizers
-  verbs:
-  - delete
-  - patch
-  - update
 - apiGroups:
   - apps
   resourceNames:
@@ -558,26 +537,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resourceNames:
-  - child
-  - parent
-  resources:
-  - remoteresources3s
-  verbs:
-  - delete
-  - patch
-  - update
 - apiGroups:
   - monitoring.coreos.com
   resourceNames:

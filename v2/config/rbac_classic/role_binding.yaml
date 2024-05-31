@@ -50,16 +50,16 @@ metadata:
   name: manager-cluster-monitoring-binding
 subjects:
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: openshift-redhat-marketplace
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: redhat-marketplace
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: ibm-common-services
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: ibm-software-central
 roleRef:
   kind: ClusterRole

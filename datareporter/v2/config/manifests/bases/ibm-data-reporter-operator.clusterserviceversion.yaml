@@ -7,7 +7,7 @@ metadata:
     certified: "true"
     description: The IBM Data Reporter Operator accepts events and transforms them
       into reports submitted to the Data Service of the IBM Metrics Operator.
-    operatorframework.io/suggested-namespace: redhat-marketplace
+    operatorframework.io/suggested-namespace: ibm-software-central
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
   labels:
