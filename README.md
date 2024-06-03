@@ -17,16 +17,13 @@ The [IBM Metrics Operator](v2/README.md) is used to meter workloads and report u
 
 The [IBM Data Reporter Operator](datareporter/v2/README.md) provides a push event interface into the IBM Metrics Operator's data-service, for reporting metrics to IBM Software Central.
 
-### [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md)
+### Red Hat Marketplace Deployment Operator by IBM
 
-The [Red Hat Marketplace Deployment Operator by IBM](deployer/v2/README.md) is used for integrating cluster and operator subscription management on an OpenShift cluster via [https://swc.saas.ibm.com](https://swc.saas.ibm.com).
+The Red Hat Marketplace Deployment Operator is deprecated, with final release v2.15.0.
 
 ### Note
 
-Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account, and does not require Red Hat Marketplace Deployment Operator.
-
-Full cluster registration and software lifecycle management through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
-
+Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account.
 
 ## Installation
 
@@ -48,7 +45,6 @@ Minimum system resources required:
 | ----------------------- | ----------- | ----------- | --------- | ----- |
 | **Metrics**   |        750  |     0.25    | 3x1       |    3  |
 | **Data Reporter** |        85  |     0.1    | -         |    1  |
-| **Deployment** |        250  |     0.25    | -         |    1  |
 
 
 | Prometheus Provider  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
@@ -179,7 +175,7 @@ To plan for disaster recovery, note the PhysicalVolumeClaims `rhm-data-service-r
 
 It is possible to [configure](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md) how OLM deploys an Operator via the `config` field in the [Subscription](https://github.com/operator-framework/olm-book/blob/master/docs/subscriptions.md) object.
 
-The IBM Metrics Operator and Red Hat Marketplace Deployment Operator will also read the `config` and append it to the operands. The primary use case is to control scheduling using [Tolerations](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/) and [NodeSelectors](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
+The IBM Metrics Operator will also read the `config` and append it to the operands. The primary use case is to control scheduling using [Tolerations](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/) and [NodeSelectors](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
 
 A limitation is that the `config` elements are only appended to the operands. The elements in the operands are not removed if the `config` is removed from the `Subscripion`. The operand must be modified manually, or deleted and recreated by the controller.
 
