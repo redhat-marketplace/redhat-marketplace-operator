@@ -2,9 +2,7 @@ The IBM Metrics Operator provides workload metering and reporting for IBM Softwa
 ### **Important Note**
 A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [swc.saas.ibm.com](https://swc.saas.ibm.com).
 
-Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account, and does not require Red Hat Marketplace Deployment Operator.
-
-Full cluster registration and software lifecycle management through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account.
 
 ### Upgrade Policy
 
