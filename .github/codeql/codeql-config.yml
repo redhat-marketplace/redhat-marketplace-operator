@@ -5,7 +5,6 @@ paths:
   - authchecker/v2
   - metering/v2
   - reporter/v2
-  - deployer/v2
   - datareporter/v2
 paths-ignore:
   - 'v2/tests/'
