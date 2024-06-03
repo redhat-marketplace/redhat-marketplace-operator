@@ -1,5 +1,5 @@
-PROJECTS = operator authchecker metering reporter airgap deployer datareporter
-PROJECT_FOLDERS = . authchecker metering reporter airgap deployer datareporter
+PROJECTS = operator authchecker metering reporter airgap datareporter
+PROJECT_FOLDERS = . authchecker metering reporter airgap datareporter
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -28,7 +28,7 @@ vet:
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
-TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 v2 v2/scripts v2/tools/connect v2/tools/version deployer/v2 datareporter/v2 deployer/v2/scripts
+TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 v2 v2/scripts v2/tools/connect v2/tools/version datareporter/v2
 
 .PHONY: tidy-all
 tidy-all:
@@ -108,7 +108,6 @@ wicked:
 	@cd ./metering/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-metering -s ./vendor -o ../../.wicked-report
 	@cd ./authchecker/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-authchecker -s ./vendor -o ../../.wicked-report
 	@cd ./airgap/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-airgap -s ./vendor -o ../../.wicked-report
-	@cd ./deployer/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-deployer -s ./vendor -o ../../.wicked-report
 	@cd ./datareporter/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p data-reporter -s ./vendor -o ../../.wicked-report
 
 
@@ -140,9 +139,6 @@ authchecker/%:
 
 airgap/%:
 	@cd ./airgap/v2 && $(MAKE) $(@F)
-
-deployer/%:
-	@cd ./deployer/v2 && $(MAKE) $(@F)
 
 datareporter/%:
 	@cd ./datareporter/v2 && $(MAKE) $(@F)
