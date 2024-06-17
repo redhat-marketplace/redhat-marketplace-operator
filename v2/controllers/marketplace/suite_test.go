@@ -206,13 +206,22 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&RazeeDeploymentReconciler{
+		Client:  k8sClient,
+		Log:     ctrl.Log.WithName("controllers").WithName("RazeeDeploymentReconciler"),
+		Scheme:  k8sScheme,
+		Cfg:     operatorCfg,
+		Factory: factory,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 		gexec.KillAndWait(4 * time.Second)
 
-		// Teardown the test environment once controller is fnished.
+		// Teardown the test environment once controller is finished.
 		// Otherwise from Kubernetes 1.21+, teardon timeouts waiting on
 		// kube-apiserver to return
 		err := testEnv.Stop()

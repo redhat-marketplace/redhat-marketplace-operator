@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -98,6 +99,13 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	})
 
 	AfterEach(func() {
+		pullSecret := &corev1.Secret{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHMPullSecretName,
+			Namespace: operatorNamespace,
+		}, pullSecret)).Should(Succeed(), "get RHM pull secret")
+		k8sClient.Delete(context.TODO(), pullSecret)
+
 		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
 			Name:      utils.MARKETPLACECONFIG_NAME,
@@ -131,13 +139,6 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			Namespace: operatorNamespace,
 		}, razeeDeployment)).Should(Succeed(), "get razeedeployment")
 		k8sClient.Delete(context.TODO(), razeeDeployment)
-
-		pullSecret := &corev1.Secret{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHMPullSecretName,
-			Namespace: operatorNamespace,
-		}, pullSecret)).Should(Succeed(), "get RHM pull secret")
-		k8sClient.Delete(context.TODO(), pullSecret)
 
 		server.Close()
 	})
@@ -255,6 +256,19 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 
 			return notFound
 		}, timeout, interval).ShouldNot(BeTrue())
+
+		Eventually(func() bool {
+			catalogSourceList := &operatorsv1alpha1.CatalogSourceList{}
+			k8sClient.List(context.TODO(), catalogSourceList)
+
+			var catalogSourceNames []string
+			for _, catalogSource := range catalogSourceList.Items {
+				catalogSourceNames = append(catalogSourceNames, catalogSource.Name)
+			}
+
+			return utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
+				utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
+		}, timeout, interval).Should(BeTrue())
 
 		Expect(*mc.Spec.Features.Deployment).Should(BeTrue())
 		Expect(*mc.Spec.Features.Registration).Should(BeTrue())

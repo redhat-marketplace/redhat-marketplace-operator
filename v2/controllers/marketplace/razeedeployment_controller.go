@@ -21,18 +21,12 @@ import (
 	"reflect"
 	"time"
 
-	golangerrors "errors"
-
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	razeev1alpha2 "github.com/redhat-marketplace/redhat-marketplace-operator/deployer/v2/api/razee/v1alpha2"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -193,10 +187,6 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			handler.EnqueueRequestsFromMapFunc(mapFn),
 			builder.WithPredicates(cmp)).
 		Watches(
-			&razeev1alpha2.RemoteResource{},
-			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &razeev1alpha2.RemoteResource{}),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(
 			&marketplacev1alpha1.MarketplaceConfig{},
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MarketplaceConfig{}),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
@@ -209,22 +199,16 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=update;patch;delete,resourceNames=watch-keeper-non-namespaced;watch-keeper-limit-poll;razee-cluster-metadata;watch-keeper-config
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=update;patch;delete,resourceNames=rhm-operator-secret;watch-keeper-secret;clustersubscription;rhm-cos-reader-key
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;delete,resourceNames=rhm-remoteresources3-controller;rhm-watch-keeper
-// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=update;patch;get;delete,resourceNames=rhm-remoteresource-controller
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments;deployments/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
+
+// OwnerRef deletion chain via rhm-remoteresource-controller
 // +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=deploy.razee.io,namespace=system,resources=remoteresources,verbs=update;patch;delete,resourceNames=child;parent
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;get;list;watch
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=delete,resourceNames=ibm-operator-catalog;opencloud-operators
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;create;update;patch;delete
 
 // operator_config
 // +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
-
-// cleanup required for finalizers & ownerrefs
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=update;patch;delete,resourceNames=child;parent
 
 // Infrastructure Discovery
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch
@@ -237,6 +221,21 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // and what is in the RazeeDeployment.Spec
 func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	// Do nothing if redhat-marketplace-deployment-operator is installed, which will reconcile RazeeDeployment
+	// If only ibm-metrics-operator is installed, we will reconcile watch-keeper only
+	deployment := &appsv1.Deployment{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHM_CONTROLLER_DEPLOYMENT_NAME,
+		Namespace: request.Namespace,
+	}, deployment); err != nil && !errors.IsNotFound(err) {
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	} else if err == nil {
+		// deployment-operator found, do not reconcile
+		return reconcile.Result{}, nil
+	}
+
 	reqLogger.Info("Reconciling RazeeDeployment")
 
 	// Fetch the RazeeDeployment instance
@@ -266,11 +265,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		}
 	}
 
-	// This has no watch
-	for _, catalogSrcName := range [2]string{utils.IBM_CATALOGSRC_NAME, utils.OPENCLOUD_CATALOGSRC_NAME} {
-		if result, err := r.createCatalogSource(instance, catalogSrcName); err != nil {
-			return result, err
-		}
+	// If this was an upgrade, and Deployment Operator was removed, delete remoteresource-controller
+	if err := r.removeRazeeDeployments(instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// if not enabled then exit
@@ -278,10 +275,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		reqLogger.Info("Razee not enabled")
 
 		if err := r.removeWatchkeeperDeployment(instance); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if err := r.removeRazeeDeployments(instance); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -449,46 +442,11 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 	reqLogger.V(0).Info("all secret values found")
 
-	//construct the childURL
-	url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeployConfig.IbmCosURL, instance.Spec.DeployConfig.BucketName, instance.Spec.ClusterUUID, instance.Spec.DeployConfig.ChildRSS3FIleName)
-	if instance.Spec.ChildUrl == nil || (instance.Spec.ChildUrl != nil && *instance.Spec.ChildUrl != url) {
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			instance.Spec.ChildUrl = &url
-			return r.Client.Update(context.TODO(), instance)
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	reqLogger.V(0).Info("All required razee configuration values have been found")
 
-	// Check if the RazeeDeployment is disabled, in this case remove the razee deployment and parent rr
-	rrDeploymentEnabled := instance.Spec.Features == nil || instance.Spec.Features.Deployment == nil || *instance.Spec.Features.Deployment
-	if !rrDeploymentEnabled {
-		//razee deployment disabled - if the deployment was found, delete it
-		if err := r.removeRazeeDeployments(instance); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		//Deployment is disabled - update status
-		reqLogger.V(0).Info("RemoteResource deployment is disabled")
-		//update status to reflect disabled
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionResourceDeploymentDisabled) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
+	//
+	// rhm-watch-keeper
+	//
 	registrationEnabled := true
 
 	if instance.Spec.Features != nil &&
@@ -668,37 +626,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		return reconcile.Result{}, err
 	}
 
-	/******************************************************************************
-	Create watch-keeper deployment,rr-controller deployment, apply parent rr
-	/******************************************************************************/
-	reqLogger.V(0).Info("Finding Rhm RemoteResource deployment")
-
-	if rrDeploymentEnabled {
-		err := r.deleteLegacyRRS3(request, reqLogger)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			dep, err := r.Factory.NewRemoteResourceDeployment()
-			return dep, err
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionRhmRemoteResourceDeploymentEnabled) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	if registrationEnabled {
 		reqLogger.Info("registration enabled")
 
@@ -719,24 +646,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			return nil
 		}); err != nil {
 			return reconcile.Result{}, err
-		}
-
-		needsMigration, err := r.checkChildMigrationStatus(request, instance, reqLogger)
-		if err != nil {
-			return reconcile.Result{}, err
-
-		}
-
-		if needsMigration {
-			err := r.migrateChildRRS3(request, reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			err = r.setChildMigrationStatus(request, instance, reqLogger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
 		}
 	}
 
@@ -780,53 +689,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 		return reconcile.Result{}, err
 	}
 
-	//Only create the parent remote resource when the razee deployment is enabled
-	if rrDeploymentEnabled {
-		// Set the remoteresource-controller as the controller, since it owns the finalizer
-		rrDeployment := &appsv1.Deployment{}
-		err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
-			Namespace: request.Namespace,
-		}, rrDeployment)
-		if errors.IsNotFound(err) {
-			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
-		} else if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if err := r.Factory.CreateOrUpdate(r.Client, rrDeployment, func() (client.Object, error) {
-			return r.makeParentRemoteResource(instance), nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionParentRRInstalled) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		razeePrereqs = append(razeePrereqs, utils.PARENT_REMOTE_RESOURCE_NAME)
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
-				instance.Status.RazeePrerequisitesCreated = razeePrereqs
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	// Complete Status
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
@@ -843,149 +705,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
-}
-
-func (r *RazeeDeploymentReconciler) deleteLegacyRRS3(request reconcile.Request, reqLogger logr.Logger) error {
-	rrs3Deployment := &appsv1.Deployment{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, rrs3Deployment)
-	if err != nil && !errors.IsNotFound(err) {
-		reqLogger.Error(err, "could not get legacy rrs3 deployment")
-		return err
-	}
-
-	if !errors.IsNotFound(err) {
-		err = r.Client.Delete(context.TODO(), rrs3Deployment)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete rrs3 deployment")
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *RazeeDeploymentReconciler) checkChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment, reqLogger logr.Logger) (bool, error) {
-	reqLogger.Info("checking child migration status")
-
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.MARKETPLACECONFIG_NAME,
-			Namespace: request.Namespace,
-		}, marketplaceConfig); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return false, err
-	}
-
-	childRRS3Migrated := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionChildMigrationComplete)
-	clusterRegsitered := marketplaceConfig.Status.Conditions.IsTrueFor(marketplacev1alpha1.ConditionRegistered)
-
-	if childRRS3Migrated == nil && clusterRegsitered {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (r *RazeeDeploymentReconciler) setChildMigrationStatus(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment, reqLogger logr.Logger) error {
-	reqLogger.Info("setting child migration status")
-
-	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete) == nil {
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-				return err
-			}
-			if instance.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionChildRRS3MigrationComplete) {
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *RazeeDeploymentReconciler) makeMigrationCall(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) error {
-	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-		AccountId:   marketplaceConfig.Spec.RhmAccountID,
-		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-	}
-
-	reqLogger.Info("attempting to migrate child rrs3", "marketplace client account", marketplaceClientAccount)
-
-	err := marketplaceClient.MigrateChildRRS3(marketplaceClientAccount)
-	if err != nil {
-		reqLogger.Error(err, "migrate failed")
-		return err
-	}
-
-	return err
-}
-
-func (r *RazeeDeploymentReconciler) migrateChildRRS3(request reconcile.Request, reqLogger logr.Logger) error {
-	reqLogger.Info("migrating child RRS3")
-	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
-	si, err := secretFetcher.ReturnSecret()
-	if err != nil {
-		return err
-	}
-
-	reqLogger.Info("found secret", "secret", si.Name)
-
-	if si.Secret == nil {
-		return nil
-	}
-
-	token, err := secretFetcher.ParseAndValidate(si)
-	if err != nil {
-		reqLogger.Error(err, "error validating secret")
-		return err
-	}
-
-	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-	if err != nil {
-		reqLogger.Error(err, "error parsing token")
-		return err
-	}
-
-	marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).
-		NewMarketplaceClient(token, tokenClaims)
-
-	if err != nil {
-		reqLogger.Error(err, "error constructing marketplace client")
-		return err
-	}
-
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.MARKETPLACECONFIG_NAME,
-			Namespace: request.Namespace,
-		}, marketplaceConfig); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	err = r.makeMigrationCall(marketplaceConfig, marketplaceClient, request, reqLogger)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
 }
 
 // Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr
@@ -1120,191 +839,30 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 	return secret, err
 }
 
-// Creates the "parent" RemoteResource and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
-func (r *RazeeDeploymentReconciler) makeParentRemoteResource(
-	instance *marketplacev1alpha1.RazeeDeployment) *razeev1alpha2.RemoteResource {
-	return r.updateParentRemoteResource(&razeev1alpha2.RemoteResource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.PARENT_REMOTE_RESOURCE_NAME,
-			Namespace: *instance.Spec.TargetNamespace,
-		},
-	}, instance)
-}
-
-func (r *RazeeDeploymentReconciler) updateParentRemoteResource(parentRR *razeev1alpha2.RemoteResource, instance *marketplacev1alpha1.RazeeDeployment) *razeev1alpha2.RemoteResource {
-	parentRR.Spec = razeev1alpha2.RemoteResourceSpec{
-		ClusterAuth: razeev1alpha2.ClusterAuth{
-			ImpersonateUser: "razeedeploy",
-		},
-		BackendService: razeev1alpha2.BackendService("s3"),
-		Auth: razeev1alpha2.RemoteResourceAuth{
-			Iam: &razeev1alpha2.RemoteResourceIam{
-				// ResponseType: "cloud_iam",
-				GrantType: "urn:ibm:params:oauth:grant-type:apikey",
-				URL:       "https://iam.cloud.ibm.com/identity/token",
-				APIKeyRef: razeev1alpha2.APIKeyRef{
-					ValueFrom: razeev1alpha2.ValueFrom{
-						SecretKeyRef: corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: utils.COS_READER_KEY_NAME,
-							},
-							Key: "accesskey",
-						},
-					},
-				},
-			},
-		},
-		Requests: []razeev1alpha2.Request{
-			{
-				Options: razeev1alpha2.S3Options{
-					URL: *instance.Spec.ChildUrl,
-				},
-			},
-		},
-	}
-
-	return parentRR
-}
-
 // Undeploy the razee deployment and parent
 func (r *RazeeDeploymentReconciler) removeRazeeDeployments(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("removing razee deployment resources: childRR, parentRR, RR deployment")
 
-	maxRetry := 3
+	// RemoteResource CR/CRD would be deleted with parent operator
+	// Need to remove remoteresource-controller Deployment owned by RazeeDeployment CR
 
-	childRR := razeev1alpha2.RemoteResource{}
-	err := utils.Retry(func() error {
-		reqLogger.Info("Listing childRR")
-
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRR)
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResource")
-			return err
-		}
-
-		if err != nil && errors.IsNotFound((err)) {
-			reqLogger.Info("ChildRR deleted")
-			return nil
-		}
-
-		err = r.Client.Delete(context.TODO(), &childRR)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete childRR")
-			return err
-		}
-
-		return fmt.Errorf("error on deletion of childRR %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Info("retry limit exceeded, removing finalizers on childRR", "err", err.Error())
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key := client.ObjectKeyFromObject(&childRR)
-
-			err := r.Client.Get(context.TODO(), key, &childRR)
-			if err != nil {
-				return err
-			}
-
-			if utils.Contains(childRR.GetFinalizers(), utils.RR_FINALIZER) {
-				childRR.SetFinalizers(utils.RemoveKey(childRR.GetFinalizers(), utils.CONTROLLER_FINALIZER))
-			}
-
-			return r.Client.Update(context.TODO(), &childRR)
-		})
-
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "error updating childRR finalizers")
-			return err
-		}
-
-		if errors.IsNotFound(err) {
-			reqLogger.Info("removed finalizers on child rr")
-		}
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
+			Namespace: req.Namespace,
+		},
 	}
 
-	parentRR := razeev1alpha2.RemoteResource{}
-	err = utils.Retry(func() error {
-		reqLogger.Info("Listing parentRR")
-
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_REMOTE_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRR)
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not get resource", "Kind", "RemoteResource")
-			return err
-		}
-
-		if err != nil && errors.IsNotFound((err)) {
-			reqLogger.Info("ParentRR deleted")
+	if err := r.Client.Delete(context.TODO(), deployment); err != nil {
+		if errors.IsNotFound(err) { // already deleted
 			return nil
-		}
-
-		err = r.Client.Delete(context.TODO(), &parentRR)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRR")
+		} else {
 			return err
 		}
-
-		return fmt.Errorf("error on deletion of parentRR %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Info("retry limit exceeded, removing finalizers on parentRR", "err", err.Error())
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			key := client.ObjectKeyFromObject(&parentRR)
-
-			err := r.Client.Get(context.TODO(), key, &parentRR)
-			if err != nil {
-				return err
-			}
-
-			if utils.Contains(parentRR.GetFinalizers(), utils.RR_FINALIZER) {
-				parentRR.SetFinalizers(utils.RemoveKey(parentRR.GetFinalizers(), utils.RR_FINALIZER))
-			}
-
-			return r.Client.Update(context.TODO(), &parentRR)
-		})
-
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "error updating updatingRR finalizers")
-			return err
-		}
-
-		if errors.IsNotFound(err) {
-			reqLogger.Info("removed finlizers on parent rr")
-		}
-	}
-
-	//Delete the deployment
-	err = utils.Retry(func() error {
-		deployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME,
-				Namespace: *req.Spec.TargetNamespace,
-			},
-		}
-
-		reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
-		err = r.Client.Delete(context.TODO(), deployment)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.Info("rr deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
-				return nil
-			}
-
-			reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
-			return err
-		}
-
-		return fmt.Errorf("error on deletion of rr deployment %d: %w", maxRetry, utils.ErrMaxRetryExceeded)
-	}, maxRetry)
-
-	if err != nil && !golangerrors.Is(err, utils.ErrMaxRetryExceeded) {
-		reqLogger.Error(err, "error deleting rr deployment resources")
+	} else {
+		reqLogger.Info("rr deployment deleted", "name", utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME)
 	}
 
 	return nil
@@ -1331,82 +889,6 @@ func (r *RazeeDeploymentReconciler) removeWatchkeeperDeployment(req *marketplace
 		return err
 	}
 	return nil
-}
-
-// Begin installation or deletion of Catalog Source
-func (r *RazeeDeploymentReconciler) createCatalogSource(instance *marketplacev1alpha1.RazeeDeployment, catalogName string) (reconcile.Result, error) {
-	reqLogger := r.Log.WithValues("func", "createCatalogSource", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
-
-	return reconcile.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-
-		catalogSrc := &operatorsv1alpha1.CatalogSource{}
-		catalogSrcNamespacedName := types.NamespacedName{
-			Name:      catalogName,
-			Namespace: utils.OPERATOR_MKTPLACE_NS}
-
-		// If InstallIBMCatalogSource is true: install Catalog Source
-		// if InstallIBMCatalogSource is false: do not install Catalog Source, and delete existing one (if it exists)
-		if ptr.ToBool(instance.Spec.InstallIBMCatalogSource) {
-			// If the Catalog Source does not exist, create one
-			err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
-			if err != nil && errors.IsNotFound(err) {
-				// Create catalog source
-				var newCatalogSrc *operatorsv1alpha1.CatalogSource
-				if utils.IBM_CATALOGSRC_NAME == catalogName {
-					newCatalogSrc = utils.BuildNewIBMCatalogSrc()
-				} else { // utils.OPENCLOUD_CATALOGSRC_NAME
-					newCatalogSrc = utils.BuildNewOpencloudCatalogSrc()
-				}
-
-				reqLogger.Info("Creating catalog source")
-				if err := r.Client.Create(context.TODO(), newCatalogSrc); err != nil {
-					reqLogger.Error(err, "Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
-					return err
-				}
-
-				ok := instance.Status.Conditions.SetCondition(status.Condition{
-					Type:    marketplacev1alpha1.ConditionInstalling,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
-					Message: catalogName + " catalog source installed.",
-				})
-
-				if ok {
-					reqLogger.Info("updating razeedeployment status")
-					return r.Client.Status().Update(context.TODO(), instance)
-				}
-
-				return nil
-			} else if err != nil {
-				// Could not get catalog source
-				reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
-				return err
-			}
-		} else {
-			// Delete catalog source.
-			catalogSrc.Name = catalogName
-			catalogSrc.Namespace = utils.OPERATOR_MKTPLACE_NS
-			if err := r.Client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
-				return err
-			}
-
-			ok := instance.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
-				Message: catalogName + " catalog source deleted.",
-			})
-
-			if ok {
-				reqLogger.Info("updating razeedeployment status")
-				return r.Client.Status().Update(context.TODO(), instance)
-			}
-
-		}
-
-		return nil
-	})
 }
 
 func isMapStringByteEqual(d1, d2 map[string][]byte) bool {

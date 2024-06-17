@@ -30,7 +30,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.20"
+        go-version: "1.21"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -74,7 +74,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.20"
+        go-version: "1.21"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -95,13 +95,12 @@ jobs:
         - metering
         - reporter
         - operator
-        - deployer
         - datareporter
   images:
     name: Build Images
     runs-on: ubuntu-20.04
     env:
-      GO_VERSION: "1.20"
+      GO_VERSION: "1.21"
     defaults:
       run:
         shell: bash
@@ -113,7 +112,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.20"
+        go-version: "1.21"
         cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
@@ -203,7 +202,6 @@ jobs:
         - metering
         - reporter
         - airgap
-        - deployer
         - datareporter
         include:
         - project: operator
@@ -211,7 +209,6 @@ jobs:
         - project: metering
         - project: reporter
         - project: airgap
-        - project: deployer
         - project: datareporter
   deploy:
     name: Deploy
@@ -235,7 +232,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.20"
+        go-version: "1.21"
         cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
@@ -352,35 +349,6 @@ jobs:
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
-    - id: deployer-bundle
-      name: Build deployer bundle
-      run: |-
-        REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
-        echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
-        cd deployer/v2
-        export TAG=$IMAGE_TAG
-        echo "::group::Make Stable Bundle"
-        make bundle-stable
-        echo "::endgroup::"
-        export VERSION=$IMAGE_TAG
-        echo "::group::Make Bundle Build"
-        make bundle-build
-        echo "::endgroup::"
-        echo "::group::Make Catalog Build"
-        make catalog-build
-        echo "::endgroup::"
-        echo "::group::Make Dev Index"
-        make bundle-dev-index-multiarch
-        echo "::endgroup::"
-        echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "tag=$TAG" >> $GITHUB_OUTPUT
-      env:
-        IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v3
-      with:
-        name: release-deployer-bundle-${{ steps.bundle.outputs.tag }}
-        path: deployer/v2/bundle
     - id: datareporter-bundle
       name: Build datareporter bundle
       run: |-
@@ -432,17 +400,6 @@ jobs:
           apiVersion: operators.coreos.com/v1alpha1
           kind: CatalogSource
           metadata:
-            name: rhm-operator-test
-            namespace: openshift-marketplace
-          spec:
-            displayName: RHM Operator Test
-            image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
-            publisher: ''
-            sourceType: grpc
-          ---
-          apiVersion: operators.coreos.com/v1alpha1
-          kind: CatalogSource
-          metadata:
             name: ibm-data-reporter-operator-test
             namespace: openshift-marketplace
           spec:
@@ -467,17 +424,6 @@ jobs:
           spec:
             displayName: IBM Metrics Operator Test
             image: quay.io/rh-marketplace/ibm-metrics-operator-catalog:${{ env.TAG }}
-            publisher: ''
-            sourceType: grpc
-          ---
-          apiVersion: operators.coreos.com/v1alpha1
-          kind: CatalogSource
-          metadata:
-            name: rhm-operator-test
-            namespace: openshift-marketplace
-          spec:
-            displayName: RHM Operator Test
-            image: quay.io/rh-marketplace/redhat-marketplace-operator-catalog:${{ env.TAG }}
             publisher: ''
             sourceType: grpc
           ---

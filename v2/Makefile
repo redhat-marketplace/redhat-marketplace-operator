@@ -49,7 +49,7 @@ DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 OPM_BASE_NAME ?= opm-base
 OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
 
-namespace ?= redhat-marketplace
+namespace ?= ibm-software-central
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(OPERATOR_IMAGE)
@@ -191,7 +191,7 @@ bundle: clean manifests kustomize operator-sdk yq omt
 	$(YQ) eval -i '.spec.description = (load_str("README.md"))' $(CSV_YAML_CONFIG_FILE)
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) \
-	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader
+	--extra-service-accounts ibm-metrics-operator-reporter,ibm-metrics-operator-data-service,ibm-metrics-operator-metric-state,ibm-metrics-operator-servicemonitor-metrics-reader,ibm-metrics-operator-watch-keeper
 	$(YQ) eval -i '.annotations."com.redhat.openshift.versions" = "$(OPENSHIFT_VERSIONS)"' $(ANNOTATIONS_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)

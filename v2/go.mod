@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/v2
 
-go 1.20
+go 1.21
 
 require (
 	emperror.dev/errors v0.8.1
@@ -193,8 +193,8 @@ require (
 )
 
 replace (
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/banzaicloud/k8s-objectmatcher => github.com/banzaicloud/k8s-objectmatcher v1.6.1
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/prometheus-operator/prometheus-operator => github.com/prometheus-operator/prometheus-operator v0.66.0

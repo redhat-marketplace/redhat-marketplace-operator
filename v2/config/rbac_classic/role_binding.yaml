@@ -14,6 +14,9 @@ subjects:
 - kind: ServiceAccount
   name: ibm-metrics-operator-metric-state
   namespace: ibm-common-services
+- kind: ServiceAccount
+  name: ibm-metrics-operator-metric-state
+  namespace: ibm-software-central
 roleRef:
   kind: ClusterRole
   name: view
@@ -33,6 +36,9 @@ subjects:
 - kind: ServiceAccount
   name: ibm-metrics-operator-reporter
   namespace: ibm-common-services
+- kind: ServiceAccount
+  name: ibm-metrics-operator-reporter
+  namespace: ibm-software-central
 roleRef:
   kind: ClusterRole
   name: cluster-monitoring-view
@@ -44,14 +50,17 @@ metadata:
   name: manager-cluster-monitoring-binding
 subjects:
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: openshift-redhat-marketplace
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: redhat-marketplace
 - kind: ServiceAccount
-  name: ibm-data-reporter-operator-controller-manager
+  name: ibm-metrics-operator-controller-manager
   namespace: ibm-common-services
+- kind: ServiceAccount
+  name: ibm-metrics-operator-controller-manager
+  namespace: ibm-software-central
 roleRef:
   kind: ClusterRole
   name: cluster-monitoring-view

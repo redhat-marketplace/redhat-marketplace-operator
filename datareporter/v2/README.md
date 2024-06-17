@@ -32,7 +32,7 @@ The IBM Data Reporter Operator deploys a service that provides an endpoint to wh
 
 - A user with the cluster administrator role.
 - Install this operator in the same namespace as the IBM Metrics Operator
-  - default namespace: `redhat-marketplace`
+  - default namespace: `ibm-software-central`
 
 ## Upgrade Policy
 
@@ -92,7 +92,7 @@ spec:
       - $[?($.properties.quantity >= 0)]
       - $[?($.timestamp != null)]
       matchUsers:   # must match one of these users (OR). Omitting users matches any user
-      - system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api
+      - system:serviceaccount:ibm-software-central:ibm-data-reporter-operator-api
     transformer:   # The transformer to apply to the event for data-service
       configMapKeyRef:
         key: kazaam.json
@@ -126,7 +126,7 @@ spec:
       bmeta1: bmetadata1
       cmeta1: cmetadata1
       dmeta1: dmetadata1
-    userName: system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api
+    userName: system:serviceaccount:ibm-software-central:ibm-data-reporter-operator-api
 ```
 
 Sample Header Secrets:
@@ -215,7 +215,7 @@ data:
 ### API Service User Configuration
 
 - The ClusterRole for api access is `clusterrole/ibm-data-reporter-operator-api`
-- The default ServiceAccount provided as an api user is `system:serviceaccount:redhat-marketplace:ibm-data-reporter-operator-api`
+- The default ServiceAccount provided as an api user is `system:serviceaccount:ibm-software-central:ibm-data-reporter-operator-api`
   - The default ClusterRoleBinding for this user is `clusterrolebinding/ibm-data-reporter-operator-api`
 
 Optional:
@@ -235,8 +235,8 @@ oc create clusterrolebinding ibm-data-reporter-operator-api --clusterrole=ibm-da
 - Get Token & Host
 
 ```SHELL
-oc project redhat-marketplace
-export DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace redhat-marketplace --duration 1h)
+oc project ibm-software-central
+export DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace ibm-software-central --duration 1h)
 export DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}')
 ```
 

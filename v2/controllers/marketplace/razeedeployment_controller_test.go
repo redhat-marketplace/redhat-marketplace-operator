@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -137,17 +136,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 			}
 		}
 
-		catalogSourceNames := []string{utils.IBM_CATALOGSRC_NAME, utils.OPENCLOUD_CATALOGSRC_NAME}
-		for _, name := range catalogSourceNames {
-			catalogSource := &operatorsv1alpha1.CatalogSource{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{
-				Name:      name,
-				Namespace: utils.OPERATOR_MKTPLACE_NS,
-			}, catalogSource)
-			if !k8serrors.IsNotFound(err) {
-				Expect(k8sClient.Delete(context.TODO(), catalogSource)).Should(Succeed())
-			}
-		}
 	})
 
 	It("find all rerequisite objects", func() {
@@ -183,18 +171,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				utils.Contains(secretNames, utils.COS_READER_KEY_NAME)
 		}, timeout, interval).Should(BeTrue())
 
-		Eventually(func() bool {
-			catalogSourceList := &operatorsv1alpha1.CatalogSourceList{}
-			k8sClient.List(context.TODO(), catalogSourceList)
-
-			var catalogSourceNames []string
-			for _, catalogSource := range catalogSourceList.Items {
-				catalogSourceNames = append(catalogSourceNames, catalogSource.Name)
-			}
-
-			return utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
-				utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
-		}, timeout, interval).Should(BeTrue())
 	})
 
 	It("no secret", func() {
@@ -229,21 +205,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				!utils.Contains(secretNames, utils.COS_READER_KEY_NAME)
 		}, timeout, interval).Should(BeTrue())
 
-		// Catalogs are reconciled regardless of secret
-		Eventually(func() bool {
-			catalogSourceList := &operatorsv1alpha1.CatalogSourceList{}
-			k8sClient.List(context.TODO(), catalogSourceList)
-
-			var catalogSourceNames []string
-			for _, catalogSource := range catalogSourceList.Items {
-				catalogSourceNames = append(catalogSourceNames, catalogSource.Name)
-			}
-
-			utils.PrettyPrint(catalogSourceNames)
-
-			return utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
-				utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
-		}, timeout, interval).Should(BeTrue())
 	})
 
 	It("bad name", func() {
@@ -280,18 +241,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				!utils.Contains(secretNames, utils.COS_READER_KEY_NAME)
 		}, timeout, interval).Should(BeTrue())
 
-		Eventually(func() bool {
-			catalogSourceList := &operatorsv1alpha1.CatalogSourceList{}
-			k8sClient.List(context.TODO(), catalogSourceList)
-
-			var catalogSourceNames []string
-			for _, catalogSource := range catalogSourceList.Items {
-				catalogSourceNames = append(catalogSourceNames, catalogSource.Name)
-			}
-
-			return !utils.Contains(catalogSourceNames, utils.IBM_CATALOGSRC_NAME) &&
-				!utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
-		}, timeout, interval).Should(BeTrue())
 	})
 
 })

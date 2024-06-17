@@ -12,3 +12,6 @@ subjects:
 - kind: ServiceAccount
   name: ibm-data-reporter-operator-api
   namespace: redhat-marketplace
+- kind: ServiceAccount
+  name: ibm-data-reporter-operator-api
+  namespace: ibm-software-central

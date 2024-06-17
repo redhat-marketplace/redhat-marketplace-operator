@@ -2,9 +2,7 @@ The IBM Metrics Operator provides workload metering and reporting for IBM Softwa
 ### **Important Note**
 A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [swc.saas.ibm.com](https://swc.saas.ibm.com).
 
-Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account, and does not require Red Hat Marketplace Deployment Operator.
-
-Full cluster registration and software lifecycle management through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.
+Usage metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com) with only IBM Metrics Operator and a Red Hat Marketplace account.
 
 ### Upgrade Policy
 
@@ -111,7 +109,7 @@ metadata:
   labels:
     app: rhm-data-service
   name: rhm-data-service-rhm-data-service-0
-  namespace: redhat-marketplace
+  namespace: ibm-software-central
 spec:
   storageClassName: rook-cephfs
   accessModes:
@@ -141,7 +139,7 @@ spec:
   volumeMode: Filesystem
   claimRef:
     kind: PersistentVolumeClaim
-    namespace: redhat-marketplace
+    namespace: ibm-software-central
     name: rhm-data-service-rhm-data-service-0
 ```
 
@@ -151,7 +149,7 @@ spec:
 3. Create a Kubernetes secret in the installed namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the pull secret.
     ```sh
     # Replace ${PULL_SECRET} with your pull secret
-    oc create secret generic redhat-marketplace-pull-secret -n redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+    oc create secret generic redhat-marketplace-pull-secret -n ibm-software-central --from-literal=PULL_SECRET=${PULL_SECRET}
     ```
 4. Use of the platform is governed by the:
 
@@ -159,7 +157,7 @@ spec:
     
 5. Update MarketplaceConfig to accept the license.
     ```
-    oc patch marketplaceconfig marketplaceconfig -n redhat-marketplace --type='merge' -p '{"spec": {"license": {"accept": true}}}'
+    oc patch marketplaceconfig marketplaceconfig -n ibm-software-central --type='merge' -p '{"spec": {"license": {"accept": true}}}'
     ```
 6. Install the pull secret as a global pull secret on the cluster.
 
@@ -197,7 +195,7 @@ The IBM Metrics Operator components require specific ClusterRoleBindings.
 
 Due to limitations of Operator Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided dynamically for arbitrary installation target namespaces.
 
-A static ClusterRoleBinding is included for installation to the default namespace of `redhat-marketplace`, and namespaces `openshift-redhat-marketplace`, `ibm-common-services`.
+A static ClusterRoleBinding is included for installation to the default namespace of `ibm-software-central`, and namespaces `openshift-redhat-marketplace`,  `redhat-marketplace`, `ibm-common-services`.
 
 To create the ClusterRoleBindings for installation to an alternate namespace
 ```
