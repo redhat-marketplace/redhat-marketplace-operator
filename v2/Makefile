@@ -221,6 +221,7 @@ bundle-build: opm
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
 	--label com.redhat.delivery.operator.bundle=true \
 	--label quay.expires-after="$(QUAY_EXPIRATION)" \
+	--provenance=false \
 	--push \
 	.
 
