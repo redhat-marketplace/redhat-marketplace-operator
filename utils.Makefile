@@ -210,8 +210,8 @@ $(DOCKER_EXTRA_ARGS) \
 --build-arg path=$(3) \
 --build-arg exec=$(4) \
 --build-arg bin=$(5) \
---build-arg app_version=\"$(VERSION)\" \
---build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
+--build-arg app_version=$(VERSION) \
+--build-arg quay_expiration=$(QUAY_EXPIRATION) \
 $(6)
 endef
 
