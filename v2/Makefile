@@ -219,7 +219,8 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 bundle-build: opm
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
-  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.operator.bundle=true \
+	--label quay.expires-after="$(QUAY_EXPIRATION)" \
 	--push \
 	.
 
