@@ -37,8 +37,9 @@ LABEL name="Red Hat Marketplace ${name}" \
   release="1" \
   summary="Red Hat Marketplace ${name} Container Image" \
   description="Container Image for the Red Hat Marketplace ${name}" \
-  version="${app_version}" \
-  quay.expires-after=${quay_expiration}
+  version="${app_version}"
+
+LABEL quay.expires-after=${quay_expiration}
 
 ENV USER_UID=1001 \
   USER_NAME=redhat-marketplace-operator \
