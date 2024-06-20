@@ -349,6 +349,7 @@ jobs:
         echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v3
@@ -378,6 +379,7 @@ jobs:
         echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v3

@@ -65,7 +65,7 @@ opm validate "$catalog_dir"
 
 catalog_image=`echo $BUNDLE_IMAGE | sed -e 's/manifest/catalog/'`
 echo "Builing catalog image $catalog_image"
-docker build -f $catalog_dir.Dockerfile -t $catalog_image .
+docker build --label quay.expires-after="$(QUAY_EXPIRATION)" -f $catalog_dir.Dockerfile -t $catalog_image .
 [ $? -ne 0 ] && fail_exit "Image build failed"
 
 echo "Pushing catalog image $catalog_image"

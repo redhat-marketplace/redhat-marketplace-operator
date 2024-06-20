@@ -101,7 +101,7 @@ OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
 	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
 
-OPM_VERSION=v1.34.0
+OPM_VERSION=v1.43.1
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:

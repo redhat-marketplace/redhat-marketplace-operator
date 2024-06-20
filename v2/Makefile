@@ -265,6 +265,8 @@ opm-builder-base: opm
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
+	--label quay.expires-after="$(QUAY_EXPIRATION)" \
+	--provenance=false \
 	.
 
 bundle-dev-index: opm
