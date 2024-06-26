@@ -80,7 +80,16 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig.Spec.ClusterName = "test-cluster"
 		marketplaceconfig.Spec.License.Accept = ptr.Bool(true)
 		marketplaceconfig.Status.Conditions.SetCondition(marketplacev1alpha1.ConditionChildRRS3MigrationComplete)
-		Expect(k8sClient.Create(context.TODO(), marketplaceconfig.DeepCopy())).Should(Succeed(), "create marketplaceconfig")
+
+		Eventually(func() bool {
+			var failed bool
+			err := k8sClient.Create(context.TODO(), marketplaceconfig.DeepCopy())
+			if err != nil {
+				failed = true
+			}
+
+			return failed
+		}, timeout, interval).ShouldNot(BeTrue())
 
 	})
 
