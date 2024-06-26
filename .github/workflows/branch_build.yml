@@ -172,6 +172,7 @@ jobs:
         export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
         export TAG="${VERSION}"
         export IS_DEV="true"
+        export QUAY_EXPIRATION="30d"
         fi
 
         echo "Found version $VERSION"
@@ -183,6 +184,8 @@ jobs:
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
+        echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
+        echo "QUAY_EXPIRATION=$QUAY_EXPIRATION" >> $GITHUB_ENV
     - id: build
       name: Build and push images
       run: |-
@@ -304,6 +307,7 @@ jobs:
         export VERSION=${VERSION}-beta.${GITHUB_RUN_NUMBER}
         export TAG="${VERSION}"
         export IS_DEV="true"
+        export QUAY_EXPIRATION="30d"
         fi
 
         echo "Found version $VERSION"
@@ -315,6 +319,8 @@ jobs:
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "REF=$REF" >> $GITHUB_ENV
+        echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
+        echo "QUAY_EXPIRATION=$QUAY_EXPIRATION" >> $GITHUB_ENV
     - id: bundle
       name: Build bundle
       run: |-
@@ -343,6 +349,7 @@ jobs:
         echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v3
@@ -372,6 +379,7 @@ jobs:
         echo "isDev=$IS_DEV" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
     - uses: actions/upload-artifact@v3

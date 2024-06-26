@@ -101,7 +101,7 @@ OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
 	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
 
-OPM_VERSION=v1.34.0
+OPM_VERSION=v1.43.1
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
@@ -177,7 +177,7 @@ DOCKER_BUILD := docker buildx build --platform $(call build-targets,$(ARCHS),lin
 endif
 
 ifneq ($(DOCKERBUILDXCACHE),)
-DOCKER_EXTRA_ARGS = --cache-from "type=local,src=$(DOCKERBUILDXCACHE)" --cache-to "type=local,dest=$(DOCKERBUILDXCACHE)" --output "type=image,push=$(IMAGE_PUSH)"
+DOCKER_EXTRA_ARGS = --cache-from "type=local,src=$(DOCKERBUILDXCACHE)" --cache-to "type=local,dest=$(DOCKERBUILDXCACHE)" --output "type=image,push=$(IMAGE_PUSH)" --provenance=false
 else
 DOCKER_EXTRA_ARGS =
 ifneq ($(PODMAN),true)
@@ -210,8 +210,8 @@ $(DOCKER_EXTRA_ARGS) \
 --build-arg path=$(3) \
 --build-arg exec=$(4) \
 --build-arg bin=$(5) \
---build-arg app_version=\"$(VERSION)\" \
---build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
+--build-arg app_version=$(VERSION) \
+--build-arg quay_expiration=$(QUAY_EXPIRATION) \
 $(6)
 endef
 
