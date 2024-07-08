@@ -13,7 +13,7 @@ RUN curl -sSL -o epel-release-latest-8.noarch.rpm https://dl.fedoraproject.org/p
     rpm -i epel-release-latest-8.noarch.rpm && \
     microdnf install libsqlite3x libuv && \
     microdnf clean all && \
-    rpm -e epel-release-8-19.el8 && \
+    rpm -e epel-release-8 && \
     rm -Rf epel-release-latest-8.noarch.rpm
 
 # COPY dqlite from builder
