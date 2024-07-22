@@ -29,9 +29,9 @@ require (
 	golang.org/x/oauth2 v0.19.0
 	google.golang.org/grpc v1.63.2
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.28.8
-	k8s.io/apimachinery v0.28.8
-	k8s.io/client-go v0.28.8
+	k8s.io/api v0.28.12
+	k8s.io/apimachinery v0.28.12
+	k8s.io/client-go v0.28.12
 	sigs.k8s.io/controller-runtime v0.16.5
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -40,7 +40,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20240410195839-0cc064c06b45
 	go.uber.org/zap v1.26.0
-	k8s.io/component-base v0.28.8
+	k8s.io/component-base v0.28.12
 )
 
 require (
@@ -120,7 +120,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.28.8 // indirect
+	k8s.io/apiextensions-apiserver v0.28.12 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57 // indirect
@@ -138,12 +138,12 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.28.8
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
-	k8s.io/client-go => k8s.io/client-go v0.28.8
-	k8s.io/component-base => k8s.io/component-base v0.28.8
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
+	k8s.io/api => k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.12
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.12
+	k8s.io/apiserver => k8s.io/apiserver v0.28.12
+	k8s.io/client-go => k8s.io/client-go v0.28.12
+	k8s.io/component-base => k8s.io/component-base v0.28.12
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.12
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.5
 )

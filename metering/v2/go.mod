@@ -21,9 +21,9 @@ require (
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/net v0.24.0
-	k8s.io/api v0.28.8
-	k8s.io/apimachinery v0.28.8
-	k8s.io/client-go v0.28.8
+	k8s.io/api v0.28.12
+	k8s.io/apimachinery v0.28.12
+	k8s.io/client-go v0.28.12
 	k8s.io/klog v1.0.0
 	k8s.io/kube-state-metrics/v2 v2.10.0
 	sigs.k8s.io/controller-runtime v0.16.5
@@ -68,8 +68,8 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415151819-79826c84ba32 // indirect
 	google.golang.org/grpc v1.63.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	k8s.io/apiserver v0.28.8 // indirect
-	k8s.io/kms v0.28.8 // indirect
+	k8s.io/apiserver v0.28.12 // indirect
+	k8s.io/kms v0.28.12 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.9 // indirect
 )
 
@@ -137,8 +137,8 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.28.8 // indirect
-	k8s.io/component-base v0.28.8
+	k8s.io/apiextensions-apiserver v0.28.12 // indirect
+	k8s.io/component-base v0.28.12
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57 // indirect
@@ -153,12 +153,12 @@ replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.28.8
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
-	k8s.io/client-go => k8s.io/client-go v0.28.8
-	k8s.io/component-base => k8s.io/component-base v0.28.8
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
+	k8s.io/api => k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.12
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.12
+	k8s.io/apiserver => k8s.io/apiserver v0.28.12
+	k8s.io/client-go => k8s.io/client-go v0.28.12
+	k8s.io/component-base => k8s.io/component-base v0.28.12
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.12
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.5
 )
