@@ -18,15 +18,16 @@ require (
 	github.com/ungerik/go-pool v0.0.0-20140720100922-d102a2c7872a
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver v0.28.8
-	k8s.io/client-go v0.28.8
+	k8s.io/apimachinery v0.29.0
+	k8s.io/apiserver v0.29.0
+	k8s.io/client-go v0.29.0
 	sigs.k8s.io/controller-runtime v0.16.5
 )
 
 require (
 	cloud.google.com/go/compute v1.25.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
@@ -34,6 +35,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/google/cel-go v0.17.7 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/pprof v0.0.0-20240117000934-35fc243c5815 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -41,6 +43,7 @@ require (
 	github.com/qntfy/jsonparser v1.0.2 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20240410195839-0cc064c06b45 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
+	github.com/stoewer/go-strcase v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.22.0 // indirect
@@ -54,7 +57,7 @@ require (
 	golang.org/x/tools v0.20.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240415151819-79826c84ba32 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415151819-79826c84ba32 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.9 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
 )
 
 require (
@@ -118,11 +121,11 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.28.8
+	k8s.io/api v0.29.0
 	k8s.io/apiextensions-apiserver v0.28.8 // indirect
-	k8s.io/component-base v0.28.8
+	k8s.io/component-base v0.29.0
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
+	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
@@ -141,7 +144,7 @@ replace (
 	k8s.io/api => k8s.io/api v0.28.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
 	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
+	k8s.io/apiserver => k8s.io/apiserver v0.29.0
 	k8s.io/client-go => k8s.io/client-go v0.28.8
 	k8s.io/component-base => k8s.io/component-base v0.28.8
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8

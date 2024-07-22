@@ -185,7 +185,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.28.8 // indirect
-	k8s.io/apiserver v0.28.8 // indirect
+	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/component-base v0.28.8
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-aggregator v0.28.8 // indirect
@@ -204,7 +204,7 @@ replace (
 	k8s.io/api => k8s.io/api v0.28.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
 	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
+	k8s.io/apiserver => k8s.io/apiserver v0.29.0
 	k8s.io/client-go => k8s.io/client-go v0.28.8
 	k8s.io/component-base => k8s.io/component-base v0.28.8
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8

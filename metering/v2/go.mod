@@ -68,7 +68,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415151819-79826c84ba32 // indirect
 	google.golang.org/grpc v1.63.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	k8s.io/apiserver v0.28.8 // indirect
+	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/kms v0.28.8 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.9 // indirect
 )
@@ -156,7 +156,7 @@ replace (
 	k8s.io/api => k8s.io/api v0.28.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
 	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
+	k8s.io/apiserver => k8s.io/apiserver v0.29.0
 	k8s.io/client-go => k8s.io/client-go v0.28.8
 	k8s.io/component-base => k8s.io/component-base v0.28.8
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
