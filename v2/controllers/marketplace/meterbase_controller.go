@@ -430,29 +430,38 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	}
 
 	// Provide Status on Prometheus ActiveTargets
-	targets, err := r.healthBadActiveTargets(userWorkloadMonitoringEnabledSpec, reqLogger)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	// Temporarily Disabled
+	// Targets may return in an untimely manner with more targets than we'd like to inspect due to returning droppedTargets
+	// The golang prom API does not provide the query param option for state=active
+	// https://prometheus.io/docs/prometheus/latest/querying/api/#targets
+	// https://pkg.go.dev/github.com/prometheus/client_golang/api/prometheus/v1#API
+	// TODO: extend the API with the parameter if possible, make the function non-blocking for the reconciler
 
-	var condition status.Condition
-	if len(targets) == 0 {
-		condition = marketplacev1alpha1.MeterBasePrometheusTargetGoodHealth
-	} else {
-		condition = marketplacev1alpha1.MeterBasePrometheusTargetBadHealth
-	}
+	/*
+		targets, err := r.healthBadActiveTargets(userWorkloadMonitoringEnabledSpec, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-			return err
+		var condition status.Condition
+		if len(targets) == 0 {
+			condition = marketplacev1alpha1.MeterBasePrometheusTargetGoodHealth
+		} else {
+			condition = marketplacev1alpha1.MeterBasePrometheusTargetBadHealth
 		}
-		if instance.Status.Conditions.SetCondition(condition) {
-			return r.Client.Status().Update(context.TODO(), instance)
+
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.Client.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+				return err
+			}
+			if instance.Status.Conditions.SetCondition(condition) {
+				return r.Client.Status().Update(context.TODO(), instance)
+			}
+			return nil
+		}); err != nil {
+			return reconcile.Result{}, err
 		}
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
+	*/
 
 	// Finish Install Condition
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {

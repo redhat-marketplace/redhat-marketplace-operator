@@ -18,9 +18,9 @@ require (
 	github.com/ungerik/go-pool v0.0.0-20140720100922-d102a2c7872a
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver v0.28.8
-	k8s.io/client-go v0.28.8
+	k8s.io/apimachinery v0.28.12
+	k8s.io/apiserver v0.28.12
+	k8s.io/client-go v0.28.12
 	sigs.k8s.io/controller-runtime v0.16.5
 )
 
@@ -118,9 +118,9 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.28.8
-	k8s.io/apiextensions-apiserver v0.28.8 // indirect
-	k8s.io/component-base v0.28.8
+	k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver v0.28.12 // indirect
+	k8s.io/component-base v0.28.12
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
@@ -138,12 +138,12 @@ replace (
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	k8s.io/api => k8s.io/api v0.28.8
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
-	k8s.io/client-go => k8s.io/client-go v0.28.8
-	k8s.io/component-base => k8s.io/component-base v0.28.8
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
+	k8s.io/api => k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.12
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.12
+	k8s.io/apiserver => k8s.io/apiserver v0.28.12
+	k8s.io/client-go => k8s.io/client-go v0.28.12
+	k8s.io/component-base => k8s.io/component-base v0.28.12
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.12
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.5
 )
