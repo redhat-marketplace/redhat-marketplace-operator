@@ -122,9 +122,9 @@ oc delete secret kubeconfig --ignore-not-found
 oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 
 # Import redhat catalogs
-oc import-image certified-operator-index:v4.15 \
+oc import-image certified-operator-index:v4.16 \
   --request-timeout=5m \
-  --from=registry.redhat.io/redhat/certified-operator-index:v4.15 \
+  --from=registry.redhat.io/redhat/certified-operator-index:v4.16 \
   --reference-policy local \
   --scheduled \
   --confirm
@@ -208,7 +208,7 @@ git push -f origin $BRANCH
 cd $TMP_DIR/operator-pipelines
 
 # latest client does not print log
-curl https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
+curl -L https://mirror.openshift.com/pub/openshift-v4/clients/pipeline/latest/tkn-linux-amd64.tar.gz | tar -xz 
 
 GIT_REPO_URL=https://github.com/redhat-marketplace/certified-operators.git
 BUNDLE_PATH=operators/${OP_NAME}/$VERSION
