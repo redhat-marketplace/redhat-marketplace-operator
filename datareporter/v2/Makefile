@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.12-v4.15
+OPENSHIFT_VERSIONS ?= v4.12-v4.16
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -218,7 +218,9 @@ bundle: clean manifests kustomize operator-sdk yq omt ## Generate bundle manifes
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
-  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.operator.bundle=true \
+	--label quay.expires-after="$(QUAY_EXPIRATION)" \
+	--provenance=false \
 	--push \
 	.
 
@@ -226,12 +228,14 @@ catalog-build: opm
 	PATH="$(PWD)/../../bin:${PATH}" ../../v2/scripts/opm_build_catalog.sh $(BUNDLE_IMG) ./README.md ./icon.svg
 
 .PHONY: bundle-dev-index-multiarch
- bundle-dev-index-multiarch: opm opm-builder-base
+bundle-dev-index-multiarch: opm opm-builder-base
 	$(OPM) index add -u docker --generate --bundles "$(foreach vers,$(VERSIONS_LIST),$(call get-image-sha,$(vers)))" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
+	--label quay.expires-after="$(QUAY_EXPIRATION)" \
+	--provenance=false \
 	.
 
 .PHONY: bundle-stable

@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.12-v4.15
+OPENSHIFT_VERSIONS ?= v4.12-v4.16
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -219,7 +219,9 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 bundle-build: opm
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="$(OPENSHIFT_VERSIONS)" \
-  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.operator.bundle=true \
+	--label quay.expires-after="$(QUAY_EXPIRATION)" \
+	--provenance=false \
 	--push \
 	.
 
@@ -263,6 +265,8 @@ opm-builder-base: opm
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
+	--label quay.expires-after="$(QUAY_EXPIRATION)" \
+	--provenance=false \
 	.
 
 bundle-dev-index: opm
