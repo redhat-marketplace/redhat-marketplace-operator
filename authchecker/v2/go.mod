@@ -9,8 +9,8 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.26.0
-	k8s.io/apimachinery v0.28.8
-	k8s.io/client-go v0.28.8
+	k8s.io/apimachinery v0.28.12
+	k8s.io/client-go v0.28.12
 	sigs.k8s.io/controller-runtime v0.16.5
 )
 
@@ -59,13 +59,13 @@ require (
 
 replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
-	k8s.io/api => k8s.io/api v0.28.8
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
-	k8s.io/client-go => k8s.io/client-go v0.28.8
-	k8s.io/component-base => k8s.io/component-base v0.28.8
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
+	k8s.io/api => k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.12
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.12
+	k8s.io/apiserver => k8s.io/apiserver v0.28.12
+	k8s.io/client-go => k8s.io/client-go v0.28.12
+	k8s.io/component-base => k8s.io/component-base v0.28.12
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.12
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.5
 )
 

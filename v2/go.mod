@@ -34,9 +34,9 @@ require (
 	golang.org/x/net v0.24.0
 	golang.org/x/time v0.5.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.28.8
-	k8s.io/apimachinery v0.28.8
-	k8s.io/client-go v0.28.8
+	k8s.io/api v0.28.12
+	k8s.io/apimachinery v0.28.12
+	k8s.io/client-go v0.28.12
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	sigs.k8s.io/controller-runtime v0.16.5
 	sigs.k8s.io/yaml v1.4.0
@@ -120,7 +120,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415151819-79826c84ba32 // indirect
 	google.golang.org/grpc v1.63.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	k8s.io/kms v0.28.8 // indirect
+	k8s.io/kms v0.28.12 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.9 // indirect
 )
 
@@ -184,11 +184,11 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.28.8 // indirect
-	k8s.io/apiserver v0.28.8 // indirect
-	k8s.io/component-base v0.28.8
+	k8s.io/apiextensions-apiserver v0.28.12 // indirect
+	k8s.io/apiserver v0.28.12 // indirect
+	k8s.io/component-base v0.28.12
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-aggregator v0.28.8 // indirect
+	k8s.io/kube-aggregator v0.28.12 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
@@ -201,12 +201,12 @@ replace (
 	github.com/golang/mock => github.com/golang/mock v1.4.4
 	github.com/prometheus-operator/prometheus-operator => github.com/prometheus-operator/prometheus-operator v0.66.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring => github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
-	k8s.io/api => k8s.io/api v0.28.8
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.8
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.8
-	k8s.io/apiserver => k8s.io/apiserver v0.28.8
-	k8s.io/client-go => k8s.io/client-go v0.28.8
-	k8s.io/component-base => k8s.io/component-base v0.28.8
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.8
+	k8s.io/api => k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.12
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.12
+	k8s.io/apiserver => k8s.io/apiserver v0.28.12
+	k8s.io/client-go => k8s.io/client-go v0.28.12
+	k8s.io/component-base => k8s.io/component-base v0.28.12
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.12
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.5
 )
