@@ -166,36 +166,43 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 	if isMarketplaceConfigMarkedToBeDeleted {
 		// Cleanup. Unregister. Garbage Collection should delete remaining owned resources
 
-		si, err := secretFetcher.ReturnSecret()
-		if err != nil {
-			if errors.Is(err, utils.NoSecretsFound) {
-				reqLogger.Error(err, "Secret not found. Skipping unregister")
-			} else {
-				reqLogger.Error(err, "Failed to get secret")
-				return reconcile.Result{}, err
-			}
-		} else {
-			//Attempt to unregister
-			token, err := secretFetcher.ParseAndValidate(si)
+		if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
+			// Do not attempt unregister in disconnected mode
+			si, err := secretFetcher.ReturnSecret()
 			if err != nil {
-				reqLogger.Error(err, "error validating secret skipping unregister")
+				if errors.Is(err, utils.NoSecretsFound) {
+					reqLogger.Error(err, "Secret not found. Skipping unregister")
+				} else {
+					reqLogger.Error(err, "Failed to get secret")
+					return reconcile.Result{}, err
+				}
 			} else {
-				//Continue with unregister
-				tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+				//Attempt to unregister
+				token, err := secretFetcher.ParseAndValidate(si)
 				if err != nil {
-					reqLogger.Error(err, "error parsing token")
-					return reconcile.Result{}, err
-				}
-
-				marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(token, tokenClaims)
-				if err != nil {
-					reqLogger.Error(err, "error constructing marketplace client")
-					return reconcile.Result{}, err
-				}
-
-				err = r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-				if err != nil {
-					return reconcile.Result{}, err
+					reqLogger.Error(err, "error validating secret skipping unregister")
+				} else {
+					//Continue with unregister
+					tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+					if err != nil {
+						reqLogger.Error(err, "error parsing token")
+					} else {
+						marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(token, tokenClaims)
+						if err != nil {
+							reqLogger.Error(err, "error constructing marketplace client")
+						} else {
+							// underlying marketplaceClient is not retryablehttp, so attempt retries
+							err := retry.OnError(retry.DefaultBackoff, func(_ error) bool {
+								return true
+							}, func() error {
+								return r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
+							})
+							if err != nil {
+								reqLogger.Error(err, "error requesting unregistration")
+							}
+							reqLogger.Info("cluster unregistered")
+						}
+					}
 				}
 			}
 		}
