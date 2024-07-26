@@ -100,7 +100,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 
 	jwtToken, err := secretFetcher.ParseAndValidate(si)
 	if err != nil {
-		reqLogger.Error(err, "error validating secret", "secret", si.Name)
+		reqLogger.Error(err, "error validating secret, check for formatting errors and recreate the secret", "secret", si.Name)
 		if errors.Is(err, utils.TokenFieldMissingOrEmpty) {
 			reqLogger.Info("Missing token field in secret", "secret", si.Name)
 
