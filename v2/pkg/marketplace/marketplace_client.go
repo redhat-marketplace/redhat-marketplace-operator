@@ -394,8 +394,19 @@ const EnvStage = "stage"
 // GetJWTTokenClaims will parse JWT token and fetch the rhmAccountId
 func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
 	// TODO: add verification of public key
-	token, _, err := new(jwt.Parser).ParseUnverified(jwtToken, &MarketplaceClaims{})
+	parser := new(jwt.Parser)
+	token, parts, err := parser.ParseUnverified(jwtToken, &MarketplaceClaims{})
 
+	if err != nil {
+		return nil, err
+	}
+
+	// ParseUnverified does not Decode check the signature/parts[2]
+	// Decode to check the signature against typos
+	if len(parts) != 3 {
+		return nil, errors.New("token contains an invalid number of segments")
+	}
+	_, err = parser.DecodeSegment(parts[2])
 	if err != nil {
 		return nil, err
 	}

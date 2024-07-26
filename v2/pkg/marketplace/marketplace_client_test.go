@@ -147,6 +147,11 @@ var _ = Describe("Marketplace Config Status", func() {
 				}),
 			}))
 		})
+
+		It("Should should fail to parse a bad token signature", func() {
+			_, err := GetJWTTokenClaim(ekStageToken + "â")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Context("Marketplace Pull Secret without any error", func() {
