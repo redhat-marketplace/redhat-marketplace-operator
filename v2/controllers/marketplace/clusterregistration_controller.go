@@ -17,6 +17,7 @@ package marketplace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -154,7 +155,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		tokenClaims, err = marketplace.GetJWTTokenClaim(jwtToken)
 
 		if err != nil {
-			reqLogger.Error(err, "Token is missing account id")
+			reqLogger.Error(err, fmt.Sprintf("secret/%s jwt token could not be parsed, check for formatting errors and recreate the secret", si.Name))
 
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				si, err := secretFetcher.ReturnSecret()
@@ -167,7 +168,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 					annotations = make(map[string]string)
 				}
 				annotations[si.StatusKey] = "error"
-				annotations[si.MessageKey] = "Account id is not available in provided token, please generate token from RH Marketplace again"
+				annotations[si.MessageKey] = "jwt token could not be parsed, check for formatting errors and recreate the secret"
 
 				si.Secret.SetAnnotations(annotations)
 

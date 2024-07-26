@@ -19,7 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/goph/emperror"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	v1 "k8s.io/api/core/v1"
@@ -156,6 +158,26 @@ func (sf *SecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (string, error)
 			return "", fmt.Errorf("could not find jwt token on redhat-marketplace-pull-secret %w", TokenFieldMissingOrEmpty)
 		}
 		jwtToken = string(si.Secret.Data[si.SecretKey])
+	}
+
+	// Validate jwt token segments and decode
+	parts := strings.Split(jwtToken, ".")
+	if len(parts) != 3 {
+		return jwtToken, emperror.Wrap(jwt.ErrTokenMalformed, "token contains an invalid number of segments")
+	}
+
+	parser := new(jwt.Parser)
+
+	if _, err := parser.DecodeSegment(parts[0]); err != nil {
+		return jwtToken, emperror.Wrap(err, "could not base64 decode header")
+	}
+
+	if _, err := parser.DecodeSegment(parts[1]); err != nil {
+		return jwtToken, emperror.Wrap(err, "could not base64 decode claim")
+	}
+
+	if _, err := parser.DecodeSegment(parts[2]); err != nil {
+		return jwtToken, emperror.Wrap(err, "could not base64 decode signature")
 	}
 
 	return jwtToken, nil
