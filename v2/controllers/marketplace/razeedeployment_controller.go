@@ -245,7 +245,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(ctx context.Context, request recon
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			reqLogger.Error(err, "Failed to find RazeeDeployment instance")
+			reqLogger.Info("RazeeDeployment resource not found. Ignoring since object must be deleted")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -873,10 +873,18 @@ func (r *RazeeDeploymentReconciler) removeWatchkeeperDeployment(req *marketplace
 	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting delete of watchkeeper deployment")
 
+	// TargetNamespace may not be set on RazeeDeployment during cleanup
+	var namespace string
+	if len(ptr.ToString(req.Spec.TargetNamespace)) != 0 {
+		namespace = ptr.ToString(req.Spec.TargetNamespace)
+	} else {
+		namespace = req.Namespace
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-			Namespace: ptr.ToString(req.Spec.TargetNamespace),
+			Namespace: namespace,
 		},
 	}
 	reqLogger.Info("deleting deployment", "name", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
