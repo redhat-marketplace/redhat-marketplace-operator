@@ -957,7 +957,7 @@ func (r *MarketplaceConfigReconciler) findRegistrationStatus(
 
 		token, err := secretFetcher.ParseAndValidate(si)
 		if err != nil {
-			reqLogger.Error(err, "error validating secret")
+			reqLogger.Error(err, "error validating secret, check for formatting errors and recreate the secret", "secret", si.Name)
 			return reconcile.Result{}, err
 		}
 
@@ -1100,7 +1100,7 @@ func (r *MarketplaceConfigReconciler) checkRHMAccountStatus(
 
 	jwtToken, err := secretFetcher.ParseAndValidate(si)
 	if err != nil {
-		reqLogger.Error(err, "error validating secret", "secret", si.Name)
+		reqLogger.Error(err, "error validating secret, check for formatting errors and recreate the secret", "secret", si.Name)
 		return false, err
 	}
 

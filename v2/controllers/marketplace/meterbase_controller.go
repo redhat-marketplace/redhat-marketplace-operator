@@ -345,6 +345,23 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	// ---
 	//
 
+	// Fetch the MarketplaceConfig instance for isDisconnected state
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: request.Namespace}, marketplaceConfig)
+	if kerrors.IsNotFound(err) {
+		reqLogger.Info("MarketplaceConfig resource not found, ignoring MeterBase reconcile")
+		return reconcile.Result{}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get MarketplaceConfig instance")
+		return reconcile.Result{}, err
+	}
+
+	// Do not install if in MarketplaceConfig deletion state, avoids transient errors
+	if marketplaceConfig.GetDeletionTimestamp() != nil {
+		reqLogger.Info("MarketplaceConfig resource is in deletion, ignoring MeterBase reconcile")
+		return reconcile.Result{}, nil
+	}
+
 	if err := r.checkUWMDefaultStorageClassPrereq(instance); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -354,14 +371,6 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 	}
 
 	if err := r.installUserWorkloadMonitoring(instance); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Fetch the MarketplaceConfig instance for isDisconnected state
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: request.Namespace}, marketplaceConfig)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get MarketplaceConfig instance")
 		return reconcile.Result{}, err
 	}
 
