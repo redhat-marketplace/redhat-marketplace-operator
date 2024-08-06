@@ -215,7 +215,7 @@ Attempting to meter a resource with a MeterDefinition without the required permi
 
 To plan for disaster recovery, note the PhysicalVolumeClaims `rhm-data-service-rhm-data-service-N`. 
 - In connected environments, MeterReport data upload attempts occur hourly, and are then removed from data-service. There is a low risk of losing much unreported data.
-- In an airgap environment, MeterReport data must be pulled from data-service and uploaded manually using `datactl`. To prevent data loss in a disaster scenario, the data-service volumes should be considered in a recovery plan.
+- In an airgap environment, MeterReport data must be pulled from data-service and uploaded manually using [datactl](https://github.com/redhat-marketplace/datactl/). To prevent data loss in a disaster scenario, the data-service volumes should be considered in a recovery plan.
 
 ### Subscription Config
 
