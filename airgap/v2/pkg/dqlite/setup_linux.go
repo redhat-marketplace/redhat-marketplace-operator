@@ -102,8 +102,6 @@ func (dc *DatabaseConfig) initDqlite() error {
 		if rerr := os.Rename(oldPath, dc.Dir); rerr != nil {
 			return errors.Wrapf(err, "can't os.Rename %s to %s", oldPath, dc.Dir)
 		}
-	} else if err != nil && !os.IsNotExist(err) { // unexpected error
-		return errors.Wrapf(err, "can't os.Stat %s", oldPath)
 	}
 
 	if err := os.MkdirAll(dc.Dir, 0755); err != nil {
