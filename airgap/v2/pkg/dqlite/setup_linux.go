@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -84,7 +85,27 @@ func (dc *DatabaseConfig) InitDB(
 
 // initDqlite initializes the underlying dqlite database
 func (dc *DatabaseConfig) initDqlite() error {
-	dc.Dir = filepath.Join(dc.Dir, dc.Url)
+	// Old Base Path
+	oldPath := filepath.Join(dc.Dir, dc.Url)
+
+	// New Path
+	// Sanitize for Windows NFS
+	re := regexp.MustCompile(`[/\\?%*:|"<>]`)
+	dc.Dir = filepath.Join(
+		string(re.ReplaceAll([]byte(dc.Dir), []byte("-"))),
+		string(re.ReplaceAll([]byte(dc.Url), []byte("-"))),
+	)
+
+	// Check & migrate Old Base Path
+	_, err := os.Stat(oldPath)
+	if err == nil { // Found Old Path, migrate to New Path
+		if rerr := os.Rename(oldPath, dc.Dir); rerr != nil {
+			return errors.Wrapf(err, "can't os.Rename %s to %s", oldPath, dc.Dir)
+		}
+	} else if err != nil && !os.IsNotExist(err) { // unexpected error
+		return errors.Wrapf(err, "can't os.Stat %s", oldPath)
+	}
+
 	if err := os.MkdirAll(dc.Dir, 0755); err != nil {
 		return errors.Wrapf(err, "can't create %s", dc.Dir)
 	}
