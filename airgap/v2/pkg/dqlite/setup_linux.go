@@ -90,10 +90,10 @@ func (dc *DatabaseConfig) initDqlite() error {
 
 	// New Path
 	// Sanitize for Windows NFS
-	re := regexp.MustCompile(`[/\\?%*:|"<>]`)
+	re := regexp.MustCompile(`[\\?%*:|"<>]`)
 	dc.Dir = filepath.Join(
 		string(re.ReplaceAll([]byte(dc.Dir), []byte("-"))),
-		string(re.ReplaceAll([]byte(dc.Url), []byte("-"))),
+		string(re.ReplaceAll([]byte(dc.Name), []byte("-"))),
 	)
 
 	// Check & migrate Old Base Path
