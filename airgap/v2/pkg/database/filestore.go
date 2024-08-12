@@ -22,12 +22,11 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/go-logr/logr"
+	retry "github.com/avast/retry-go/v4"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1/fileserver"
 	modelsv2 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models/v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type StoredFileStore interface {
@@ -43,7 +42,6 @@ type StoredFileStore interface {
 func New(db *gorm.DB, config FileStoreConfig) (StoredFileStore, io.Closer) {
 	store := &fileStore{
 		DB:     db,
-		Log:    logf.Log.WithName("file_store"),
 		config: config,
 	}
 	return store, store
@@ -55,7 +53,6 @@ type FileStoreConfig struct {
 
 type fileStore struct {
 	*gorm.DB
-	Log logr.Logger
 
 	config FileStoreConfig
 }
@@ -77,14 +74,15 @@ type metaDataQuery struct {
 }
 
 const (
-	ErrInvalidInput = errors.Sentinel("invalid input")
-	ErrNotFound     = errors.Sentinel("not found")
+	ErrInvalidInput     = errors.Sentinel("invalid input")
+	ErrNotFound         = errors.Sentinel("not found")
+	ErrDatabaseIsLocked = errors.Sentinel("database is locked")
 )
 
 func (d *fileStore) Close() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
-		d.Log.Error(err, "couldn't close db")
+		d.Logger.Error(context.TODO(), fmt.Sprintf("couldn't close db %v", err))
 		return err
 	}
 	return sqlDB.Close()
@@ -172,10 +170,35 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 		}
 	}
 
+	deadline, ok := ctx.Deadline()
+
+	d.Logger.Info(ctx, fmt.Sprintf("Save Create() %v %v", deadline, ok))
+
 	//notFound create it
 	if foundFile == nil || foundFile.ID == 0 {
-		err := d.DB.WithContext(ctx).
-			Create(file).Error
+
+		err := d.retryWriteTx(ctx, func() *gorm.DB {
+			return d.DB.WithContext(ctx).Create(file)
+		}).Error
+
+		/*
+			delay, _ := time.ParseDuration("50ms")
+			err := retry.Do(
+				func() error {
+					return d.DB.WithContext(ctx).Create(file).Error
+				},
+				retry.RetryIf(func(err error) bool {
+					d.Logger.Info(ctx, fmt.Sprintf("Database is locked, retry %v %v", deadline, ok))
+					return err == ErrDatabaseIsLocked
+				}),
+				retry.Context(ctx),
+				retry.Attempts(0),
+				retry.Delay(delay),
+				retry.MaxJitter(delay),
+				retry.DelayType(retry.CombineDelay(retry.RandomDelay, retry.BackOffDelay)),
+			)
+		*/
+
 		return fmt.Sprintf("%d", file.ID), err
 	}
 
@@ -199,13 +222,20 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			metadata.FileID = foundFile.ID
-			err := db.Create(metadata).Error
+
+			err := d.retryWriteTx(ctx, func() *gorm.DB {
+				return db.Create(metadata)
+			}).Error
+
 			if err != nil {
 				err = errors.WithStack(err)
 				return "", err
 			}
 		} else {
-			err := db.Model(foundMetadata).Updates(metadata).Error
+			err := d.retryWriteTx(ctx, func() *gorm.DB {
+				return db.Model(foundMetadata).Updates(metadata)
+			}).Error
+
 			if err != nil {
 				err = errors.WithStack(err)
 				return "", err
@@ -217,8 +247,11 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 	if len(content.Content) != 0 {
 		if content.ID != 0 {
 			foundContent := &foundFile.File
-			err := db.Model(foundContent).
-				Updates(content).Error
+
+			err := d.retryWriteTx(ctx, func() *gorm.DB {
+				return db.Model(foundContent).
+					Updates(content)
+			}).Error
 
 			if err != nil {
 				err = errors.WithStack(err)
@@ -226,7 +259,10 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 			}
 		} else {
 			content.FileID = foundFile.ID
-			err := db.Create(content).Error
+
+			err := d.retryWriteTx(ctx, func() *gorm.DB {
+				return db.Create(content)
+			}).Error
 
 			if err != nil {
 				err = errors.WithStack(err)
@@ -235,11 +271,14 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 		}
 	}
 
-	err := d.DB.WithContext(ctx).
-		Omit("Content").
-		Model(foundFile).
-		Where("id = ?", foundFile.ID).
-		Updates(*file).Error
+	err := d.retryWriteTx(ctx, func() *gorm.DB {
+		return d.DB.WithContext(ctx).
+			Omit("Content").
+			Model(foundFile).
+			Where("id = ?", foundFile.ID).
+			Updates(*file)
+	}).Error
+
 	id := fmt.Sprintf("%d", foundFile.ID)
 	return id, err
 }
@@ -257,8 +296,14 @@ func (d *fileStore) Delete(ctx context.Context, id string, permanent bool) (err 
 		return err
 	}
 
-	err = db.Model(&modelsv2.StoredFile{}).
-		Delete(&modelsv2.StoredFile{}, idInt).Error
+	deadline, ok := ctx.Deadline()
+
+	d.Logger.Info(ctx, fmt.Sprintf("Save Delete() %v %v", deadline, ok))
+
+	err = d.retryWriteTx(ctx, func() *gorm.DB {
+		return db.Model(&modelsv2.StoredFile{}).
+			Delete(&modelsv2.StoredFile{}, idInt)
+	}).Error
 
 	return err
 }
@@ -318,7 +363,7 @@ func (d *fileStore) CleanTombstones(ctx context.Context) (int64, error) {
 	now := time.Now()
 	now = now.Add(-d.config.CleanupAfter)
 
-	d.Log.Info("cleaning up all files older than", "now", now.String())
+	d.Logger.Info(ctx, fmt.Sprintf("cleaning up all files older than now %v", now.String()))
 
 	q := d.WithContext(ctx).
 		Unscoped().
@@ -328,22 +373,29 @@ func (d *fileStore) CleanTombstones(ctx context.Context) (int64, error) {
 
 	var rowsAffected int64
 	err := d.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&modelsv2.StoredFileContent{}).
-			Where("file_id in (?)", q).
-			Delete(&[]modelsv2.StoredFileContent{}).Error; err != nil {
+
+		if err := d.retryWriteTx(ctx, func() *gorm.DB {
+			return tx.Model(&modelsv2.StoredFileContent{}).
+				Where("file_id in (?)", q).
+				Delete(&[]modelsv2.StoredFileContent{})
+		}).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Model(&modelsv2.StoredFileMetadata{}).
-			Where("file_id in (?)", q).
-			Delete(&[]modelsv2.StoredFileMetadata{}).Error; err != nil {
+		if err := d.retryWriteTx(ctx, func() *gorm.DB {
+			return tx.Model(&modelsv2.StoredFileMetadata{}).
+				Where("file_id in (?)", q).
+				Delete(&[]modelsv2.StoredFileMetadata{})
+		}).Error; err != nil {
 			return err
 		}
 
-		tx1 := tx.Unscoped().
-			Model(&modelsv2.StoredFile{}).
-			Where("id in (?)", q).
-			Delete(&[]modelsv2.StoredFile{})
+		tx1 := d.retryWriteTx(ctx, func() *gorm.DB {
+			return tx.Unscoped().
+				Model(&modelsv2.StoredFile{}).
+				Where("id in (?)", q).
+				Delete(&[]modelsv2.StoredFile{})
+		})
 		if err := tx1.Error; err != nil {
 			return err
 		}
@@ -357,4 +409,25 @@ func (d *fileStore) CleanTombstones(ctx context.Context) (int64, error) {
 	}
 
 	return rowsAffected, nil
+}
+
+func (d *fileStore) retryWriteTx(ctx context.Context, f func() *gorm.DB) (tx *gorm.DB) {
+
+	delay, _ := time.ParseDuration("50ms")
+	retry.Do(
+		func() error {
+			tx = f()
+			return tx.Error
+		},
+		retry.RetryIf(func(err error) bool {
+			d.Logger.Info(ctx, fmt.Sprintf("Database is locked, retry"))
+			return err == ErrDatabaseIsLocked
+		}),
+		retry.Context(ctx),
+		retry.Attempts(0),
+		retry.Delay(delay),
+		retry.MaxJitter(delay),
+		retry.DelayType(retry.CombineDelay(retry.RandomDelay, retry.BackOffDelay)),
+	)
+	return tx
 }
