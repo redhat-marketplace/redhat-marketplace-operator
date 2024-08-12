@@ -170,34 +170,12 @@ func (d *fileStore) Save(ctx context.Context, file *modelsv2.StoredFile) (string
 		}
 	}
 
-	deadline, ok := ctx.Deadline()
-
-	d.Logger.Info(ctx, fmt.Sprintf("Save Create() %v %v", deadline, ok))
-
 	//notFound create it
 	if foundFile == nil || foundFile.ID == 0 {
 
 		err := d.retryWriteTx(ctx, func() *gorm.DB {
 			return d.DB.WithContext(ctx).Create(file)
 		}).Error
-
-		/*
-			delay, _ := time.ParseDuration("50ms")
-			err := retry.Do(
-				func() error {
-					return d.DB.WithContext(ctx).Create(file).Error
-				},
-				retry.RetryIf(func(err error) bool {
-					d.Logger.Info(ctx, fmt.Sprintf("Database is locked, retry %v %v", deadline, ok))
-					return err == ErrDatabaseIsLocked
-				}),
-				retry.Context(ctx),
-				retry.Attempts(0),
-				retry.Delay(delay),
-				retry.MaxJitter(delay),
-				retry.DelayType(retry.CombineDelay(retry.RandomDelay, retry.BackOffDelay)),
-			)
-		*/
 
 		return fmt.Sprintf("%d", file.ID), err
 	}
@@ -295,10 +273,6 @@ func (d *fileStore) Delete(ctx context.Context, id string, permanent bool) (err 
 	if err != nil {
 		return err
 	}
-
-	deadline, ok := ctx.Deadline()
-
-	d.Logger.Info(ctx, fmt.Sprintf("Save Delete() %v %v", deadline, ok))
 
 	err = d.retryWriteTx(ctx, func() *gorm.DB {
 		return db.Model(&modelsv2.StoredFile{}).
@@ -420,7 +394,6 @@ func (d *fileStore) retryWriteTx(ctx context.Context, f func() *gorm.DB) (tx *go
 			return tx.Error
 		},
 		retry.RetryIf(func(err error) bool {
-			d.Logger.Info(ctx, fmt.Sprintf("Database is locked, retry"))
 			return err == ErrDatabaseIsLocked
 		}),
 		retry.Context(ctx),
