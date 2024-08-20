@@ -160,7 +160,7 @@ var _ = Describe("MeterbaseController", func() {
 
 		AfterEach(func() {
 			// Add any teardown steps that needs to be executed after each test
-			Expect(k8sClient.Delete(context.TODO(), createdMeterBase)).Should(Succeed())
+			Cleanup()
 		})
 
 		It("should run meterbase creator reconciler", func() {

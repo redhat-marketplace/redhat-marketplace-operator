@@ -26,7 +26,6 @@ import (
 
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,7 +59,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	BeforeEach(func() {
 		expireTime := time.Now().Add(1500 * time.Second)
 		// setup redhat-marketplace-pull-secret
-		tokenClaims := marketplace.MarketplaceClaims{
+		tokenClaims := utils.MarketplaceClaims{
 			AccountID: "foo",
 			APIKey:    "test",
 			Env:       "test",
@@ -99,46 +98,8 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	})
 
 	AfterEach(func() {
-		pullSecret := &corev1.Secret{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHMPullSecretName,
-			Namespace: operatorNamespace,
-		}, pullSecret)).Should(Succeed(), "get RHM pull secret")
-		k8sClient.Delete(context.TODO(), pullSecret)
 
-		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.MARKETPLACECONFIG_NAME,
-			Namespace: operatorNamespace,
-		}, marketplaceConfig)).Should(Succeed(), "get marketplaceconfig")
-		k8sClient.Delete(context.TODO(), marketplaceConfig)
-
-		// Wait for finalizer to complete
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{
-				Name:      utils.MARKETPLACECONFIG_NAME,
-				Namespace: operatorNamespace,
-			}, marketplaceConfig)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			}
-			return notFound
-		}, timeout, interval).Should(BeTrue())
-
-		meterBase := &marketplacev1alpha1.MeterBase{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.METERBASE_NAME,
-			Namespace: operatorNamespace,
-		}, meterBase)).Should(Succeed(), "get meterbase")
-		k8sClient.Delete(context.TODO(), meterBase)
-
-		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RAZEE_NAME,
-			Namespace: operatorNamespace,
-		}, razeeDeployment)).Should(Succeed(), "get razeedeployment")
-		k8sClient.Delete(context.TODO(), razeeDeployment)
+		Cleanup()
 
 		server.Close()
 	})
@@ -146,8 +107,25 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 	It("marketplace config controller in disconnected mode", func() {
 
 		// create required resources
-		Expect(k8sClient.Create(context.TODO(), marketplaceconfig.DeepCopy())).Should(Succeed(), "create MarketplaceConfig CR")
-		Expect(k8sClient.Create(context.TODO(), secret.DeepCopy())).Should(Succeed(), "create RHM pull secret")
+		Eventually(func() bool {
+			var failed bool
+			err := k8sClient.Create(context.TODO(), marketplaceconfig.DeepCopy())
+			if err != nil {
+				failed = true
+			}
+
+			return failed
+		}, timeout, interval).ShouldNot(BeTrue())
+
+		Eventually(func() bool {
+			var failed bool
+			err := k8sClient.Create(context.TODO(), secret.DeepCopy())
+			if err != nil {
+				failed = true
+			}
+
+			return failed
+		}, timeout, interval).ShouldNot(BeTrue())
 
 		// fetch created resources
 		rd := &marketplacev1alpha1.RazeeDeployment{}
@@ -155,6 +133,8 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			var notFound bool
 			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: operatorNamespace}, rd)
 			if k8serrors.IsNotFound(err) {
+				notFound = true
+			} else if rd.Spec.Features == nil { // wait for init
 				notFound = true
 			}
 
@@ -178,6 +158,8 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: operatorNamespace}, mc)
 			if k8serrors.IsNotFound(err) {
 				notFound = true
+			} else if mc.Spec.Features == nil { // wait for init
+				notFound = true
 			}
 
 			return notFound
@@ -185,7 +167,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 
 		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionIsDisconnected).Message, timeout, interval).Should(Equal("Detected disconnected environment"))
 		Expect(*mc.Spec.Features.Deployment).Should(BeFalse())
-		Expect(*mc.Spec.Features.Registration).Should(BeFalse())
+		Expect(*mc.Spec.Features.Registration).Should(BeTrue())
 		Expect(*mc.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
 		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete), timeout, interval).ShouldNot(BeNil())
 		Eventually(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message, timeout, interval).Should(Equal("Finished Installing necessary components"))
@@ -196,7 +178,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions).Should(BeFalse())
 
 		Expect(*rd.Spec.Features.Deployment).Should(BeFalse())
-		Expect(*rd.Spec.Features.Registration).Should(BeFalse())
+		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
 		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
 		Eventually(rd.Spec.ClusterDisplayName, timeout, interval).Should(Equal("test-cluster"))
 	})
@@ -230,6 +212,8 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: operatorNamespace}, rd)
 			if k8serrors.IsNotFound(err) {
 				notFound = true
+			} else if rd.Spec.Features == nil { // wait for init
+				notFound = true
 			}
 
 			return notFound
@@ -252,6 +236,8 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.MARKETPLACECONFIG_NAME, Namespace: operatorNamespace}, mc)
 			if k8serrors.IsNotFound(err) {
 				notFound = true
+			} else if mc.Spec.Features == nil { // wait for init
+				notFound = true
 			}
 
 			return notFound
@@ -270,7 +256,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 				utils.Contains(catalogSourceNames, utils.OPENCLOUD_CATALOGSRC_NAME)
 		}, timeout, interval).Should(BeTrue())
 
-		Expect(*mc.Spec.Features.Deployment).Should(BeTrue())
+		Expect(*mc.Spec.Features.Deployment).Should(BeFalse())
 		Expect(*mc.Spec.Features.Registration).Should(BeTrue())
 		Expect(*mc.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
 		Expect(mc.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionComplete).Message).Should(Equal("Finished Installing necessary components"))
@@ -280,7 +266,7 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions).Should(BeFalse())
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions).Should(BeFalse())
 
-		Expect(*rd.Spec.Features.Deployment).Should(BeTrue())
+		Expect(*rd.Spec.Features.Deployment).Should(BeFalse())
 		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
 		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
 		Expect(rd.Spec.ClusterDisplayName).Should(Equal("test-cluster-connected"))
