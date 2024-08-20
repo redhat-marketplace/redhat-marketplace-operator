@@ -24,7 +24,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -32,7 +31,6 @@ import (
 
 var _ = Describe("Testing with Ginkgo", func() {
 	var (
-		name            = utils.RAZEE_NAME
 		secretName      = utils.RHM_OPERATOR_SECRET_NAME
 		razeeDeployment marketplacev1alpha1.RazeeDeployment
 		secret          corev1.Secret
@@ -40,12 +38,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 	BeforeEach(func() {
 
-		name = utils.RAZEE_NAME
 		secretName = utils.RHM_OPERATOR_SECRET_NAME
 
 		razeeDeployment = marketplacev1alpha1.RazeeDeployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
+				Name:      utils.RAZEE_NAME,
 				Namespace: operatorNamespace,
 				UID:       types.UID(uuid.NewUUID()),
 			},
@@ -94,56 +91,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 	})
 
 	AfterEach(func() {
-		rd := &marketplacev1alpha1.RazeeDeployment{}
-		err := k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      name,
-			Namespace: operatorNamespace,
-		}, rd)
-		if !k8serrors.IsNotFound(err) {
-			Expect(k8sClient.Delete(context.TODO(), rd)).Should(Succeed())
-		}
 
-		operatorSecret := &corev1.Secret{}
-		err = k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      utils.RHM_OPERATOR_SECRET_NAME,
-			Namespace: operatorNamespace,
-		}, operatorSecret)
-		if !k8serrors.IsNotFound(err) {
-			Expect(k8sClient.Delete(context.TODO(), operatorSecret)).Should(Succeed())
-		}
-
-		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-		err = k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      "marketplaceconfig",
-			Namespace: operatorNamespace,
-		}, marketplaceConfig)
-		if !k8serrors.IsNotFound(err) {
-			Expect(k8sClient.Delete(context.TODO(), marketplaceConfig)).Should(Succeed())
-		}
-
-		cmNames := []string{utils.WATCH_KEEPER_NON_NAMESPACED_NAME, utils.WATCH_KEEPER_LIMITPOLL_NAME, utils.WATCH_KEEPER_CONFIG_NAME, utils.RAZEE_CLUSTER_METADATA_NAME}
-		for _, name := range cmNames {
-			configMap := &corev1.ConfigMap{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{
-				Name:      name,
-				Namespace: operatorNamespace,
-			}, configMap)
-			if !k8serrors.IsNotFound(err) {
-				Expect(k8sClient.Delete(context.TODO(), configMap)).Should(Succeed())
-			}
-		}
-
-		secretNames := []string{utils.WATCH_KEEPER_SECRET_NAME, utils.RHM_OPERATOR_SECRET_NAME, utils.COS_READER_KEY_NAME}
-		for _, name := range secretNames {
-			secret := &corev1.Secret{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{
-				Name:      name,
-				Namespace: operatorNamespace,
-			}, secret)
-			if !k8serrors.IsNotFound(err) {
-				Expect(k8sClient.Delete(context.TODO(), secret)).Should(Succeed())
-			}
-		}
+		Cleanup()
 
 	})
 

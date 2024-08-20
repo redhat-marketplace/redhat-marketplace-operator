@@ -18,13 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/goph/emperror"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,16 +40,15 @@ type SecretFetcherBuilder struct {
 	Ctx               context.Context
 	K8sClient         client.Client
 	DeployedNamespace string
+	Parser            *jwt.Parser
 }
 
 type SecretInfo struct {
-	Name       string
-	Secret     *v1.Secret
-	StatusKey  string
-	MessageKey string
-	SecretKey  string
-	MissingMsg string
-	Env        string
+	Type   string
+	Secret *v1.Secret
+	Env    string
+	Token  string
+	Claims *MarketplaceClaims
 }
 
 type EntitlementKey struct {
@@ -62,44 +61,42 @@ type Auth struct {
 	Auth     string `json:"auth"`
 }
 
+type MarketplaceClaims struct {
+	AccountID string `json:"rhmAccountId"`
+	Password  string `json:"password,omitempty"`
+	APIKey    string `json:"iam_apikey,omitempty"`
+	Env       string `json:"env,omitempty"`
+	jwt.RegisteredClaims
+}
+
 func ProvideSecretFetcherBuilder(client client.Client, ctx context.Context, deployedNamespace string) *SecretFetcherBuilder {
 	return &SecretFetcherBuilder{
 		Ctx:               ctx,
 		K8sClient:         client,
 		DeployedNamespace: deployedNamespace,
+		Parser:            new(jwt.Parser),
 	}
 }
 
+// Returns Secret with priority on redhat-marketplace-pull-secret
+// Parse and populate SecretInfo
 func (sf *SecretFetcherBuilder) ReturnSecret() (*SecretInfo, error) {
+
 	pullSecret, pullSecretErr := sf.GetPullSecret()
-	if pullSecret != nil {
-		return &SecretInfo{
-			Name:       RHMPullSecretName,
-			Secret:     pullSecret,
-			StatusKey:  RHMPullSecretStatus,
-			MessageKey: RHMPullSecretMessage,
-			SecretKey:  RHMPullSecretKey,
-			MissingMsg: RHMPullSecretMissing,
-		}, nil
+	if pullSecretErr == nil {
+		return sf.Parse(pullSecret)
+	} else if !k8serrors.IsNotFound(pullSecretErr) {
+		return nil, pullSecretErr
 	}
 
 	entitlementKeySecret, entitlementKeySecretErr := sf.GetEntitlementKey()
-	if pullSecret == nil && entitlementKeySecret != nil {
-		return &SecretInfo{
-			Name:       IBMEntitlementKeySecretName,
-			Secret:     entitlementKeySecret,
-			StatusKey:  IBMEntitlementKeyStatus,
-			MessageKey: IBMEntitlementKeyMessage,
-			SecretKey:  IBMEntitlementDataKey,
-			MissingMsg: IBMEntitlementKeyPasswordMissing,
-		}, nil
+	if entitlementKeySecretErr == nil {
+		return sf.Parse(entitlementKeySecret)
+	} else if !k8serrors.IsNotFound(entitlementKeySecretErr) {
+		return nil, entitlementKeySecretErr
 	}
 
-	if entitlementKeySecretErr != nil && pullSecretErr != nil {
-		return nil, NoSecretsFound
-	}
-
-	return nil, nil
+	return nil, NoSecretsFound
 }
 
 func (sf *SecretFetcherBuilder) GetEntitlementKey() (*v1.Secret, error) {
@@ -126,61 +123,73 @@ func (sf *SecretFetcherBuilder) GetPullSecret() (*v1.Secret, error) {
 	return rhmPullSecret, nil
 }
 
-func (sf *SecretFetcherBuilder) ParseAndValidate(si *SecretInfo) (string, error) {
-	jwtToken := ""
-	if si.Name == IBMEntitlementKeySecretName {
-		ek := &EntitlementKey{}
-		err := json.Unmarshal([]byte(si.Secret.Data[si.SecretKey]), ek)
-		if err != nil {
-			return "", emperror.Wrap(err, "error unmarshalling entitlement key")
-		}
+// Parse v1.Secret and return SecretInfo
+// Will handle case if ibm-entitlement-key is written into redhat-marketplace-pull-secret
+func (sf *SecretFetcherBuilder) Parse(secret *v1.Secret) (*SecretInfo, error) {
+	si := &SecretInfo{Secret: secret}
 
-		prodAuth, ok := ek.Auths[IBMEntitlementProdKey]
-		if ok {
-			if prodAuth.Password == "" {
-				return "", fmt.Errorf("could not find jwt token on prod entitlement key %w", TokenFieldMissingOrEmpty)
-			}
-			jwtToken = prodAuth.Password
-			si.Env = ProdEnv
+	if key, ok := si.Secret.Data[IBMEntitlementDataKey]; ok { // ibm-entitlement-key stored as .dockerconfigjson with jwt auths
+		ek := &EntitlementKey{}
+		err := json.Unmarshal(key, ek)
+		if err != nil {
+			return si, emperror.WrapWith(err, "error unmarshalling", "secret", si.Secret.GetName(), "key", IBMEntitlementDataKey)
 		}
 
 		stageAuth, ok := ek.Auths[IBMEntitlementStageKey]
 		if ok {
 			if stageAuth.Password == "" {
-				return "", fmt.Errorf("could not find jwt token on stage entitlement key %w", TokenFieldMissingOrEmpty)
+
+				return si, emperror.WrapWith(TokenFieldMissingOrEmpty, "secret", si.Secret.GetName(), "key", IBMEntitlementDataKey, "key", IBMEntitlementStageKey, "key", "password")
 			}
-			jwtToken = stageAuth.Password
+			si.Token = stageAuth.Password
 			si.Env = StageEnv
 		}
 
-	} else if si.Name == RHMPullSecretName {
-		if _, ok := si.Secret.Data[si.SecretKey]; !ok {
-			return "", fmt.Errorf("could not find jwt token on redhat-marketplace-pull-secret %w", TokenFieldMissingOrEmpty)
+		prodAuth, ok := ek.Auths[IBMEntitlementProdKey]
+		if ok {
+			if prodAuth.Password == "" {
+				return si, emperror.WrapWith(TokenFieldMissingOrEmpty, "secret", si.Secret.GetName(), "key", IBMEntitlementDataKey, "key", IBMEntitlementProdKey, "key", "password")
+			}
+			si.Token = prodAuth.Password
+			si.Env = ProdEnv
 		}
-		jwtToken = string(si.Secret.Data[si.SecretKey])
+
+		si.Type = IBMEntitlementKeySecretName
+
+	} else if key, ok := si.Secret.Data[RHMPullSecretKey]; ok { // jwt string set at key PULL_SECRET
+		if err := sf.validateDecode(string(key)); err != nil {
+			return si, emperror.WrapWith(err, "unable to decode jwt", "secret", si.Secret.GetName(), "key", RHMPullSecretKey)
+		}
+
+		si.Token = string(key)
+
+		token, _, err := sf.Parser.ParseUnverified(si.Token, &MarketplaceClaims{})
+		if err != nil {
+			return si, err
+		}
+
+		si.Claims, ok = token.Claims.(*MarketplaceClaims)
+		if !ok {
+			return si, emperror.WrapWith(errors.New("invalid claims"), "claims is not type *MarketplaceClaims", "secret", si.Secret.GetName(), "key", RHMPullSecretKey)
+		}
+
+		if si.Claims.AccountID == "" { // this was probably an ibm-entitlement-key incorrectly set as a redhat-marketplace-pull-secret
+			si.Type = IBMEntitlementKeySecretName
+			si.Env = ProdEnv // assumed
+		} else { // redhat-marketplace-pull-secret
+			if strings.ToLower(si.Claims.Env) == StageEnv {
+				si.Env = StageEnv
+			} else {
+				si.Env = ProdEnv
+			}
+			si.Type = RHMPullSecretName
+		}
+
+	} else {
+		return si, emperror.WrapWith(errors.New("invalid secret"), "no jwt found", "secret", si.Secret.GetName())
 	}
 
-	// Validate jwt token segments and decode
-	parts := strings.Split(jwtToken, ".")
-	if len(parts) != 3 {
-		return jwtToken, emperror.Wrap(jwt.ErrTokenMalformed, "token contains an invalid number of segments")
-	}
-
-	parser := new(jwt.Parser)
-
-	if _, err := parser.DecodeSegment(parts[0]); err != nil {
-		return jwtToken, emperror.Wrap(err, "could not base64 decode header")
-	}
-
-	if _, err := parser.DecodeSegment(parts[1]); err != nil {
-		return jwtToken, emperror.Wrap(err, "could not base64 decode claim")
-	}
-
-	if _, err := parser.DecodeSegment(parts[2]); err != nil {
-		return jwtToken, emperror.Wrap(err, "could not base64 decode signature")
-	}
-
-	return jwtToken, nil
+	return si, nil
 }
 
 // will set the owner ref on both the redhat-marketplace-pull-secret and the ibm-entitlement-key so that both get cleaned up if we delete marketplace config
@@ -224,5 +233,23 @@ func (sf *SecretFetcherBuilder) addOwnerRef(marketplaceConfig *marketplacev1alph
 		}
 	}
 
+	return nil
+}
+
+// Check if all JWT parts can be decoded, and none have been malformed by a typo
+func (sf *SecretFetcherBuilder) validateDecode(token string) error {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return emperror.Wrap(jwt.ErrTokenMalformed, "token contains an invalid number of segments")
+	}
+	if _, err := sf.Parser.DecodeSegment(parts[0]); err != nil {
+		return emperror.Wrap(err, "could not base64 decode header")
+	}
+	if _, err := sf.Parser.DecodeSegment(parts[1]); err != nil {
+		return emperror.Wrap(err, "could not base64 decode claim")
+	}
+	if _, err := sf.Parser.DecodeSegment(parts[2]); err != nil {
+		return emperror.Wrap(err, "could not base64 decode signature")
+	}
 	return nil
 }

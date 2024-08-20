@@ -164,26 +164,16 @@ func provideMarketplaceConfig(
 		return nil, err
 	}
 
-	log.Info("found secret", "secret name", si.Name)
-
-	jwtToken, err := b.ParseAndValidate(si)
-	if err != nil {
-		return nil, err
-	}
-
-	tokenClaims, err := marketplace.GetJWTTokenClaim(jwtToken)
-	if err != nil {
-		return nil, err
-	}
+	log.Info("found secret", "secret name", si.Secret.GetName())
 
 	url := MktplProductionURL
-	if tokenClaims.Env == marketplace.EnvStage {
+	if si.Env == marketplace.EnvStage {
 		url = MktplStageURL
 	}
 
 	return &uploaders.MarketplaceUploaderConfig{
 		URL:          url,
-		Token:        jwtToken,
+		Token:        si.Token,
 		CipherSuites: cipherSuites,
 		MinVersion:   minVersion,
 	}, nil

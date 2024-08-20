@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 )
 
 const timeout = time.Second * 100
@@ -92,7 +93,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		}
 
 		token := "Bearer token"
-		tokenClaims := &MarketplaceClaims{
+		tokenClaims := &utils.MarketplaceClaims{
 			Env: "",
 		}
 
