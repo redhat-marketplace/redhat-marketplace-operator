@@ -54,7 +54,7 @@ type MarketplaceClientConfig struct {
 	Url      string
 	Token    string
 	Insecure bool
-	Claims   *MarketplaceClaims
+	Claims   *utils.MarketplaceClaims
 }
 
 type MarketplaceClientAccount struct {
@@ -107,7 +107,7 @@ func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientB
 
 func (b *MarketplaceClientBuilder) NewMarketplaceClient(
 	token string,
-	tokenClaims *MarketplaceClaims,
+	tokenClaims *utils.MarketplaceClaims,
 ) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
 	marketplaceURL := b.Url
@@ -381,21 +381,13 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 	return &newOptSecretObj, nil
 }
 
-type MarketplaceClaims struct {
-	AccountID string `json:"rhmAccountId"`
-	Password  string `json:"password,omitempty"`
-	APIKey    string `json:"iam_apikey,omitempty"`
-	Env       string `json:"env,omitempty"`
-	jwt.RegisteredClaims
-}
-
 const EnvStage = "stage"
 
 // GetJWTTokenClaims will parse JWT token and fetch the rhmAccountId
-func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
+func GetJWTTokenClaim(jwtToken string) (*utils.MarketplaceClaims, error) {
 	// TODO: add verification of public key
 	parser := new(jwt.Parser)
-	token, parts, err := parser.ParseUnverified(jwtToken, &MarketplaceClaims{})
+	token, parts, err := parser.ParseUnverified(jwtToken, &utils.MarketplaceClaims{})
 
 	if err != nil {
 		return nil, err
@@ -411,7 +403,7 @@ func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(*MarketplaceClaims)
+	claims, ok := token.Claims.(*utils.MarketplaceClaims)
 
 	if !ok {
 		return nil, errors.New("token claims is not *MarketplaceClaims")

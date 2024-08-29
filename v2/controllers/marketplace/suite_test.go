@@ -28,14 +28,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 
+	osappsv1 "github.com/openshift/api/apps/v1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-
-	osappsv1 "github.com/openshift/api/apps/v1"
-	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -43,8 +42,10 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/rhmotransport"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -259,9 +260,84 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(olmv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
-	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	mktypes.RegisterImageStream(scheme)
 	return scheme
+}
+
+func Cleanup() {
+
+	// No GC, can't rely on cascade
+	// Sleep to finish reconciler to avoid mid-reconcile object recreates
+
+	pullSecret := &corev1.Secret{}
+	if err = k8sClient.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHMPullSecretName,
+		Namespace: operatorNamespace,
+	}, pullSecret); !k8serrors.IsNotFound(err) {
+		Expect(k8sClient.Delete(context.TODO(), pullSecret)).Should(Succeed())
+	}
+	time.Sleep(time.Second)
+
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		Name:      "marketplaceconfig",
+		Namespace: operatorNamespace,
+	}, marketplaceConfig); !k8serrors.IsNotFound(err) {
+		Expect(k8sClient.Delete(context.TODO(), marketplaceConfig)).Should(Succeed())
+	}
+	time.Sleep(time.Second)
+
+	operatorSecret := &corev1.Secret{}
+	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RHM_OPERATOR_SECRET_NAME,
+		Namespace: operatorNamespace,
+	}, operatorSecret); !k8serrors.IsNotFound(err) {
+		Expect(k8sClient.Delete(context.TODO(), operatorSecret)).Should(Succeed())
+	}
+	time.Sleep(time.Second)
+
+	rd := &marketplacev1alpha1.RazeeDeployment{}
+	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RAZEE_NAME,
+		Namespace: operatorNamespace,
+	}, rd); !k8serrors.IsNotFound(err) {
+		Expect(k8sClient.Delete(context.TODO(), rd)).Should(Succeed())
+	}
+	time.Sleep(time.Second)
+
+	mb := &marketplacev1alpha1.MeterBase{}
+	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.METERBASE_NAME,
+		Namespace: operatorNamespace,
+	}, mb); !k8serrors.IsNotFound(err) {
+		Expect(k8sClient.Delete(context.TODO(), mb)).Should(Succeed())
+	}
+	time.Sleep(time.Second)
+
+	cmNames := []string{utils.WATCH_KEEPER_NON_NAMESPACED_NAME, utils.WATCH_KEEPER_LIMITPOLL_NAME, utils.WATCH_KEEPER_CONFIG_NAME, utils.RAZEE_CLUSTER_METADATA_NAME}
+	for _, name := range cmNames {
+		configMap := &corev1.ConfigMap{}
+		if err := k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      name,
+			Namespace: operatorNamespace,
+		}, configMap); !k8serrors.IsNotFound(err) {
+			Expect(k8sClient.Delete(context.TODO(), configMap)).Should(Succeed())
+		}
+	}
+	time.Sleep(time.Second)
+
+	secretNames := []string{utils.WATCH_KEEPER_SECRET_NAME, utils.RHM_OPERATOR_SECRET_NAME, utils.COS_READER_KEY_NAME}
+	for _, name := range secretNames {
+		secret := &corev1.Secret{}
+		if err := k8sClient.Get(context.TODO(), types.NamespacedName{
+			Name:      name,
+			Namespace: operatorNamespace,
+		}, secret); !k8serrors.IsNotFound(err) {
+			Expect(k8sClient.Delete(context.TODO(), secret)).Should(Succeed())
+		}
+	}
+	time.Sleep(time.Second)
 }

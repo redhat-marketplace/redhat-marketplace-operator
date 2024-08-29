@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -44,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -160,83 +160,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	secretFetcher := utils.ProvideSecretFetcherBuilder(r.Client, context.TODO(), request.Namespace)
 
-	// run the finalizers
-	// Check for deletion and run cleanup
-	isMarketplaceConfigMarkedToBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
-	if isMarketplaceConfigMarkedToBeDeleted {
-		// Cleanup. Unregister. Garbage Collection should delete remaining owned resources
-
-		if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
-			// Do not attempt unregister in disconnected mode
-			si, err := secretFetcher.ReturnSecret()
-			if err != nil {
-				if errors.Is(err, utils.NoSecretsFound) {
-					reqLogger.Error(err, "Secret not found. Skipping unregister")
-				} else {
-					reqLogger.Error(err, "Failed to get secret")
-					return reconcile.Result{}, err
-				}
-			} else {
-				//Attempt to unregister
-				token, err := secretFetcher.ParseAndValidate(si)
-				if err != nil {
-					reqLogger.Error(err, "error validating secret skipping unregister")
-				} else {
-					//Continue with unregister
-					tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-					if err != nil {
-						reqLogger.Error(err, "error parsing token")
-					} else {
-						marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(token, tokenClaims)
-						if err != nil {
-							reqLogger.Error(err, "error constructing marketplace client")
-						} else {
-							// underlying marketplaceClient is not retryablehttp, so attempt retries
-							err := retry.OnError(retry.DefaultBackoff, func(_ error) bool {
-								return true
-							}, func() error {
-								return r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-							})
-							if err != nil {
-								reqLogger.Error(err, "error requesting unregistration")
-							}
-							reqLogger.Info("cluster unregistered")
-						}
-					}
-				}
-			}
-		}
-
-		// Remove Finalizer
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig); err != nil {
-				return err
-			}
-			if controllerutil.RemoveFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER) {
-				return r.Client.Update(context.TODO(), marketplaceConfig)
-			}
-			return nil
-		}); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("Delete is complete.")
-		return reconcile.Result{}, nil
-	}
-
-	// Add Finalizer
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig); err != nil {
-			return err
-		}
-		if controllerutil.AddFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER) {
-			return r.Client.Update(context.TODO(), marketplaceConfig)
-		}
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
-
 	// This could ideally be in a namespace reconciler
 	if result, err := r.updateDeployedNamespaceLabels(marketplaceConfig); err != nil {
 		return result, err
@@ -277,11 +200,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 
 	// Install is complete, set Status
 	if result, err := r.updateMarketplaceConfigStatusFinished(request); err != nil {
-		return result, err
-	}
-
-	// Update registration status
-	if result, err := r.findRegistrationStatus(request, secretFetcher); err != nil {
 		return result, err
 	}
 
@@ -357,27 +275,6 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 	return reconcile.Result{}, err
 }
 
-func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) error {
-	reqLogger.Info("attempting to un-register")
-
-	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-		AccountId:   marketplaceConfig.Spec.RhmAccountID,
-		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-	}
-
-	reqLogger.Info("unregister", "marketplace client account", marketplaceClientAccount)
-
-	registrationStatusOutput, err := marketplaceClient.UnRegister(marketplaceClientAccount)
-	if err != nil {
-		reqLogger.Error(err, "unregister failed")
-		return err
-	}
-
-	reqLogger.Info("unregister", "RegistrationStatus", registrationStatusOutput.RegistrationStatus)
-
-	return err
-}
-
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) error {
 	// Create a new controller
@@ -385,8 +282,15 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 
 	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
+	// ClusterRegistrationReconciler handles MarketplaceConfig deletion
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MarketplaceConfig{}).
+		For(&marketplacev1alpha1.MarketplaceConfig{},
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc:  func(e event.CreateEvent) bool { return true },
+				UpdateFunc:  func(e event.UpdateEvent) bool { return true },
+				DeleteFunc:  func(event.DeleteEvent) bool { return false },
+				GenericFunc: func(e event.GenericEvent) bool { return false },
+			})).
 		WithEventFilter(namespacePredicate).
 		Watches(&marketplacev1alpha1.RazeeDeployment{}, ownerHandler, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&marketplacev1alpha1.MeterBase{}, ownerHandler).
@@ -436,19 +340,6 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		return reconcile.Result{}, err
 	}
 
-	// Determine if rhmAccountExists from the Status set by ClusterRegistrationController, else call the API
-	var rhmAccountExists bool
-	if cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists); cond == nil {
-		var err error
-		rhmAccountExists, err = r.checkRHMAccountStatus(request, secretFetcher)
-		if err != nil {
-			reqLogger.Error(err, "failed to check RHM/Software Central account existence")
-			return reconcile.Result{}, err
-		}
-	} else {
-		rhmAccountExists = cond.IsTrue()
-	}
-
 	// Initialize MarketplaceConfigSpec
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -466,26 +357,16 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 			marketplaceConfig.Spec.IsDisconnected = ptr.Bool(false)
 		}
 
-		// Initialize enabled features if not set, based on IsDisconnected state
 		if marketplaceConfig.Spec.Features == nil {
-			if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) || !rhmAccountExists {
-				marketplaceConfig.Spec.Features = &common.Features{
-					Deployment:                         ptr.Bool(false),
-					Registration:                       ptr.Bool(false),
-					EnableMeterDefinitionCatalogServer: ptr.Bool(false),
-				}
-			} else {
-				marketplaceConfig.Spec.Features = &common.Features{
-					Deployment:                         ptr.Bool(true),
-					Registration:                       ptr.Bool(true),
-					EnableMeterDefinitionCatalogServer: ptr.Bool(false),
-				}
-			}
+			marketplaceConfig.Spec.Features = &common.Features{}
 		}
 
-		// Initilize individual features if nil or toggle based on IsDisconnected
-		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists)
-		marketplaceConfig.Spec.Features.Registration = ptr.Bool(!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists)
+		if marketplaceConfig.Spec.Features.Registration == nil {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+
+		// Removed Features
+		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
 		marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer = ptr.Bool(false)
 
 		// Initialize Catalog flag
@@ -503,7 +384,7 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 		if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 			si, err := secretFetcher.ReturnSecret()
 			if err == nil { // check for missing secret in during status update
-				reqLogger.Info("found secret", "secret", si.Name)
+				reqLogger.Info("found secret", "secret", si.Secret.GetName())
 
 				if si.Secret != nil {
 					if clusterDisplayName, ok := si.Secret.Data[utils.ClusterDisplayNameKey]; ok {
@@ -604,22 +485,6 @@ func (r *MarketplaceConfigReconciler) initializeMarketplaceConfigSpec(
 			} else {
 				updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionSecretError)
 			}
-		}
-
-		if rhmAccountExists {
-			updated = marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonRHMAccountExists,
-				Message: "RHM/Software Central account exists",
-			}) || updated
-		} else {
-			updated = marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionRHMAccountExists,
-				Status:  corev1.ConditionFalse,
-				Reason:  marketplacev1alpha1.ReasonRHMAccountNotExist,
-				Message: "RHM/Software Central account does not exist",
-			}) || updated
 		}
 
 		if updated {
@@ -905,116 +770,6 @@ func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request
 	return reconcile.Result{}, nil
 }
 
-func (r *MarketplaceConfigReconciler) findRegistrationStatus(
-	request reconcile.Request,
-	secretFetcher *utils.SecretFetcherBuilder,
-) (reconcile.Result, error) {
-	reqLogger := r.Log.WithValues("func", "findRegistrationStatus", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-		reqLogger.Error(err, "failed to get marketplaceconfig")
-		return reconcile.Result{}, err
-	}
-
-	// clear registration status for disconnected environment
-	// registration status for cluster may not be up to date with marketplace while diconnected
-	// or may be in error state if the disconnected flag was set incorrect of cluster connectivity state
-	if ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-				reqLogger.Error(err, "failed to get marketplaceconfig")
-				return err
-			}
-
-			updated := false
-			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistered)
-			updated = updated || marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistrationError)
-
-			if updated {
-				reqLogger.Info("updating marketplaceconfig status")
-				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
-			}
-
-			return nil
-		})
-
-		return reconcile.Result{}, err
-	} else { // get registration status for connected environment
-		reqLogger.Info("Finding Cluster registration status")
-
-		si, err := secretFetcher.ReturnSecret()
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("found secret", "secret", si.Name)
-
-		if si.Secret == nil {
-			return reconcile.Result{}, nil
-		}
-
-		token, err := secretFetcher.ParseAndValidate(si)
-		if err != nil {
-			reqLogger.Error(err, "error validating secret, check for formatting errors and recreate the secret", "secret", si.Name)
-			return reconcile.Result{}, err
-		}
-
-		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-		if err != nil {
-			reqLogger.Error(err, "error parsing token")
-			return reconcile.Result{Requeue: true}, err
-		}
-
-		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).
-			NewMarketplaceClient(token, tokenClaims)
-
-		if err != nil {
-			reqLogger.Error(err, "error constructing marketplace client")
-			return reconcile.Result{Requeue: true}, err
-		}
-
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-				reqLogger.Error(err, "failed to get marketplaceconfig")
-				return err
-			}
-
-			marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-				AccountId:   marketplaceConfig.Spec.RhmAccountID,
-				ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-			}
-
-			registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-			if err != nil {
-				reqLogger.Error(err, "registration status failed")
-				return err
-			}
-
-			reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
-
-			statusConditions := registrationStatusOutput.TransformConfigStatus()
-
-			updated := false
-			for _, cond := range statusConditions {
-				updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-			}
-
-			if updated {
-				reqLogger.Info("updating marketplaceconfig status")
-				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
-			}
-
-			return nil
-		})
-
-		return reconcile.Result{}, err
-	}
-}
-
 func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusStarting(
 	request reconcile.Request,
 ) (reconcile.Result, error) {
@@ -1085,44 +840,6 @@ func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusFinished(
 	})
 
 	return reconcile.Result{}, err
-}
-
-func (r *MarketplaceConfigReconciler) checkRHMAccountStatus(
-	request reconcile.Request,
-	secretFetcher *utils.SecretFetcherBuilder) (bool, error) {
-	reqLogger := r.Log.WithValues("func", "checkRHMAccountStatus", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
-	si, err := secretFetcher.ReturnSecret()
-	if err != nil {
-		reqLogger.Error(err, "Fetching redhat-marketplace-pull-secret or ibm-entitlement-key secret failed")
-		return false, err
-	}
-
-	jwtToken, err := secretFetcher.ParseAndValidate(si)
-	if err != nil {
-		reqLogger.Error(err, "error validating secret, check for formatting errors and recreate the secret", "secret", si.Name)
-		return false, err
-	}
-
-	if si.Name == utils.IBMEntitlementKeySecretName {
-		mclient, err := marketplace.NewMarketplaceClientBuilder(r.Cfg).NewMarketplaceClient(jwtToken, &marketplace.MarketplaceClaims{Env: si.Env})
-
-		if err != nil {
-			reqLogger.Error(err, "failed to build marketplaceclient")
-			return false, err
-		}
-
-		rhmAccountExists, err := mclient.RhmAccountExists()
-		if err != nil {
-			reqLogger.Error(err, "failed to check if rhm account exists")
-			return false, err
-		}
-
-		return rhmAccountExists, nil
-
-	} else {
-		return true, nil
-	}
 }
 
 // Begin installation or deletion of Catalog Source
