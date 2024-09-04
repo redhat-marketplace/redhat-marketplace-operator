@@ -146,7 +146,7 @@ cd $TMP_DIR
 git clone https://github.com/redhat-openshift-ecosystem/operator-pipelines
 cd operator-pipelines
 
-git checkout v1.0.131
+git checkout v1.0.143
 
 # Create a new SCC
 oc apply -f ansible/roles/operator-pipeline/templates/openshift/openshift-pipelines-custom-scc.yml

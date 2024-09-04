@@ -7,8 +7,8 @@ include ../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 REGISTRY ?= $(IMAGE_REGISTRY)
-DSIMG = $(IMAGE_REGISTRY)/data-service-base:ubi8
-DSUBIIMG = $(IMAGE_REGISTRY)/data-service-ubi-minimal:ubi8
+DSIMG = $(IMAGE_REGISTRY)/data-service-base:ubi9
+DSUBIIMG = $(IMAGE_REGISTRY)/data-service-ubi-minimal:ubi9
 ARGS = --no-cache --build-arg REGISTRY=$(IMAGE_REGISTRY)
 
 # Build the docker images
