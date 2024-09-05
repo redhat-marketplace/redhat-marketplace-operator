@@ -7,7 +7,6 @@ ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
 ARG GRPC_HEALTH_VERSION=v0.4.25
 ARG DQLITE_VERSION=v1.16.7
 ARG LIBUV_VERSION=v1.48.0
-ARG FIPS_DETECT_VERSION=7157dae
 ARG quay_expiration=7d
 
 USER 0
@@ -29,5 +28,4 @@ RUN mkdir -p /opt/app-root/src/go/bin && \
     cd dqlite && autoreconf -i && ./configure --enable-build-raft --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf dqlite && \
     go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION} && \
-    go install github.com/acardace/fips-detect@${FIPS_DETECT_VERSION} && \
     go clean -modcache
