@@ -1,6 +1,6 @@
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM ${REGISTRY}/data-service-base:ubi8 AS builder
+FROM ${REGISTRY}/data-service-base:ubi9 AS builder
 ARG name
 ARG path
 ARG exec
@@ -20,7 +20,7 @@ RUN --mount=type=bind,source=.,target=/src \
     cd ${path} && \
     go build -o /opt/app-root/src/go/bin/${bin} ${exec}
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
