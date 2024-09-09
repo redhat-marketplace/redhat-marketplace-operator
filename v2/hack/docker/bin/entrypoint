@@ -11,7 +11,6 @@ if ! whoami &>/dev/null; then
 fi
 
 if [[ ! -v "$BINFILE" ]]; then
-    fips-detect $BINFILE
     exec $BINFILE $@
 fi
 

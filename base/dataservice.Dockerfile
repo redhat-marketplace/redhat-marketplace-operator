@@ -1,13 +1,12 @@
-FROM registry.access.redhat.com/ubi8/go-toolset:1.21
+FROM registry.access.redhat.com/ubi9/go-toolset:1.21
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
 ENV TZ=America/New_York
 ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
 ARG GRPC_HEALTH_VERSION=v0.4.25
-ARG DQLITE_VERSION=v1.16.4
+ARG DQLITE_VERSION=v1.16.7
 ARG LIBUV_VERSION=v1.48.0
-ARG FIPS_DETECT_VERSION=7157dae
 ARG quay_expiration=7d
 
 USER 0
@@ -18,9 +17,9 @@ USER 0
 RUN mkdir -p /opt/app-root/src/go/bin && \
     mkdir -p /opt/app-root/src/go/pkg && \
     dnf update -y && \
-    dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+    dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
     dnf install -y libsqlite3x-devel libtool pkgconf-pkg-config lz4 lz4-devel && \
-    dnf remove epel-release-latest-8 && \
+    dnf remove epel-release-latest-9 && \
     dnf clean all  && \
     git clone -b $LIBUV_VERSION -v https://github.com/libuv/libuv.git && \
     cd libuv && sh autogen.sh && ./configure --prefix=/usr --libdir=/usr/lib64 && make && make install && \
@@ -29,5 +28,4 @@ RUN mkdir -p /opt/app-root/src/go/bin && \
     cd dqlite && autoreconf -i && ./configure --enable-build-raft --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf dqlite && \
     go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION} && \
-    go install github.com/acardace/fips-detect@${FIPS_DETECT_VERSION} && \
     go clean -modcache

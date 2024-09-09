@@ -1,6 +1,6 @@
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM ${REGISTRY}/data-service-base:ubi8 AS builder
+FROM ${REGISTRY}/data-service-base:ubi9 AS builder
 ARG name
 ARG path
 ARG exec
@@ -20,7 +20,7 @@ RUN --mount=type=bind,source=.,target=/src \
     cd ${path} && \
     go build -o /opt/app-root/src/go/bin/${bin} ${exec}
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
@@ -51,7 +51,6 @@ COPY v2/LICENSE v2/_licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 
 COPY --from=builder /opt/app-root/src/go/bin/${bin} /usr/local/bin/${bin}
-COPY --from=builder /opt/app-root/src/go/bin/fips-detect /usr/local/bin/fips-detect 
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
