@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,6 +51,7 @@ type DeploymentReconciler struct {
 	Scheme  *runtime.Scheme
 	Log     logr.Logger
 	Factory *manifests.Factory
+	Cfg     *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
@@ -117,7 +119,7 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
 					Name:      utils.RHM_METERING_DEPLOYMENT_NAME,
-					Namespace: obj.GetNamespace(),
+					Namespace: r.Cfg.DeployedNamespace,
 				}},
 			}
 		})
@@ -139,13 +141,13 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 
 	pConfigMap := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectNew.GetName() == utils.METRICS_OP_CA_BUNDLE_CONFIGMAP
+			return e.ObjectNew.GetName() == utils.METRICS_OP_CA_BUNDLE_CONFIGMAP && e.ObjectNew.GetNamespace() == r.Cfg.DeployedNamespace
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == utils.METRICS_OP_CA_BUNDLE_CONFIGMAP
+			return e.Object.GetName() == utils.METRICS_OP_CA_BUNDLE_CONFIGMAP && e.Object.GetNamespace() == r.Cfg.DeployedNamespace
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == utils.METRICS_OP_CA_BUNDLE_CONFIGMAP
+			return e.Object.GetName() == utils.METRICS_OP_CA_BUNDLE_CONFIGMAP && e.Object.GetNamespace() == r.Cfg.DeployedNamespace
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
 			return false
@@ -169,13 +171,13 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 
 	pService := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectNew.GetName() == utils.METRICS_OP_METRICS_SERVICE
+			return e.ObjectNew.GetName() == utils.METRICS_OP_METRICS_SERVICE && e.ObjectNew.GetNamespace() == r.Cfg.DeployedNamespace
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == utils.METRICS_OP_METRICS_SERVICE
+			return e.Object.GetName() == utils.METRICS_OP_METRICS_SERVICE && e.Object.GetNamespace() == r.Cfg.DeployedNamespace
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == utils.METRICS_OP_METRICS_SERVICE
+			return e.Object.GetName() == utils.METRICS_OP_METRICS_SERVICE && e.Object.GetNamespace() == r.Cfg.DeployedNamespace
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
 			return false
