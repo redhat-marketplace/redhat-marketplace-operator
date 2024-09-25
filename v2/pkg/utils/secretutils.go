@@ -25,6 +25,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -121,6 +122,23 @@ func (sf *SecretFetcherBuilder) GetPullSecret() (*v1.Secret, error) {
 	}
 
 	return rhmPullSecret, nil
+}
+
+// Delete Secrets, ignore IsNotFound
+func (sf *SecretFetcherBuilder) DeleteSecret() error {
+	if err := sf.K8sClient.Delete(
+		sf.Ctx,
+		&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: RHMPullSecretName, Namespace: sf.DeployedNamespace}},
+	); err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	if err := sf.K8sClient.Delete(
+		sf.Ctx,
+		&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: IBMEntitlementKeySecretName, Namespace: sf.DeployedNamespace}},
+	); err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 // Parse v1.Secret and return SecretInfo
