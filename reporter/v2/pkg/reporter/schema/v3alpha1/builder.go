@@ -23,6 +23,8 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+
+	mapstructure "github.com/go-viper/mapstructure/v2"
 )
 
 type MarketplaceReportDataBuilder struct {
@@ -32,6 +34,7 @@ type MarketplaceReportDataBuilder struct {
 	resourceName, resourceNamespace string
 	accountID, clusterID            string
 	kvMap                           map[string]interface{}
+	nsLabels                        map[string]map[string]string
 }
 
 func (d *MarketplaceReportDataBuilder) SetClusterID(
@@ -61,6 +64,10 @@ func (d *MarketplaceReportDataBuilder) SetReportInterval(start, end common.Time)
 	d.reportEnd = end
 }
 
+func (d *MarketplaceReportDataBuilder) SetNamespaceLabels(nsLabels map[string]map[string]string) {
+	d.nsLabels = nsLabels
+}
+
 const (
 	ErrNoValuesSet                  = errors.Sentinel("no values set")
 	ErrValueHashAreDifferent        = errors.Sentinel("value hashes are different")
@@ -77,62 +84,47 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	meterDef := d.values[0]
 	d.id = meterDef.Hash()
 
-	key := &MarketplaceReportData{
-		IntervalStart:        meterDef.IntervalStart.UTC().Sub(time.Unix(0, 0)).Milliseconds(),
-		IntervalEnd:          meterDef.IntervalEnd.UTC().Sub(time.Unix(0, 0)).Milliseconds(),
-		AccountID:            d.accountID,
-		AdditionalAttributes: make(map[string]interface{}),
-		MeasuredUsage:        make([]MeasuredUsage, 0, len(d.values)),
-	}
+	data := &MarketplaceReportData{}
 
-	if d.clusterID != "" {
-		key.AdditionalAttributes["clusterId"] = d.clusterID
-	}
+	// Decode MeterDef LabelMap to top level Additional Properties
+	mapstructure.Decode(data, meterDef.LabelMap)
 
-	if meterDef.MeterGroup != "" {
-		key.AdditionalAttributes["group"] = meterDef.MeterGroup
-	}
+	// 	Additional Properties from MeterDef
+	data.Group = meterDef.MeterGroup
+	data.Kind = meterDef.MeterKind
 
-	if meterDef.MeterKind != "" {
-		key.AdditionalAttributes["kind"] = meterDef.MeterKind
-	}
+	// Usage event properties
+	data.IntervalStart = meterDef.IntervalStart.UTC().Sub(time.Unix(0, 0)).Milliseconds()
+	data.IntervalEnd = meterDef.IntervalEnd.UTC().Sub(time.Unix(0, 0)).Milliseconds()
+	data.AccountID = d.accountID
+	data.MeasuredUsage = make([]MeasuredUsage, 0, len(d.values))
 
-	if d.resourceNamespace != "" {
-		key.AdditionalAttributes["namespace"] = d.resourceNamespace
-	}
+	/*
+		Source                         string `json:"source,omitempty"`
+		SourceSaas                     string `json:"sourceSaas,omitempty"`
+		AccountIdSaas                  string `json:"accountIdSaas,omitempty"`
+		SubscriptionIdSaas             string `json:"subscriptionIdSaas,omitempty"`
+		ProductType                    string `json:"productType,omitempty"`
+		LicensePartNumber              string `json:"licensePartNumber,omitempty"`
+		ProductId                      string `json:"productId,omitempty"`
+		SapEntitlementLine             string `json:"sapEntitlementLine,omitempty"`
+		ProductName                    string `json:"productName,omitempty"`
+		ParentProductId                string `json:"parentProductId,omitempty"`
+		ParentProductName              string `json:"parentProductName,omitempty"`
+		ParentProductMetricId          string `json:"parentProductMetricId,omitempty"`
+		TopLevelProductId              string `json:"topLevelProductId,omitempty"`
+		TopLevelProductName            string `json:"topLevelProductName,omitempty"`
+		TopLevelProductMetricId        string `json:"topLevelProductMetricId,omitempty"`
+		DswOfferAccountingSystemCode   string `json:"dswOfferAccountingSystemCode,omitempty"`
+		DswSubscriptionAgreementNumber string `json:"dswSubscriptionAgreementNumber,omitempty"`
+		SsmSubscriptionId              string `json:"ssmSubscriptionId,omitempty"`
+		ICN                            string `json:"ICN,omitempty"`
+		Group                          string `json:"group,omitempty"`
+		GroupName                      string `json:"groupName,omitempty"`
+		Kind                           string `json:"kind,omitempty"`
+	*/
 
-	switch meterDef.MetricType {
-	case marketplacecommon.MetricTypeEmpty:
-		// grandfather old meterdefs into license
-		key.AdditionalAttributes["metricType"] = marketplacecommon.MetricTypeLicense.String()
-	case marketplacecommon.MetricTypeBillable:
-		fallthrough
-	case marketplacecommon.MetricTypeAdoption:
-		fallthrough
-	case marketplacecommon.MetricTypeInfrastructure:
-		fallthrough
-	case marketplacecommon.MetricTypeLicense:
-		key.AdditionalAttributes["metricType"] = meterDef.MetricType.String()
-	default:
-		return nil, errors.New("metricType is an unknown type: " + meterDef.MetricType.String())
-	}
-
-	/* Additional well known attributes */
-	// key.AdditionalAttributes["hostname"]
-	// key.AdditionalAttributes["source"]
-	// key.AdditionalAttributes["metricType"]
-	// key.AdditionalAttributes["manual"]
-	// key.AdditionalAttributes["measuredValue"]
-	// key.AdditionalAttributes["measuredMetricId"]
-	// key.AdditionalAttributes["productId"]
-	// key.AdditionalAttributes["productName"]
-	// key.AdditionalAttributes["parentProductId"]
-	// key.AdditionalAttributes["productType"]
-	// key.AdditionalAttributes["parentProductName"]
-	// key.AdditionalAttributes["productConversionRatio"]
-
-	allLabels := []map[string]interface{}{}
-	dupeKeys := map[string]interface{}{}
+	// Measured Usage Slice
 
 	for _, meterDef := range d.values {
 		if meterDef.Hash() != d.id {
@@ -144,41 +136,62 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 			return nil, ErrNotFloat64
 		}
 
-		measuredUsage := MeasuredUsage{
-			MetricID:             meterDef.Label,
-			Value:                value,
-			AdditionalAttributes: make(map[string]interface{}),
+		measuredUsage := MeasuredUsage{}
+
+		// Decode MeterDef LabelMap to usage level Additional Properties
+		mapstructure.Decode(measuredUsage, meterDef.LabelMap)
+
+		// Additional Properties
+
+		// Namespace Labels
+		namespacesLabels := []NamespaceLabels{}
+		for ns, labels := range d.nsLabels {
+			namespacesLabels = append(namespacesLabels, NamespaceLabels{Name: ns, Labels: labels})
+		}
+		measuredUsage.NamespacesLabels = namespacesLabels
+
+		measuredUsage.ClusterId = d.clusterID
+
+		switch meterDef.MetricType {
+		case marketplacecommon.MetricTypeEmpty:
+			// grandfather old meterdefs into license
+			measuredUsage.MetricType = marketplacecommon.MetricTypeLicense.String()
+		case marketplacecommon.MetricTypeBillable:
+			fallthrough
+		case marketplacecommon.MetricTypeAdoption:
+			fallthrough
+		case marketplacecommon.MetricTypeInfrastructure:
+			fallthrough
+		case marketplacecommon.MetricTypeLicense:
+			measuredUsage.MetricType = meterDef.MetricType.String()
+		default:
+			return nil, errors.New("metricType is an unknown type: " + meterDef.MetricType.String())
 		}
 
-		// Add the additional keys
-		for k, value := range meterDef.LabelMap {
-			if _, ok := dupeKeys[k]; ok {
-				continue
-			}
+		// Measured Usage
+		measuredUsage.MetricID = meterDef.Label
+		measuredUsage.Value = value
 
-			v, ok := key.AdditionalAttributes[k]
+		// --- Additional Properties ---
 
-			if ok && v != value {
-				dupeKeys[k] = nil
-				delete(key.AdditionalAttributes, k)
-			} else if !ok {
-				key.AdditionalAttributes[k] = value
-			}
-		}
+		/*
+			MetricType             string      `json:"metricType,omitempty"`
+			MetricAggregationType  string      `json:"metricAggregationType,omitempty"`
+			MeasuredMetricId       string      `json:"measuredMetricId,omitempty"`
+			ProductConversionRatio string      `json:"productConversionRatio,omitempty"`
+			MeasuredValue          string      `json:"measuredValue,omitempty"`
+			ClusterId              string      `json:"clusterId,omitempty"`
+			Hostname               string      `json:"hostname,omitempty"`
+			Namespace              []Namespace `json:"namespace,omitempty"`
+			Pod                    string      `json:"pod,omitempty"`
+			PlatformId             string      `json:"platformId,omitempty"`
+			Meter_def_namespace    string      `json:"meter_def_namespace,omitempty"`
+			Crn                    string      `json:"crn,omitempty"`
+			IsViewable             string      `json:"isViewable,omitempty"`
+			CalculateSummary       string      `json:"calculateSummary,omitempty"`
+		*/
 
-		key.MeasuredUsage = append(key.MeasuredUsage, measuredUsage)
-	}
-
-	if len(dupeKeys) != 0 {
-		for i, meterDef := range d.values {
-			nonUniqueLabels := map[string]interface{}{}
-			for duped := range dupeKeys {
-				nonUniqueLabels[duped] = meterDef.LabelMap[duped]
-			}
-
-			key.MeasuredUsage[i].AdditionalAttributes = nonUniqueLabels
-			allLabels = append(allLabels, nonUniqueLabels)
-		}
+		data.MeasuredUsage = append(data.MeasuredUsage, measuredUsage)
 	}
 
 	hash := xxhash.New()
@@ -192,7 +205,7 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	hash.Write([]byte(meterDef.ResourceName))
 	hash.Write([]byte(meterDef.Unit))
 
-	key.EventID = fmt.Sprintf("%x", hash.Sum64())
+	data.EventID = fmt.Sprintf("%x", hash.Sum64())
 
-	return key, nil
+	return data, nil
 }

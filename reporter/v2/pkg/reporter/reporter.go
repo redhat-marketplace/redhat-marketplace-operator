@@ -16,6 +16,7 @@ package reporter
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -377,6 +378,78 @@ func (r *MarketplaceReporter) getMeterDefinitions() (map[types.NamespacedName][]
 	}
 }
 
+const labelPrefix = "label_"
+
+func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[string]map[string]string, error) {
+	var result model.Value
+	var warnings v1.Warnings
+	var err error
+	nsLabels := make(map[string]map[string]string)
+
+	err = utils.Retry(func() error {
+		query := &NamespacesQuery{
+			Start:      r.report.Spec.StartTime.Time.UTC(),
+			End:        r.report.Spec.EndTime.Time.Add(-1 * time.Millisecond).UTC(),
+			Namespaces: namespaces,
+		}
+
+		result, warnings, err = r.QueryNamespaceLabels(query)
+
+		if err != nil {
+			logger.Error(err, "querying prometheus", "warnings", warnings)
+			return err
+		}
+
+		if len(warnings) > 0 {
+			logger.Info("warnings", "warnings", warnings)
+		}
+
+		return nil
+	}, *r.Retry)
+
+	if err != nil {
+		logger.Error(err, "error encountered")
+		return nsLabels, err
+	}
+
+	logger.V(4).Info("result", "result", result)
+
+	// Multiple matrixVals may exist for the same namespace for a query range, if k8s labels were added/removed
+	// namespace=myns label_firstlabel=1 label_secondlabel=2
+	// namespace=myns label_firstlabel=1 label_secondlabel=2 label_thirdlabel=3
+	// aggregate the labels for the query range
+
+	switch result.Type() {
+	case model.ValMatrix:
+		matrixVals := result.(model.Matrix)
+		for _, matrix := range matrixVals {
+			pLabels := getAllKeysFromMetric(matrix.Metric)
+			kvMap, err := kvToMap(pLabels)
+			if err != nil {
+				return nsLabels, err
+			}
+
+			// range over prom label map and add k8s label_ to namespace label map
+			namespace, ok := kvMap["namespace"]
+			if ok {
+				for k, v := range kvMap {
+					if strings.HasPrefix(k, labelPrefix) {
+						k8sLabels := nsLabels[namespace.(string)]
+						k8sLabels[strings.TrimPrefix(k, labelPrefix)] = v.(string)
+						nsLabels[namespace.(string)] = k8sLabels
+					}
+				}
+			}
+		}
+
+		return nsLabels, nil
+	default:
+		err := errors.NewWithDetails("result type is unprocessable", "type", result.Type().String())
+		logger.Error(err, "error encountered")
+		return nsLabels, err
+	}
+}
+
 func (r *MarketplaceReporter) Query(
 	ctx context.Context,
 	startTime, endTime time.Time,
@@ -487,6 +560,14 @@ func (r *MarketplaceReporter) Process(
 							return
 						}
 
+						// Get the Labels for the namespace from query kube_namespace_labels{}
+						nsLabels, err := r.getNamespaceLabels(namespace)
+						if err != nil {
+							logger.Error(err, "failed to get namespace labels")
+							errorsch <- errors.Wrap(err, "failed to get namespace labels")
+							return
+						}
+
 						mutex.Lock()
 						defer mutex.Unlock()
 
@@ -499,6 +580,7 @@ func (r *MarketplaceReporter) Process(
 							dataBuilder.SetReportInterval(
 								common.Time(r.report.Spec.StartTime.Time),
 								common.Time(r.report.Spec.EndTime.Time))
+							dataBuilder.SetNamespaceLabels(nsLabels)
 							results[record.Hash()] = dataBuilder
 						}
 

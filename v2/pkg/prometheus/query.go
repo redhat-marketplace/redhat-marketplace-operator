@@ -406,3 +406,34 @@ func (p *PrometheusAPI) MeterDefLabelValues(matches []string) (model.LabelValues
 
 	return labelValues, warnings, nil
 }
+
+type NamespacesQuery struct {
+	Start, End time.Time
+	Namespaces []string
+}
+
+func (p *PrometheusAPI) QueryNamespaceLabels(query *NamespacesQuery) (model.Value, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	timeRange := v1.Range{
+		Start: query.Start,
+		End:   query.End,
+	}
+
+	q := fmt.Sprintf(`kube_namespace_labels{namespace=~"%s"}`, strings.Join(query.Namespaces, "|"))
+	logger.Info("query params", "query", q, "start", query.Start.Unix(), "end", query.End.Unix())
+
+	logger.Info("executing query", "query", q)
+	result, warnings, err := p.QueryRange(ctx, q, timeRange)
+
+	if err != nil {
+		logger.Error(err, "querying prometheus", "warnings", warnings)
+		return nil, warnings, toError(err)
+	}
+	if len(warnings) > 0 {
+		logger.Info("warnings", "warnings", warnings)
+	}
+
+	return result, warnings, nil
+}

@@ -19,11 +19,11 @@ import (
 )
 
 type SourceMetadata struct {
-	RhmClusterID   string                   `json:"rhmClusterId" mapstructure:"rhmClusterId"`
-	RhmAccountID   string                   `json:"rhmAccountId,omitempty" mapstructure:"rhmAccountId"`
-	RhmEnvironment common.ReportEnvironment `json:"rhmEnvironment,omitempty" mapstructure:"rhmEnvironment,omitempty"`
-	Version        string                   `json:"version,omitempty" mapstructure:"version,omitempty"`
-	ReportVersion  string                   `json:"reportVersion,omitempty"`
+	ClusterID     string                   `json:"clusterId" mapstructure:"clusterId"`
+	AccountID     string                   `json:"accountId,omitempty" mapstructure:"accountId"`
+	Environment   common.ReportEnvironment `json:"environment,omitempty" mapstructure:"environment,omitempty"`
+	Version       string                   `json:"version,omitempty" mapstructure:"version,omitempty"`
+	ReportVersion string                   `json:"reportVersion,omitempty"`
 }
 
 type Manifest struct {

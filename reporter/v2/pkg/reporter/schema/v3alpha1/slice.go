@@ -85,23 +85,23 @@ type MeasuredUsage struct {
 
 	// --- Additional Properties ---
 
-	MetricType             string      `json:"metricType,omitempty"`
-	MetricAggregationType  string      `json:"metricAggregationType,omitempty"`
-	MeasuredMetricId       string      `json:"measuredMetricId,omitempty"`
-	ProductConversionRatio string      `json:"productConversionRatio,omitempty"`
-	MeasuredValue          string      `json:"measuredValue,omitempty"`
-	ClusterId              string      `json:"clusterId,omitempty"`
-	Hostname               string      `json:"hostname,omitempty"`
-	Namespace              []Namespace `json:"namespace,omitempty"`
-	Pod                    string      `json:"pod,omitempty"`
-	PlatformId             string      `json:"platformId,omitempty"`
-	Meter_def_namespace    string      `json:"meter_def_namespace,omitempty"`
-	Crn                    string      `json:"crn,omitempty"`
-	IsViewable             string      `json:"isViewable,omitempty"`
-	CalculateSummary       string      `json:"calculateSummary,omitempty"`
+	MetricType             string            `json:"metricType,omitempty"`
+	MetricAggregationType  string            `json:"metricAggregationType,omitempty"`
+	MeasuredMetricId       string            `json:"measuredMetricId,omitempty"`
+	ProductConversionRatio string            `json:"productConversionRatio,omitempty"`
+	MeasuredValue          string            `json:"measuredValue,omitempty"`
+	ClusterId              string            `json:"clusterId,omitempty"`
+	Hostname               string            `json:"hostname,omitempty"`
+	NamespacesLabels       []NamespaceLabels `json:"namespace,omitempty"`
+	Pod                    string            `json:"pod,omitempty"`
+	PlatformId             string            `json:"platformId,omitempty"`
+	Meter_def_namespace    string            `json:"meter_def_namespace,omitempty"`
+	Crn                    string            `json:"crn,omitempty"`
+	IsViewable             string            `json:"isViewable,omitempty"`
+	CalculateSummary       string            `json:"calculateSummary,omitempty"`
 }
 
-type Namespace struct {
+type NamespaceLabels struct {
 	Name   string            `json:"name"`
 	Labels map[string]string `json:"labels,omitempty"`
 }
