@@ -61,7 +61,7 @@ func (a *AccessChecker) CheckAccess(gvr schema.GroupVersionResource) (bool, erro
 		}
 
 		if !review.Status.Allowed {
-			return false, fmt.Errorf("%w serviceaccount/%s does not have get/list/watch access to Resource: %s, Group: %s, Version: %s via clusterrole/view. Create a clusterrole with get/list/watch access and bind it to serviceaccount/%s, or create a clusterrole with get/list/watch access and add the annotation rbac.authorization.k8s.io/aggregate-to-view: 'true' to add access to clusterrole/view", AccessDeniedErr, utils.METRIC_STATE_SERVICE_ACCOUNT, gvr.Resource, gvr.Group, gvr.Version, utils.METRIC_STATE_SERVICE_ACCOUNT)
+			return false, fmt.Errorf("%w serviceaccount/%s does not have get/list/watch access to Resource: %s, Group: %s, Version: %s via clusterrole/view. If this resource type is necessary for your MeterDefinition resource filter, create a clusterrole with get/list/watch access and bind it to serviceaccount/%s, or create a clusterrole with get/list/watch access and add the annotation rbac.authorization.k8s.io/aggregate-to-view: 'true' to add access to clusterrole/view", AccessDeniedErr, utils.METRIC_STATE_SERVICE_ACCOUNT, gvr.Resource, gvr.Group, gvr.Version, utils.METRIC_STATE_SERVICE_ACCOUNT)
 		}
 	}
 
