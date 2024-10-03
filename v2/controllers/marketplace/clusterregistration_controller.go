@@ -153,6 +153,11 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, err
 		}
 
+		// Ensure Secrets have DeletionTimestamp, relying on GC is a race condition
+		if err := secretFetcher.DeleteSecret(); err != nil {
+			return reconcile.Result{}, nil
+		}
+
 		reqLogger.Info("marketplaceconfig delete is complete.")
 		return reconcile.Result{}, nil
 
@@ -505,7 +510,6 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool { return true },
 				UpdateFunc: func(e event.UpdateEvent) bool {
-
 					marketplaceConfigNew, newOk := e.ObjectNew.(*marketplacev1alpha1.MarketplaceConfig)
 					marketplaceConfigOld, oldOk := e.ObjectOld.(*marketplacev1alpha1.MarketplaceConfig)
 
