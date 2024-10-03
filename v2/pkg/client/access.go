@@ -22,6 +22,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientset "k8s.io/client-go/kubernetes"
 )
 
@@ -39,27 +40,29 @@ func NewAccessChecker(kubeClientSet clientset.Interface, ctx context.Context) Ac
 	}
 }
 
-func (a *AccessChecker) CheckAccess(group string, version string, kind string, namespace string) (bool, error) {
-	sar := &authv1.SubjectAccessReview{
-		Spec: authv1.SubjectAccessReviewSpec{
-			User: "system:serviceaccount:" + namespace + ":" + utils.METRIC_STATE_SERVICE_ACCOUNT,
-			ResourceAttributes: &authv1.ResourceAttributes{
-				Verb:     "list,watch",
-				Group:    group,
-				Resource: kind,
-				Version:  version,
+func (a *AccessChecker) CheckAccess(gvr schema.GroupVersionResource) (bool, error) {
+
+	reqAttrs := []authv1.ResourceAttributes{
+		{Resource: gvr.Resource, Group: gvr.Group, Version: gvr.Version, Verb: "list"},
+		{Resource: gvr.Resource, Group: gvr.Group, Version: gvr.Version, Verb: "get"},
+		{Resource: gvr.Resource, Group: gvr.Group, Version: gvr.Version, Verb: "watch"},
+	}
+
+	for _, reqAttr := range reqAttrs {
+		sar := &authv1.SelfSubjectAccessReview{
+			Spec: authv1.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &reqAttr,
 			},
-		},
-	}
+		}
 
-	opts := metav1.CreateOptions{}
-	review, err := a.kubeClient.AuthorizationV1().SubjectAccessReviews().Create(a.ctx, sar, opts)
-	if err != nil {
-		return false, err
-	}
+		review, err := a.kubeClient.AuthorizationV1().SelfSubjectAccessReviews().Create(a.ctx, sar, metav1.CreateOptions{})
+		if err != nil {
+			return false, err
+		}
 
-	if !review.Status.Allowed {
-		return false, fmt.Errorf("%w serviceaccount/%s does not have get/list/watch access to Kind: %s, group: %s, version: %s via clusterrole/view. Create a clusterrole with get/list/watch access and bind it to serviceaccount/%s, or create a clusterrole with get/list/watch access and add the annotation rbac.authorization.k8s.io/aggregate-to-view: 'true' to add access to clusterrole/view", AccessDeniedErr, utils.METRIC_STATE_SERVICE_ACCOUNT, kind, group, version, utils.METRIC_STATE_SERVICE_ACCOUNT)
+		if !review.Status.Allowed {
+			return false, fmt.Errorf("%w serviceaccount/%s does not have get/list/watch access to Resource: %s, Group: %s, Version: %s via clusterrole/view. If this resource type is necessary for your MeterDefinition resource filter, create a clusterrole with get/list/watch access and bind it to serviceaccount/%s, or create a clusterrole with get/list/watch access and add the annotation rbac.authorization.k8s.io/aggregate-to-view: 'true' to add access to clusterrole/view", AccessDeniedErr, utils.METRIC_STATE_SERVICE_ACCOUNT, gvr.Resource, gvr.Group, gvr.Version, utils.METRIC_STATE_SERVICE_ACCOUNT)
+		}
 	}
 
 	return true, nil
