@@ -87,7 +87,6 @@ type SchemaMetricBuilder interface {
 	AddMeterDefinitionLabels(meterDef *common.MeterDefPrometheusLabelsTemplated)
 	SetReportInterval(start, end Time)
 	Build() (interface{}, error)
-	SetNamespaceLabels(nsLabels map[string]map[string]string)
 }
 
 type ReportWriter interface {

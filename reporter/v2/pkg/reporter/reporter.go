@@ -429,15 +429,16 @@ func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[stri
 				return nsLabels, err
 			}
 
-			// range over prom label map and add k8s label_ to namespace label map
+			// range over prom label map and add k8s label_A_LABEL to namespace label map
+			// trim the label_ prefix first
 			namespace, ok := kvMap["namespace"]
 			if ok {
 				for k, v := range kvMap {
+					k8sLabels := make(map[string]string)
 					if strings.HasPrefix(k, labelPrefix) {
-						k8sLabels := nsLabels[namespace.(string)]
 						k8sLabels[strings.TrimPrefix(k, labelPrefix)] = v.(string)
-						nsLabels[namespace.(string)] = k8sLabels
 					}
+					nsLabels[namespace.(string)] = k8sLabels
 				}
 			}
 		}
@@ -561,7 +562,7 @@ func (r *MarketplaceReporter) Process(
 						}
 
 						// Get the Labels for the namespace from query kube_namespace_labels{}
-						nsLabels, err := r.getNamespaceLabels(namespace)
+						record.NamespaceLabels, err = r.getNamespaceLabels(record.ResourceNamespace)
 						if err != nil {
 							logger.Error(err, "failed to get namespace labels")
 							errorsch <- errors.Wrap(err, "failed to get namespace labels")
@@ -580,7 +581,6 @@ func (r *MarketplaceReporter) Process(
 							dataBuilder.SetReportInterval(
 								common.Time(r.report.Spec.StartTime.Time),
 								common.Time(r.report.Spec.EndTime.Time))
-							dataBuilder.SetNamespaceLabels(nsLabels)
 							results[record.Hash()] = dataBuilder
 						}
 

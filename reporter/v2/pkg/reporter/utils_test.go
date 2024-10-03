@@ -75,6 +75,14 @@ func mockResponseRoundTripper(files map[string]string, meterdefinitions []v1beta
 				// Must be set to non-nil value or it panics
 				Header: headers,
 			}
+		} else if strings.Contains(query["query"][0], "kube_namespace_labels{") {
+			return &http.Response{
+				StatusCode: 200,
+				// Send response to be tested
+				Body: io.NopCloser(bytes.NewBuffer(GenerateKubeNamespaceLabelsResponse(start, end))),
+				// Must be set to non-nil value or it panics
+				Header: headers,
+			}
 		}
 
 		var fileBytes []byte
@@ -159,6 +167,45 @@ func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition, start
 			})
 		}
 	}
+
+	data := map[string]interface{}{
+		"status": "success",
+		"data": map[string]interface{}{
+			"resultType": "matrix",
+			"result":     results,
+		},
+	}
+
+	bytes, _ := json.Marshal(&data)
+
+	return bytes
+}
+
+func GenerateKubeNamespaceLabelsResponse(start, end time.Time) []byte {
+	results := []map[string]interface{}{}
+	series := GenerateSeries(start, end)
+	values := make([][]interface{}, len(series), len(series))
+
+	for i, ms := range series {
+		values[i] = []interface{}{ms, "1"}
+	}
+
+	results = append(results, map[string]interface{}{
+		"metric": map[string]string{
+			"__name__":                               "kube_namespace_labels",
+			"container":                              "kube-rbac-proxy-main",
+			"endpoint":                               "https-main",
+			"job":                                    "kube-state-metrics",
+			"label_kubernetes_io_metadata_name":      "default",
+			"label_pod_security_kubernetes_io_audit": "privileged",
+			"label_pod_security_kubernetes_io_enforce": "privileged",
+			"label_pod_security_kubernetes_io_warn":    "privileged",
+			"namespace":                                "default",
+			"prometheus":                               "openshift-monitoring/k8s",
+			"service":                                  "kube-state-metrics",
+		},
+		"values": values,
+	})
 
 	data := map[string]interface{}{
 		"status": "success",

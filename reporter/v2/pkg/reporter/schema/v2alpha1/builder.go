@@ -61,9 +61,6 @@ func (d *MarketplaceReportDataBuilder) SetReportInterval(start, end common.Time)
 	d.reportEnd = end
 }
 
-func (d *MarketplaceReportDataBuilder) SetNamespaceLabels(nsLabels map[string]map[string]string) {
-}
-
 const (
 	ErrNoValuesSet                  = errors.Sentinel("no values set")
 	ErrValueHashAreDifferent        = errors.Sentinel("value hashes are different")

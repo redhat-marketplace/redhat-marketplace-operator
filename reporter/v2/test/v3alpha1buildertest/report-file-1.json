@@ -5,22 +5,18 @@
          "start":1485907200001,
          "end":1485910800000,
          "accountId":"6120f8f92cc6c3123bd6288f",
-         "additionalAttributes":{
-            "clusterId":"58e7454d-595b-4c3a-b2a7-d7ca4c5c76d4",
-            "group":"c8b82d189e7545f0892db9ef2731b90d.licensing.ibm.com",
-            "kind":"IBMLicensing",
-            "metricType":"license",
-            "productId":"c8b82d189e7545f0892db9ef2731b90d",
-            "productName":"IBM Cloud Pak for Integration",
-            "productType":"cloudPak",
-            "source":"LS"
-         },
+         "clusterId":"58e7454d-595b-4c3a-b2a7-d7ca4c5c76d4",
+         "group":"c8b82d189e7545f0892db9ef2731b90d.licensing.ibm.com",
+         "kind":"IBMLicensing",
+         "metricType":"license",
+         "productId":"c8b82d189e7545f0892db9ef2731b90d",
+         "productName":"IBM Cloud Pak for Integration",
+         "productType":"cloudPak",
+         "source":"LS",
          "measuredUsage":[
             {
                "metricId":"VIRTUAL_PROCESSOR_CORE",
-               "value": 20,
-               "additionalAttributes":{
-               }
+               "value": 20
             }
          ]
       },
@@ -29,26 +25,22 @@
          "start":1485907200001,
          "end":1485910800000,
          "accountId":"6120f8f92cc6c3123bd6288f",
-         "additionalAttributes":{
-            "clusterId":"58e7454d-595b-4c3a-b2a7-d7ca4c5c76d4",
-            "group":"21dfe9a0f00f444f888756d835334909.licensing.ibm.com",
-            "kind":"IBMLicensing-Bundle",
-            "metricType":"license",
-            "parentProductId":"c8b82d189e7545f0892db9ef2731b90d",
-            "productId": "21dfe9a0f00f444f888756d835334909",
-            "parentProductName":"IBM Cloud Pak for Integration",
-            "productName": "IBM MQ Advanced for Non-Production",
-            "productType":"product",
-            "source":"LS",
-            "productConversionRatio": "4:1"
-         },
+         "clusterId":"58e7454d-595b-4c3a-b2a7-d7ca4c5c76d4",
+         "group":"21dfe9a0f00f444f888756d835334909.licensing.ibm.com",
+         "kind":"IBMLicensing-Bundle",
+         "metricType":"license",
+         "parentProductId":"c8b82d189e7545f0892db9ef2731b90d",
+         "productId": "21dfe9a0f00f444f888756d835334909",
+         "parentProductName":"IBM Cloud Pak for Integration",
+         "productName": "IBM MQ Advanced for Non-Production",
+         "productType":"product",
+         "source":"LS",
+         "productConversionRatio": "4:1",
          "measuredUsage":[
             {
                "metricId":"VIRTUAL_PROCESSOR_CORE",
                "value": 20,
-               "additionalAttributes":{
-                 "measuredValue": 80
-               }
+               "measuredValue": 80
             }
          ]
       }

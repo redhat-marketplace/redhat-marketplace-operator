@@ -89,7 +89,7 @@ type MeasuredUsage struct {
 	MetricAggregationType  string            `json:"metricAggregationType,omitempty"`
 	MeasuredMetricId       string            `json:"measuredMetricId,omitempty"`
 	ProductConversionRatio string            `json:"productConversionRatio,omitempty"`
-	MeasuredValue          string            `json:"measuredValue,omitempty"`
+	MeasuredValue          float64           `json:"measuredValue,omitempty"`
 	ClusterId              string            `json:"clusterId,omitempty"`
 	Hostname               string            `json:"hostname,omitempty"`
 	NamespacesLabels       []NamespaceLabels `json:"namespace,omitempty"`

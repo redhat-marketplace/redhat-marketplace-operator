@@ -34,7 +34,6 @@ type MarketplaceReportDataBuilder struct {
 	resourceName, resourceNamespace string
 	accountID, clusterID            string
 	kvMap                           map[string]interface{}
-	nsLabels                        map[string]map[string]string
 }
 
 func (d *MarketplaceReportDataBuilder) SetClusterID(
@@ -64,10 +63,6 @@ func (d *MarketplaceReportDataBuilder) SetReportInterval(start, end common.Time)
 	d.reportEnd = end
 }
 
-func (d *MarketplaceReportDataBuilder) SetNamespaceLabels(nsLabels map[string]map[string]string) {
-	d.nsLabels = nsLabels
-}
-
 const (
 	ErrNoValuesSet                  = errors.Sentinel("no values set")
 	ErrValueHashAreDifferent        = errors.Sentinel("value hashes are different")
@@ -87,7 +82,9 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	data := &MarketplaceReportData{}
 
 	// Decode MeterDef LabelMap to top level Additional Properties
-	mapstructure.Decode(data, meterDef.LabelMap)
+	if err := mapstructure.Decode(data, meterDef.LabelMap); err != nil {
+		return nil, err
+	}
 
 	// 	Additional Properties from MeterDef
 	data.Group = meterDef.MeterGroup
@@ -139,13 +136,15 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		measuredUsage := MeasuredUsage{}
 
 		// Decode MeterDef LabelMap to usage level Additional Properties
-		mapstructure.Decode(measuredUsage, meterDef.LabelMap)
+		if err := mapstructure.Decode(measuredUsage, meterDef.LabelMap); err != nil {
+			return nil, err
+		}
 
 		// Additional Properties
 
 		// Namespace Labels
 		namespacesLabels := []NamespaceLabels{}
-		for ns, labels := range d.nsLabels {
+		for ns, labels := range meterDef.NamespaceLabels {
 			namespacesLabels = append(namespacesLabels, NamespaceLabels{Name: ns, Labels: labels})
 		}
 		measuredUsage.NamespacesLabels = namespacesLabels

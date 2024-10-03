@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/test/v2alpha1buildertest"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/test/v3alpha1buildertest"
 )
 
 var _ = Describe("Builder", func() {
@@ -28,15 +28,15 @@ var _ = Describe("Builder", func() {
 	)
 
 	It("Unmarshals ReportFile1 successfully", func() {
-		Expect(json.Unmarshal(v2alpha1buildertest.ReportFile1, &marketplaceReportSlice)).To(Succeed())
+		Expect(json.Unmarshal(v3alpha1buildertest.ReportFile1, &marketplaceReportSlice)).To(Succeed())
 	})
 	It("Unmarshals ReportFile1 unsuccessfully", func() {
-		Expect(json.Unmarshal(v2alpha1buildertest.ReportFile1Bad, &marketplaceReportSlice)).To(Not(Succeed()))
+		Expect(json.Unmarshal(v3alpha1buildertest.ReportFile1Bad, &marketplaceReportSlice)).To(Not(Succeed()))
 	})
 	It("Unmarshals ReportFile2 successfully", func() {
-		Expect(json.Unmarshal(v2alpha1buildertest.ReportFile2, &marketplaceReportSlice)).To(Succeed())
+		Expect(json.Unmarshal(v3alpha1buildertest.ReportFile2, &marketplaceReportSlice)).To(Succeed())
 	})
 	It("Unmarshals ReportFile3 successfully", func() {
-		Expect(json.Unmarshal(v2alpha1buildertest.ReportFile3, &marketplaceReportSlice)).To(Succeed())
+		Expect(json.Unmarshal(v3alpha1buildertest.ReportFile3, &marketplaceReportSlice)).To(Succeed())
 	})
 })
