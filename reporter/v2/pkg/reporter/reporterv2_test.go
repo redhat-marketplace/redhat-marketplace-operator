@@ -265,12 +265,11 @@ var _ = Describe("ReporterV2", func() {
 				return data["metricId"].(string)
 			}, Elements{
 				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
-					"metricType":          Equal("license"),
-					"pod":                 Equal("example-app-pod"),
-					"clusterId":           Equal("foo-id"),
-					"meter_def_namespace": Equal("bar"),
-					"metricId":            Equal("rpc_durations_seconds_sum"),
-					"value":               BeNumerically(">", 0),
+					"metricType": Equal("license"),
+					"pod":        Equal("example-app-pod"),
+					"clusterId":  Equal("foo-id"),
+					"metricId":   Equal("rpc_durations_seconds_sum"),
+					"value":      BeNumerically(">", 0),
 					"namespace": MatchAllElements(func(element interface{}) string {
 						data := element.(map[string]interface{})
 						return data["name"].(string)
@@ -288,12 +287,11 @@ var _ = Describe("ReporterV2", func() {
 					}),
 				}),
 				"my_query": MatchAllKeys(Keys{
-					"metricType":          Equal("license"),
-					"pod":                 Equal("example-app-pod"),
-					"clusterId":           Equal("foo-id"),
-					"meter_def_namespace": Equal("bar"),
-					"metricId":            Equal("my_query"),
-					"value":               BeNumerically(">", 0),
+					"metricType": Equal("license"),
+					"pod":        Equal("example-app-pod"),
+					"clusterId":  Equal("foo-id"),
+					"metricId":   Equal("my_query"),
+					"value":      BeNumerically(">", 0),
 					"namespace": MatchAllElements(func(element interface{}) string {
 						data := element.(map[string]interface{})
 						return data["name"].(string)
@@ -648,12 +646,11 @@ var _ = Describe("ReporterV2", func() {
 				return data["metricId"].(string)
 			}, Elements{
 				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
-					"metricType":          Equal("license"),
-					"pod":                 Equal("example-app-pod"),
-					"meter_def_namespace": Equal("bar"),
-					"clusterId":           Equal("foo-id"),
-					"metricId":            Equal("rpc_durations_seconds_sum"),
-					"value":               BeNumerically(">", 0),
+					"metricType": Equal("license"),
+					"pod":        Equal("example-app-pod"),
+					"clusterId":  Equal("foo-id"),
+					"metricId":   Equal("rpc_durations_seconds_sum"),
+					"value":      BeNumerically(">", 0),
 					"namespace": MatchAllElements(func(element interface{}) string {
 						data := element.(map[string]interface{})
 						return data["name"].(string)
@@ -671,12 +668,11 @@ var _ = Describe("ReporterV2", func() {
 					}),
 				}),
 				"rpc_durations_seconds_count": MatchAllKeys(Keys{
-					"metricType":          Equal("license"),
-					"pod":                 Equal("example-app-pod"),
-					"meter_def_namespace": Equal("bar"),
-					"clusterId":           Equal("foo-id"),
-					"metricId":            Equal("rpc_durations_seconds_count"),
-					"value":               BeNumerically(">", 0),
+					"metricType": Equal("license"),
+					"pod":        Equal("example-app-pod"),
+					"clusterId":  Equal("foo-id"),
+					"metricId":   Equal("rpc_durations_seconds_count"),
+					"value":      BeNumerically(">", 0),
 					"namespace": MatchAllElements(func(element interface{}) string {
 						data := element.(map[string]interface{})
 						return data["name"].(string)

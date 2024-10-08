@@ -96,7 +96,6 @@ type MeasuredUsage struct {
 	Hostname               string  `json:"hostname,omitempty" mapstructure:"hostname"`
 	Pod                    string  `json:"pod,omitempty" mapstructure:"pod"`
 	PlatformId             string  `json:"platformId,omitempty" mapstructure:"platformId"`
-	Meter_def_namespace    string  `json:"meter_def_namespace,omitempty" mapstructure:"meter_def_namespace"`
 	Crn                    string  `json:"crn,omitempty" mapstructure:"crn"`
 	IsViewable             string  `json:"isViewable,omitempty" mapstructure:"isViewable"`
 	CalculateSummary       string  `json:"calculateSummary,omitempty" mapstructure:"calculateSummary"`
