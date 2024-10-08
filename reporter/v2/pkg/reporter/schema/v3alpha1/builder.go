@@ -21,10 +21,9 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/cespare/xxhash"
+	mapstructure "github.com/go-viper/mapstructure/v2"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-
-	mapstructure "github.com/go-viper/mapstructure/v2"
 )
 
 type MarketplaceReportDataBuilder struct {
@@ -82,7 +81,7 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	data := &MarketplaceReportData{}
 
 	// Decode MeterDef LabelMap to top level Additional Properties
-	if err := mapstructure.Decode(data, meterDef.LabelMap); err != nil {
+	if err := mapstructure.Decode(&meterDef.LabelMap, data); err != nil {
 		return nil, err
 	}
 
@@ -124,6 +123,7 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	// Measured Usage Slice
 
 	for _, meterDef := range d.values {
+
 		if meterDef.Hash() != d.id {
 			return nil, ErrValueHashAreDifferent
 		}
@@ -136,7 +136,7 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		measuredUsage := MeasuredUsage{}
 
 		// Decode MeterDef LabelMap to usage level Additional Properties
-		if err := mapstructure.Decode(measuredUsage, meterDef.LabelMap); err != nil {
+		if err := mapstructure.Decode(&meterDef.LabelMap, &measuredUsage); err != nil {
 			return nil, err
 		}
 
@@ -150,7 +150,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		measuredUsage.NamespacesLabels = namespacesLabels
 
 		measuredUsage.ClusterId = d.clusterID
-
 		switch meterDef.MetricType {
 		case marketplacecommon.MetricTypeEmpty:
 			// grandfather old meterdefs into license
@@ -189,7 +188,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 			IsViewable             string      `json:"isViewable,omitempty"`
 			CalculateSummary       string      `json:"calculateSummary,omitempty"`
 		*/
-
 		data.MeasuredUsage = append(data.MeasuredUsage, measuredUsage)
 	}
 

@@ -181,13 +181,22 @@ func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition, start
 	return bytes
 }
 
+// kube_namespace_labels{} may have results with different label sets if the labels have been modified during the query range
+// provide a result for this case
 func GenerateKubeNamespaceLabelsResponse(start, end time.Time) []byte {
 	results := []map[string]interface{}{}
 	series := GenerateSeries(start, end)
-	values := make([][]interface{}, len(series), len(series))
+	valuesA := make([][]interface{}, len(series)/2, len(series)/2)
+	valuesB := make([][]interface{}, len(series)/2, len(series)/2)
 
-	for i, ms := range series {
-		values[i] = []interface{}{ms, "1"}
+	for i := 0; i < len(series)/2; i++ {
+		valuesA[i] = []interface{}{series[i], "1"}
+	}
+
+	j := 0
+	for i := len(series) / 2; i < len(series); i++ {
+		valuesB[j] = []interface{}{series[i], "1"}
+		j++
 	}
 
 	results = append(results, map[string]interface{}{
@@ -196,15 +205,33 @@ func GenerateKubeNamespaceLabelsResponse(start, end time.Time) []byte {
 			"container":                              "kube-rbac-proxy-main",
 			"endpoint":                               "https-main",
 			"job":                                    "kube-state-metrics",
-			"label_kubernetes_io_metadata_name":      "default",
+			"label_kubernetes_io_metadata_name":      "metering-example-operator",
 			"label_pod_security_kubernetes_io_audit": "privileged",
 			"label_pod_security_kubernetes_io_enforce": "privileged",
 			"label_pod_security_kubernetes_io_warn":    "privileged",
-			"namespace":                                "default",
+			"namespace":                                "metering-example-operator",
 			"prometheus":                               "openshift-monitoring/k8s",
 			"service":                                  "kube-state-metrics",
 		},
-		"values": values,
+		"values": valuesA,
+	})
+
+	results = append(results, map[string]interface{}{
+		"metric": map[string]string{
+			"__name__":                               "kube_namespace_labels",
+			"container":                              "kube-rbac-proxy-main",
+			"endpoint":                               "https-main",
+			"job":                                    "kube-state-metrics",
+			"label_kubernetes_io_metadata_name":      "metering-example-operator",
+			"label_pod_security_kubernetes_io_audit": "privileged",
+			"label_pod_security_kubernetes_io_enforce": "privileged",
+			"label_pod_security_kubernetes_io_warn":    "privileged",
+			"label_extra_test_label":                   "test",
+			"namespace":                                "metering-example-operator",
+			"prometheus":                               "openshift-monitoring/k8s",
+			"service":                                  "kube-state-metrics",
+		},
+		"values": valuesB,
 	})
 
 	data := map[string]interface{}{

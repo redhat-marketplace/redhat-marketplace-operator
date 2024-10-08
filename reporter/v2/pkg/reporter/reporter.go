@@ -433,16 +433,15 @@ func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[stri
 			// trim the label_ prefix first
 			namespace, ok := kvMap["namespace"]
 			if ok {
+				k8sLabels := make(map[string]string)
 				for k, v := range kvMap {
-					k8sLabels := make(map[string]string)
 					if strings.HasPrefix(k, labelPrefix) {
 						k8sLabels[strings.TrimPrefix(k, labelPrefix)] = v.(string)
 					}
-					nsLabels[namespace.(string)] = k8sLabels
 				}
+				nsLabels[namespace.(string)] = k8sLabels
 			}
 		}
-
 		return nsLabels, nil
 	default:
 		err := errors.NewWithDetails("result type is unprocessable", "type", result.Type().String())
@@ -583,7 +582,6 @@ func (r *MarketplaceReporter) Process(
 								common.Time(r.report.Spec.EndTime.Time))
 							results[record.Hash()] = dataBuilder
 						}
-
 						dataBuilder.AddMeterDefinitionLabels(record)
 					}()
 				}

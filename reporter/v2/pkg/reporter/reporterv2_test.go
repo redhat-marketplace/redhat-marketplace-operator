@@ -44,20 +44,26 @@ import (
 var _ = Describe("ReporterV2", func() {
 	var (
 		err           error
-		sut           *MarketplaceReporter
+		sutv3         *MarketplaceReporter
+		sutv2         *MarketplaceReporter
 		sutv1         *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		dir, dir2     string
 		uploader      uploaders.Uploader
 		generatedData map[string]string
-		cfg           *Config
-		cfgv1         *Config
+
+		cfgv3 *Config
+		cfgv2 *Config
+		cfgv1 *Config
 
 		v1Writer  schemacommon.ReportWriter
 		v1Builder schemacommon.DataBuilder
 
 		v2Writer  schemacommon.ReportWriter
 		v2Builder schemacommon.DataBuilder
+
+		v3Writer  schemacommon.ReportWriter
+		v3Builder schemacommon.DataBuilder
 
 		startStr = "2020-06-19T00:00:00Z"
 		endStr   = "2020-07-19T00:00:00Z"
@@ -90,13 +96,21 @@ var _ = Describe("ReporterV2", func() {
 
 		Expect(err).To(Succeed())
 
-		cfg = &Config{
+		cfgv3 = &Config{
+			OutputDirectory: dir,
+			MetricsPerFile:  ptr.Int(20),
+			ReporterSchema:  "v3alpha1",
+		}
+
+		cfgv3.SetDefaults()
+
+		cfgv2 = &Config{
 			OutputDirectory: dir,
 			MetricsPerFile:  ptr.Int(20),
 			ReporterSchema:  "v2alpha1",
 		}
 
-		cfg.SetDefaults()
+		cfgv2.SetDefaults()
 
 		cfgv1 = &Config{
 			OutputDirectory: dir,
@@ -119,8 +133,11 @@ var _ = Describe("ReporterV2", func() {
 			Message: "RHM/Software Central account exists",
 		})
 
-		v2Writer, _ = ProvideWriter(cfg, config, logger)
-		v2Builder, _ = ProvideDataBuilder(cfg, logger)
+		v3Writer, _ = ProvideWriter(cfgv3, config, logger)
+		v3Builder, _ = ProvideDataBuilder(cfgv3, logger)
+
+		v2Writer, _ = ProvideWriter(cfgv2, config, logger)
+		v2Builder, _ = ProvideDataBuilder(cfgv2, logger)
 
 		v1Writer, _ = ProvideWriter(cfgv1, config, logger)
 		v1Builder, _ = ProvideDataBuilder(cfgv1, logger)
@@ -169,9 +186,9 @@ var _ = Describe("ReporterV2", func() {
 			}
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
-			sut = &MarketplaceReporter{
+			sutv2 = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
-				Config:        cfg,
+				Config:        cfgv2,
 				MktConfig:     config,
 				report: &marketplacev1alpha1.MeterReport{
 					Spec: marketplacev1alpha1.MeterReportSpec{
@@ -182,9 +199,22 @@ var _ = Describe("ReporterV2", func() {
 				reportWriter:      v2Writer,
 				schemaDataBuilder: v2Builder,
 			}
+			sutv3 = &MarketplaceReporter{
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfgv3,
+				MktConfig:     config,
+				report: &marketplacev1alpha1.MeterReport{
+					Spec: marketplacev1alpha1.MeterReportSpec{
+						StartTime: metav1.Time{Time: start},
+						EndTime:   metav1.Time{Time: end},
+					},
+				},
+				reportWriter:      v3Writer,
+				schemaDataBuilder: v3Builder,
+			}
 		})
 
-		rowMatcher := MatchAllKeys(Keys{
+		v2rowMatcher := MatchAllKeys(Keys{
 			"additionalAttributes": MatchAllKeys(Keys{
 				"clusterId":           Equal("foo-id"),
 				"group":               Equal("app.partner.metering.com"),
@@ -223,9 +253,69 @@ var _ = Describe("ReporterV2", func() {
 			}),
 		})
 
-		It("query, build and submit a report", func() {
+		v3rowMatcher := MatchAllKeys(Keys{
+			"start":     checkTime,
+			"end":       checkTime,
+			"eventId":   BeAssignableToTypeOf(""),
+			"accountId": Equal("foo"),
+			"group":     Equal("app.partner.metering.com"),
+			"kind":      Equal("App"),
+			"measuredUsage": MatchAllElements(func(element interface{}) string {
+				data := element.(map[string]interface{})
+				return data["metricId"].(string)
+			}, Elements{
+				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
+					"metricType":          Equal("license"),
+					"pod":                 Equal("example-app-pod"),
+					"clusterId":           Equal("foo-id"),
+					"meter_def_namespace": Equal("bar"),
+					"metricId":            Equal("rpc_durations_seconds_sum"),
+					"value":               BeNumerically(">", 0),
+					"namespace": MatchAllElements(func(element interface{}) string {
+						data := element.(map[string]interface{})
+						return data["name"].(string)
+					}, Elements{
+						"metering-example-operator": MatchAllKeys(Keys{
+							"name": Equal("metering-example-operator"),
+							"labels": MatchAllKeys(Keys{
+								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
+								"pod_security_kubernetes_io_audit":   Equal("privileged"),
+								"pod_security_kubernetes_io_enforce": Equal("privileged"),
+								"pod_security_kubernetes_io_warn":    Equal("privileged"),
+								"extra_test_label":                   Equal("test"),
+							}),
+						}),
+					}),
+				}),
+				"my_query": MatchAllKeys(Keys{
+					"metricType":          Equal("license"),
+					"pod":                 Equal("example-app-pod"),
+					"clusterId":           Equal("foo-id"),
+					"meter_def_namespace": Equal("bar"),
+					"metricId":            Equal("my_query"),
+					"value":               BeNumerically(">", 0),
+					"namespace": MatchAllElements(func(element interface{}) string {
+						data := element.(map[string]interface{})
+						return data["name"].(string)
+					}, Elements{
+						"metering-example-operator": MatchAllKeys(Keys{
+							"name": Equal("metering-example-operator"),
+							"labels": MatchAllKeys(Keys{
+								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
+								"pod_security_kubernetes_io_audit":   Equal("privileged"),
+								"pod_security_kubernetes_io_enforce": Equal("privileged"),
+								"pod_security_kubernetes_io_warn":    Equal("privileged"),
+								"extra_test_label":                   Equal("test"),
+							}),
+						}),
+					}),
+				}),
+			}),
+		})
+
+		It("v2 query, build and submit a report", func() {
 			By("collecting metrics")
-			results, errs, _, err := sut.CollectMetrics(context.TODO())
+			results, errs, _, err := sutv2.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())
@@ -234,7 +324,7 @@ var _ = Describe("ReporterV2", func() {
 
 			By("writing report")
 
-			files, err := sut.WriteReport(
+			files, err := sutv2.WriteReport(
 				uuid.New(),
 				results)
 
@@ -263,12 +353,12 @@ var _ = Describe("ReporterV2", func() {
 						return "row"
 					}
 
-					Expect(data["data"].([]interface{})[0]).To(rowMatcher)
+					Expect(data["data"].([]interface{})[0]).To(v2rowMatcher)
 
 					Expect(data).To(MatchAllKeys(Keys{
 						// metadata is optional
 						"data": MatchElements(id, AllowDuplicates, Elements{
-							"row": rowMatcher,
+							"row": v2rowMatcher,
 						}),
 						"metadata": MatchAllKeys(Keys{
 							"reportVersion":  Equal("v2alpha1"),
@@ -276,6 +366,81 @@ var _ = Describe("ReporterV2", func() {
 							"rhmClusterId":   Equal("foo-id"),
 							"rhmEnvironment": Equal("production"),
 							"version":        BeAssignableToTypeOf(""),
+						}),
+					}))
+				}
+			}
+
+			dirPath := filepath.Dir(files[0])
+			fileName := fmt.Sprintf("%s/test-upload.tar.gz", dir2)
+
+			Expect(fileName).ToNot(BeAnExistingFile())
+
+			By(fmt.Sprintf("targz the file %s", fileName))
+			Expect(TargzFolder(dirPath, fileName)).To(Succeed())
+			Expect(fileName).To(BeAnExistingFile())
+
+			By("uploading file")
+
+			r, _ := os.Open(fileName)
+			defer r.Close()
+			_, err = uploader.UploadFile(context.TODO(), fileName, r)
+			Expect(err).To(Succeed())
+		}, NodeTimeout(time.Duration.Seconds(20)))
+
+		It("v3 query, build and submit a report", func() {
+			By("collecting metrics")
+			results, errs, _, err := sutv3.CollectMetrics(context.TODO())
+
+			Expect(err).To(Succeed())
+			Expect(errs).To(BeEmpty())
+			Expect(results).ToNot(BeEmpty())
+			Expect(len(results)).To(Equal(713))
+
+			By("writing report")
+
+			files, err := sutv3.WriteReport(
+				uuid.New(),
+				results)
+
+			Expect(err).To(Succeed())
+			Expect(files).ToNot(BeEmpty())
+			Expect(len(files)).To(Equal(37))
+
+			for _, file := range files {
+				By(fmt.Sprintf("testing file %s", file))
+				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := os.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if strings.Contains(file, "manifest") {
+					Expect(data).To(MatchAllKeys(Keys{
+						"version": Equal("1"),
+						"type":    Equal("swcAccountMetrics"),
+					}))
+				}
+
+				if !strings.Contains(file, "manifest") {
+					id := func(element interface{}) string {
+						return "row"
+					}
+
+					Expect(data["data"].([]interface{})[0]).To(v3rowMatcher)
+
+					Expect(data).To(MatchAllKeys(Keys{
+						// metadata is optional
+						"data": MatchElements(id, AllowDuplicates, Elements{
+							"row": v3rowMatcher,
+						}),
+						"metadata": MatchAllKeys(Keys{
+							"reportVersion": Equal("v3alpha1"),
+							"accountId":     Equal("foo"),
+							"clusterId":     Equal("foo-id"),
+							"environment":   Equal("production"),
+							"version":       BeAssignableToTypeOf(""),
 						}),
 					}))
 				}
@@ -388,9 +553,9 @@ var _ = Describe("ReporterV2", func() {
 			}
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
-			sut = &MarketplaceReporter{
+			sutv2 = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
-				Config:        cfg,
+				Config:        cfgv2,
 				MktConfig:     config,
 				meterDefinitions: MeterDefinitionReferences{
 					{
@@ -408,9 +573,29 @@ var _ = Describe("ReporterV2", func() {
 				schemaDataBuilder: v2Builder,
 				reportWriter:      v2Writer,
 			}
+			sutv3 = &MarketplaceReporter{
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfgv3,
+				MktConfig:     config,
+				meterDefinitions: MeterDefinitionReferences{
+					{
+						Name:      "foo",
+						Namespace: "bar",
+						Spec:      &meterDefs[0].Spec,
+					},
+				},
+				report: &marketplacev1alpha1.MeterReport{
+					Spec: marketplacev1alpha1.MeterReportSpec{
+						StartTime: metav1.Time{Time: start},
+						EndTime:   metav1.Time{Time: end},
+					},
+				},
+				schemaDataBuilder: v3Builder,
+				reportWriter:      v3Writer,
+			}
 		})
 
-		rowMatcher := MatchAllKeys(Keys{
+		v2rowMatcher := MatchAllKeys(Keys{
 			"additionalAttributes": MatchAllKeys(Keys{
 				"clusterId":           Equal("foo-id"),
 				"group":               Equal("apps.partner.metering.com"),
@@ -450,9 +635,70 @@ var _ = Describe("ReporterV2", func() {
 			}),
 		})
 
-		It("query, build and submit a report", func() {
+		v3rowMatcher := MatchAllKeys(Keys{
+			"group":     Equal("apps.partner.metering.com"),
+			"kind":      Or(Equal("App"), Equal("App2")),
+			"start":     checkTime,
+			"end":       checkTime,
+			"eventId":   BeAssignableToTypeOf(""),
+			"accountId": Equal("foo"),
+
+			"measuredUsage": MatchAllElements(func(element interface{}) string {
+				data := element.(map[string]interface{})
+				return data["metricId"].(string)
+			}, Elements{
+				"rpc_durations_seconds_sum": MatchAllKeys(Keys{
+					"metricType":          Equal("license"),
+					"pod":                 Equal("example-app-pod"),
+					"meter_def_namespace": Equal("bar"),
+					"clusterId":           Equal("foo-id"),
+					"metricId":            Equal("rpc_durations_seconds_sum"),
+					"value":               BeNumerically(">", 0),
+					"namespace": MatchAllElements(func(element interface{}) string {
+						data := element.(map[string]interface{})
+						return data["name"].(string)
+					}, Elements{
+						"metering-example-operator": MatchAllKeys(Keys{
+							"name": Equal("metering-example-operator"),
+							"labels": MatchAllKeys(Keys{
+								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
+								"pod_security_kubernetes_io_audit":   Equal("privileged"),
+								"pod_security_kubernetes_io_enforce": Equal("privileged"),
+								"pod_security_kubernetes_io_warn":    Equal("privileged"),
+								"extra_test_label":                   Equal("test"),
+							}),
+						}),
+					}),
+				}),
+				"rpc_durations_seconds_count": MatchAllKeys(Keys{
+					"metricType":          Equal("license"),
+					"pod":                 Equal("example-app-pod"),
+					"meter_def_namespace": Equal("bar"),
+					"clusterId":           Equal("foo-id"),
+					"metricId":            Equal("rpc_durations_seconds_count"),
+					"value":               BeNumerically(">", 0),
+					"namespace": MatchAllElements(func(element interface{}) string {
+						data := element.(map[string]interface{})
+						return data["name"].(string)
+					}, Elements{
+						"metering-example-operator": MatchAllKeys(Keys{
+							"name": Equal("metering-example-operator"),
+							"labels": MatchAllKeys(Keys{
+								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
+								"pod_security_kubernetes_io_audit":   Equal("privileged"),
+								"pod_security_kubernetes_io_enforce": Equal("privileged"),
+								"pod_security_kubernetes_io_warn":    Equal("privileged"),
+								"extra_test_label":                   Equal("test"),
+							}),
+						}),
+					}),
+				}),
+			}),
+		})
+
+		It("v2 query, build and submit a report", func() {
 			By("collecting metrics")
-			results, errs, _, err := sut.CollectMetrics(context.TODO())
+			results, errs, _, err := sutv2.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())
@@ -460,7 +706,7 @@ var _ = Describe("ReporterV2", func() {
 
 			By("writing report")
 
-			files, err := sut.WriteReport(
+			files, err := sutv2.WriteReport(
 				uuid.New(),
 				results)
 
@@ -491,11 +737,11 @@ var _ = Describe("ReporterV2", func() {
 
 					firstRow := data["data"].([]interface{})[0]
 
-					Expect(firstRow).To(rowMatcher)
+					Expect(firstRow).To(v2rowMatcher)
 					Expect(data).To(MatchAllKeys(Keys{
 						// metadata is optional
 						"data": MatchElements(id, AllowDuplicates, Elements{
-							"row": rowMatcher,
+							"row": v2rowMatcher,
 						}),
 						"metadata": MatchAllKeys(Keys{
 							"reportVersion":  Equal("v2alpha1"),
@@ -524,6 +770,82 @@ var _ = Describe("ReporterV2", func() {
 			_, err = uploader.UploadFile(context.TODO(), fileName, r)
 			Expect(err).To(Succeed())
 		}, NodeTimeout(time.Duration.Seconds(20)))
+
+		It("v3 query, build and submit a report", func() {
+			By("collecting metrics")
+			results, errs, _, err := sutv3.CollectMetrics(context.TODO())
+
+			Expect(err).To(Succeed())
+			Expect(errs).To(BeEmpty())
+			Expect(results).ToNot(BeEmpty())
+
+			By("writing report")
+
+			files, err := sutv3.WriteReport(
+				uuid.New(),
+				results)
+
+			Expect(err).To(Succeed())
+			Expect(files).ToNot(BeEmpty())
+
+			for _, file := range files {
+				By(fmt.Sprintf("testing file %s", file))
+				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := os.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if strings.Contains(file, "manifest") {
+					Expect(data).To(MatchAllKeys(Keys{
+						"version": Equal("1"),
+						"type":    Equal("swcAccountMetrics"),
+					}))
+				}
+
+				if !strings.Contains(file, "manifest") {
+
+					id := func(element interface{}) string {
+						return "row"
+					}
+
+					firstRow := data["data"].([]interface{})[0]
+
+					Expect(firstRow).To(v3rowMatcher)
+					Expect(data).To(MatchAllKeys(Keys{
+						// metadata is optional
+						"data": MatchElements(id, AllowDuplicates, Elements{
+							"row": v3rowMatcher,
+						}),
+						"metadata": MatchAllKeys(Keys{
+							"reportVersion": Equal("v3alpha1"),
+							"accountId":     Equal("foo"),
+							"clusterId":     Equal("foo-id"),
+							"environment":   Equal("production"),
+							"version":       BeAssignableToTypeOf(""),
+						}),
+					}))
+				}
+			}
+
+			dirPath := filepath.Dir(files[0])
+			fileName := fmt.Sprintf("%s/test-upload.tar.gz", dir2)
+
+			Expect(fileName).ToNot(BeAnExistingFile())
+
+			By(fmt.Sprintf("targz the file %s", fileName))
+			Expect(TargzFolder(dirPath, fileName)).To(Succeed())
+			Expect(fileName).To(BeAnExistingFile())
+
+			By("uploading file")
+
+			r, _ := os.Open(fileName)
+			defer r.Close()
+			_, err = uploader.UploadFile(context.TODO(), fileName, r)
+			Expect(err).To(Succeed())
+		}, NodeTimeout(time.Duration.Seconds(20)))
+
 	})
 
 	Context("v1 & v2 schema match ids", func() {
@@ -616,9 +938,9 @@ var _ = Describe("ReporterV2", func() {
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
 
-			sut = &MarketplaceReporter{
+			sutv2 = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
-				Config:        cfg,
+				Config:        cfgv2,
 				MktConfig:     config,
 				meterDefinitions: MeterDefinitionReferences{
 					{
@@ -661,7 +983,7 @@ var _ = Describe("ReporterV2", func() {
 
 		It("query, build and submit a report", func() {
 			By("collecting metrics v2")
-			results, errs, _, err := sut.CollectMetrics(context.TODO())
+			results, errs, _, err := sutv2.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())
@@ -669,7 +991,7 @@ var _ = Describe("ReporterV2", func() {
 
 			By("writing report")
 
-			files, err := sut.WriteReport(
+			files, err := sutv2.WriteReport(
 				uuid.New(),
 				results)
 

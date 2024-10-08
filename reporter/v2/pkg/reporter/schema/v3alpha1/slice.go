@@ -41,38 +41,38 @@ type MarketplaceReportData struct {
 	IntervalEnd int64 `json:"end,omitempty"`
 
 	// The id of the IBM Software Central or Red Hat Marketplace account that usage is being reported for.
-	AccountID string `json:"accountId,omitempty" mapstructure:"accountId"`
-
-	// The id of the IBM Software Central or Red Hat Marketplace subscription for the product that usage is being reported for.
-	SubscriptionId string `json:"subscriptionId,omitempty" mapstructure:"subscriptionId"`
+	AccountID string `json:"accountId,omitempty"`
 
 	// An array of usage objects.
 	MeasuredUsage []MeasuredUsage `json:"measuredUsage"`
 
 	// --- Additional Properties ---
+	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
 
-	Source                         string `json:"source,omitempty"`
-	SourceSaas                     string `json:"sourceSaas,omitempty"`
-	AccountIdSaas                  string `json:"accountIdSaas,omitempty"`
-	SubscriptionIdSaas             string `json:"subscriptionIdSaas,omitempty"`
-	ProductType                    string `json:"productType,omitempty"`
-	LicensePartNumber              string `json:"licensePartNumber,omitempty"`
-	ProductId                      string `json:"productId,omitempty"`
-	SapEntitlementLine             string `json:"sapEntitlementLine,omitempty"`
-	ProductName                    string `json:"productName,omitempty"`
-	ParentProductId                string `json:"parentProductId,omitempty"`
-	ParentProductName              string `json:"parentProductName,omitempty"`
-	ParentProductMetricId          string `json:"parentProductMetricId,omitempty"`
-	TopLevelProductId              string `json:"topLevelProductId,omitempty"`
-	TopLevelProductName            string `json:"topLevelProductName,omitempty"`
-	TopLevelProductMetricId        string `json:"topLevelProductMetricId,omitempty"`
-	DswOfferAccountingSystemCode   string `json:"dswOfferAccountingSystemCode,omitempty"`
-	DswSubscriptionAgreementNumber string `json:"dswSubscriptionAgreementNumber,omitempty"`
-	SsmSubscriptionId              string `json:"ssmSubscriptionId,omitempty"`
-	ICN                            string `json:"ICN,omitempty"`
-	Group                          string `json:"group,omitempty"`
-	GroupName                      string `json:"groupName,omitempty"`
-	Kind                           string `json:"kind,omitempty"`
+	// The id of the IBM Software Central or Red Hat Marketplace subscription for the product that usage is being reported for.
+	SubscriptionId                 string `json:"subscriptionId,omitempty" mapstructure:"subscriptionId"`
+	Source                         string `json:"source,omitempty" mapstructure:"source"`
+	SourceSaas                     string `json:"sourceSaas,omitempty" mapstructure:"sourceSaas"`
+	AccountIdSaas                  string `json:"accountIdSaas,omitempty" mapstructure:"accountIdSaas"`
+	SubscriptionIdSaas             string `json:"subscriptionIdSaas,omitempty" mapstructure:"subscriptionIdSaas"`
+	ProductType                    string `json:"productType,omitempty" mapstructure:"productType"`
+	LicensePartNumber              string `json:"licensePartNumber,omitempty" mapstructure:"licensePartNumber"`
+	ProductId                      string `json:"productId,omitempty" mapstructure:"productId"`
+	SapEntitlementLine             string `json:"sapEntitlementLine,omitempty" mapstructure:"sapEntitlementLine"`
+	ProductName                    string `json:"productName,omitempty" mapstructure:"productName"`
+	ParentProductId                string `json:"parentProductId,omitempty" mapstructure:"parentProductId"`
+	ParentProductName              string `json:"parentProductName,omitempty" mapstructure:"parentProductName"`
+	ParentProductMetricId          string `json:"parentProductMetricId,omitempty" mapstructure:"parentProductMetricId"`
+	TopLevelProductId              string `json:"topLevelProductId,omitempty" mapstructure:"topLevelProductId"`
+	TopLevelProductName            string `json:"topLevelProductName,omitempty" mapstructure:"topLevelProductName"`
+	TopLevelProductMetricId        string `json:"topLevelProductMetricId,omitempty" mapstructure:"topLevelProductMetricId"`
+	DswOfferAccountingSystemCode   string `json:"dswOfferAccountingSystemCode,omitempty" mapstructure:"dswOfferAccountingSystemCode"`
+	DswSubscriptionAgreementNumber string `json:"dswSubscriptionAgreementNumber,omitempty" mapstructure:"dswSubscriptionAgreementNumber"`
+	SsmSubscriptionId              string `json:"ssmSubscriptionId,omitempty" mapstructure:"ssmSubscriptionId"`
+	ICN                            string `json:"ICN,omitempty" mapstructure:"ICN"`
+	Group                          string `json:"group,omitempty" mapstructure:"group"`
+	GroupName                      string `json:"groupName,omitempty" mapstructure:"groupName"`
+	Kind                           string `json:"kind,omitempty" mapstructure:"kind"`
 }
 
 type MeasuredUsage struct {
@@ -84,21 +84,22 @@ type MeasuredUsage struct {
 	Value float64 `json:"value"`
 
 	// --- Additional Properties ---
+	NamespacesLabels []NamespaceLabels `json:"namespace,omitempty"`
 
-	MetricType             string            `json:"metricType,omitempty"`
-	MetricAggregationType  string            `json:"metricAggregationType,omitempty"`
-	MeasuredMetricId       string            `json:"measuredMetricId,omitempty"`
-	ProductConversionRatio string            `json:"productConversionRatio,omitempty"`
-	MeasuredValue          float64           `json:"measuredValue,omitempty"`
-	ClusterId              string            `json:"clusterId,omitempty"`
-	Hostname               string            `json:"hostname,omitempty"`
-	NamespacesLabels       []NamespaceLabels `json:"namespace,omitempty"`
-	Pod                    string            `json:"pod,omitempty"`
-	PlatformId             string            `json:"platformId,omitempty"`
-	Meter_def_namespace    string            `json:"meter_def_namespace,omitempty"`
-	Crn                    string            `json:"crn,omitempty"`
-	IsViewable             string            `json:"isViewable,omitempty"`
-	CalculateSummary       string            `json:"calculateSummary,omitempty"`
+	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
+	MetricType             string  `json:"metricType,omitempty" mapstructure:"metricType"`
+	MetricAggregationType  string  `json:"metricAggregationType,omitempty" mapstructure:"metricAggregationType"`
+	MeasuredMetricId       string  `json:"measuredMetricId,omitempty" mapstructure:"measuredMetricId"`
+	ProductConversionRatio string  `json:"productConversionRatio,omitempty" mapstructure:"productConversionRatio"`
+	MeasuredValue          float64 `json:"measuredValue,omitempty" mapstructure:"measuredValue"`
+	ClusterId              string  `json:"clusterId,omitempty" mapstructure:"clusterId"`
+	Hostname               string  `json:"hostname,omitempty" mapstructure:"hostname"`
+	Pod                    string  `json:"pod,omitempty" mapstructure:"pod"`
+	PlatformId             string  `json:"platformId,omitempty" mapstructure:"platformId"`
+	Meter_def_namespace    string  `json:"meter_def_namespace,omitempty" mapstructure:"meter_def_namespace"`
+	Crn                    string  `json:"crn,omitempty" mapstructure:"crn"`
+	IsViewable             string  `json:"isViewable,omitempty" mapstructure:"isViewable"`
+	CalculateSummary       string  `json:"calculateSummary,omitempty" mapstructure:"calculateSummary"`
 }
 
 type NamespaceLabels struct {

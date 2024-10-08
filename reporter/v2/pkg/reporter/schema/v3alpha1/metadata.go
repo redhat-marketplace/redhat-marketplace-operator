@@ -31,4 +31,4 @@ type Manifest struct {
 	Type    string `json:"type"`
 }
 
-const AccountMetrics = "swcAccountMetrics"
+const SWCAccountMetrics = "swcAccountMetrics"
