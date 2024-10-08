@@ -420,6 +420,7 @@ func (p *PrometheusAPI) QueryNamespaceLabels(query *NamespacesQuery) (model.Valu
 	timeRange := v1.Range{
 		Start: query.Start,
 		End:   query.End,
+		Step:  query.Step,
 	}
 
 	q := fmt.Sprintf(`kube_namespace_labels{namespace=~"%s"}`, strings.Join(query.Namespaces, "|"))
