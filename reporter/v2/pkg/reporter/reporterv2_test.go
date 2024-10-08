@@ -70,8 +70,9 @@ var _ = Describe("ReporterV2", func() {
 		start, _ = time.Parse(time.RFC3339, startStr)
 		end, _   = time.Parse(time.RFC3339, endStr)
 
-		metricIds []string
-		eventIds  []string
+		v1metricIds []string
+		v2eventIds  []string
+		v3eventIds  []string
 
 		checkTime = WithTransform(func(unIn float64) map[string]int {
 			t := time.Unix(int64(unIn), 0).UTC()
@@ -844,7 +845,7 @@ var _ = Describe("ReporterV2", func() {
 
 	})
 
-	Context("v1 & v2 schema match ids", func() {
+	Context("v1 v2 v3 schema match ids", func() {
 		BeforeEach(func() {
 			generatedData = map[string]string{
 				"rpc_durations_seconds_sum": GenerateRandomData(start, end, []string{"rpc_durations_seconds_sum"}),
@@ -934,6 +935,27 @@ var _ = Describe("ReporterV2", func() {
 
 			v1api := getTestAPI(mockResponseRoundTripper(generatedData, meterDefs, start, end))
 
+			sutv3 = &MarketplaceReporter{
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfgv3,
+				MktConfig:     config,
+				meterDefinitions: MeterDefinitionReferences{
+					{
+						Name:      "foo",
+						Namespace: "bar",
+						Spec:      &meterDefs[0].Spec,
+					},
+				},
+				report: &marketplacev1alpha1.MeterReport{
+					Spec: marketplacev1alpha1.MeterReportSpec{
+						StartTime: metav1.Time{Time: start},
+						EndTime:   metav1.Time{Time: end},
+					},
+				},
+				schemaDataBuilder: v3Builder,
+				reportWriter:      v3Writer,
+			}
+
 			sutv2 = &MarketplaceReporter{
 				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 				Config:        cfgv2,
@@ -978,18 +1000,18 @@ var _ = Describe("ReporterV2", func() {
 		})
 
 		It("query, build and submit a report", func() {
-			By("collecting metrics v2")
-			results, errs, _, err := sutv2.CollectMetrics(context.TODO())
+			By("collecting metrics v3")
+			resultsv3, errs, _, err := sutv3.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())
-			Expect(results).ToNot(BeEmpty())
+			Expect(resultsv3).ToNot(BeEmpty())
 
 			By("writing report")
 
-			files, err := sutv2.WriteReport(
+			files, err := sutv3.WriteReport(
 				uuid.New(),
-				results)
+				resultsv3)
 
 			Expect(err).To(Succeed())
 			Expect(files).ToNot(BeEmpty())
@@ -1009,7 +1031,43 @@ var _ = Describe("ReporterV2", func() {
 						datamap := data.(map[string]interface{})
 						eventId, ok := datamap["eventId"].(string)
 						Expect(ok).To(BeTrue(), "eventId not found")
-						eventIds = append(eventIds, eventId)
+						v3eventIds = append(v3eventIds, eventId)
+					}
+				}
+			}
+
+			By("collecting metrics v2")
+			resultsv2, errs, _, err := sutv2.CollectMetrics(context.TODO())
+
+			Expect(err).To(Succeed())
+			Expect(errs).To(BeEmpty())
+			Expect(resultsv2).ToNot(BeEmpty())
+
+			By("writing report")
+
+			files, err = sutv2.WriteReport(
+				uuid.New(),
+				resultsv2)
+
+			Expect(err).To(Succeed())
+			Expect(files).ToNot(BeEmpty())
+
+			for _, file := range files {
+				By(fmt.Sprintf("testing file %s", file))
+				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := os.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if !strings.Contains(file, "manifest") {
+					datarows := data["data"].([]interface{})
+					for _, data := range datarows {
+						datamap := data.(map[string]interface{})
+						eventId, ok := datamap["eventId"].(string)
+						Expect(ok).To(BeTrue(), "eventId not found")
+						v2eventIds = append(v2eventIds, eventId)
 					}
 				}
 			}
@@ -1045,12 +1103,13 @@ var _ = Describe("ReporterV2", func() {
 						metricmap := metric.(map[string]interface{})
 						metricId, ok := metricmap["metric_id"].(string)
 						Expect(ok).To(BeTrue(), "metricId not found")
-						metricIds = append(metricIds, metricId)
+						v1metricIds = append(v1metricIds, metricId)
 					}
 				}
 			}
 
-			Expect(eventIds).Should(ContainElements(metricIds))
+			Expect(v2eventIds).Should(ContainElements(v1metricIds))
+			Expect(v3eventIds).Should(ContainElements(v2eventIds))
 
 		}, NodeTimeout(time.Duration.Seconds(20)))
 
