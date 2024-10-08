@@ -390,6 +390,7 @@ func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[stri
 		query := &NamespacesQuery{
 			Start:      r.report.Spec.StartTime.Time.UTC(),
 			End:        r.report.Spec.EndTime.Time.Add(-1 * time.Millisecond).UTC(),
+			Step:       time.Hour,
 			Namespaces: namespaces,
 		}
 

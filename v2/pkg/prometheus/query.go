@@ -409,6 +409,7 @@ func (p *PrometheusAPI) MeterDefLabelValues(matches []string) (model.LabelValues
 
 type NamespacesQuery struct {
 	Start, End time.Time
+	Step       time.Duration
 	Namespaces []string
 }
 
