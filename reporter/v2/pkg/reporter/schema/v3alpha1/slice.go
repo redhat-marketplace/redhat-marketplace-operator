@@ -87,18 +87,18 @@ type MeasuredUsage struct {
 	NamespacesLabels []NamespaceLabels `json:"namespace,omitempty"`
 
 	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
-	MetricType             string  `json:"metricType,omitempty" mapstructure:"metricType"`
-	MetricAggregationType  string  `json:"metricAggregationType,omitempty" mapstructure:"metricAggregationType"`
-	MeasuredMetricId       string  `json:"measuredMetricId,omitempty" mapstructure:"measuredMetricId"`
-	ProductConversionRatio string  `json:"productConversionRatio,omitempty" mapstructure:"productConversionRatio"`
-	MeasuredValue          float64 `json:"measuredValue,omitempty" mapstructure:"measuredValue"`
-	ClusterId              string  `json:"clusterId,omitempty" mapstructure:"clusterId"`
-	Hostname               string  `json:"hostname,omitempty" mapstructure:"hostname"`
-	Pod                    string  `json:"pod,omitempty" mapstructure:"pod"`
-	PlatformId             string  `json:"platformId,omitempty" mapstructure:"platformId"`
-	Crn                    string  `json:"crn,omitempty" mapstructure:"crn"`
-	IsViewable             string  `json:"isViewable,omitempty" mapstructure:"isViewable"`
-	CalculateSummary       string  `json:"calculateSummary,omitempty" mapstructure:"calculateSummary"`
+	MetricType             string `json:"metricType,omitempty" mapstructure:"metricType"`
+	MetricAggregationType  string `json:"metricAggregationType,omitempty" mapstructure:"metricAggregationType"`
+	MeasuredMetricId       string `json:"measuredMetricId,omitempty" mapstructure:"measuredMetricId"`
+	ProductConversionRatio string `json:"productConversionRatio,omitempty" mapstructure:"productConversionRatio"`
+	MeasuredValue          string `json:"measuredValue,omitempty" mapstructure:"measuredValue"`
+	ClusterId              string `json:"clusterId,omitempty" mapstructure:"clusterId"`
+	Hostname               string `json:"hostname,omitempty" mapstructure:"hostname"`
+	Pod                    string `json:"pod,omitempty" mapstructure:"pod"`
+	PlatformId             string `json:"platformId,omitempty" mapstructure:"platformId"`
+	Crn                    string `json:"crn,omitempty" mapstructure:"crn"`
+	IsViewable             string `json:"isViewable,omitempty" mapstructure:"isViewable"`
+	CalculateSummary       string `json:"calculateSummary,omitempty" mapstructure:"calculateSummary"`
 }
 
 type NamespaceLabels struct {
