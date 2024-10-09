@@ -32,19 +32,19 @@ type MarketplaceReportData struct {
 	// --- Usage event properties ---
 
 	//A value uniquely identifying the event. A second event with the same eventId will be processed as an amendment. Two events in the same archive MUST NOT have the same eventId. Recommended to be a GUID.
-	EventID string `json:"eventId"`
+	EventID string `json:"eventId" mapstructure:"-"`
 
 	// Milliseconds from epoch UTC representing the start of the window for the usage data being reported
-	IntervalStart int64 `json:"start,omitempty"`
+	IntervalStart int64 `json:"start,omitempty" mapstructure:"-"`
 
 	// Milliseconds from epoch UTC representing the end of the window for the usage data being reported
-	IntervalEnd int64 `json:"end,omitempty"`
+	IntervalEnd int64 `json:"end,omitempty" mapstructure:"-"`
 
 	// The id of the IBM Software Central or Red Hat Marketplace account that usage is being reported for.
-	AccountID string `json:"accountId,omitempty"`
+	AccountID string `json:"accountId,omitempty" mapstructure:"-"`
 
 	// An array of usage objects.
-	MeasuredUsage []MeasuredUsage `json:"measuredUsage"`
+	MeasuredUsage []MeasuredUsage `json:"measuredUsage" mapstructure:"-"`
 
 	// --- Additional Properties ---
 	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
@@ -78,13 +78,13 @@ type MarketplaceReportData struct {
 type MeasuredUsage struct {
 
 	// The ID of the metric being reported. If multiple objects inside measuredUsage have the same metricId for the same product the complete event will be rejected and NOT processed.
-	MetricID string `json:"metricId"`
+	MetricID string `json:"metricId" mapstructure:"-"`
 
 	// The recorded usage value for the time window.
-	Value float64 `json:"value"`
+	Value float64 `json:"value" mapstructure:"-"`
 
 	// --- Additional Properties ---
-	NamespacesLabels []NamespaceLabels `json:"namespace,omitempty"`
+	NamespacesLabels []NamespaceLabels `json:"namespace,omitempty" mapstructure:"-"`
 
 	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
 	MetricType             string `json:"metricType,omitempty" mapstructure:"metricType"`
