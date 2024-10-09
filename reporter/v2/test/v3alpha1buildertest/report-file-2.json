@@ -40,7 +40,7 @@
                "value":20,
                "metricType":"license",
                "productConversionRatio": "4:1",
-               "measuredValue": 80
+               "measuredValue": "80"
             }
          ]
       }

@@ -40,7 +40,7 @@
             {
                "metricId":"VIRTUAL_PROCESSOR_CORE",
                "value": 20,
-               "measuredValue": 80
+               "measuredValue": "80"
             }
          ]
       }
