@@ -95,31 +95,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 	data.AccountID = d.accountID
 	data.MeasuredUsage = make([]MeasuredUsage, 0, len(d.values))
 
-	/*
-		Source                         string `json:"source,omitempty"`
-		SourceSaas                     string `json:"sourceSaas,omitempty"`
-		AccountIdSaas                  string `json:"accountIdSaas,omitempty"`
-		SubscriptionIdSaas             string `json:"subscriptionIdSaas,omitempty"`
-		ProductType                    string `json:"productType,omitempty"`
-		LicensePartNumber              string `json:"licensePartNumber,omitempty"`
-		ProductId                      string `json:"productId,omitempty"`
-		SapEntitlementLine             string `json:"sapEntitlementLine,omitempty"`
-		ProductName                    string `json:"productName,omitempty"`
-		ParentProductId                string `json:"parentProductId,omitempty"`
-		ParentProductName              string `json:"parentProductName,omitempty"`
-		ParentProductMetricId          string `json:"parentProductMetricId,omitempty"`
-		TopLevelProductId              string `json:"topLevelProductId,omitempty"`
-		TopLevelProductName            string `json:"topLevelProductName,omitempty"`
-		TopLevelProductMetricId        string `json:"topLevelProductMetricId,omitempty"`
-		DswOfferAccountingSystemCode   string `json:"dswOfferAccountingSystemCode,omitempty"`
-		DswSubscriptionAgreementNumber string `json:"dswSubscriptionAgreementNumber,omitempty"`
-		SsmSubscriptionId              string `json:"ssmSubscriptionId,omitempty"`
-		ICN                            string `json:"ICN,omitempty"`
-		Group                          string `json:"group,omitempty"`
-		GroupName                      string `json:"groupName,omitempty"`
-		Kind                           string `json:"kind,omitempty"`
-	*/
-
 	// Measured Usage Slice
 
 	for _, meterDef := range d.values {
@@ -139,8 +114,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		if err := mapstructure.Decode(&meterDef.LabelMap, &measuredUsage); err != nil {
 			return nil, err
 		}
-
-		// Additional Properties
 
 		// Namespace Labels
 		namespacesLabels := []NamespaceLabels{}
@@ -170,24 +143,6 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		measuredUsage.MetricID = meterDef.Label
 		measuredUsage.Value = value
 
-		// --- Additional Properties ---
-
-		/*
-			MetricType             string      `json:"metricType,omitempty"`
-			MetricAggregationType  string      `json:"metricAggregationType,omitempty"`
-			MeasuredMetricId       string      `json:"measuredMetricId,omitempty"`
-			ProductConversionRatio string      `json:"productConversionRatio,omitempty"`
-			MeasuredValue          string      `json:"measuredValue,omitempty"`
-			ClusterId              string      `json:"clusterId,omitempty"`
-			Hostname               string      `json:"hostname,omitempty"`
-			Namespace              []Namespace `json:"namespace,omitempty"`
-			Pod                    string      `json:"pod,omitempty"`
-			PlatformId             string      `json:"platformId,omitempty"`
-			Meter_def_namespace    string      `json:"meter_def_namespace,omitempty"`
-			Crn                    string      `json:"crn,omitempty"`
-			IsViewable             string      `json:"isViewable,omitempty"`
-			CalculateSummary       string      `json:"calculateSummary,omitempty"`
-		*/
 		data.MeasuredUsage = append(data.MeasuredUsage, measuredUsage)
 	}
 

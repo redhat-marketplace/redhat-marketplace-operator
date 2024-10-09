@@ -62,7 +62,7 @@ type MarketplaceReportData struct {
 	ProductName                    string `json:"productName,omitempty" mapstructure:"productName"`
 	ParentProductId                string `json:"parentProductId,omitempty" mapstructure:"parentProductId"`
 	ParentProductName              string `json:"parentProductName,omitempty" mapstructure:"parentProductName"`
-	ParentProductMetricId          string `json:"parentProductMetricId,omitempty" mapstructure:"parentProductMetricId"`
+	ParentMetricId                 string `json:"parentMetricId,omitempty" mapstructure:"parentMetricId"`
 	TopLevelProductId              string `json:"topLevelProductId,omitempty" mapstructure:"topLevelProductId"`
 	TopLevelProductName            string `json:"topLevelProductName,omitempty" mapstructure:"topLevelProductName"`
 	TopLevelProductMetricId        string `json:"topLevelProductMetricId,omitempty" mapstructure:"topLevelProductMetricId"`
