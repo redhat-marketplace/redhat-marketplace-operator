@@ -12,7 +12,7 @@ require (
 	github.com/gotidy/ptr v1.4.0
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.5.0
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/gomega v1.29.0
 	github.com/openshift/api v0.0.0-20240304080513-3e8192a10b13
 	github.com/operator-framework/api v0.18.0
@@ -37,6 +37,7 @@ require (
 )
 
 require (
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20240410195839-0cc064c06b45
 	go.uber.org/zap v1.26.0
@@ -65,7 +66,6 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect

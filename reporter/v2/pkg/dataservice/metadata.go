@@ -15,7 +15,7 @@
 package dataservice
 
 import (
-	"github.com/mitchellh/mapstructure"
+	mapstructure "github.com/go-viper/mapstructure/v2"
 	"k8s.io/apimachinery/pkg/types"
 )
 
