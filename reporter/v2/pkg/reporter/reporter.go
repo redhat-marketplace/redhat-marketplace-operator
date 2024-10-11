@@ -562,11 +562,21 @@ func (r *MarketplaceReporter) Process(
 						}
 
 						// Get the Labels for the namespace from query kube_namespace_labels{}
-						record.NamespaceLabels, err = r.getNamespaceLabels(record.ResourceNamespace)
-						if err != nil {
-							logger.Error(err, "failed to get namespace labels")
-							errorsch <- errors.Wrap(err, "failed to get namespace labels")
-							return
+						// A query grouped by namespace will have a resource namespace
+						// Otherwise collect the labels of the meterdef namespace
+						ns := ""
+						if record.ResourceNamespace != "" {
+							ns = record.ResourceNamespace
+						} else if record.ExportedMeterDefNamespace != "" {
+							ns = record.ExportedMeterDefNamespace
+						}
+						if ns != "" {
+							record.NamespaceLabels, err = r.getNamespaceLabels(ns)
+							if err != nil {
+								logger.Error(err, "failed to get namespace labels")
+								errorsch <- errors.Wrap(err, "failed to get namespace labels")
+								return
+							}
 						}
 
 						mutex.Lock()

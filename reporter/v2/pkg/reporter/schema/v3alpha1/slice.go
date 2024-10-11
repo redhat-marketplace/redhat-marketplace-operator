@@ -87,6 +87,8 @@ type MeasuredUsage struct {
 	NamespacesLabels []NamespaceLabels `json:"namespace,omitempty" mapstructure:"-"`
 
 	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
+	MeterDefNamespace      string `json:"meter_def_namespace,omitempty" mapstructure:"meter_def_namespace"`
+	MeterDefName           string `json:"meter_def_name,omitempty" mapstructure:"meter_def_name"`
 	MetricType             string `json:"metricType,omitempty" mapstructure:"metricType"`
 	MetricAggregationType  string `json:"metricAggregationType,omitempty" mapstructure:"metricAggregationType"`
 	MeasuredMetricId       string `json:"measuredMetricId,omitempty" mapstructure:"measuredMetricId"`

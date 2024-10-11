@@ -238,6 +238,12 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	var newOptSecretObj *v1.Secret
 	var rhmAccountExists *bool // nil=unknown, true, false
 	var registrationStatusConditions status.Conditions
+
+	// RHMPullSecret always has an account
+	if si.Type == utils.RHMPullSecretName {
+		rhmAccountExists = ptr.Bool(true)
+	}
+
 	if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
 		//only check registration status, compare pull secret from COS if we are not in a disconnected environment
 
@@ -258,8 +264,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			} else if cond != nil && cond.IsTrue() { // already found account exists
 				rhmAccountExists = ptr.Bool(true)
 			}
-		} else if si.Type == utils.RHMPullSecretName {
-			rhmAccountExists = ptr.Bool(true)
 		}
 
 		// only check registration and get the secret if RHM account exists
