@@ -175,7 +175,7 @@ func provideMarketplaceConfig(
 
 	return &uploaders.MarketplaceUploaderConfig{
 		URL:                      url,
-		AuthorizeAccountCreation: ptr.ToBool(marketplaceConfig.Spec.AuthorizeAccountCreation),
+		AuthorizeAccountCreation: ptr.ToBoolDef(marketplaceConfig.Spec.AuthorizeAccountCreation, true),
 		Token:                    si.Token,
 		CipherSuites:             reporterConfig.CipherSuites,
 		MinVersion:               reporterConfig.MinVersion,

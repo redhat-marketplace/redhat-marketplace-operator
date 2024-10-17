@@ -174,9 +174,9 @@ spec:
     # Set the cluster's dockerconfig file to the new merged version.
     oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
     ```
-  7. (Optional) Your IBM product may have installed IBM Metrics Operator using an `ibm-entitlement-key` for authentication to IBM Software Central. To authorize the automatic creation of an IBM Software Central account for the IBM account owning the `ibm-entitlement-key`
+  7. (Optional) Your IBM product may have installed IBM Metrics Operator using an `ibm-entitlement-key` for authentication to IBM Software Central. By default when usage data is submitted to IBM Software Central an account will be created for the IBM account owning the `ibm-entitlement-key`. To deny authorization of automatic creation of an IBM Software Central account, configure MarketplaceConfig:
       ```
-      oc patch marketplaceconfig marketplaceconfig -n ibm-software-central --type='merge' -p '{"spec": {"authorizeAccountCreation": true}}'
+      oc patch marketplaceconfig marketplaceconfig -n ibm-software-central --type='merge' -p '{"spec": {"authorizeAccountCreation": false}}'
       ```
 
 ### Why is a global pull secret required?

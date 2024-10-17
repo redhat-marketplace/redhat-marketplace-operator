@@ -79,7 +79,7 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License"
 	License MarketplaceConfigLicense `json:"license,omitempty"`
 
-	// AuthorizeAccountCreation authorizes IBM Software Central to automatically create an account when usage data is submitted with an ibm-entitlement-key
+	// AuthorizeAccountCreation authorizes IBM Software Central to automatically create an account when usage data is submitted with an ibm-entitlement-key. The default behavior is true.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Authorize Automatic Account Creation"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
