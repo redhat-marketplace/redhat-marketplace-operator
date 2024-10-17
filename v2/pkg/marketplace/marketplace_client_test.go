@@ -155,29 +155,6 @@ var _ = Describe("Marketplace Config Status", func() {
 		})
 	})
 
-	Context("Marketplace Pull Secret without any error", func() {
-		BeforeEach(func() {
-			statusCode = 200
-			path = "/" + PullSecretEndpoint
-			body, err := os.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
-			if err != nil {
-				panic(err)
-			}
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", path),
-					ghttp.RespondWithPtr(&statusCode, &body),
-				),
-			)
-		})
-		It("should retrieve rhm-operator-secret ", func() {
-			data, err := mclient.GetMarketplaceSecret()
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(data).Should(ContainSubstring("rhm-operator-secret"))
-		})
-	})
-
 	Context("token", func() {
 		It("should have env var", func() {
 			Skip("can't keep test due to secret")

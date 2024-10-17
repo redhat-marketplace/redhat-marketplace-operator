@@ -32,7 +32,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
@@ -69,31 +68,6 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			Spec: &olmv1alpha1.SubscriptionSpec{},
 			Status: olmv1alpha1.SubscriptionStatus{
 				InstalledCSV: csvName,
-			},
-		}
-
-		subscriptionWithoutLabels = &olmv1alpha1.Subscription{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      subName,
-				Namespace: operatorNamespace,
-			},
-			Spec: &olmv1alpha1.SubscriptionSpec{},
-			Status: olmv1alpha1.SubscriptionStatus{
-				InstalledCSV: csvName,
-			},
-		}
-
-		subscriptionDifferentCSV = &olmv1alpha1.Subscription{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      subName,
-				Namespace: operatorNamespace,
-				Labels: map[string]string{
-					utils.OperatorTag: "true",
-				},
-			},
-			Spec: &olmv1alpha1.SubscriptionSpec{},
-			Status: olmv1alpha1.SubscriptionStatus{
-				InstalledCSV: "dummy",
 			},
 		}
 	)
@@ -186,45 +160,6 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				MatchAllElements(idFn, Elements{
 					"new-clusterserviceversion": Equal("new-clusterserviceversion"),
 				}),
-			))
-		})
-
-		It("Should not process mismatched csv and subscriptions", func() {
-			Expect(k8sClient.Create(context.TODO(), subscriptionDifferentCSV.DeepCopy())).Should(Succeed(), "create subscription")
-			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create csv")
-
-			Eventually(func() []olmv1alpha1.ClusterServiceVersion {
-				csvList := &olmv1alpha1.ClusterServiceVersionList{}
-				labels := map[string]string{
-					watchTag: "lite",
-				}
-				listOpts := []client.ListOption{
-					client.MatchingLabels(labels),
-				}
-				k8sClient.List(context.TODO(), csvList, listOpts...)
-
-				return csvList.Items
-			}, timeout, interval).Should(And(
-				HaveLen(0),
-			))
-		})
-
-		It("Should not process subscriptions without labels", func() {
-			Expect(k8sClient.Create(context.TODO(), subscriptionWithoutLabels.DeepCopy())).Should(Succeed(), "create subscription")
-			Expect(k8sClient.Create(context.TODO(), clusterserviceversion.DeepCopy())).Should(Succeed(), "create subscription")
-			Eventually(func() []olmv1alpha1.ClusterServiceVersion {
-				csvList := &olmv1alpha1.ClusterServiceVersionList{}
-				labels := map[string]string{
-					watchTag: "lite",
-				}
-				listOpts := []client.ListOption{
-					client.MatchingLabels(labels),
-				}
-				k8sClient.List(context.TODO(), csvList, listOpts...)
-
-				return csvList.Items
-			}, timeout, interval).Should(And(
-				HaveLen(0),
 			))
 		})
 	})

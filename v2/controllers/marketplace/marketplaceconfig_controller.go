@@ -36,6 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -74,8 +75,6 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments/finalizers,verbs=get;list;watch;update;patch,resourceNames=redhat-marketplace-controller-manager
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;update;patch;delete
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-razeedeployment
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=update;patch;delete,resourceNames=rhm-marketplaceconfig-meterbase
 
@@ -185,8 +184,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(ctx context.Context, request rec
 		return result, err
 	}
 
-	// Create or update RazeeDeployment, set derived values
-	if result, err := r.createOrUpdateRazeeRazeeDeployment(request); err != nil {
+	// TODO: Remove RazeeDeployment using unstructured, utks.RAZEE_NAME
+
+	if result, err := r.removeRazeeDeployment(request); err != nil {
 		return result, err
 	}
 
@@ -292,9 +292,6 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 				GenericFunc: func(e event.GenericEvent) bool { return false },
 			})).
 		WithEventFilter(namespacePredicate).
-		Watches(&marketplacev1alpha1.RazeeDeployment{}, ownerHandler, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&marketplacev1alpha1.MeterBase{}, ownerHandler).
-		Watches(&marketplacev1alpha1.RazeeDeployment{}, ownerHandler, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&marketplacev1alpha1.MeterBase{}, ownerHandler).
 		Complete(r)
 }
@@ -597,179 +594,6 @@ func (r *MarketplaceConfigReconciler) createOrUpdateMeterBase(request reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *MarketplaceConfigReconciler) createOrUpdateRazeeRazeeDeployment(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := r.Log.WithValues("func", "createOrUpdateRazeeRazeeDeployment", "Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-			reqLogger.Error(err, "failed to get marketplaceconfig")
-			return err
-		}
-
-		//Check if RazeeDeployment exists, if not create one
-		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: request.Namespace}, razeeDeployment)
-		if err != nil && k8serrors.IsNotFound(err) {
-			razeeDeployment := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID,
-				marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features, marketplaceConfig.Spec.InstallIBMCatalogSource)
-
-			// Sets the owner for razeeDeployment
-			if err = controllerutil.SetControllerReference(marketplaceConfig, razeeDeployment, r.Scheme); err != nil {
-				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				return err
-			}
-
-			// include a display name if set
-			if marketplaceConfig.Spec.ClusterName != "" {
-				reqLogger.Info("setting cluster name override on razee cr")
-				razeeDeployment.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
-			}
-			// Disable razee in disconnected environment or if RHM/Software Central account does not exist
-			cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
-			rhmAccountExists := cond != nil && cond.IsTrue()
-			razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists
-
-			reqLogger.Info("creating razee cr")
-			err = r.Client.Create(context.TODO(), razeeDeployment)
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				return err
-			}
-
-			updated := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
-				Message: "RazeeDeployment installed.",
-			})
-
-			if updated {
-				reqLogger.Info("updating marketplaceconfig status")
-				return r.Client.Status().Update(context.TODO(), marketplaceConfig)
-			}
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep razeeDeployment spec updated, use retry to avoid conflict with razeedeployment controller: object has been modified
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: request.Namespace}, razeeDeployment); err != nil {
-			reqLogger.Error(err, "failed to get razeedeployment")
-			return err
-		}
-
-		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-			reqLogger.Error(err, "failed to get marketplaceconfig")
-			return err
-		}
-		cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
-		rhmAccountExists := cond != nil && cond.IsTrue()
-
-		razeeDeploymentCopy := razeeDeployment.DeepCopy()
-
-		// Disable razee in disconnected environment or RHM/Software Central account does not exist
-		razeeDeployment.Spec.Enabled = !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && rhmAccountExists
-		razeeDeployment.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
-		razeeDeployment.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
-		razeeDeployment.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
-		razeeDeployment.Spec.InstallIBMCatalogSource = marketplaceConfig.Spec.InstallIBMCatalogSource
-
-		if marketplaceConfig.Spec.ClusterName != "" {
-			razeeDeployment.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
-		}
-
-		if !reflect.DeepEqual(razeeDeploymentCopy.Spec, razeeDeployment.Spec) {
-			reqLogger.Info("updating razeedeployment")
-			return r.Client.Update(context.TODO(), razeeDeployment)
-		}
-
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Update MarketplaceConfig with Razee watch label
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-			reqLogger.Error(err, "failed to get marketplaceconfig")
-			return err
-		}
-
-		if marketplaceConfig.Labels == nil {
-			marketplaceConfig.Labels = make(map[string]string)
-		}
-
-		if marketplaceConfig.Labels[utils.RazeeWatchResource] != utils.RazeeWatchLevelDetail {
-			marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-			reqLogger.Info("updating marketplaceconfig")
-			return r.Client.Update(context.TODO(), marketplaceConfig)
-		}
-
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Set MarketplaceConfig Conditions
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		razeeDeployment := &marketplacev1alpha1.RazeeDeployment{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: request.Namespace}, razeeDeployment); err != nil {
-			reqLogger.Error(err, "failed to get razeedeployment")
-			return err
-		}
-
-		marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, marketplaceConfig); err != nil {
-			reqLogger.Error(err, "failed to get marketplaceconfig")
-			return err
-		}
-
-		// Update MarketplaceConfig Status
-		updated := false
-
-		if marketplaceConfig.Status.RazeeSubConditions == nil {
-			updated = true
-			marketplaceConfig.Status.RazeeSubConditions = status.Conditions{}
-		}
-
-		for _, condition := range razeeDeployment.Status.Conditions {
-			updated = updated || marketplaceConfig.Status.RazeeSubConditions.SetCondition(condition)
-		}
-
-		if razeeDeployment.Status.Conditions != nil {
-			if !utils.ConditionsEqual(
-				razeeDeployment.Status.Conditions,
-				marketplaceConfig.Status.RazeeSubConditions) {
-				marketplaceConfig.Status.RazeeSubConditions = razeeDeployment.Status.Conditions
-				updated = updated || true
-			}
-		}
-
-		// Update MarketplaceConfig
-		if updated {
-			reqLogger.Info("updating marketplaceconfig status")
-			return r.Client.Status().Update(context.TODO(), marketplaceConfig)
-		}
-
-		return nil
-	}); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{}, nil
-}
-
 func (r *MarketplaceConfigReconciler) updateMarketplaceConfigStatusStarting(
 	request reconcile.Request,
 ) (reconcile.Result, error) {
@@ -914,4 +738,29 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(instance *marketplacev
 
 		return nil
 	})
+}
+
+// Remove legacy RazeeDeployment object for upgrade scenario, GC should remove remaining owned resources
+func (r *MarketplaceConfigReconciler) removeRazeeDeployment(
+	request reconcile.Request,
+) (reconcile.Result, error) {
+	razeeDeployment := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "marketplace.redhat.com/v1alpha1",
+			"kind":       "RazeeDeployment",
+			"metadata": map[string]interface{}{
+				"name":      utils.RAZEE_NAME,
+				"namespace": request.Namespace,
+			},
+		},
+	}
+
+	// Ignore err if not found, or CRD not present
+	if err := r.Client.Delete(context.TODO(), razeeDeployment); err != nil &&
+		!k8serrors.IsNotFound(err) &&
+		!meta.IsNoMatchError(err) {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }

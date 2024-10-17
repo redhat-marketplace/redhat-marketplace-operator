@@ -218,25 +218,6 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 	return catalogSrc
 }
 
-// BuildRazeeCrd returns a RazeeDeployment cr with default values
-func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, features *common.Features, installIBMCatalogSource *bool) *marketplacev1alpha1.RazeeDeployment {
-	cr := &marketplacev1alpha1.RazeeDeployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      RAZEE_NAME,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled:                 true,
-			ClusterUUID:             clusterUUID,
-			DeploySecretName:        deploySecretName,
-			Features:                features.DeepCopy(),
-			InstallIBMCatalogSource: installIBMCatalogSource,
-		},
-	}
-
-	return cr
-}
-
 func NewMeterDefinitionCatalogConfig(
 	enabled bool,
 ) *common.MeterDefinitionCatalogServerConfig {

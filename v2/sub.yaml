@@ -1,8 +1,6 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  labels:
-    razee/watch-resource: lite
   name: redhat-marketplace-operator
   namespace: openshift-redhat-marketplace
 spec:

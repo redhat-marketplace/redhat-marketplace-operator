@@ -4,7 +4,6 @@ metadata:
   annotations:
     kubectl.kubernetes.io/last-applied-configuration: |
       {"apiVersion":"marketplace.redhat.com/v1alpha1","kind":"MarketplaceConfig","metadata":{"annotations":{},"name":"marketplaceconfig","namespace":"openshift-redhat-marketplace"},"spec":{"clusterUUID":"Lan_Test_Azure","deploySecretName":"rhm-operator-secret","rhmAccountID":"5e82595370d56300120a962f"}}
-    razee/watch-resource: detail
   name: marketplaceconfig
   namespace: openshift-redhat-marketplace
 spec:

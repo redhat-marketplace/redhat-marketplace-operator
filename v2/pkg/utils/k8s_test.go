@@ -224,7 +224,6 @@ var (
 	installIBMCatalogSource = ptr.Bool(true)
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
-	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features, installIBMCatalogSource)
 	meterbase         *marketplacev1alpha1.MeterBase
 
 	testNs1 = &corev1.Namespace{}
@@ -235,14 +234,13 @@ var (
 func setup() client.Client {
 	marketplaceconfig.Spec.Features = features
 	meterbase = BuildMeterBaseCr(testNamespace1, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
-	defaultFeatures := []string{"razee", "meterbase"}
+	defaultFeatures := []string{"meterbase"}
 	viper.Set("features", defaultFeatures)
 	testNs1.ObjectMeta.Name = testNamespace1
 	testNs2.ObjectMeta.Name = testNamespace2
 	testNs3.ObjectMeta.Name = testNamespace3
 	objs := []runtime.Object{
 		marketplaceconfig,
-		razeedeployment,
 		meterbase,
 		testNs1,
 		testNs2,
@@ -251,7 +249,6 @@ func setup() client.Client {
 	s := scheme.Scheme
 	_ = monitoringv1.AddToScheme(s)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
 	client := fake.NewFakeClient(objs...)

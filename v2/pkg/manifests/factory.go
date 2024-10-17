@@ -65,8 +65,6 @@ const (
 
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
-	RRControllerDeployment = "razee/rr-controller-deployment.yaml"
-	WatchKeeperDeployment  = "razee/watch-keeper-deployment.yaml"
 	DataServiceStatefulSet = "dataservice/statefulset.yaml"
 	DataServiceService     = "dataservice/service.yaml"
 	DataServiceRoute       = "dataservice/route.yaml"
@@ -167,22 +165,6 @@ func (f *Factory) ReplaceImages(container *corev1.Container) error {
 		container.Image = f.config.RelatedImages.DQLite
 	case container.Name == "rhm-meterdefinition-file-server":
 		container.Image = f.config.RelatedImages.MeterDefFileServer
-	case container.Name == utils.RHM_REMOTE_RESOURCE_DEPLOYMENT_NAME:
-		container.Image = f.config.RelatedImages.RemoteResource
-
-		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
-		// will fail; HTTP_PROXY will be used instead
-		envChanges.Remove(corev1.EnvVar{
-			Name: "HTTPS_PROXY",
-		})
-	case container.Name == "watch-keeper":
-		container.Image = f.config.RelatedImages.WatchKeeper
-
-		// watch-keeper and rrs3 doesn't use HTTPS_PROXY correctly
-		// will fail; HTTP_PROXY will be used instead
-		envChanges.Remove(corev1.EnvVar{
-			Name: "HTTPS_PROXY",
-		})
 	}
 
 	envChanges.Merge(container)
@@ -976,76 +958,6 @@ func (f *Factory) SetOwnerReference(owner Owner, obj metav1.Object) error {
 
 func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
 	return controllerutil.SetControllerReference(owner, obj, f.scheme)
-}
-
-func (f *Factory) UpdateRemoteResourceDeployment(dep *appsv1.Deployment) error {
-	if dep.GetNamespace() == "" {
-		dep.SetNamespace(f.namespace)
-	}
-
-	var securityContext *corev1.PodSecurityContext
-	if !f.operatorConfig.Infrastructure.HasOpenshift() {
-		securityContext = &corev1.PodSecurityContext{
-			FSGroup: ptr.Int64(1000),
-		}
-	}
-	dep.Spec.Template.Spec.SecurityContext = securityContext
-
-	for i := range dep.Spec.Template.Spec.Containers {
-		container := &dep.Spec.Template.Spec.Containers[i]
-		f.ReplaceImages(container)
-	}
-
-	// Inject the SubscriptionConfig overrides
-	if err := injectSubscriptionConfig(&dep.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
-		return fmt.Errorf("failed to inject subscription config - name=%s - %v", dep.Name, err)
-	}
-
-	return nil
-}
-
-func (f *Factory) NewRemoteResourceDeployment() (*appsv1.Deployment, error) {
-	dep, err := f.NewDeployment(MustAssetReader(RRControllerDeployment))
-	if err != nil {
-		return nil, err
-	}
-	err = f.UpdateRemoteResourceDeployment(dep)
-	return dep, err
-}
-
-func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
-	if dep.GetNamespace() == "" {
-		dep.SetNamespace(f.namespace)
-	}
-
-	var securityContext *corev1.PodSecurityContext
-	if !f.operatorConfig.Infrastructure.HasOpenshift() {
-		securityContext = &corev1.PodSecurityContext{
-			FSGroup: ptr.Int64(1000),
-		}
-	}
-	dep.Spec.Template.Spec.SecurityContext = securityContext
-
-	for i := range dep.Spec.Template.Spec.Containers {
-		container := &dep.Spec.Template.Spec.Containers[i]
-		f.ReplaceImages(container)
-	}
-
-	// Inject the SubscriptionConfig overrides
-	if err := injectSubscriptionConfig(&dep.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
-		return fmt.Errorf("failed to inject subscription config - name=%s - %v", dep.Name, err)
-	}
-
-	return nil
-}
-
-func (f *Factory) NewWatchKeeperDeployment() (*appsv1.Deployment, error) {
-	dep, err := f.NewDeployment(MustAssetReader(WatchKeeperDeployment))
-	if err != nil {
-		return nil, err
-	}
-	err = f.UpdateWatchKeeperDeployment(dep)
-	return dep, err
 }
 
 func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {

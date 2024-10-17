@@ -25,7 +25,6 @@ import (
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/blang/semver/v4"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
@@ -151,65 +150,6 @@ func GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelecto
 	}
 	key, err := ExtractCredKey(&rhmOperatorSecret, sel)
 	return err, key
-}
-
-func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1alpha1.RazeeDeployment) (marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
-	if instance.Spec.DeployConfig == nil {
-		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
-	}
-
-	razeeStruct := instance.Spec.DeployConfig
-	keys := []string{}
-	expectedKeys := []string{
-		IBM_COS_URL_FIELD,
-		BUCKET_NAME_FIELD,
-		IBM_COS_URL_FIELD,
-		RAZEE_DASH_ORG_KEY_FIELD,
-		CHILD_RRS3_YAML_FIELD,
-		RAZEE_DASH_URL_FIELD,
-	}
-
-	for key, element := range razeeData {
-		keys = append(keys, key)
-		value, err := RetrieveSecretField(element)
-		if err != nil {
-			razeeStruct = nil
-			return marketplacev1alpha1.RazeeConfigurationValues{}, nil, err
-		}
-
-		switch key {
-		case IBM_COS_READER_KEY_FIELD:
-			razeeStruct.IbmCosReaderKey = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: RHM_OPERATOR_SECRET_NAME,
-				},
-				Key: key,
-			}
-
-		case BUCKET_NAME_FIELD:
-			razeeStruct.BucketName = value
-
-		case IBM_COS_URL_FIELD:
-			razeeStruct.IbmCosURL = value
-
-		case RAZEE_DASH_ORG_KEY_FIELD:
-			razeeStruct.RazeeDashOrgKey = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: RHM_OPERATOR_SECRET_NAME,
-				},
-				Key: key,
-			}
-
-		case CHILD_RRS3_YAML_FIELD:
-			razeeStruct.ChildRSS3FIleName = value
-
-		case RAZEE_DASH_URL_FIELD:
-			razeeStruct.RazeeDashUrl = value
-		}
-	}
-
-	missingItems := ContainsMultiple(keys, expectedKeys)
-	return *razeeStruct, missingItems, nil
 }
 
 func ApplyAnnotation(resource client.Object) error {

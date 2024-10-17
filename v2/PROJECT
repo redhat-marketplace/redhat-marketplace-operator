@@ -36,18 +36,6 @@ resources:
   # controller: true
   domain: redhat.com
   group: marketplace
-  kind: RazeeDeployment
-  # TODO(user): Update the package path for your API if the below value is incorrect.
-  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1beta1
-    # TODO(user): Uncomment the below line if this resource's CRD is namespace scoped, else delete it.
-    # namespaced: true
-  # TODO(user): Uncomment the below line if this resource implements a controller, else delete it.
-  # controller: true
-  domain: redhat.com
-  group: marketplace
   kind: MeterDefinition
   # TODO(user): Update the package path for your API if the below value is incorrect.
   path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1

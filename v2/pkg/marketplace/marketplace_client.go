@@ -33,17 +33,14 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
 )
 
 var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	PullSecretEndpoint       = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	RegistrationEndpoint     = "provisioning/v1/registered-clusters"
-	MigrateChildRRS3Endpoint = "provisioning/v1/child-yaml-migration"
-	AuthenticationEndpoint   = "subscriptions/api/v1/keys/authentication"
+	RegistrationEndpoint   = "provisioning/v1/registered-clusters"
+	AuthenticationEndpoint = "subscriptions/api/v1/keys/authentication"
 )
 
 const (
@@ -350,37 +347,6 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 	return conditions
 }
 
-func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
-	u, err := buildQuery(mhttp.endpoint, PullSecretEndpoint)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to build query")
-	}
-
-	resp, err := mhttp.httpClient.Get(u.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	defer resp.Body.Close()
-
-	rhOperatorSecretDef, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
-	}
-
-	newOptSecretObj := corev1.Secret{}
-	err = yaml.Unmarshal(rhOperatorSecretDef, &newOptSecretObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal secret")
-	}
-
-	return &newOptSecretObj, nil
-}
-
 const EnvStage = "stage"
 
 // GetJWTTokenClaims will parse JWT token and fetch the rhmAccountId
@@ -446,86 +412,6 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 		}
 	}
 	return objId, nil
-}
-
-func (mhttp *MarketplaceClient) MigrateChildRRS3(account *MarketplaceClientAccount) error {
-	u, err := buildQuery(mhttp.endpoint, MigrateChildRRS3Endpoint)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to build query")
-	}
-
-	requestBody, err := json.Marshal(account)
-	if err != nil {
-		return errors.Wrap(err, "")
-	}
-
-	resp, err := mhttp.httpClient.Post(u.String(), "application/json", bytes.NewBuffer(requestBody))
-	if err != nil {
-		return errors.Wrap(err, "")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
-	if account == nil {
-		err := errors.New("account info missing")
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	objID, err := m.getClusterObjID(account)
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	url := m.endpoint.String() + "/" + RegistrationEndpoint + "/" + objID
-
-	logger.Info("status query", "query", url)
-
-	requestBody, err := json.Marshal(map[string]string{
-		"accountId": account.AccountId,
-		"status":    "TO_BE_UNREGISTERED",
-	})
-
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	patchReq, err := http.NewRequest("PATCH", url, bytes.NewBuffer(requestBody))
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	patchReq.Header.Set("Content-Type", "application/json")
-	resp, err := m.httpClient.Do(patchReq)
-	if err != nil {
-		return RegistrationStatusOutput{
-			RegistrationStatus: "HttpError",
-			Err:                err,
-			StatusCode:         http.StatusInternalServerError,
-		}, err
-	} else if resp.StatusCode == 200 {
-		return RegistrationStatusOutput{
-			StatusCode:         resp.StatusCode,
-			RegistrationStatus: "UNREGISTERED",
-		}, nil
-	} else {
-		return RegistrationStatusOutput{
-			RegistrationStatus: "HttpError",
-			Err:                err,
-			StatusCode:         resp.StatusCode,
-		}, err
-	}
 }
 
 func (m *MarketplaceClient) RhmAccountExists() (bool, error) {

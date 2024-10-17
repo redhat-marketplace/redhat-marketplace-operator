@@ -78,8 +78,6 @@ type RelatedImages struct {
 	MetricState        string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 	AuthChecker        string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
 	DQLite             string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
-	RemoteResource     string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
-	WatchKeeper        string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
 	MeterDefFileServer string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
@@ -90,8 +88,6 @@ type OSRelatedImages struct {
 	MetricState        string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 	AuthChecker        string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
 	DQLite             string `env:"RELATED_IMAGE_DQLITE" envDefault:"dqlite:latest"`
-	RemoteResource     string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"us.icr.io/armada-master/remoteresource:2.1.19_7f655fe"`
-	WatchKeeper        string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"us.icr.io/armada-master/watch-keeper:0.8.10_7f655fe"`
 	MeterDefFileServer string `env:"RELATED_IMAGE_METERDEF_FILE_SERVER" envDefault:"quay.io/rh-marketplace/rhm-meterdefinition-file-server:v1"`
 }
 
