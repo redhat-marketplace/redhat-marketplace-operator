@@ -132,9 +132,10 @@ func (r *UploadTask) RunGeneric(ctx context.Context) error {
 				continue
 			}
 
+			fileId := file.Id
 			file, err = r.fileStorage.GetFile(ctx, file.Id)
 			if err != nil {
-				logger.Error(err, "failed to get file", "id", file.Id)
+				logger.Error(err, "failed to get file", "id", fileId)
 				continue
 			}
 
