@@ -226,7 +226,7 @@ func GenerateKubeNamespaceLabelsResponse(start, end time.Time) []byte {
 			"label_pod_security_kubernetes_io_audit": "privileged",
 			"label_pod_security_kubernetes_io_enforce": "privileged",
 			"label_pod_security_kubernetes_io_warn":    "privileged",
-			"label_extra_test_label":                   "test",
+			"label_swc_saas_ibm_com_testkey":           "testval",
 			"namespace":                                "metering-example-operator",
 			"prometheus":                               "openshift-monitoring/k8s",
 			"service":                                  "kube-state-metrics",

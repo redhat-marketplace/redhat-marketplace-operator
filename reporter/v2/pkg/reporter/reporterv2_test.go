@@ -280,11 +280,7 @@ var _ = Describe("ReporterV2", func() {
 						"metering-example-operator": MatchAllKeys(Keys{
 							"name": Equal("metering-example-operator"),
 							"labels": MatchAllKeys(Keys{
-								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
-								"pod_security_kubernetes_io_audit":   Equal("privileged"),
-								"pod_security_kubernetes_io_enforce": Equal("privileged"),
-								"pod_security_kubernetes_io_warn":    Equal("privileged"),
-								"extra_test_label":                   Equal("test"),
+								"swc_saas_ibm_com_testkey": Equal("testval"),
 							}),
 						}),
 					}),
@@ -304,11 +300,7 @@ var _ = Describe("ReporterV2", func() {
 						"metering-example-operator": MatchAllKeys(Keys{
 							"name": Equal("metering-example-operator"),
 							"labels": MatchAllKeys(Keys{
-								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
-								"pod_security_kubernetes_io_audit":   Equal("privileged"),
-								"pod_security_kubernetes_io_enforce": Equal("privileged"),
-								"pod_security_kubernetes_io_warn":    Equal("privileged"),
-								"extra_test_label":                   Equal("test"),
+								"swc_saas_ibm_com_testkey": Equal("testval"),
 							}),
 						}),
 					}),
@@ -665,11 +657,7 @@ var _ = Describe("ReporterV2", func() {
 						"metering-example-operator": MatchAllKeys(Keys{
 							"name": Equal("metering-example-operator"),
 							"labels": MatchAllKeys(Keys{
-								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
-								"pod_security_kubernetes_io_audit":   Equal("privileged"),
-								"pod_security_kubernetes_io_enforce": Equal("privileged"),
-								"pod_security_kubernetes_io_warn":    Equal("privileged"),
-								"extra_test_label":                   Equal("test"),
+								"swc_saas_ibm_com_testkey": Equal("testval"),
 							}),
 						}),
 					}),
@@ -689,11 +677,7 @@ var _ = Describe("ReporterV2", func() {
 						"metering-example-operator": MatchAllKeys(Keys{
 							"name": Equal("metering-example-operator"),
 							"labels": MatchAllKeys(Keys{
-								"kubernetes_io_metadata_name":        Equal("metering-example-operator"),
-								"pod_security_kubernetes_io_audit":   Equal("privileged"),
-								"pod_security_kubernetes_io_enforce": Equal("privileged"),
-								"pod_security_kubernetes_io_warn":    Equal("privileged"),
-								"extra_test_label":                   Equal("test"),
+								"swc_saas_ibm_com_testkey": Equal("testval"),
 							}),
 						}),
 					}),

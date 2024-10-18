@@ -378,7 +378,11 @@ func (r *MarketplaceReporter) getMeterDefinitions() (map[types.NamespacedName][]
 	}
 }
 
-const labelPrefix = "label_"
+// Report namespace labels of format swc.saas.ibm.com/key=value
+const (
+	labelPrefix    = "label_"
+	swcLabelPrefix = "label_swc_saas_ibm_com_"
+)
 
 func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[string]map[string]string, error) {
 	var result model.Value
@@ -431,12 +435,12 @@ func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[stri
 			}
 
 			// range over prom label map and add k8s label_A_LABEL to namespace label map
-			// trim the label_ prefix first
+			// add only label_swc_saas_ibm_com_ and trim the label_ prefix
 			namespace, ok := kvMap["namespace"]
 			if ok {
 				k8sLabels := make(map[string]string)
 				for k, v := range kvMap {
-					if strings.HasPrefix(k, labelPrefix) {
+					if strings.HasPrefix(k, swcLabelPrefix) {
 						k8sLabels[strings.TrimPrefix(k, labelPrefix)] = v.(string)
 					}
 				}
