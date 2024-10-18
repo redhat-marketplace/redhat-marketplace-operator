@@ -255,14 +255,6 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	definitionSet := make(map[types.NamespacedName][]*meterDefPromQuery)
 	start, end := r.report.Spec.StartTime.Time.UTC(), r.report.Spec.EndTime.Time.Add(-1*time.Second).UTC()
 
-	var rhmAccountExists bool
-	cond := r.MktConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
-	if cond != nil && cond.IsTrue() {
-		rhmAccountExists = true
-	} else {
-		rhmAccountExists = false
-	}
-
 	for _, ref := range meterDefinitions {
 		queries, err := transformMeterDefinitionReference(ref, start, end)
 
@@ -299,14 +291,6 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	for key, val := range definitionSet {
 		logger.V(4).Info("sending", "key", key)
 		for _, query := range val {
-			// if RHM/Software Central account does not exist,
-			// skip generating MeterReport for MeterDefinitions that are type license or billable
-			if !rhmAccountExists &&
-				(query.query.MetricType == marketplacecommon.MetricTypeEmpty || // metricType empty is treated as MetricTypeLincense
-					query.query.MetricType == marketplacecommon.MetricTypeBillable ||
-					query.query.MetricType == marketplacecommon.MetricTypeLicense) {
-				continue
-			}
 			localQ := query
 			logger.V(4).Info("sending q", "q", localQ)
 			meterDefsChan <- localQ

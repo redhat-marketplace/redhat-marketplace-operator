@@ -1,0 +1,56 @@
+{
+    "totalResults": 1,
+    "userIdentityInfo": {
+        "iamId": "1234",
+        "name": "testName"
+    },
+    "OMAccounts": [
+        {
+            "id": "5d24e26c538f8432bfbe2e33",
+            "name": "testName",
+            "isCompany": false,
+            "billingAccountId": "1234",
+            "billingAddress": {
+                "address1": "testAddress",
+                "countryCode": "CA"
+            },
+            "billingAccountRefs": {
+            },
+            "billingReferences": [
+                {
+                    "accountId": "5d24e26c538f8432bfbe2e33",
+                    "type": "customer",
+                    "countryCode": "CA",
+                    "billingAccountId": "1234"
+                }
+            ],
+            "childAccountIds": [
+                "5a22f20d291e9125cfre2e13",
+                "6r21d19e143s8113dtra2e14"
+            ],
+            "paymentInfo": [
+                {
+                    "id": "5daf6febb55a7c29b25a8fd6",
+                    "type": "CREDIT_CARD",
+                    "isDefault": true,
+                    "cardType": "VISA",
+                    "scrambledNumber": "****1111",
+                    "expiryDate": "1120",
+                    "walletId": "228ebab0f50d11e980fba7019c2b04e3",
+                    "accountId": "5daf6febb55a7c29b25a8fd5"
+                }
+            ],
+            "accountCreationStatus": {
+                "_id": "5ecc290175f6c56d12c93bf1",
+                "accountId": "5d24e26c538f8432bfbe2e33",
+                "stuckAlert": true
+            },
+            "OMRoles": [
+                {
+                    "roleName": "AccountOwner",
+                    "userId": "5daf656eff102e135b2a86bb"
+                }
+            ]
+        }
+    ]
+}
