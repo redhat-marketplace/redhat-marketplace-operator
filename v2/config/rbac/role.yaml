@@ -454,6 +454,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - marketplace.redhat.com
+  resourceNames:
+  - rhm-marketplaceconfig-razeedeployment
+  resources:
+  - razeedeployments
+  verbs:
+  - delete
+- apiGroups:
   - monitoring.coreos.com
   resourceNames:
   - rhm-marketplaceconfig-meterbase
