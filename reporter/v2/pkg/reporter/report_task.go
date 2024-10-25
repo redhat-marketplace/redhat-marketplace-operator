@@ -15,41 +15,42 @@
 package reporter
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/gotidy/ptr"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
-	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type TaskRun interface {
@@ -397,6 +398,108 @@ func getMeterDefinitionReferences(
 	return
 }
 
+// Get Kubernetes Resources related to Infrastructure
+// Include the GVK and serialize
+func getK8sInfrastructureResources(
+	ctx context.Context,
+	client client.Client,
+) (k8sResources []interface{}, err error) {
+
+	objs := []runtime.Object{}
+
+	serializer := k8sjson.NewSerializerWithOptions(
+		k8sjson.DefaultMetaFactory, client.Scheme(), client.Scheme(),
+		k8sjson.SerializerOptions{
+			Pretty: false,
+			Yaml:   false,
+			Strict: false,
+		})
+
+	// ClusterVersion - ClusterID & Openshift Version
+	clusterVersion := &openshiftconfigv1.ClusterVersion{}
+	if err := client.Get(ctx, types.NamespacedName{
+		Name: "version",
+	}, clusterVersion); err != nil {
+		return k8sResources, err
+	}
+	clusterVersionLite := &openshiftconfigv1.ClusterVersion{}
+	clusterVersionLite.ObjectMeta.Name = clusterVersion.ObjectMeta.Name
+	clusterVersionLite.ObjectMeta.CreationTimestamp = clusterVersion.ObjectMeta.CreationTimestamp
+	clusterVersionLite.Spec.ClusterID = clusterVersion.Spec.ClusterID
+	// history is usually already sorted on the Status, check and get latest
+	history := clusterVersion.Status.History
+	if len(history) > 0 {
+		sort.Slice(history[:], func(i, j int) bool {
+			return history[i].CompletionTime.Before(history[j].CompletionTime)
+		})
+		clusterVersionLite.Status.History = []openshiftconfigv1.UpdateHistory{history[len(history)-1]}
+	}
+	objs = append(objs, clusterVersionLite)
+
+	// Console - URL
+	console := &openshiftconfigv1.Console{}
+	if err := client.Get(ctx, types.NamespacedName{
+		Name: "cluster",
+	}, console); err != nil {
+		return k8sResources, err
+	}
+	consoleLite := &openshiftconfigv1.Console{}
+	consoleLite.ObjectMeta.Name = console.ObjectMeta.Name
+	consoleLite.ObjectMeta.CreationTimestamp = console.ObjectMeta.CreationTimestamp
+	consoleLite.Status = console.Status
+	objs = append(objs, consoleLite)
+
+	// Infrastructure - Platform Type
+	infrastructure := &openshiftconfigv1.Infrastructure{}
+	if err := client.Get(ctx, types.NamespacedName{
+		Name: "cluster",
+	}, infrastructure); err != nil {
+		return k8sResources, err
+	}
+	infrastructureLite := &openshiftconfigv1.Infrastructure{}
+	infrastructureLite.ObjectMeta.Name = infrastructure.ObjectMeta.Name
+	infrastructureLite.ObjectMeta.CreationTimestamp = infrastructure.ObjectMeta.CreationTimestamp
+	if infrastructure.Status.PlatformStatus != nil {
+		infrastructureLite.Status.PlatformStatus = &openshiftconfigv1.PlatformStatus{Type: infrastructure.Status.PlatformStatus.Type}
+	}
+	infrastructureLite.Status.ControlPlaneTopology = infrastructure.Status.ControlPlaneTopology
+	infrastructureLite.Status.InfrastructureTopology = infrastructure.Status.InfrastructureTopology
+	objs = append(objs, infrastructureLite)
+
+	// Nodes - CPU, Memory, os/arch
+	nodeList := &corev1.NodeList{}
+	if err := client.List(ctx, nodeList); err != nil {
+		return k8sResources, err
+	}
+	for _, node := range nodeList.Items {
+		nodeLite := &corev1.Node{}
+		nodeLite.ObjectMeta.Name = node.ObjectMeta.Name
+		nodeLite.ObjectMeta.CreationTimestamp = node.ObjectMeta.CreationTimestamp
+		nodeLite.ObjectMeta.Labels = node.ObjectMeta.Labels
+		nodeLite.Status.Capacity = node.Status.Capacity
+		nodeLite.Status.NodeInfo.Architecture = node.Status.NodeInfo.Architecture
+		nodeLite.Status.NodeInfo.OperatingSystem = node.Status.NodeInfo.OperatingSystem
+		objs = append(objs, nodeLite)
+	}
+
+	// ensure objects to be serialized have apiversion/kind
+	for _, obj := range objs {
+		gvks, isUnversioned, err := client.Scheme().ObjectKinds(obj)
+		if err != nil {
+			return k8sResources, err
+		}
+		if !isUnversioned && len(gvks) == 1 {
+			obj.GetObjectKind().SetGroupVersionKind(gvks[0])
+		}
+		var buf bytes.Buffer
+		if err := serializer.Encode(obj, &buf); err != nil {
+			return k8sResources, err
+		}
+		k8sResources = append(k8sResources, buf.Bytes())
+	}
+	return
+}
+
 // Stop() and Sleep to allow queue to write out events.
 // Calling Broadcaster Shutdown() otherwise is a risk of panic and lost event
 // Until we are using a newer k8s api-machinery version
@@ -424,7 +527,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1.AddToScheme(scheme))
-	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(batchv1.AddToScheme(scheme))

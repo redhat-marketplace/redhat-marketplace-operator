@@ -91,6 +91,10 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
+	v2, err := getK8sInfrastructureResources(ctx, simpleClient)
+	if err != nil {
+		return nil, err
+	}
 	logrLogger := _wireLogrLoggerValue
 	dataBuilder, err := ProvideDataBuilder(config, logrLogger)
 	if err != nil {
@@ -100,7 +104,7 @@ func NewReporter(ctx context.Context, task *Task) (*MarketplaceReporter, error) 
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(config, meterReport, marketplaceConfig, prometheusAPI, v, dataBuilder, reportWriter)
+	marketplaceReporter, err := NewMarketplaceReporter(config, meterReport, marketplaceConfig, prometheusAPI, v, v2, dataBuilder, reportWriter)
 	if err != nil {
 		return nil, err
 	}

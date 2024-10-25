@@ -69,6 +69,7 @@ type MarketplaceReporter struct {
 	MktConfig        *marketplacev1alpha1.MarketplaceConfig
 	report           *marketplacev1alpha1.MeterReport
 	meterDefinitions MeterDefinitionReferences
+	k8sResources     []interface{}
 	*Config
 	schemaDataBuilder common.DataBuilder
 	reportWriter      common.ReportWriter
@@ -83,6 +84,7 @@ func NewMarketplaceReporter(
 	MktConfig *marketplacev1alpha1.MarketplaceConfig,
 	api *PrometheusAPI,
 	meterDefinitions MeterDefinitionReferences,
+	k8sResources []interface{},
 	schemaDataBuilder common.DataBuilder,
 	reportWriter common.ReportWriter,
 ) (*MarketplaceReporter, error) {
@@ -92,6 +94,7 @@ func NewMarketplaceReporter(
 		report:            report,
 		Config:            config,
 		meterDefinitions:  meterDefinitions,
+		k8sResources:      k8sResources,
 		schemaDataBuilder: schemaDataBuilder,
 		reportWriter:      reportWriter,
 	}, nil
@@ -582,6 +585,9 @@ func (r *MarketplaceReporter) Process(
 								return
 							}
 						}
+
+						// Kubernetes Infrastructure Resources
+						record.K8sResources = r.k8sResources
 
 						mutex.Lock()
 						defer mutex.Unlock()

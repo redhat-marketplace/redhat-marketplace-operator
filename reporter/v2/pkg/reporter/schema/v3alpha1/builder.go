@@ -15,6 +15,7 @@
 package v3alpha1
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -24,7 +25,10 @@ import (
 	mapstructure "github.com/go-viper/mapstructure/v2"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var logger = logf.Log.WithName("builder")
 
 type MarketplaceReportDataBuilder struct {
 	id                              string
@@ -132,6 +136,15 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		case marketplacecommon.MetricTypeAdoption:
 			fallthrough
 		case marketplacecommon.MetricTypeInfrastructure:
+			// set as RawMessage for Marshal as the resources are already serialized
+			kubernetesResources := []json.RawMessage{}
+			for _, k8sR := range meterDef.K8sResources {
+				b, ok := k8sR.([]byte)
+				if ok {
+					kubernetesResources = append(kubernetesResources, json.RawMessage(b))
+				}
+			}
+			measuredUsage.KubernetesResources = kubernetesResources
 			fallthrough
 		case marketplacecommon.MetricTypeLicense:
 			measuredUsage.MetricType = meterDef.MetricType.String()

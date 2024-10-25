@@ -14,6 +14,8 @@
 
 package v3alpha1
 
+import "encoding/json"
+
 const Version = "v3alpha1"
 
 type MarketplaceReportSlice struct {
@@ -101,6 +103,9 @@ type MeasuredUsage struct {
 	Crn                    string `json:"crn,omitempty" mapstructure:"crn"`
 	IsViewable             string `json:"isViewable,omitempty" mapstructure:"isViewable"`
 	CalculateSummary       string `json:"calculateSummary,omitempty" mapstructure:"calculateSummary"`
+
+	// An array of kubernetes objects. Typically relating to infrastructure consisting of nodes, clusterversions, namespaces
+	KubernetesResources []json.RawMessage `json:"k8sResources,omitempty" mapstructure:"-"`
 }
 
 type NamespaceLabels struct {
