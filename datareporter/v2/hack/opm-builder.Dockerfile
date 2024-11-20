@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:latest as builder
+FROM registry.access.redhat.com/ubi9/ubi:9.4 as builder
 ARG OPM_VERSION
 ARG TARGETARCH
 ARG TARGETOS
