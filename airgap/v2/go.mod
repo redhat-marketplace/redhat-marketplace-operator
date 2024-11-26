@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	emperror.dev/errors v0.8.1
-	github.com/canonical/go-dqlite v1.21.0
 	github.com/go-co-op/gocron v1.35.3
 	github.com/go-gormigrate/gormigrate/v2 v2.1.1
 	github.com/go-logr/logr v1.4.1
@@ -14,12 +13,12 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/onsi/gomega v1.29.0
 	github.com/pkg/errors v0.9.1
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.16.0
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.63.2
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
 	google.golang.org/protobuf v1.33.0
@@ -29,15 +28,15 @@ require (
 )
 
 require (
+	github.com/avast/retry-go/v4 v4.6.0
+	github.com/canonical/go-dqlite/v3 v3.0.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240415151819-79826c84ba32
 	k8s.io/component-base v0.28.12
 )
 
 require (
-	github.com/Rican7/retry v0.3.0 // indirect
-	github.com/avast/retry-go v3.0.0+incompatible // indirect
-	github.com/avast/retry-go/v4 v4.6.0 // indirect
+	github.com/Rican7/retry v0.3.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -62,7 +61,6 @@ require (
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect

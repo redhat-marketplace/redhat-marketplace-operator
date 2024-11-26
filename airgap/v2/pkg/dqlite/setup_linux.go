@@ -30,8 +30,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/canonical/go-dqlite/app"
-	"github.com/canonical/go-dqlite/client"
+	"github.com/canonical/go-dqlite/v3/app"
+	"github.com/canonical/go-dqlite/v3/client"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"

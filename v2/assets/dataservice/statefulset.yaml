@@ -7,7 +7,6 @@ spec:
     matchLabels:
       app: rhm-data-service
   serviceName: rhm-data-service
-  replicas: 3
   template:
     metadata:
       labels:
