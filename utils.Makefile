@@ -30,12 +30,12 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.12.1
+CONTROLLER_GEN_VERSION=v0.15.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
 
-CODEGEN_VERSION=kubernetes-1.22.3
+CODEGEN_VERSION=kubernetes-1.30.7
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
@@ -72,7 +72,7 @@ helm:
 		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
 	}
 
-GINKGO_VERSION=v2.13.0
+GINKGO_VERSION=v2.17.1
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
