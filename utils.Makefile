@@ -11,8 +11,8 @@ export TAG
 
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
-GO_VERSION ?= 1.21
-ENVTEST_K8S_VERSION ?= 1.27.x
+GO_VERSION ?= 1.22
+ENVTEST_K8S_VERSION ?= 1.30.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -87,7 +87,7 @@ go-mod-outdated:
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@latest,latest)
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
 
 YQ_VERSION=v4.40.1
 
