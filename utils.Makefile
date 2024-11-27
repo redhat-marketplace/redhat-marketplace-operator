@@ -87,7 +87,7 @@ go-mod-outdated:
 
 GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@latest,latest)
 
 YQ_VERSION=v4.40.1
 
