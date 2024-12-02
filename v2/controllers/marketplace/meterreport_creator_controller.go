@@ -177,8 +177,10 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 					},
 				})).
 		WatchesRawSource(
-			&source.Channel{Source: events},
-			&handler.EnqueueRequestForObject{}).
+			source.Channel(
+				events,
+				&handler.EnqueueRequestForObject{},
+			)).
 		Complete(r)
 }
 

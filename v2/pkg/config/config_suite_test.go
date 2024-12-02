@@ -86,7 +86,7 @@ var _ = BeforeSuite(func() {
 	cluster, err := cluster.New(cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	mapper, err := apiutil.NewDiscoveryRESTMapper(cfg, cluster.GetHTTPClient())
+	mapper, err := apiutil.NewDynamicRESTMapper(cfg, cluster.GetHTTPClient())
 	Expect(err).NotTo(HaveOccurred())
 	k8scache, err = cache.New(cfg,
 		cache.Options{
