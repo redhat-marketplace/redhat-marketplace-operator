@@ -807,6 +807,9 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
 		return fmt.Errorf("failed to inject subscription config - name=%s - %v", sts.Name, err)
 	}
 
+	// Allow env DATA_SERVICE_REPLICAS to set replicas on sts
+	sts.Spec.Replicas = ptr.Int32(int32(f.operatorConfig.DataServiceReplicas))
+
 	return nil
 }
 

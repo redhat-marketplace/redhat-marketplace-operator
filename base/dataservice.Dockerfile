@@ -1,12 +1,12 @@
-FROM registry.access.redhat.com/ubi9/go-toolset:1.21
+FROM registry.access.redhat.com/ubi9/go-toolset:1.22.7
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
 ENV TZ=America/New_York
 ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
 ARG GRPC_HEALTH_VERSION=v0.4.25
-ARG DQLITE_VERSION=v1.16.7
-ARG LIBUV_VERSION=v1.48.0
+ARG DQLITE_VERSION=v1.18.0
+ARG LIBUV_VERSION=v1.49.2
 ARG quay_expiration=7d
 
 USER 0
