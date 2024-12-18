@@ -25,7 +25,7 @@ import (
 type MarketplaceConfigSpec struct {
 	// RhmAccountID is the Red Hat Marketplace Account identifier
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Accound ID"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Account ID"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
 	RhmAccountID string `json:"rhmAccountID,omitempty"`
 
@@ -78,6 +78,12 @@ type MarketplaceConfigSpec struct {
 	// License information is required
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="License"
 	License MarketplaceConfigLicense `json:"license,omitempty"`
+
+	// AuthorizeAccountCreation authorizes IBM Software Central to automatically create an account when usage data is submitted with an ibm-entitlement-key
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Authorize Automatic Account Creation"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	AuthorizeAccountCreation *bool `json:"authorizeAccountCreation,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig

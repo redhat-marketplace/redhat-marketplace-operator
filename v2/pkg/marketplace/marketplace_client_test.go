@@ -301,6 +301,64 @@ var _ = Describe("Marketplace Config Status", func() {
 			Expect(statusConditions.IsFalseFor(marketplacev1alpha1.ConditionRegistered)).To(BeTrue())
 		})
 	})
+
+	Context("RhmAccountExists true", func() {
+		BeforeEach(func() {
+			statusCode = 200
+			path = "/" + AccountsEndpoint
+
+			body, _ = os.ReadFile("../../tests/mockresponses/accounts-exist.json")
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", path),
+					ghttp.RespondWithPtr(&statusCode, &body),
+				))
+		})
+		It("Expect true value for RhmAccountExists", func() {
+			exists, err := mclient.RhmAccountExists()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
+
+	Context("RhmAccountExists false", func() {
+		BeforeEach(func() {
+			statusCode = 200
+			path = "/" + AccountsEndpoint
+
+			body, _ = os.ReadFile("../../tests/mockresponses/accounts-no-exist.json")
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", path),
+					ghttp.RespondWithPtr(&statusCode, &body),
+				))
+		})
+		It("Expect false value for RhmAccountExists", func() {
+			exists, err := mclient.RhmAccountExists()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+	})
+
+	Context("RhmAccountExists err", func() {
+		BeforeEach(func() {
+			statusCode = 500
+			path = "/" + AccountsEndpoint
+
+			body, _ = os.ReadFile("../../tests/mockresponses/account-no-exist.json")
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", path),
+					ghttp.RespondWithPtr(&statusCode, &body),
+				))
+		})
+		It("Expect false, err value for RhmAccountExists", func() {
+			exists, err := mclient.RhmAccountExists()
+			Expect(err).To(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+	})
+
 	/*
 		Context("Marketplace Pull Secret without any error", func() {
 				BeforeEach(func() {
