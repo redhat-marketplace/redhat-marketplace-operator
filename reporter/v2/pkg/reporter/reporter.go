@@ -406,7 +406,7 @@ func (r *MarketplaceReporter) Query(
 		}, *r.Retry)
 
 		if warnings != nil {
-			logger.Info("warnings %v", warnings)
+			logger.Info("queryProcess", "warnings", warnings)
 		}
 
 		if err != nil {
