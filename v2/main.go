@@ -354,6 +354,7 @@ func main() {
 		Log:     ctrl.Log.WithName("controllers").WithName("DeploymentReconciler"),
 		Scheme:  mgr.GetScheme(),
 		Factory: factory,
+		Cfg:     opCfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeploymentReconciler")
 		os.Exit(1)

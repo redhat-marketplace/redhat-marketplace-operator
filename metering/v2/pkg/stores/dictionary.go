@@ -91,12 +91,12 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 
 		if err != nil {
 			if errors.Is(err, rhmclient.AccessDeniedErr) {
-				def.log.Info("skipping object", "error", err.Error())
+				def.log.Info("skipping object for resource filter", "error", err.Error())
 				continue
 			}
 
 			if !errors.Is(err, rhmclient.AccessDeniedErr) {
-				def.log.Error(err, "error finding matches")
+				def.log.Error(err, "error finding matches for resource filter")
 				return err
 			}
 

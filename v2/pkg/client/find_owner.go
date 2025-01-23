@@ -66,15 +66,14 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		version = apiVersionSplit[1]
 	}
 
-	_, err = f.accessChecker.CheckAccess(group, version, lookupOwner.Kind, namespace)
-	if err != nil {
-		return nil, err
-	}
-
 	mapping, err := f.client.restMapper.RESTMapping(schema.GroupKind{Group: group, Kind: lookupOwner.Kind}, version)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get mapping")
+	}
+
+	_, err = f.accessChecker.CheckAccess(mapping.Resource)
+	if err != nil {
+		return nil, err
 	}
 
 	informer := f.informers.GetInformer(*mapping)

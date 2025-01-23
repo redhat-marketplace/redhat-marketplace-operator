@@ -80,8 +80,14 @@ spec:
                           a valid secret key.
                         type: string
                       name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        default: ""
+                        description: 'Name of the referent. This field is effectively
+                          required, but due to backwards compatibility is allowed
+                          to be empty. Instances of this type with an empty value
+                          here are almost certainly wrong. TODO: Add other useful
+                          fields. apiVersion, kind, uid? More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Drop `kubebuilder:default` when controller-gen doesn''t
+                          need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -102,8 +108,14 @@ spec:
                           a valid secret key.
                         type: string
                       name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        default: ""
+                        description: 'Name of the referent. This field is effectively
+                          required, but due to backwards compatibility is allowed
+                          to be empty. Instances of this type with an empty value
+                          here are almost certainly wrong. TODO: Add other useful
+                          fields. apiVersion, kind, uid? More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Drop `kubebuilder:default` when controller-gen doesn''t
+                          need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -238,7 +250,9 @@ spec:
                   Job'
                 properties:
                   active:
-                    description: The number of pending and running pods.
+                    description: The number of pending and running pods which are
+                      not terminating (without a deletionTimestamp). The value is
+                      zero for finished jobs.
                     format: int32
                     type: integer
                   completedIndexes:
@@ -255,17 +269,25 @@ spec:
                     description: Represents time when the job was completed. It is
                       not guaranteed to be set in happens-before order across separate
                       operations. It is represented in RFC3339 form and is in UTC.
-                      The completion time is only set when the job finishes successfully.
+                      The completion time is set when the job finishes successfully,
+                      and only then. The value cannot be updated or removed. The value
+                      indicates the same or later point in time as the startTime field.
                     format: date-time
                     type: string
                   conditions:
-                    description: 'The latest available observations of an object''s
+                    description: "The latest available observations of an object's
                       current state. When a Job fails, one of the conditions will
-                      have type "Failed" and status true. When a Job is suspended,
-                      one of the conditions will have type "Suspended" and status
+                      have type \"Failed\" and status true. When a Job is suspended,
+                      one of the conditions will have type \"Suspended\" and status
                       true; when the Job is resumed, the status of this condition
                       will become false. When a Job is completed, one of the conditions
-                      will have type "Complete" and status true. More info: https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/'
+                      will have type \"Complete\" and status true. \n A job is considered
+                      finished when it is in a terminal condition, either \"Complete\"
+                      or \"Failed\". A Job cannot have both the \"Complete\" and \"Failed\"
+                      conditions. Additionally, it cannot be in the \"Complete\" and
+                      \"FailureTarget\" conditions. The \"Complete\", \"Failed\" and
+                      \"FailureTarget\" conditions cannot be disabled. \n More info:
+                      https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/"
                     items:
                       description: JobCondition describes current state of a job.
                       properties:
@@ -299,46 +321,50 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                   failed:
-                    description: The number of pods which reached phase Failed.
+                    description: The number of pods which reached phase Failed. The
+                      value increases monotonically.
                     format: int32
                     type: integer
                   failedIndexes:
-                    description: FailedIndexes holds the failed indexes when backoffLimitPerIndex=true.
-                      The indexes are represented in the text format analogous as
-                      for the `completedIndexes` field, ie. they are kept as decimal
+                    description: "FailedIndexes holds the failed indexes when spec.backoffLimitPerIndex
+                      is set. The indexes are represented in the text format analogous
+                      as for the `completedIndexes` field, ie. they are kept as decimal
                       integers separated by commas. The numbers are listed in increasing
                       order. Three or more consecutive numbers are compressed and
                       represented by the first and last element of the series, separated
                       by a hyphen. For example, if the failed indexes are 1, 3, 4,
-                      5 and 7, they are represented as "1,3-5,7". This field is alpha-level.
-                      It can be used when the `JobBackoffLimitPerIndex` feature gate
-                      is enabled (disabled by default).
+                      5 and 7, they are represented as \"1,3-5,7\". The set of failed
+                      indexes cannot overlap with the set of completed indexes. \n
+                      This field is beta-level. It can be used when the `JobBackoffLimitPerIndex`
+                      feature gate is enabled (enabled by default)."
                     type: string
                   ready:
-                    description: "The number of pods which have a Ready condition.
-                      \n This field is beta-level. The job controller populates the
-                      field when the feature gate JobReadyPods is enabled (enabled
-                      by default)."
+                    description: The number of pods which have a Ready condition.
                     format: int32
                     type: integer
                   startTime:
-                    description: Represents time when the job controller started processing
-                      a job. When a Job is created in the suspended state, this field
-                      is not set until the first time it is resumed. This field is
-                      reset every time a Job is resumed from suspension. It is represented
-                      in RFC3339 form and is in UTC.
+                    description: "Represents time when the job controller started
+                      processing a job. When a Job is created in the suspended state,
+                      this field is not set until the first time it is resumed. This
+                      field is reset every time a Job is resumed from suspension.
+                      It is represented in RFC3339 form and is in UTC. \n Once set,
+                      the field can only be removed when the job is suspended. The
+                      field cannot be modified while the job is unsuspended or finished."
                     format: date-time
                     type: string
                   succeeded:
                     description: The number of pods which reached phase Succeeded.
+                      The value increases monotonically for a given spec. However,
+                      it may decrease in reaction to scale down of elastic indexed
+                      jobs.
                     format: int32
                     type: integer
                   terminating:
                     description: "The number of pods which are terminating (in phase
                       Pending or Running and have a deletionTimestamp). \n This field
-                      is alpha-level. The job controller populates the field when
-                      the feature gate JobPodReplacementPolicy is enabled (disabled
-                      by default)."
+                      is beta-level. The job controller populates the field when the
+                      feature gate JobPodReplacementPolicy is enabled (enabled by
+                      default)."
                     format: int32
                     type: integer
                   uncountedTerminatedPods:
@@ -351,7 +377,7 @@ spec:
                       Remove the pod finalizer. 3. Remove the pod UID from the arrays
                       while increasing the corresponding counter. \n Old jobs might
                       not be tracked using this field, in which case the field remains
-                      null."
+                      null. The structure is empty for finished jobs."
                     properties:
                       failed:
                         description: failed holds UIDs of failed Pods.
