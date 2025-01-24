@@ -82,8 +82,10 @@ spec:
               command:
                 - grpc-health-probe
                 - -addr=localhost:8003
+                - -connect-timeout=3s
             initialDelaySeconds: 360
             periodSeconds: 5
+            timeoutSeconds: 10
           ports:
             - containerPort: 9001
               name: db
