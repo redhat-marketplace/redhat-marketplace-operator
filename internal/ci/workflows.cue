@@ -597,7 +597,7 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-					uses: "actions/upload-artifact@v3"
+					uses: "actions/upload-artifact@v4"
 					with: {
 						name: "release-bundle-${{ steps.bundle.outputs.tag }}"
 						path: "v2/bundle"
@@ -625,7 +625,7 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
-					uses: "actions/upload-artifact@v3"
+					uses: "actions/upload-artifact@v4"
 					with: {
 						name: "release-deployer-bundle-${{ steps.bundle.outputs.tag }}"
 						path: "deployer/v2/bundle"
