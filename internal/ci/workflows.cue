@@ -694,7 +694,7 @@ _#step: ((_#job & {steps:                 _}).steps & [_])[0]
 // We need at least go1.14 for code generation
 _#codeGenGo: "1.14.9"
 
-_#linuxMachine:   "ubuntu-20.04"
+_#linuxMachine:   "ubuntu-24.04"
 _#macosMachine:   "macos-10.15"
 _#windowsMachine: "windows-2019"
 
@@ -753,9 +753,9 @@ _#hasWriteAccess: _#step & {
 
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
-	uses: "docker/setup-qemu-action@v2"
+	uses: "docker/setup-qemu-action@v3"
 	with: {
-		image:     "tonistiigi/binfmt:qemu-v6.1.0"
+		image:     "tonistiigi/binfmt:latest"
 		platforms: "all"
 	}
 }

@@ -14,7 +14,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -64,7 +64,7 @@ jobs:
         fi
   matrix-test:
     name: Matrix Test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -98,7 +98,7 @@ jobs:
         - datareporter
   images:
     name: Build Images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     env:
       GO_VERSION: "1.22"
     defaults:
@@ -115,9 +115,9 @@ jobs:
         go-version: "1.22"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@v3
       with:
-        image: tonistiigi/binfmt:qemu-v6.1.0
+        image: tonistiigi/binfmt:latest
         platforms: all
     - id: buildx
       name: Set up docker buildx
@@ -219,7 +219,7 @@ jobs:
     - test
     - matrix-test
     - images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     outputs:
       isDev: ${{ steps.bundle.outputs.isDev }}
       version: ${{ steps.bundle.outputs.version }}
@@ -238,9 +238,9 @@ jobs:
         go-version: "1.22"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@v3
       with:
-        image: tonistiigi/binfmt:qemu-v6.1.0
+        image: tonistiigi/binfmt:latest
         platforms: all
     - id: buildx
       name: Set up docker buildx

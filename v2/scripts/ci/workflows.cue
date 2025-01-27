@@ -286,7 +286,7 @@ _#step: ((_#job & {steps:                 _}).steps & [_])[0]
 // We need at least go1.14 for code generation
 _#codeGenGo: "1.14.9"
 
-_#linuxMachine:   "ubuntu-20.04"
+_#linuxMachine:   "ubuntu-24.04"
 _#macosMachine:   "macos-10.15"
 _#windowsMachine: "windows-2019"
 

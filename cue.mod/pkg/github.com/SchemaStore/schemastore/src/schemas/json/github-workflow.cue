@@ -375,7 +375,7 @@ import "strings"
 
 				// The type of machine to run the job on. The machine can be
 				// either a GitHub-hosted runner, or a self-hosted runner.
-				"runs-on": "macos-10.15" | "macos-11.0" | "macos-latest" | "self-hosted" | "ubuntu-16.04" | "ubuntu-18.04" | "ubuntu-20.04" | "ubuntu-latest" | "windows-2016" | "windows-2019" | "windows-latest" | (["self-hosted"] | ["self-hosted", #machine] | ["self-hosted", #architecture] | ["self-hosted", #machine, #architecture] | ["self-hosted", #architecture, #machine]) & [...] | #expressionSyntax
+				"runs-on": "macos-10.15" | "macos-11.0" | "macos-latest" | "self-hosted" | "ubuntu-16.04" | "ubuntu-18.04" | "ubuntu-24.04" | "ubuntu-latest" | "windows-2016" | "windows-2019" | "windows-latest" | (["self-hosted"] | ["self-hosted", #machine] | ["self-hosted", #architecture] | ["self-hosted", #machine, #architecture] | ["self-hosted", #architecture, #machine]) & [...] | #expressionSyntax
 
 				// The environment that the job references.
 				environment?: string | #environment
