@@ -352,7 +352,7 @@ jobs:
         echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
@@ -382,7 +382,7 @@ jobs:
         echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: release-datareporter-bundle-${{ steps.bundle.outputs.tag }}
         path: datareporter/v2/bundle

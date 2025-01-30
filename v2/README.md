@@ -174,6 +174,10 @@ spec:
     # Set the cluster's dockerconfig file to the new merged version.
     oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
     ```
+  7. (Optional) Your IBM product may have installed IBM Metrics Operator using an `ibm-entitlement-key` for authentication to IBM Software Central. To authorize the automatic creation of an IBM Software Central account for the IBM account owning the `ibm-entitlement-key`
+      ```
+      oc patch marketplaceconfig marketplaceconfig -n ibm-software-central --type='merge' -p '{"spec": {"authorizeAccountCreation": true}}'
+      ```
 
 ### Why is a global pull secret required?
 In order to successfully install the products hosted by the container image registry, you will need to make the pull secret available across the cluster. This can be achieved by applying the pull as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets). For alternative approaches, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).
