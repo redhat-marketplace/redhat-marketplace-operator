@@ -1,8 +1,8 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2
 
-go 1.22.0
+go 1.23.0
 
-toolchain go1.22.9
+toolchain go1.23.4
 
 require (
 	emperror.dev/errors v0.8.1
@@ -28,7 +28,7 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.34.0
-	golang.org/x/oauth2 v0.19.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/grpc v1.63.2
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.30.7
@@ -47,7 +47,7 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.24.0 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
