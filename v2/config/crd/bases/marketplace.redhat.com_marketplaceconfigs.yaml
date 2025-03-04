@@ -48,6 +48,11 @@ spec:
           spec:
             description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
             properties:
+              authorizeAccountCreation:
+                description: AuthorizeAccountCreation authorizes IBM Software Central
+                  to automatically create an account when usage data is submitted
+                  with an ibm-entitlement-key
+                type: boolean
               clusterName:
                 description: ClusterName is the name that will be assigned to your
                   cluster in the Red Hat Marketplace UI. If you have set the name
@@ -127,11 +132,13 @@ spec:
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       required:
                       - key
                       - operator
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   matchLabels:
                     additionalProperties:
                       type: string

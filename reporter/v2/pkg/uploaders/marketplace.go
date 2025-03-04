@@ -24,7 +24,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"path/filepath"
+	"strconv"
 
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
@@ -33,9 +35,10 @@ import (
 )
 
 type MarketplaceUploaderConfig struct {
-	URL                 string   `json:"url"`
-	Token               string   `json:"-"`
-	AdditionalCertFiles []string `json:"additionalCertFiles,omitempty"`
+	URL                      string   `json:"url"`
+	AuthorizeAccountCreation bool     `json:"authorizeAccountCreation"`
+	Token                    string   `json:"-"`
+	AdditionalCertFiles      []string `json:"additionalCertFiles,omitempty"`
 
 	certificates []*x509.Certificate `json:"-"`
 	httpVersion  *int                `json:"-"`
@@ -134,7 +137,14 @@ func checkError(resp *http.Response, status MarketplaceUsageResponse, message st
 
 // https://sandbox.marketplace.redhat.com/metering/api/v2/metrics'
 func (r *MarketplaceUploader) uploadFileRequest(fileName string, reader io.Reader) (*http.Request, error) {
-	marketplaceUploadURL := "%s/metering/api/v2/metrics"
+	marketplaceUploadURL, err := url.Parse(fmt.Sprintf("%s/metering/api/v2/metrics", r.URL))
+	if err != nil {
+		return nil, err
+	}
+
+	q := marketplaceUploadURL.Query()
+	q.Set("authorizeAccountCreation", strconv.FormatBool(r.AuthorizeAccountCreation))
+	marketplaceUploadURL.RawQuery = q.Encode()
 
 	var req *http.Request
 
@@ -167,7 +177,7 @@ func (r *MarketplaceUploader) uploadFileRequest(fileName string, reader io.Reade
 		return nil, err
 	}
 
-	req, err = http.NewRequest("POST", fmt.Sprintf(marketplaceUploadURL, r.URL), body)
+	req, err = http.NewRequest("POST", marketplaceUploadURL.String(), body)
 	if err != nil {
 		return nil, err
 	}

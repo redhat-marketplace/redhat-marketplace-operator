@@ -7,7 +7,6 @@ spec:
     matchLabels:
       app: rhm-data-service
   serviceName: rhm-data-service
-  replicas: 3
   template:
     metadata:
       labels:
@@ -83,8 +82,10 @@ spec:
               command:
                 - grpc-health-probe
                 - -addr=localhost:8003
-            initialDelaySeconds: 60
+                - -connect-timeout=3s
+            initialDelaySeconds: 360
             periodSeconds: 5
+            timeoutSeconds: 10
           ports:
             - containerPort: 9001
               name: db

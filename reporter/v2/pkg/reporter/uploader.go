@@ -19,6 +19,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
 	u "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
@@ -90,9 +91,7 @@ func ProvideUploaders(
 		case *u.MarketplaceUploader:
 			config, err := provideMarketplaceConfig(ctx,
 				client,
-				reporterConfig.DeployedNamespace,
-				reporterConfig.CipherSuites,
-				reporterConfig.MinVersion,
+				reporterConfig,
 				log)
 			// No secret is acceptable in disconnected environment
 			if err == utils.NoSecretsFound && reporterConfig.IsDisconnected {
@@ -152,13 +151,11 @@ const (
 func provideMarketplaceConfig(
 	ctx context.Context,
 	client client.Client,
-	deployedNamespace string,
-	cipherSuites []uint16,
-	minVersion uint16,
+	reporterConfig *Config,
 	log logr.Logger,
 ) (*uploaders.MarketplaceUploaderConfig, error) {
 	log.Info("finding secret redhat-marketplace-pull-secret or ibm-entitlement-key")
-	b := utils.ProvideSecretFetcherBuilder(client, ctx, deployedNamespace)
+	b := utils.ProvideSecretFetcherBuilder(client, ctx, reporterConfig.DeployedNamespace)
 	si, err := b.ReturnSecret()
 	if err != nil {
 		return nil, err
@@ -166,15 +163,21 @@ func provideMarketplaceConfig(
 
 	log.Info("found secret", "secret name", si.Secret.GetName())
 
+	marketplaceConfig, err := getMarketplaceConfig(ctx, client, reporterConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	url := MktplProductionURL
 	if si.Env == marketplace.EnvStage {
 		url = MktplStageURL
 	}
 
 	return &uploaders.MarketplaceUploaderConfig{
-		URL:          url,
-		Token:        si.Token,
-		CipherSuites: cipherSuites,
-		MinVersion:   minVersion,
+		URL:                      url,
+		AuthorizeAccountCreation: ptr.ToBool(marketplaceConfig.Spec.AuthorizeAccountCreation),
+		Token:                    si.Token,
+		CipherSuites:             reporterConfig.CipherSuites,
+		MinVersion:               reporterConfig.MinVersion,
 	}, nil
 }

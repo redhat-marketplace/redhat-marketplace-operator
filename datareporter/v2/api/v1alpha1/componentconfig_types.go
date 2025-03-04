@@ -20,10 +20,10 @@ import (
 	"time"
 
 	"github.com/gotidy/ptr"
+	cfg "github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/config/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
-	cfg "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 )
 
 type ApiHandlerConfig struct {
