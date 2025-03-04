@@ -14,7 +14,7 @@ require (
 	github.com/gotidy/ptr v1.4.0
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.5.0
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/gomega v1.32.0
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
 	github.com/operator-framework/api v0.18.0
@@ -39,6 +39,7 @@ require (
 )
 
 require (
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20240410195839-0cc064c06b45
 	go.uber.org/zap v1.26.0

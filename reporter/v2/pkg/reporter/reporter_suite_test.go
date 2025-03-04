@@ -22,9 +22,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -89,6 +91,77 @@ var _ = BeforeSuite(func() {
 			Name: "openshift-redhat-marketplace",
 		},
 	})
+
+	oldTime := metav1.Unix(1000000, 0)
+	newTime := metav1.Unix(5000000, 0)
+	clusterVersion := &openshiftconfigv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: openshiftconfigv1.ClusterVersionSpec{ClusterID: "1234", Channel: "test"},
+	}
+	err = k8sClient.Create(context.Background(), clusterVersion)
+	Expect(err).ToNot(HaveOccurred())
+	clusterVersion.Status = openshiftconfigv1.ClusterVersionStatus{
+		History: []openshiftconfigv1.UpdateHistory{
+			{
+				StartedTime:    newTime,
+				CompletionTime: &newTime,
+				Version:        "4.17.1",
+			},
+			{
+				StartedTime:    oldTime,
+				CompletionTime: &oldTime,
+				Version:        "4.17.0",
+			},
+		},
+	}
+	err = k8sClient.Status().Update(context.Background(), clusterVersion)
+	Expect(err).ToNot(HaveOccurred())
+
+	console := &openshiftconfigv1.Console{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: openshiftconfigv1.ConsoleSpec{},
+	}
+	err = k8sClient.Create(context.Background(), console)
+	Expect(err).ToNot(HaveOccurred())
+	console.Status = openshiftconfigv1.ConsoleStatus{ConsoleURL: "https://swc.saas.ibm.com"}
+	err = k8sClient.Status().Update(context.Background(), console)
+	Expect(err).ToNot(HaveOccurred())
+
+	infrastructure := &openshiftconfigv1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: openshiftconfigv1.InfrastructureSpec{},
+	}
+	err = k8sClient.Create(context.Background(), infrastructure)
+	Expect(err).ToNot(HaveOccurred())
+	infrastructure.Status.PlatformStatus = &openshiftconfigv1.PlatformStatus{Type: openshiftconfigv1.AWSPlatformType}
+	infrastructure.Status.ControlPlaneTopology = openshiftconfigv1.HighlyAvailableTopologyMode
+	infrastructure.Status.InfrastructureTopology = openshiftconfigv1.HighlyAvailableTopologyMode
+	err = k8sClient.Status().Update(context.Background(), infrastructure)
+	Expect(err).ToNot(HaveOccurred())
+
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v1.NodeSpec{},
+	}
+	err = k8sClient.Create(context.Background(), node)
+	Expect(err).ToNot(HaveOccurred())
+	resourceList := make(v1.ResourceList)
+	resourceList["cpu"] = resource.MustParse("8")
+	resourceList["pods"] = resource.MustParse("250")
+	resourceList["memory"] = resource.MustParse("15991644Ki")
+	node.Status.Capacity = resourceList
+	node.Status.NodeInfo.Architecture = "amd64"
+	node.Status.NodeInfo.OperatingSystem = "linux"
+	err = k8sClient.Status().Update(context.Background(), node)
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
