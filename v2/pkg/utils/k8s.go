@@ -74,7 +74,7 @@ func NewPersistentVolumeClaim(values PersistentVolume) (corev1.PersistentVolumeC
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				*values.AccessMode,
 			},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					"storage": *values.StorageSize,
 				},

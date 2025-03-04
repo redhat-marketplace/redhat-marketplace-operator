@@ -6,7 +6,7 @@ on:
 jobs:
   prs:
     name: Get release PRs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix}}
       emptymatrix: ${{ steps.set-matrix.outputs.emptymatrix}}
@@ -45,7 +45,7 @@ jobs:
     name: Check publish status
     needs:
     - prs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -66,7 +66,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.21"
+        go-version: "1.22"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3

@@ -51,10 +51,11 @@ type OperatorConfig struct {
 	OLMInformation
 	MeterBaseValues
 	MeterdefinitionCatalog
-	Config         EnvConfig `env:"CONFIG"`
-	IsDisconnected bool      `env:"IS_DISCONNECTED" envDefault:"false"`
-	minVersion     string
-	cipherSuites   []string
+	Config              EnvConfig `env:"CONFIG"`
+	IsDisconnected      bool      `env:"IS_DISCONNECTED" envDefault:"false"`
+	DataServiceReplicas int       `env:"DATA_SERVICE_REPLICAS" envDefault:"3"`
+	minVersion          string
+	cipherSuites        []string
 }
 
 // ENVCONFIG is a map of containerName to a corev1 resource requirements

@@ -8,14 +8,14 @@ jobs:
 
   license:
     name: Check License
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
 
     - name: Set up Go 1.x
       uses: actions/setup-go@v4
       with:
-        go-version: ^1.21
+        go-version: ^1.22
         cache: false
       id: go
 

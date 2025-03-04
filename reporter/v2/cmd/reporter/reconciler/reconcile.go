@@ -157,7 +157,7 @@ func init() {
 	ReconcileCmd.Flags().StringVar(&prometheusNamespace, "prometheus-namespace", "openshift-redhat-marketplace", "cert file for the data service")
 	ReconcileCmd.Flags().StringVar(&prometheusPort, "prometheus-port", "rbac", "cert file for the data service")
 
-	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v2alpha1", "reporter version schema to write")
+	ReconcileCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v3alpha1", "reporter version schema to write")
 
 	ReconcileCmd.Flags().StringVar(&minVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
 	ReconcileCmd.Flags().StringSliceVar(&cipherSuites,

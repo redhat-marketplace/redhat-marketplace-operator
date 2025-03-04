@@ -7,7 +7,7 @@ env:
 jobs:
   push:
     name: Push Images to PC
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -35,7 +35,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.21"
+        go-version: "1.22"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -136,7 +136,7 @@ jobs:
         reactions: "-1"
   publish:
     name: Publish Images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -164,7 +164,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.21"
+        go-version: "1.22"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -274,7 +274,7 @@ jobs:
         reactions: "-1"
   push-operator:
     name: Push Operator
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -302,7 +302,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.21"
+        go-version: "1.22"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -411,7 +411,7 @@ jobs:
         reactions: "-1"
   publish-operator:
     name: Publish Operator
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -439,7 +439,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v4
       with:
-        go-version: "1.21"
+        go-version: "1.22"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3

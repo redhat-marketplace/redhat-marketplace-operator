@@ -15,7 +15,6 @@
 package marketplace
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -33,14 +32,15 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	RegistrationEndpoint   = "provisioning/v1/registered-clusters"
-	AuthenticationEndpoint = "subscriptions/api/v1/keys/authentication"
+	RegistrationEndpoint = "provisioning/v1/registered-clusters"
+	AccountsEndpoint     = "account/api/v2/accounts"
 )
 
 const (
@@ -414,38 +414,50 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 	return objId, nil
 }
 
+type OMAccount struct {
+	ID   string `json:"id"`
+	Name string `json:"Name"`
+}
+
+type UserIdentityInfo struct {
+	IAMId string `json:"iamId"`
+	Name  string `json:"name"`
+}
+
+type AccountsResults struct {
+	TotalResults     string           `json:"totalResults"`
+	UserIdentityInfo UserIdentityInfo `json:"userIdentityInfo"`
+	OMAccounts       []OMAccount      `json:"OMAccounts"`
+}
+
+// Fetch basic account info primarily to determine if ibm-entitlement-key has an OMAccount
 func (m *MarketplaceClient) RhmAccountExists() (bool, error) {
-	u, err := buildQuery(m.endpoint, AuthenticationEndpoint)
+	u, err := buildQuery(m.endpoint, AccountsEndpoint)
 	if err != nil {
 		return false, err
 	}
 
-	logger.Info("query to check rhmAccount existence", "query", u.String())
+	logger.Info("query to check account existence", "query", u.String())
 
-	requestBody, err := json.Marshal(map[string]bool{
-		"createAccount":              false,
-		"sendEmailOnAccountCreation": false,
-	})
-	if err != nil {
-		return false, errors.New("intenalError: json.Marshal")
-	}
-
-	requestBodyBuffer := bytes.NewBuffer(requestBody)
-	if err != nil {
-		return false, errors.New("intenalError: NewBuffer")
-	}
-
-	resp, err := m.httpClient.Post(u.String(), "application/json", requestBodyBuffer)
+	resp, err := m.httpClient.Get(u.String())
 	if err != nil {
 		return false, err
 	}
 
-	if resp.StatusCode == 200 {
-		return true, nil
-	}
-	if resp.StatusCode == 206 {
-		return false, nil
+	if resp.StatusCode != 200 {
+		return false, errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
 	}
 
-	return false, errors.New("unexpected response status " + resp.Status)
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+
+	accountsResults := AccountsResults{}
+	err = yaml.Unmarshal(respBodyBytes, &accountsResults)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to unmarshal accountsResults")
+	}
+
+	return (len(accountsResults.OMAccounts) > 0), nil
 }

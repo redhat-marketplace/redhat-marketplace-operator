@@ -75,6 +75,14 @@ func mockResponseRoundTripper(files map[string]string, meterdefinitions []v1beta
 				// Must be set to non-nil value or it panics
 				Header: headers,
 			}
+		} else if strings.Contains(query["query"][0], "kube_namespace_labels{") {
+			return &http.Response{
+				StatusCode: 200,
+				// Send response to be tested
+				Body: io.NopCloser(bytes.NewBuffer(GenerateKubeNamespaceLabelsResponse(start, end))),
+				// Must be set to non-nil value or it panics
+				Header: headers,
+			}
 		}
 
 		var fileBytes []byte
@@ -159,6 +167,72 @@ func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition, start
 			})
 		}
 	}
+
+	data := map[string]interface{}{
+		"status": "success",
+		"data": map[string]interface{}{
+			"resultType": "matrix",
+			"result":     results,
+		},
+	}
+
+	bytes, _ := json.Marshal(&data)
+
+	return bytes
+}
+
+// kube_namespace_labels{} may have results with different label sets if the labels have been modified during the query range
+// provide a result for this case
+func GenerateKubeNamespaceLabelsResponse(start, end time.Time) []byte {
+	results := []map[string]interface{}{}
+	series := GenerateSeries(start, end)
+	valuesA := make([][]interface{}, len(series)/2, len(series)/2)
+	valuesB := make([][]interface{}, len(series)/2, len(series)/2)
+
+	for i := 0; i < len(series)/2; i++ {
+		valuesA[i] = []interface{}{series[i], "1"}
+	}
+
+	j := 0
+	for i := len(series) / 2; i < len(series); i++ {
+		valuesB[j] = []interface{}{series[i], "1"}
+		j++
+	}
+
+	results = append(results, map[string]interface{}{
+		"metric": map[string]string{
+			"__name__":                               "kube_namespace_labels",
+			"container":                              "kube-rbac-proxy-main",
+			"endpoint":                               "https-main",
+			"job":                                    "kube-state-metrics",
+			"label_kubernetes_io_metadata_name":      "metering-example-operator",
+			"label_pod_security_kubernetes_io_audit": "privileged",
+			"label_pod_security_kubernetes_io_enforce": "privileged",
+			"label_pod_security_kubernetes_io_warn":    "privileged",
+			"namespace":                                "metering-example-operator",
+			"prometheus":                               "openshift-monitoring/k8s",
+			"service":                                  "kube-state-metrics",
+		},
+		"values": valuesA,
+	})
+
+	results = append(results, map[string]interface{}{
+		"metric": map[string]string{
+			"__name__":                               "kube_namespace_labels",
+			"container":                              "kube-rbac-proxy-main",
+			"endpoint":                               "https-main",
+			"job":                                    "kube-state-metrics",
+			"label_kubernetes_io_metadata_name":      "metering-example-operator",
+			"label_pod_security_kubernetes_io_audit": "privileged",
+			"label_pod_security_kubernetes_io_enforce": "privileged",
+			"label_pod_security_kubernetes_io_warn":    "privileged",
+			"label_swc_saas_ibm_com_testkey":           "testval",
+			"namespace":                                "metering-example-operator",
+			"prometheus":                               "openshift-monitoring/k8s",
+			"service":                                  "kube-state-metrics",
+		},
+		"values": valuesB,
+	})
 
 	data := map[string]interface{}{
 		"status": "success",

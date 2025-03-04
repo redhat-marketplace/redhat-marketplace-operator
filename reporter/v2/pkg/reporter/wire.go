@@ -72,6 +72,7 @@ func NewReporter(
 		getPrometheusPort,
 		getMarketplaceConfig,
 		getMeterDefinitionReferences,
+		getK8sInfrastructureResources,
 		ProvideWriter,
 		ProvideDataBuilder,
 		ReporterSet,

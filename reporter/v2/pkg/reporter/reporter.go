@@ -16,6 +16,7 @@ package reporter
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,6 +69,7 @@ type MarketplaceReporter struct {
 	MktConfig        *marketplacev1alpha1.MarketplaceConfig
 	report           *marketplacev1alpha1.MeterReport
 	meterDefinitions MeterDefinitionReferences
+	k8sResources     []interface{}
 	*Config
 	schemaDataBuilder common.DataBuilder
 	reportWriter      common.ReportWriter
@@ -82,6 +84,7 @@ func NewMarketplaceReporter(
 	MktConfig *marketplacev1alpha1.MarketplaceConfig,
 	api *PrometheusAPI,
 	meterDefinitions MeterDefinitionReferences,
+	k8sResources []interface{},
 	schemaDataBuilder common.DataBuilder,
 	reportWriter common.ReportWriter,
 ) (*MarketplaceReporter, error) {
@@ -91,6 +94,7 @@ func NewMarketplaceReporter(
 		report:            report,
 		Config:            config,
 		meterDefinitions:  meterDefinitions,
+		k8sResources:      k8sResources,
 		schemaDataBuilder: schemaDataBuilder,
 		reportWriter:      reportWriter,
 	}, nil
@@ -255,14 +259,6 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	definitionSet := make(map[types.NamespacedName][]*meterDefPromQuery)
 	start, end := r.report.Spec.StartTime.Time.UTC(), r.report.Spec.EndTime.Time.Add(-1*time.Second).UTC()
 
-	var rhmAccountExists bool
-	cond := r.MktConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
-	if cond != nil && cond.IsTrue() {
-		rhmAccountExists = true
-	} else {
-		rhmAccountExists = false
-	}
-
 	for _, ref := range meterDefinitions {
 		queries, err := transformMeterDefinitionReference(ref, start, end)
 
@@ -299,14 +295,6 @@ func (r *MarketplaceReporter) ProduceMeterDefinitions(
 	for key, val := range definitionSet {
 		logger.V(4).Info("sending", "key", key)
 		for _, query := range val {
-			// if RHM/Software Central account does not exist,
-			// skip generating MeterReport for MeterDefinitions that are type license or billable
-			if !rhmAccountExists &&
-				(query.query.MetricType == marketplacecommon.MetricTypeEmpty || // metricType empty is treated as MetricTypeLincense
-					query.query.MetricType == marketplacecommon.MetricTypeBillable ||
-					query.query.MetricType == marketplacecommon.MetricTypeLicense) {
-				continue
-			}
 			localQ := query
 			logger.V(4).Info("sending q", "q", localQ)
 			meterDefsChan <- localQ
@@ -377,6 +365,83 @@ func (r *MarketplaceReporter) getMeterDefinitions() (map[types.NamespacedName][]
 	}
 }
 
+// Report namespace labels of format swc.saas.ibm.com/key=value
+const (
+	labelPrefix    = "label_"
+	swcLabelPrefix = "label_swc_saas_ibm_com_"
+)
+
+func (r *MarketplaceReporter) getNamespaceLabels(namespaces ...string) (map[string]map[string]string, error) {
+	var result model.Value
+	var warnings v1.Warnings
+	var err error
+	nsLabels := make(map[string]map[string]string)
+
+	err = utils.Retry(func() error {
+		query := &NamespacesQuery{
+			Start:      r.report.Spec.StartTime.Time.UTC(),
+			End:        r.report.Spec.EndTime.Time.Add(-1 * time.Millisecond).UTC(),
+			Step:       time.Hour,
+			Namespaces: namespaces,
+		}
+
+		result, warnings, err = r.QueryNamespaceLabels(query)
+
+		if err != nil {
+			logger.Error(err, "querying prometheus", "warnings", warnings)
+			return err
+		}
+
+		if len(warnings) > 0 {
+			logger.Info("warnings", "warnings", warnings)
+		}
+
+		return nil
+	}, *r.Retry)
+
+	if err != nil {
+		logger.Error(err, "error encountered")
+		return nsLabels, err
+	}
+
+	logger.V(4).Info("result", "result", result)
+
+	// Multiple matrixVals may exist for the same namespace for a query range, if k8s labels were added/removed
+	// namespace=myns label_firstlabel=1 label_secondlabel=2
+	// namespace=myns label_firstlabel=1 label_secondlabel=2 label_thirdlabel=3
+	// aggregate the labels for the query range
+
+	switch result.Type() {
+	case model.ValMatrix:
+		matrixVals := result.(model.Matrix)
+		for _, matrix := range matrixVals {
+			pLabels := getAllKeysFromMetric(matrix.Metric)
+			kvMap, err := kvToMap(pLabels)
+			if err != nil {
+				return nsLabels, err
+			}
+
+			// range over prom label map and add k8s label_A_LABEL to namespace label map
+			// add only label_swc_saas_ibm_com_ and trim the label_ prefix
+			namespace, ok := kvMap["namespace"]
+			if ok {
+				k8sLabels := make(map[string]string)
+				for k, v := range kvMap {
+					if strings.HasPrefix(k, swcLabelPrefix) {
+						k8sLabels[strings.TrimPrefix(k, labelPrefix)] = v.(string)
+					}
+				}
+				nsLabels[namespace.(string)] = k8sLabels
+			}
+		}
+		return nsLabels, nil
+	default:
+		err := errors.NewWithDetails("result type is unprocessable", "type", result.Type().String())
+		logger.Error(err, "error encountered")
+		return nsLabels, err
+	}
+}
+
 func (r *MarketplaceReporter) Query(
 	ctx context.Context,
 	startTime, endTime time.Time,
@@ -406,7 +471,7 @@ func (r *MarketplaceReporter) Query(
 		}, *r.Retry)
 
 		if warnings != nil {
-			logger.Info("warnings %v", warnings)
+			logger.Info("queryProcess", "warnings", warnings)
 		}
 
 		if err != nil {
@@ -487,6 +552,27 @@ func (r *MarketplaceReporter) Process(
 							return
 						}
 
+						// Get the Labels for the namespace from query kube_namespace_labels{}
+						// A query grouped by namespace will have a resource namespace
+						// Otherwise collect the labels of the meterdef namespace
+						ns := ""
+						if record.ResourceNamespace != "" {
+							ns = record.ResourceNamespace
+						} else if record.ExportedMeterDefNamespace != "" {
+							ns = record.ExportedMeterDefNamespace
+						}
+						if ns != "" {
+							record.NamespaceLabels, err = r.getNamespaceLabels(ns)
+							if err != nil {
+								logger.Error(err, "failed to get namespace labels")
+								errorsch <- errors.Wrap(err, "failed to get namespace labels")
+								return
+							}
+						}
+
+						// Kubernetes Infrastructure Resources
+						record.K8sResources = r.k8sResources
+
 						mutex.Lock()
 						defer mutex.Unlock()
 
@@ -501,7 +587,6 @@ func (r *MarketplaceReporter) Process(
 								common.Time(r.report.Spec.EndTime.Time))
 							results[record.Hash()] = dataBuilder
 						}
-
 						dataBuilder.AddMeterDefinitionLabels(record)
 					}()
 				}

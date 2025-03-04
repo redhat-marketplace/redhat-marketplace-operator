@@ -22,8 +22,10 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
 	schemav1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/v1alpha1"
 	schemav2alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/v2alpha1"
+	schemav3alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/v3alpha1"
 	writerv1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/writer/v1"
 	writerv2 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/writer/v2"
+	writerv3 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/writer/v3"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 )
 
@@ -37,6 +39,8 @@ func ProvideWriter(
 		return &writerv1.ReportWriter{MktConfig: MktConfig, Logger: logger}, nil
 	case "v2alpha1":
 		return &writerv2.ReportWriter{MktConfig: MktConfig, Logger: logger}, nil
+	case "v3alpha1":
+		return &writerv3.ReportWriter{MktConfig: MktConfig, Logger: logger}, nil
 	default:
 		return nil, errors.New(fmt.Sprintf("Unsupported reporterSchema: %s", config.ReporterSchema))
 	}
@@ -54,6 +58,10 @@ func ProvideDataBuilder(
 	case "v2alpha1":
 		return common.DataBuilderFunc(func() common.SchemaMetricBuilder {
 			return &schemav2alpha1.MarketplaceReportDataBuilder{}
+		}), nil
+	case "v3alpha1":
+		return common.DataBuilderFunc(func() common.SchemaMetricBuilder {
+			return &schemav3alpha1.MarketplaceReportDataBuilder{}
 		}), nil
 	default:
 		return nil, errors.New(fmt.Sprintf("Unsupported reporterSchema: %s", config.ReporterSchema))
