@@ -7,7 +7,7 @@ env:
 jobs:
   push:
     name: Push Images to PC
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -136,7 +136,7 @@ jobs:
         reactions: "-1"
   publish:
     name: Publish Images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -274,7 +274,7 @@ jobs:
         reactions: "-1"
   push-operator:
     name: Push Operator
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -411,7 +411,7 @@ jobs:
         reactions: "-1"
   publish-operator:
     name: Publish Operator
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
