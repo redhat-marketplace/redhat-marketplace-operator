@@ -11,7 +11,6 @@ metadata:
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: ibm-software-central
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
-    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources.deploy.razee.io]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
@@ -26,11 +25,6 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: RemoteResource is the Schema for the remoteresources API
-      displayName: Remote Resource
-      kind: RemoteResource
-      name: remoteresources.deploy.razee.io
-      version: v1alpha1
     - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
         controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       displayName: Marketplace Config
@@ -54,12 +48,6 @@ spec:
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
-      version: v1alpha1
-    - description: RazeeDeployment is the resources that deploys Razee for the Red
-        Hat Marketplace. This is an internal resource not meant to be modified directly.
-      displayName: Razee Deployment
-      kind: RazeeDeployment
-      name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
   description: "The IBM Metrics Operator provides workload metering and reporting
     for IBM and Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions

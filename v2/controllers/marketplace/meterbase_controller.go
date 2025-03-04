@@ -222,6 +222,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-metric-state
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=delete,resourceNames=rhm-marketplaceconfig-razeedeployment
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create

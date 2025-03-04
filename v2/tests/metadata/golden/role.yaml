@@ -20,17 +20,6 @@ rules:
       - list
       - watch
   - apiGroups:
-      - rbac.authorization.k8s.io
-    resourceNames:
-      - razeedeploy-admin-cr
-      - redhat-marketplace-razeedeploy
-    resources:
-      - clusterroles
-    verbs:
-      - get
-      - list
-      - delete
-  - apiGroups:
       - ''
     resources:
       - pods
@@ -170,17 +159,6 @@ rules:
       - update
       - watch
   - apiGroups:
-      - deploy.razee.io
-    resources:
-      - remoteresourcess3
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
       - config.openshift.io
     resources:
       - consoles
@@ -196,44 +174,10 @@ rules:
     resources:
       - '*'
       - meterdefinitions
-      - razeedeployments
       - meterbases
       - marketplaceconfigs
-      - remoteresources3s
     verbs:
       - '*'
-  - apiGroups:
-      - ''
-    resourceNames:
-      - rhm-cos-reader-key
-      - watch-keeper-secret
-    resources:
-      - secrets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resourceNames:
-      - watch-keeper-config
-      - watch-keeper-limit-poll
-      - watch-keeper-non-namespaced
-      - razee-cluster-metadata
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
   - apiGroups:
       - authentication.k8s.io
     resources:
@@ -253,26 +197,6 @@ rules:
     verbs:
       - get
       - create
----
-# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: redhat-marketplace-remoteresources3deployment
-rules:
-  - apiGroups:
-      - operators.coreos.com
-      - marketplace.redhat.com
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -416,41 +340,6 @@ rules:
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: redhat-marketplace-watch-keeper
-rules:
-  - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
----
-# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: redhat-marketplace-remoteresources3deployment
-  namespace: openshift-redhat-marketplace
-rules:
-  - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - '*'
----
-# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: redhat-marketplace-prometheus
@@ -488,20 +377,6 @@ metadata:
   name: redhat-marketplace-operator
   namespace: openshift-redhat-marketplace
 rules:
-  - apiGroups:
-      - deploy.razee.io
-    resources:
-      - '*'
-      - remoteresourcess3
-      - remoteresources
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - update
-      - patch
-      - watch
   - apiGroups:
       - ''
     resources:
@@ -581,19 +456,4 @@ rules:
       - list
       - patch
       - update
-      - watch
-  - apiGroups:
-      - ''
-    resourceNames:
-      - razeedeploy-sa
-      - watch-keeper-sa
-    resources:
-      - serviceaccounts
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - update
-      - patch
       - watch

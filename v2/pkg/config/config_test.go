@@ -188,8 +188,6 @@ var _ = Describe("Config", func() {
 			clusterVersionString := `apiVersion: config.openshift.io/v1
 kind: ClusterVersion
 metadata:
-  labels:
-    razee/watch-resource: detail
   name: version
 spec:
   channel: fast-4.6

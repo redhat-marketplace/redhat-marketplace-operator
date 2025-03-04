@@ -72,8 +72,8 @@ spec:
                 description: The features that can be enabled or disabled
                 properties:
                   deployment:
-                    description: Deployment represents the enablement of the razee
-                      deployment, defaults to true when not set
+                    description: '[DEPRECATED] Deployment represents the enablement
+                      of the razee deployment, defaults to true when not set'
                     type: boolean
                   meterDefinitionCatalogServer:
                     description: '[DEPRECATED] EnableMeterDefinitionCatalogServer
@@ -240,8 +240,8 @@ spec:
                   type: object
                 type: array
               razeeSubConditions:
-                description: RazeeSubConditions represent the latest available observations
-                  of the razee object's state
+                description: '[DEPRECATED] RazeeSubConditions represent the latest
+                  available observations of the razee object''s state'
                 items:
                   description: "Condition represents an observation of an object's
                     state. Conditions are an extension mechanism intended to be used

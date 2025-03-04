@@ -122,33 +122,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 	}, marketplaceConfig)
 
 	if err == nil && marketplaceConfig.GetDeletionTimestamp() != nil {
-		// On marketplaceconfig Deletion, attempt unregister, and remove finalizers
+		// On marketplaceconfig Deletion, delete secret, and remove finalizers
 		// Garbage Collection should delete remaining owned resources
-		if !ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) {
-			// Attempt to unregister, do not block reconciler
-			// underlying marketplaceClient is not retryablehttp, so attempt retries
-			err := retry.OnError(retry.DefaultBackoff, func(_ error) bool {
-				return true
-			}, func() error {
-				marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-					AccountId:   marketplaceConfig.Spec.RhmAccountID,
-					ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-				}
-				reqLogger.Info("unregister", "marketplace client account", marketplaceClientAccount)
-				registrationStatusOutput, err := mclient.UnRegister(marketplaceClientAccount)
-				if err != nil {
-					reqLogger.Error(err, "unregister failed")
-					return err
-				}
-				reqLogger.Info("unregister", "RegistrationStatus", registrationStatusOutput.RegistrationStatus)
-				return err
-			})
-			if err != nil {
-				reqLogger.Error(err, "error requesting unregistration")
-			}
-			reqLogger.Info("cluster unregistered")
-		}
-
 		if err := r.removeMarketplaceConfigFinalizer(request); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -235,7 +210,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, nil
 	}
 
-	var newOptSecretObj *v1.Secret
 	var rhmAccountExists *bool // nil=unknown, true, false
 	var registrationStatusConditions status.Conditions
 
@@ -266,66 +240,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		// only check registration and get the secret if RHM account exists
+		// only check registration if RHM account exists
 		if ptr.ToBool(rhmAccountExists) {
-			//
-			// Secret
-			//
-			//Calling POST endpoint to pull the secret definition
-			newOptSecretObj, err = mclient.GetMarketplaceSecret()
-			if err != nil {
-				reqLogger.Error(err, "failed to get operator secret")
-			} else {
-				// Secret comes back with namespace "redhat-marketplace-operator", set to request namespace
-				newOptSecretObj.Namespace = request.Namespace
-
-				//Fetch the Secret with name rhm-operator-secret
-				secretKeyname := types.NamespacedName{
-					Name:      newOptSecretObj.Name,
-					Namespace: newOptSecretObj.Namespace,
-				}
-
-				reqLogger.Info("retrieving operator secret", "name", secretKeyname.Name, "namespace", secretKeyname.Namespace)
-
-				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					optSecret := &v1.Secret{}
-					err = r.Client.Get(context.TODO(), secretKeyname, optSecret)
-					if err != nil {
-						if !k8serrors.IsNotFound(err) {
-							reqLogger.Error(err, "error getting operator secret")
-							return err
-						}
-
-						controllerutil.SetOwnerReference(si.Secret, newOptSecretObj, r.Scheme)
-						reqLogger.Info("secret not found, creating")
-						err = r.Client.Create(context.TODO(), newOptSecretObj)
-						if err != nil {
-							reqLogger.Error(err, "Failed to create operator object")
-							return err
-						}
-					} else {
-						reqLogger.Info("Comparing old and new rhm-operator-secret")
-
-						if !reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data) {
-							reqLogger.Info("rhm-operator-secret are different copy")
-							optSecret.Data = newOptSecretObj.Data
-							controllerutil.SetOwnerReference(si.Secret, newOptSecretObj, r.Scheme)
-							reqLogger.Info("updating rhm-operator-secret")
-							return r.Client.Update(context.TODO(), optSecret)
-						}
-					}
-
-					return nil
-				})
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-
-			//
-			// Registration
-			//
-
 			registrationStatusOutput, err := mclient.RegistrationStatus(&marketplace.MarketplaceClientAccount{
 				AccountId:   marketplaceConfig.Spec.RhmAccountID,
 				ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
@@ -353,11 +269,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 		// Add Finalizer
 		updated = updated || controllerutil.AddFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)
 
-		if si.Type == utils.IBMEntitlementKeySecretName && newOptSecretObj != nil {
-			if marketplaceConfig.Spec.RhmAccountID != string(newOptSecretObj.Data[utils.BUCKET_NAME_FIELD]) {
-				marketplaceConfig.Spec.RhmAccountID = string(newOptSecretObj.Data[utils.BUCKET_NAME_FIELD])
-				updated = true
-			}
+		if si.Type == utils.IBMEntitlementKeySecretName {
+			// TODO: Possibly Get from AccountsEndpoint "account/api/v2/accounts"
 		}
 		if si.Type == utils.RHMPullSecretName {
 			if marketplaceConfig.Spec.RhmAccountID != si.Claims.AccountID {
