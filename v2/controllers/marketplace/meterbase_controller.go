@@ -371,7 +371,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	if err := r.installUserWorkloadMonitoring(instance); err != nil {
+	if err := r.installMeterDefinitions(instance, marketplaceConfig); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -536,19 +536,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.Factory.MetricStateMeterDefinition()
-	}); err != nil {
-		return err
-	}
-
-	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.Factory.KubeStateMetricsService()
-	}); err != nil {
-		return err
-	}
-
-	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.Factory.ReporterMeterDefinition()
 	}); err != nil {
 		return err
 	}
@@ -571,12 +559,40 @@ func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(instance *market
 }
 
 // Install the and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
-func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplacev1alpha1.MeterBase) error {
+func (r *MeterBaseReconciler) installMeterDefinitions(instance *marketplacev1alpha1.MeterBase, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig) error {
 
-	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
-		return r.Factory.UserWorkloadMonitoringMeterDefinition()
-	}); err != nil {
+	// Remove legacy infrastructure MeterDefinitions
+	uwmMeterDef, err := r.Factory.UserWorkloadMonitoringMeterDefinition()
+	if err != nil {
 		return err
+	}
+	if err := r.Client.Delete(context.TODO(), uwmMeterDef); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	msMeterDef, err := r.Factory.MetricStateMeterDefinition()
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), msMeterDef); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
+	if cond == nil || cond.IsFalse() { // no account, do not report infrastructure
+		rMeterDef, err := r.Factory.ReporterMeterDefinition()
+		if err != nil {
+			return err
+		}
+		if err := r.Client.Delete(context.TODO(), rMeterDef); err != nil && !kerrors.IsNotFound(err) {
+			return err
+		}
+	} else if cond.IsTrue() { // Create the Reporter MeterDefinition to report infrastructure
+		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.Factory.ReporterMeterDefinition()
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil
