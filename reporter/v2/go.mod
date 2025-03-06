@@ -13,7 +13,6 @@ require (
 	github.com/google/wire v0.5.0
 	github.com/gotidy/ptr v1.4.0
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/gomega v1.32.0
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
