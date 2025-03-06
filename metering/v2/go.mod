@@ -9,7 +9,6 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/wire v0.5.0
 	github.com/gotidy/ptr v1.4.0
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/gomega v1.32.0
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
 	github.com/operator-framework/api v0.18.0

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -91,7 +90,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
-		home, err := homedir.Dir()
+		home, err := os.UserHomeDir()
 		if err != nil {
 			er(err)
 		}
