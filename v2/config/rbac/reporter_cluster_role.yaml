@@ -17,6 +17,7 @@ rules:
     resources:
     - clusterversions
     - consoles
+    - infrastructures
     verbs:
     - get
     - list
