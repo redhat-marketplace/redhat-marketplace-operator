@@ -7,10 +7,20 @@ rules:
       - ''
     resources:
       - services
+      - nodes
     verbs:
       - get
       - watch
       - list
+  - apiGroups:
+    - config.openshift.io
+    resources:
+    - clusterversions
+    - consoles
+    verbs:
+    - get
+    - list
+    - watch
   - nonResourceURLs:
     - /api/v1/query
     - /api/v1/query_range
