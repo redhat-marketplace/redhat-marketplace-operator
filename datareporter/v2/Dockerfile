@@ -14,11 +14,11 @@ ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
 
-RUN --mount=type=bind,source=.,target=/src \
+RUN --mount=type=bind,source=.,target=/src,z \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
-    cd ${path} && \
-    go build -o /opt/app-root/src/go/bin/${bin} ${exec}
+    cd ${path} && pwd && ls -l && echo ${exec} && echo ${bin} && \
+    go build -o /opt/app-root/src/go/bin/${bin} ${exec} && ls -l /opt/app-root/src/go/bin/
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG TARGETPLATFORM
