@@ -570,26 +570,26 @@ func (r *MeterBaseReconciler) installMeterDefinitions(instance *marketplacev1alp
 		return err
 	}
 
-	msMeterDef, err := r.Factory.MetricStateMeterDefinition()
+	rMeterDef, err := r.Factory.ReporterMeterDefinition()
 	if err != nil {
 		return err
 	}
-	if err := r.Client.Delete(context.TODO(), msMeterDef); err != nil && !kerrors.IsNotFound(err) {
+	if err := r.Client.Delete(context.TODO(), rMeterDef); err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
 	cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
 	if cond == nil || cond.IsFalse() { // no account, do not report infrastructure
-		rMeterDef, err := r.Factory.ReporterMeterDefinition()
+		msMeterDef, err := r.Factory.MetricStateMeterDefinition()
 		if err != nil {
 			return err
 		}
-		if err := r.Client.Delete(context.TODO(), rMeterDef); err != nil && !kerrors.IsNotFound(err) {
+		if err := r.Client.Delete(context.TODO(), msMeterDef); err != nil && !kerrors.IsNotFound(err) {
 			return err
 		}
 	} else if cond.IsTrue() { // Create the Reporter MeterDefinition to report infrastructure
 		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-			return r.Factory.ReporterMeterDefinition()
+			return r.Factory.MetricStateMeterDefinition()
 		}); err != nil {
 			return err
 		}
