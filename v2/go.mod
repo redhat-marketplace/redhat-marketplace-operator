@@ -53,7 +53,7 @@ require (
 require (
 	dario.cat/mergo v1.0.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/golang-jwt/jwt/v5 v5.2.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20240730115643-427c9f20c934
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
