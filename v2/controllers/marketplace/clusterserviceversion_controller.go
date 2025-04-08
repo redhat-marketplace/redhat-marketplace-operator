@@ -50,7 +50,6 @@ import (
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
 
 const (
-	watchTag         string = "razee/watch-resource"
 	olmCopiedFromTag string = "olm.copiedFrom"
 	olmNamespace     string = "olm.operatorNamespace"
 	ignoreTag        string = "marketplace.redhat.com/ignore"

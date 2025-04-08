@@ -17,20 +17,6 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: remoteresources3deployment-binding
-subjects:
-- kind: ServiceAccount
-  name: redhat-marketplace-remoteresources3deployment
-  namespace: openshift-redhat-marketplace
-roleRef:
-  kind: ClusterRole
-  name: redhat-marketplace-remoteresources3deployment
-  apiGroup: rbac.authorization.k8s.io
----
-# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
   name: prometheus-operator-binding
 subjects:
 - kind: ServiceAccount
@@ -53,35 +39,6 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-prometheus
-  apiGroup: rbac.authorization.k8s.io
----
-# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: marketplace-watch-keeper-binding
-subjects:
-- kind: ServiceAccount
-  name: redhat-marketplace-watch-keeper
-  namespace: openshift-redhat-marketplace
-roleRef:
-  kind: ClusterRole
-  name: redhat-marketplace-watch-keeper
-  apiGroup: rbac.authorization.k8s.io
----
-# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: remoteresources3deployment-binding
-  namespace: openshift-redhat-marketplace
-subjects:
-- kind: ServiceAccount
-  name: redhat-marketplace-remoteresources3deployment
-  namespace: openshift-redhat-marketplace
-roleRef:
-  kind: Role
-  name: redhat-marketplace-remoteresources3deployment
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml

@@ -222,6 +222,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=deployments,verbs=update;patch;delete,resourceNames=rhm-metric-state
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=delete,resourceNames=rhm-marketplaceconfig-razeedeployment
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create
@@ -370,7 +371,7 @@ func (r *MeterBaseReconciler) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	if err := r.installUserWorkloadMonitoring(instance); err != nil {
+	if err := r.installMeterDefinitions(instance, marketplaceConfig); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -535,19 +536,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.Factory.MetricStateMeterDefinition()
-	}); err != nil {
-		return err
-	}
-
-	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
 		return r.Factory.KubeStateMetricsService()
-	}); err != nil {
-		return err
-	}
-
-	if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
-		return r.Factory.ReporterMeterDefinition()
 	}); err != nil {
 		return err
 	}
@@ -570,12 +559,40 @@ func (r *MeterBaseReconciler) checkUWMDefaultStorageClassPrereq(instance *market
 }
 
 // Install the and MeterDefinition to monitor & report UserWorkloadMonitoring uptime
-func (r *MeterBaseReconciler) installUserWorkloadMonitoring(instance *marketplacev1alpha1.MeterBase) error {
+func (r *MeterBaseReconciler) installMeterDefinitions(instance *marketplacev1alpha1.MeterBase, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig) error {
 
-	if err := r.Factory.CreateOrUpdate(r.Client, nil, func() (client.Object, error) {
-		return r.Factory.UserWorkloadMonitoringMeterDefinition()
-	}); err != nil {
+	// Remove legacy infrastructure MeterDefinitions
+	uwmMeterDef, err := r.Factory.UserWorkloadMonitoringMeterDefinition()
+	if err != nil {
 		return err
+	}
+	if err := r.Client.Delete(context.TODO(), uwmMeterDef); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	rMeterDef, err := r.Factory.ReporterMeterDefinition()
+	if err != nil {
+		return err
+	}
+	if err := r.Client.Delete(context.TODO(), rMeterDef); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	cond := marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionRHMAccountExists)
+	if cond == nil || cond.IsFalse() { // no account, do not report infrastructure
+		msMeterDef, err := r.Factory.MetricStateMeterDefinition()
+		if err != nil {
+			return err
+		}
+		if err := r.Client.Delete(context.TODO(), msMeterDef); err != nil && !kerrors.IsNotFound(err) {
+			return err
+		}
+	} else if cond.IsTrue() { // Create the Reporter MeterDefinition to report infrastructure
+		if err := r.Factory.CreateOrUpdate(r.Client, instance, func() (client.Object, error) {
+			return r.Factory.MetricStateMeterDefinition()
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -7,7 +7,7 @@ on:
 jobs:
   base:
     name: Build Base
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     env:
       GO_VERSION: "1.22"
       IMAGE_REGISTRY: quay.io/rh-marketplace

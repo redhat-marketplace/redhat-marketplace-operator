@@ -143,27 +143,11 @@ rules:
   - configmaps
   verbs:
   - create
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resourceNames:
   - kubelet-serving-ca-bundle
   - serving-certs-ca-bundle
-  resources:
-  - configmaps
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resourceNames:
-  - razee-cluster-metadata
-  - watch-keeper-config
-  - watch-keeper-limit-poll
-  - watch-keeper-non-namespaced
   resources:
   - configmaps
   verbs:
@@ -224,19 +208,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resourceNames:
-  - clustersubscription
-  - rhm-cos-reader-key
-  - rhm-operator-secret
-  - watch-keeper-secret
-  resources:
-  - secrets
-  verbs:
-  - delete
-  - patch
-  - update
 - apiGroups:
   - ""
   resourceNames:
@@ -323,12 +294,8 @@ rules:
   - deployments
   - deployments/finalizers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - apps
@@ -413,26 +380,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - deploy.razee.io
-  resources:
-  - remoteresources
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - deploy.razee.io
-  resourceNames:
-  - child
-  - parent
-  resources:
-  - remoteresources
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
   - marketplace.redhat.com
   resources:
   - events
@@ -508,35 +455,12 @@ rules:
   - watch
 - apiGroups:
   - marketplace.redhat.com
-  resources:
-  - razeedeployments
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
   resourceNames:
   - rhm-marketplaceconfig-razeedeployment
   resources:
   - razeedeployments
   verbs:
   - delete
-  - patch
-  - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - razeedeployments
-  - razeedeployments/finalizers
-  - razeedeployments/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - monitoring.coreos.com
   resourceNames:

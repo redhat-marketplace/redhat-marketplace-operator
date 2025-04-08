@@ -24,8 +24,5 @@ resources:
   - servicemonitor-metrics-reader_service_account.yaml
   - servicemonitor-metrics-reader_cluster_role.yaml
   - servicemonitor-metrics-reader_cluster_role_binding.yaml
-  - watch-keeper_cluster_role_binding.yaml
-  - watch-keeper_cluster_role.yaml
-  - watch-keeper_service_account.yaml
 configurations:
   - kustomizeconfig.yaml

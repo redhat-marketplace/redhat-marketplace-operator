@@ -9,7 +9,6 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/wire v0.5.0
 	github.com/gotidy/ptr v1.4.0
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/gomega v1.32.0
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
 	github.com/operator-framework/api v0.18.0
@@ -40,7 +39,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/google/cel-go v0.17.8 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/pprof v0.0.0-20240117000934-35fc243c5815 // indirect

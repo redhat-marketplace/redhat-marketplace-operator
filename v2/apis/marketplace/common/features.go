@@ -18,7 +18,7 @@ package common
 // +kubebuilder:object:generate:=true
 type Features struct {
 
-	// Deployment represents the enablement of the razee deployment, defaults to true when not set
+	// [DEPRECATED] Deployment represents the enablement of the razee deployment, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Razee deployment?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"

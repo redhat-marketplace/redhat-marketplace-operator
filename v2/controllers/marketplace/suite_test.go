@@ -207,15 +207,6 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&RazeeDeploymentReconciler{
-		Client:  k8sClient,
-		Log:     ctrl.Log.WithName("controllers").WithName("RazeeDeploymentReconciler"),
-		Scheme:  k8sScheme,
-		Cfg:     operatorCfg,
-		Factory: factory,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
@@ -299,45 +290,12 @@ func Cleanup() {
 	}
 	time.Sleep(time.Second)
 
-	rd := &marketplacev1alpha1.RazeeDeployment{}
-	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RAZEE_NAME,
-		Namespace: operatorNamespace,
-	}, rd); !k8serrors.IsNotFound(err) {
-		Expect(k8sClient.Delete(context.TODO(), rd)).Should(Succeed())
-	}
-	time.Sleep(time.Second)
-
 	mb := &marketplacev1alpha1.MeterBase{}
 	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.METERBASE_NAME,
 		Namespace: operatorNamespace,
 	}, mb); !k8serrors.IsNotFound(err) {
 		Expect(k8sClient.Delete(context.TODO(), mb)).Should(Succeed())
-	}
-	time.Sleep(time.Second)
-
-	cmNames := []string{utils.WATCH_KEEPER_NON_NAMESPACED_NAME, utils.WATCH_KEEPER_LIMITPOLL_NAME, utils.WATCH_KEEPER_CONFIG_NAME, utils.RAZEE_CLUSTER_METADATA_NAME}
-	for _, name := range cmNames {
-		configMap := &corev1.ConfigMap{}
-		if err := k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      name,
-			Namespace: operatorNamespace,
-		}, configMap); !k8serrors.IsNotFound(err) {
-			Expect(k8sClient.Delete(context.TODO(), configMap)).Should(Succeed())
-		}
-	}
-	time.Sleep(time.Second)
-
-	secretNames := []string{utils.WATCH_KEEPER_SECRET_NAME, utils.RHM_OPERATOR_SECRET_NAME, utils.COS_READER_KEY_NAME}
-	for _, name := range secretNames {
-		secret := &corev1.Secret{}
-		if err := k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      name,
-			Namespace: operatorNamespace,
-		}, secret); !k8serrors.IsNotFound(err) {
-			Expect(k8sClient.Delete(context.TODO(), secret)).Should(Succeed())
-		}
 	}
 	time.Sleep(time.Second)
 }

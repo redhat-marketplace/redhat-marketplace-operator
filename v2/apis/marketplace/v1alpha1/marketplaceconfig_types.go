@@ -95,7 +95,7 @@ type MarketplaceConfigStatus struct {
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
 
-	// RazeeSubConditions represent the latest available observations of the razee object's state
+	// [DEPRECATED] RazeeSubConditions represent the latest available observations of the razee object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	RazeeSubConditions status.Conditions `json:"razeeSubConditions,omitempty"`
@@ -169,7 +169,6 @@ const (
 
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
-	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
 	ReasonMeterBaseInstalled    status.ConditionReason = "MeterBaseInstalled"
 	ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
 	ReasonCatalogSourceInstall  status.ConditionReason = "CatalogSourceInstalled"

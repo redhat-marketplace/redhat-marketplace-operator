@@ -128,19 +128,6 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		}, timeout, interval).ShouldNot(BeTrue())
 
 		// fetch created resources
-		rd := &marketplacev1alpha1.RazeeDeployment{}
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: operatorNamespace}, rd)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			} else if rd.Spec.Features == nil { // wait for init
-				notFound = true
-			}
-
-			return notFound
-		}, timeout, interval).ShouldNot(BeTrue())
-
 		mb := &marketplacev1alpha1.MeterBase{}
 		Eventually(func() bool {
 			var notFound bool
@@ -176,11 +163,6 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer).Should(BeFalse())
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions).Should(BeFalse())
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions).Should(BeFalse())
-
-		Expect(*rd.Spec.Features.Deployment).Should(BeFalse())
-		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
-		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
-		Eventually(rd.Spec.ClusterDisplayName, timeout, interval).Should(Equal("test-cluster"))
 	})
 
 	It("marketplace config controller in connected mode", func() {
@@ -206,19 +188,6 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		}, timeout, interval).ShouldNot(BeTrue())
 
 		// fetch created resources
-		rd := &marketplacev1alpha1.RazeeDeployment{}
-		Eventually(func() bool {
-			var notFound bool
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: operatorNamespace}, rd)
-			if k8serrors.IsNotFound(err) {
-				notFound = true
-			} else if rd.Spec.Features == nil { // wait for init
-				notFound = true
-			}
-
-			return notFound
-		}, timeout, interval).ShouldNot(BeTrue())
-
 		mb := &marketplacev1alpha1.MeterBase{}
 		Eventually(func() bool {
 			var notFound bool
@@ -265,10 +234,5 @@ var _ = Describe("Testing MarketplaceConfig controller", func() {
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.DeployMeterDefinitionCatalogServer).Should(BeFalse())
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncCommunityMeterDefinitions).Should(BeFalse())
 		Expect(mb.Spec.MeterdefinitionCatalogServerConfig.SyncSystemMeterDefinitions).Should(BeFalse())
-
-		Expect(*rd.Spec.Features.Deployment).Should(BeFalse())
-		Expect(*rd.Spec.Features.Registration).Should(BeTrue())
-		Expect(*rd.Spec.Features.EnableMeterDefinitionCatalogServer).Should(BeFalse())
-		Expect(rd.Spec.ClusterDisplayName).Should(Equal("test-cluster-connected"))
 	})
 })

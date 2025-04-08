@@ -234,6 +234,8 @@ type MeterDefPrometheusLabelsTemplated struct {
 	IntervalStart, IntervalEnd time.Time
 	Value                      string
 	LabelMap                   map[string]interface{}
+	NamespaceLabels            map[string]map[string]string
+	K8sResources               []interface{}
 
 	hash string
 }

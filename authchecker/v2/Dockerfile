@@ -42,7 +42,8 @@ LABEL name="Red Hat Marketplace ${name}" \
 
 ENV USER_UID=1001 \
   USER_NAME=redhat-marketplace-operator \
-  BINFILE=/usr/local/bin/${bin}
+  BINFILE=/usr/local/bin/${bin}\
+  HOME=/home/redhat-marketplace-operator
 
 # install operator binary
 COPY v2/hack/docker/bin/entrypoint /usr/local/bin/entrypoint

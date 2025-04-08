@@ -218,9 +218,6 @@ func main() {
 			&marketplacev1alpha1.MeterReport{}: {
 				Namespaces: nsScopePod,
 			},
-			&marketplacev1alpha1.RazeeDeployment{}: {
-				Namespaces: nsScopePod,
-			},
 			&routev1.Route{}: {
 				Namespaces: nsScopePod,
 			},
@@ -402,17 +399,6 @@ func main() {
 		Factory: factory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterReport")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.RazeeDeploymentReconciler{
-		Client:  mgr.GetClient(),
-		Log:     ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
-		Scheme:  mgr.GetScheme(),
-		Cfg:     opCfg,
-		Factory: factory,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RazeeDeployment")
 		os.Exit(1)
 	}
 
