@@ -39,8 +39,7 @@ var logger = logf.Log.WithName("marketplace")
 
 // endpoints
 const (
-	RegistrationEndpoint = "provisioning/v1/registered-clusters"
-	AccountsEndpoint     = "account/api/v2/accounts"
+	AccountsEndpoint = "account/api/v2/accounts"
 )
 
 const (
@@ -214,89 +213,6 @@ type RegistrationStatusOutput struct {
 	Err                error
 }
 
-func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
-	if account == nil {
-		err := errors.New("account info missing")
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	// Don't check Registration if there is no rhmAccountID
-	// Typical case for IEK with no RHM account
-	if len(account.AccountId) == 0 {
-		return RegistrationStatusOutput{
-			RegistrationStatus: "NoRHMAccountID",
-		}, nil
-	}
-
-	if len(account.ClusterUuid) == 0 {
-		return RegistrationStatusOutput{
-			RegistrationStatus: "NoClusterUuid",
-		}, nil
-	}
-
-	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
-		"accountId", account.AccountId,
-		"uuid", account.ClusterUuid)
-
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	logger.Info("status query", "query", u.String())
-	resp, err := m.httpClient.Get(u.String())
-
-	if err != nil {
-		return RegistrationStatusOutput{
-			RegistrationStatus: "HttpError",
-			Err:                err,
-			StatusCode:         http.StatusInternalServerError,
-		}, err
-	}
-	if resp.StatusCode != 200 {
-		return RegistrationStatusOutput{
-			RegistrationStatus: "HttpError",
-			Err:                err,
-			StatusCode:         resp.StatusCode,
-		}, err
-	}
-
-	logger.Info("RegistrationStatus status code", "httpstatus", resp.StatusCode)
-	clusterDef, err := io.ReadAll(resp.Body)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	registrations, err := getRegistrations(string(clusterDef))
-
-	if err != nil {
-		return RegistrationStatusOutput{Err: err}, err
-	}
-
-	if len(registrations) == 0 {
-		return RegistrationStatusOutput{
-			StatusCode:         resp.StatusCode,
-			RegistrationStatus: "UNREGISTERED",
-		}, nil
-	}
-
-	for _, registration := range registrations {
-		if registration.Uuid == account.ClusterUuid {
-			return RegistrationStatusOutput{
-				StatusCode:         resp.StatusCode,
-				Registration:       &registration,
-				RegistrationStatus: registration.Status,
-			}, nil
-		}
-	}
-
-	return RegistrationStatusOutput{
-		StatusCode:         resp.StatusCode,
-		RegistrationStatus: "UNREGISTERED",
-	}, nil
-}
-
 func getRegistrations(jsonString string) ([]RegisteredAccount, error) {
 	var registeredAccount []RegisteredAccount
 	err := json.Unmarshal([]byte(jsonString), &registeredAccount)
@@ -376,42 +292,6 @@ func GetJWTTokenClaim(jwtToken string) (*utils.MarketplaceClaims, error) {
 	}
 
 	return claims, nil
-}
-
-func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (string, error) {
-	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
-		"accountId", account.AccountId,
-		"uuid", account.ClusterUuid)
-
-	if err != nil {
-		return "", err
-	}
-
-	logger.Info("get cluster objId query", "query", u.String())
-	resp, err := m.httpClient.Get(u.String())
-	if err != nil {
-		return "", err
-	}
-
-	clusterDef, err := io.ReadAll(resp.Body)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return "", err
-	}
-
-	registrations, err := getRegistrations(string(clusterDef))
-	if err != nil {
-		return "", err
-	}
-
-	var objId string
-	for _, registration := range registrations {
-		if registration.Uuid == account.ClusterUuid {
-			objId = registration.Id
-		}
-	}
-	return objId, nil
 }
 
 type OMAccount struct {

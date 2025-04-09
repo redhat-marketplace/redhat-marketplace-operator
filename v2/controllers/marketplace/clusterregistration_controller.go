@@ -239,19 +239,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, request r
 				rhmAccountExists = ptr.Bool(true)
 			}
 		}
-
-		// only check registration if RHM account exists
-		if ptr.ToBool(rhmAccountExists) {
-			registrationStatusOutput, err := mclient.RegistrationStatus(&marketplace.MarketplaceClientAccount{
-				AccountId:   marketplaceConfig.Spec.RhmAccountID,
-				ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-			})
-			if err != nil {
-				reqLogger.Error(err, "registration status failed")
-			} else {
-				registrationStatusConditions = registrationStatusOutput.TransformConfigStatus()
-			}
-		}
 	}
 
 	// Update the AccountID & annotations field in MarketplaceConfig

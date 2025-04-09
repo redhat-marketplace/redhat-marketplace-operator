@@ -66,16 +66,15 @@ func NewPayload(password string, env string, duration time.Duration) (*Payload, 
 
 var _ = Describe("Marketplace Config Status", func() {
 	var (
-		marketplaceClientAccount *MarketplaceClientAccount
-		mclient                  *MarketplaceClient
-		registrationStatus       *RegistrationStatusOutput
-		server                   *ghttp.Server
-		statusCode               int
-		body                     []byte
-		path                     string
-		err                      error
-		ekProdToken              string
-		ekStageToken             string
+		mclient            *MarketplaceClient
+		registrationStatus *RegistrationStatusOutput
+		server             *ghttp.Server
+		statusCode         int
+		body               []byte
+		path               string
+		err                error
+		ekProdToken        string
+		ekStageToken       string
 	)
 
 	BeforeEach(func() {
@@ -102,11 +101,6 @@ var _ = Describe("Marketplace Config Status", func() {
 		Expect(err).To(Succeed())
 
 		Expect(mclient.endpoint).ToNot(BeNil())
-
-		marketplaceClientAccount = &MarketplaceClientAccount{
-			AccountId:   "accountid",
-			ClusterUuid: "test",
-		}
 
 		ekProdToken, err = CreateToken("mypassword", "", time.Minute)
 		Expect(err).NotTo(HaveOccurred())
@@ -162,45 +156,6 @@ var _ = Describe("Marketplace Config Status", func() {
 			rhmAccount, err := GetJWTTokenClaim(token)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rhmAccount.AccountID).To(Equal("5e2f551de3957e0013215b2d"))
-		})
-	})
-
-	Context("Cluster Registration Status is INSTALLED", func() {
-		BeforeEach(func() {
-			statusCode = 200
-			path = "/" + RegistrationEndpoint
-
-			body, _ = os.ReadFile("../../tests/mockresponses/registration-response.json")
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", path, "accountId=accountid&uuid=test"),
-					ghttp.RespondWithPtr(&statusCode, &body),
-				))
-		})
-		It("Expect true value for registration status", func() {
-			registrationStatusOutput, err := mclient.RegistrationStatus(marketplaceClientAccount)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(registrationStatusOutput.RegistrationStatus).To(Equal("INSTALLED"))
-		})
-	})
-
-	Context("Cluster Registration Status is blank", func() {
-		BeforeEach(func() {
-			statusCode = 200
-			path = "/" + RegistrationEndpoint
-			body = []byte("[]")
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", path),
-					ghttp.RespondWithPtr(&statusCode, &body),
-				))
-
-		})
-		It("Expect true value for registration status", func() {
-			registrationStatusOutput, err := mclient.RegistrationStatus(marketplaceClientAccount)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(registrationStatusOutput.RegistrationStatus).To(Equal("UNREGISTERED"))
-
 		})
 	})
 
