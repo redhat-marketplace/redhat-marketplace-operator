@@ -1,8 +1,8 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2
 
-go 1.22.0
+go 1.23.0
 
-toolchain go1.22.9
+toolchain go1.23.6
 
 require (
 	emperror.dev/errors v0.8.1
