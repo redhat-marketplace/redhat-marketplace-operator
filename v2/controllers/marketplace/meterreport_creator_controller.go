@@ -160,6 +160,7 @@ func (r *MeterReportCreatorReconciler) SetupWithManager(
 	}()
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("meterreport-creator").
 		For(&marketplacev1alpha1.MeterBase{},
 			builder.WithPredicates(
 				predicate.Funcs{

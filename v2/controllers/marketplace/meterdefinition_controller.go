@@ -66,6 +66,7 @@ type MeterDefinitionReconciler struct {
 func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("meterdefinition").
 		For(&v1beta1.MeterDefinition{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		WithOptions(controller.Options{

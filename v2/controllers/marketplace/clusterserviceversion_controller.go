@@ -310,6 +310,7 @@ var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
 
 func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("clusterserviceversion").
 		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(clusterServiceVersionPredictates)).
 		Watches(
 			&marketplacev1beta1.MeterDefinition{},
