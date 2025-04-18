@@ -678,9 +678,9 @@ func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.S
 
 	for i := range sm.Spec.Endpoints {
 		endpoint := &sm.Spec.Endpoints[i]
-		endpoint.TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
+		endpoint.TLSConfig.ServerName = ptr.String(fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace))
 
-		if secretName != nil && endpoint.BearerTokenFile == "" {
+		if secretName != nil && endpoint.Authorization == nil {
 			addBearerToken(endpoint, *secretName)
 		}
 	}
@@ -689,7 +689,7 @@ func (f *Factory) MetricStateServiceMonitor(secretName *string) (*monitoringv1.S
 }
 
 func addBearerToken(endpoint *monitoringv1.Endpoint, secretName string) {
-	endpoint.BearerTokenSecret = corev1.SecretKeySelector{
+	endpoint.Authorization.Credentials = &corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{
 			Name: secretName,
 		},
