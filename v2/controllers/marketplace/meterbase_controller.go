@@ -162,6 +162,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ownerHandler := handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner())
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("meterbase").
 		For(&marketplacev1alpha1.MeterBase{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(

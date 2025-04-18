@@ -200,6 +200,7 @@ func (r *DeploymentReconciler) SetupWithManager(mgr manager.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("deployment").
 		For(&appsv1.Deployment{}, builder.WithPredicates(pDeployment)).
 		Watches(&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(mapFn),

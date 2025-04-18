@@ -1,6 +1,8 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connect
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	emperror.dev/errors v0.8.1
@@ -13,7 +15,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/thediveo/enumflag v0.10.1
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 )
 
 require (
@@ -26,7 +28,8 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
 )
 
 replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0

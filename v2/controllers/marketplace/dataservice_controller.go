@@ -58,6 +58,7 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("data-service").
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
 			&corev1.Secret{},
