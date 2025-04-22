@@ -120,11 +120,18 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		}
 
 		// Namespace Labels
+		// schema accepts a stringified map
 		namespacesLabels := []NamespaceLabels{}
 		for ns, labels := range meterDef.NamespaceLabels {
 			namespacesLabels = append(namespacesLabels, NamespaceLabels{Name: ns, Labels: labels})
 		}
-		measuredUsage.NamespacesLabels = namespacesLabels
+		namespacesLabelsBytes, err := json.Marshal(namespacesLabels)
+		if err != nil {
+			return nil, err
+		}
+		if len(namespacesLabelsBytes) != 0 {
+			measuredUsage.NamespacesLabels = string(namespacesLabelsBytes)
+		}
 
 		measuredUsage.ClusterId = d.clusterID
 		switch meterDef.MetricType {

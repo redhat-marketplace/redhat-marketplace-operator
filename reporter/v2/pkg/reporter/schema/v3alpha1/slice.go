@@ -86,7 +86,8 @@ type MeasuredUsage struct {
 	Value float64 `json:"value" mapstructure:"-"`
 
 	// --- Additional Properties ---
-	NamespacesLabels []NamespaceLabels `json:"namespace,omitempty" mapstructure:"-"`
+	// schema accepts a stringified map
+	NamespacesLabels string `json:"namespace,omitempty" mapstructure:"-"`
 
 	// mapstructure tag should match the prometheus label to facilitate mapstructure.Decode()
 	MeterDefNamespace      string `json:"meter_def_namespace,omitempty" mapstructure:"meter_def_namespace"`
@@ -108,6 +109,7 @@ type MeasuredUsage struct {
 	KubernetesResources []json.RawMessage `json:"k8sResources,omitempty" mapstructure:"-"`
 }
 
+// helper: schema accepts stringified NamespacesLabels map
 type NamespaceLabels struct {
 	Name   string            `json:"name"`
 	Labels map[string]string `json:"labels,omitempty"`
