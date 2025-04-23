@@ -111,6 +111,6 @@ type MeasuredUsage struct {
 
 // helper: schema accepts stringified NamespacesLabels map
 type NamespaceLabels struct {
-	Labels map[string]string `json:"labels,omitempty"`
+	Labels map[string]string `json:"labels"`
 	Name   string            `json:"name"`
 }
