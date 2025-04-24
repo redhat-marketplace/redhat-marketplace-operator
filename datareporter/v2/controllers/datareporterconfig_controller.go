@@ -353,6 +353,7 @@ func (r *DataReporterConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("datareporterconfig").
 		For(&v1alpha1.DataReporterConfig{},
 			builder.WithPredicates(drcPred)).
 		Watches(

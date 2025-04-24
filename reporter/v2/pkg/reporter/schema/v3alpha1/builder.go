@@ -120,11 +120,18 @@ func (d *MarketplaceReportDataBuilder) Build() (interface{}, error) {
 		}
 
 		// Namespace Labels
-		namespacesLabels := []NamespaceLabels{}
-		for ns, labels := range meterDef.NamespaceLabels {
-			namespacesLabels = append(namespacesLabels, NamespaceLabels{Name: ns, Labels: labels})
+		// schema accepts a stringified map
+		if len(meterDef.NamespaceLabels) != 0 {
+			namespacesLabels := []NamespaceLabels{}
+			for ns, labels := range meterDef.NamespaceLabels {
+				namespacesLabels = append(namespacesLabels, NamespaceLabels{Name: ns, Labels: labels})
+			}
+			namespacesLabelsBytes, err := json.Marshal(namespacesLabels)
+			if err != nil {
+				return nil, err
+			}
+			measuredUsage.NamespacesLabels = string(namespacesLabelsBytes)
 		}
-		measuredUsage.NamespacesLabels = namespacesLabels
 
 		measuredUsage.ClusterId = d.clusterID
 		switch meterDef.MetricType {

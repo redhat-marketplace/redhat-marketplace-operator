@@ -278,17 +278,7 @@ var _ = Describe("ReporterV2", func() {
 					"value":               BeNumerically(">", 0),
 					"meter_def_name":      Equal("foo"),
 					"meter_def_namespace": Equal("bar"),
-					"namespace": MatchAllElements(func(element interface{}) string {
-						data := element.(map[string]interface{})
-						return data["name"].(string)
-					}, Elements{
-						"metering-example-operator": MatchAllKeys(Keys{
-							"name": Equal("metering-example-operator"),
-							"labels": MatchAllKeys(Keys{
-								"swc_saas_ibm_com_testkey": Equal("testval"),
-							}),
-						}),
-					}),
+					"namespace":           Equal(`[{"labels":{"swc_saas_ibm_com_testkey":"testval"},"name":"metering-example-operator"}]`),
 				}),
 				"my_query": MatchAllKeys(Keys{
 					"metricType":          Equal("license"),
@@ -298,17 +288,7 @@ var _ = Describe("ReporterV2", func() {
 					"value":               BeNumerically(">", 0),
 					"meter_def_name":      Equal("foo"),
 					"meter_def_namespace": Equal("bar"),
-					"namespace": MatchAllElements(func(element interface{}) string {
-						data := element.(map[string]interface{})
-						return data["name"].(string)
-					}, Elements{
-						"metering-example-operator": MatchAllKeys(Keys{
-							"name": Equal("metering-example-operator"),
-							"labels": MatchAllKeys(Keys{
-								"swc_saas_ibm_com_testkey": Equal("testval"),
-							}),
-						}),
-					}),
+					"namespace":           Equal(`[{"labels":{"swc_saas_ibm_com_testkey":"testval"},"name":"metering-example-operator"}]`),
 				}),
 			}),
 		})
@@ -656,17 +636,7 @@ var _ = Describe("ReporterV2", func() {
 					"value":               BeNumerically(">", 0),
 					"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
 					"meter_def_namespace": Equal("bar"),
-					"namespace": MatchAllElements(func(element interface{}) string {
-						data := element.(map[string]interface{})
-						return data["name"].(string)
-					}, Elements{
-						"metering-example-operator": MatchAllKeys(Keys{
-							"name": Equal("metering-example-operator"),
-							"labels": MatchAllKeys(Keys{
-								"swc_saas_ibm_com_testkey": Equal("testval"),
-							}),
-						}),
-					}),
+					"namespace":           Equal(`[{"labels":{"swc_saas_ibm_com_testkey":"testval"},"name":"metering-example-operator"}]`),
 				}),
 				"rpc_durations_seconds_count": MatchAllKeys(Keys{
 					"metricType":          Equal("license"),
@@ -676,17 +646,7 @@ var _ = Describe("ReporterV2", func() {
 					"value":               BeNumerically(">", 0),
 					"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
 					"meter_def_namespace": Equal("bar"),
-					"namespace": MatchAllElements(func(element interface{}) string {
-						data := element.(map[string]interface{})
-						return data["name"].(string)
-					}, Elements{
-						"metering-example-operator": MatchAllKeys(Keys{
-							"name": Equal("metering-example-operator"),
-							"labels": MatchAllKeys(Keys{
-								"swc_saas_ibm_com_testkey": Equal("testval"),
-							}),
-						}),
-					}),
+					"namespace":           Equal(`[{"labels":{"swc_saas_ibm_com_testkey":"testval"},"name":"metering-example-operator"}]`),
 				}),
 			}),
 		})
@@ -1252,17 +1212,7 @@ var _ = Describe("ReporterV2", func() {
 					"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
 					"meter_def_namespace": Equal("bar"),
 					"k8sResources":        Not(BeEmpty()),
-					"namespace": MatchAllElements(func(element interface{}) string {
-						data := element.(map[string]interface{})
-						return data["name"].(string)
-					}, Elements{
-						"metering-example-operator": MatchAllKeys(Keys{
-							"name": Equal("metering-example-operator"),
-							"labels": MatchAllKeys(Keys{
-								"swc_saas_ibm_com_testkey": Equal("testval"),
-							}),
-						}),
-					}),
+					"namespace":           Equal(`[{"labels":{"swc_saas_ibm_com_testkey":"testval"},"name":"metering-example-operator"}]`),
 				}),
 				"rpc_durations_seconds_count": MatchAllKeys(Keys{
 					"metricType":          Equal("infrastructure"),
@@ -1273,17 +1223,7 @@ var _ = Describe("ReporterV2", func() {
 					"meter_def_name":      Or(Equal("foo"), Equal("foo2")),
 					"meter_def_namespace": Equal("bar"),
 					"k8sResources":        Not(BeEmpty()),
-					"namespace": MatchAllElements(func(element interface{}) string {
-						data := element.(map[string]interface{})
-						return data["name"].(string)
-					}, Elements{
-						"metering-example-operator": MatchAllKeys(Keys{
-							"name": Equal("metering-example-operator"),
-							"labels": MatchAllKeys(Keys{
-								"swc_saas_ibm_com_testkey": Equal("testval"),
-							}),
-						}),
-					}),
+					"namespace":           Equal(`[{"labels":{"swc_saas_ibm_com_testkey":"testval"},"name":"metering-example-operator"}]`),
 				}),
 			}),
 		})

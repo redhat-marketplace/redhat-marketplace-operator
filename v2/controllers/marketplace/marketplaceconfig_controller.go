@@ -284,6 +284,7 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 
 	// ClusterRegistrationReconciler handles MarketplaceConfig deletion
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("marketplaceconfig").
 		For(&marketplacev1alpha1.MarketplaceConfig{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc:  func(e event.CreateEvent) bool { return true },

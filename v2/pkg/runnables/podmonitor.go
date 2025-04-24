@@ -48,6 +48,7 @@ func (a *PodMonitor) SetupWithManager(mgr ctrl.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(a.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("pod-monitor").
 		For(&corev1.Pod{}, builder.WithPredicates(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
