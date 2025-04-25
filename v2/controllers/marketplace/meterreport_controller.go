@@ -59,6 +59,7 @@ func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(r.Cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("meterreport").
 		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
 		Watches(&marketplacev1alpha1.MeterReport{}, &handler.EnqueueRequestForObject{}).

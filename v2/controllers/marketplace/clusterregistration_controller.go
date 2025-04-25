@@ -357,6 +357,7 @@ func (r *ClusterRegistrationReconciler) removeMarketplaceConfigFinalizer(request
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("cluster-registration").
 		For(&v1.Secret{}, builder.WithPredicates(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {

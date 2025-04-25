@@ -66,12 +66,13 @@ type MeterDefinitionReconciler struct {
 func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("meterdefinition").
 		For(&v1beta1.MeterDefinition{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		WithOptions(controller.Options{
-			RateLimiter: workqueue.NewMaxOfRateLimiter(
-				workqueue.DefaultControllerRateLimiter(),
-				workqueue.NewItemExponentialFailureRateLimiter(time.Second, 15*time.Minute),
+			RateLimiter: workqueue.NewTypedMaxOfRateLimiter(
+				workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](),
+				workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Second, 15*time.Minute),
 			),
 		}).
 		Complete(r)

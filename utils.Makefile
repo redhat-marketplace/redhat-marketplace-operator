@@ -11,7 +11,7 @@ export TAG
 
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
-GO_VERSION ?= 1.22
+GO_VERSION ?= 1.23
 ENVTEST_K8S_VERSION ?= 1.30.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
@@ -30,12 +30,12 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.15.0
+CONTROLLER_GEN_VERSION=v0.16.5
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
 
-CODEGEN_VERSION=kubernetes-1.30.7
+CODEGEN_VERSION=kubernetes-1.31.7
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
