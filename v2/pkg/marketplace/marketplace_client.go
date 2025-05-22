@@ -231,7 +231,7 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 		Message: "Cluster is not registered",
 	})
 
-	if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if resp.RegistrationStatus == "INSTALLED" {
 			message := "Cluster Registered Successfully"
 			conditions.SetCondition(status.Condition{
