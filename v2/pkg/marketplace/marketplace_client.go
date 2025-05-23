@@ -231,7 +231,7 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 		Message: "Cluster is not registered",
 	})
 
-	if resp.StatusCode == 200 {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if resp.RegistrationStatus == "INSTALLED" {
 			message := "Cluster Registered Successfully"
 			conditions.SetCondition(status.Condition{
@@ -324,7 +324,7 @@ func (m *MarketplaceClient) RhmAccountExists() (bool, error) {
 		return false, err
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 		return false, errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
 	}
 
