@@ -2,7 +2,7 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2
 
 go 1.23.0
 
-toolchain go1.23.6
+toolchain go1.23.9
 
 require (
 	emperror.dev/errors v0.8.1

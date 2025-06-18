@@ -2,7 +2,7 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/versio
 
 go 1.23.0
 
-toolchain go1.23.6
+toolchain go1.23.9
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1

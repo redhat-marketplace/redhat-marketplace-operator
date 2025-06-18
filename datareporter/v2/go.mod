@@ -2,7 +2,7 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2
 
 go 1.23.0
 
-toolchain go1.23.6
+toolchain go1.23.9
 
 require (
 	dario.cat/mergo v1.0.0
