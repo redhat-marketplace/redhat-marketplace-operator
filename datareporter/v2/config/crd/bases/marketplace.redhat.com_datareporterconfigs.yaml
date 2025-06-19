@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: datareporterconfigs.marketplace.redhat.com
 spec:
   group: marketplace.redhat.com
@@ -21,14 +21,19 @@ spec:
           API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -36,21 +41,21 @@ spec:
             description: DataReporterConfigSpec defines the desired state of DataReporterConfig.
             properties:
               confirmDelivery:
-                description: 'ConfirmDelivery configures the api handler. Takes priority
-                  over configuring ComponentConfig. true: skips the EventEngine accumulator
-                  and generates 1 report with 1 event. The handler will wait for 200
-                  OK for DataService delivery before returning 200 OK. false: enters
-                  the event into the EventEngine accumulator and generates 1 report
-                  with N events. The handler will return a 200 OK for DataService
-                  delivery as long as the event json is valid.'
+                description: |-
+                  ConfirmDelivery configures the api handler. Takes priority over configuring ComponentConfig.
+                  true: skips the EventEngine accumulator and generates 1 report with 1 event.
+                  The handler will wait for 200 OK for DataService delivery before returning 200 OK.
+                  false: enters the event into the EventEngine accumulator and generates 1 report with N events.
+                  The handler will return a 200 OK for DataService delivery as long as the event json is valid.
                 type: boolean
               dataFilters:
-                description: DataFilter to match incoming event payload against. The
-                  first Selector match in the DataFilters array will be applied.
+                description: |-
+                  DataFilter to match incoming event payload against.
+                  The first Selector match in the DataFilters array will be applied.
                 items:
-                  description: DataFilter defines json transformation and alternate
-                    event payload destinations based on selector criteria. No Selector
-                    indicates match all.
+                  description: |-
+                    DataFilter defines json transformation and alternate event payload destinations based on selector criteria.
+                    No Selector indicates match all.
                   properties:
                     altDestinations:
                       items:
@@ -58,10 +63,9 @@ spec:
                           forward a transformed event payload to.
                         properties:
                           authorization:
-                            description: Sets an optional authorization endpoint to
-                              first request a token from. The Authorization endpoint
-                              is called if the call to the destination URL results
-                              in a 403.
+                            description: |-
+                              Sets an optional authorization endpoint to first request a token from.
+                              The Authorization endpoint is called if the call to the destination URL results in a 403.
                             properties:
                               authDestHeader:
                                 description: Sets the additional header map key to
@@ -86,10 +90,13 @@ spec:
                                           from.  Must be a valid secret key.
                                         type: string
                                       name:
-                                        description: 'Name of the referent. More info:
-                                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion,
-                                          kind, uid?'
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the Secret or
@@ -110,10 +117,13 @@ spec:
                                       will be used for the header.
                                     properties:
                                       name:
-                                        description: 'Name of the referent. More info:
-                                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion,
-                                          kind, uid?'
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -139,10 +149,13 @@ spec:
                                   used for the header.
                                 properties:
                                   name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                     type: string
                                 type: object
                                 x-kubernetes-map-type: atomic
@@ -159,10 +172,13 @@ spec:
                                     description: The key to select.
                                     type: string
                                   name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -173,17 +189,18 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type:
-                                description: 'type is the transformation engine use
-                                  supported types: kazaam'
+                                description: |-
+                                  type is the transformation engine use
+                                  supported types: kazaam
                                 type: string
                             type: object
                           url:
                             description: URL is the destination endpoint (https://hostname:port/path).
                             type: string
                           urlSuffixExpr:
-                            description: URLSuffixExpr is a jsonpath expression used
-                              to parse the event. The result is appended to the destination
-                              URL. https://example/path/{URLSuffixExprResult}
+                            description: |-
+                              URLSuffixExpr is a jsonpath expression used to parse the event. The result is appended to the destination URL.
+                              https://example/path/{URLSuffixExprResult}
                             type: string
                         required:
                         - url
@@ -196,16 +213,16 @@ spec:
                         event payload.
                       properties:
                         matchExpressions:
-                          description: MatchExpressions is a list of jsonpath expressions.
-                            To match the Selector, all jsonpath expressions must produce
-                            a result (AND).
+                          description: |-
+                            MatchExpressions is a list of jsonpath expressions.
+                            To match the Selector, all jsonpath expressions must produce a result (AND).
                           items:
                             type: string
                           type: array
                         matchUsers:
-                          description: MatchUsers is a list of users that the dataFilter
-                            applies to. If MatchUsers is not specified, the DataFilter
-                            applies to all users.
+                          description: |-
+                            MatchUsers is a list of users that the dataFilter applies to.
+                            If MatchUsers is not specified, the DataFilter applies to all users.
                           items:
                             type: string
                           type: array
@@ -222,8 +239,13 @@ spec:
                               description: The key to select.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                               type: string
                             optional:
                               description: Specify whether the ConfigMap or its key
@@ -234,8 +256,9 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         type:
-                          description: 'type is the transformation engine use supported
-                            types: kazaam'
+                          description: |-
+                            type is the transformation engine use
+                            supported types: kazaam
                           type: string
                       type: object
                   type: object
@@ -255,8 +278,13 @@ spec:
                             be a valid secret key.
                           type: string
                         name:
-                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                           type: string
                         optional:
                           description: Specify whether the Secret or its key must
@@ -286,9 +314,13 @@ spec:
                                     be a valid secret key.
                                   type: string
                                 name:
-                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind,
-                                    uid?'
+                                  default: ""
+                                  description: |-
+                                    Name of the referent.
+                                    This field is effectively required, but due to backwards compatibility is
+                                    allowed to be empty. Instances of this type with an empty value here are
+                                    almost certainly wrong.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                   type: string
                                 optional:
                                   description: Specify whether the Secret or its key
@@ -311,9 +343,13 @@ spec:
                                     be a valid secret key.
                                   type: string
                                 name:
-                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind,
-                                    uid?'
+                                  default: ""
+                                  description: |-
+                                    Name of the referent.
+                                    This field is effectively required, but due to backwards compatibility is
+                                    allowed to be empty. Instances of this type with an empty value here are
+                                    almost certainly wrong.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                   type: string
                                 optional:
                                   description: Specify whether the Secret or its key
@@ -364,16 +400,16 @@ spec:
                 description: Conditions represent the latest available observations
                   of an object's stateconfig
                 items:
-                  description: "Condition represents an observation of an object's
-                    state. Conditions are an extension mechanism intended to be used
-                    when the details of an observation are not a priori known or would
-                    not apply to all instances of a given Kind. \n Conditions should
-                    be added to explicitly convey properties that users and components
-                    care about rather than requiring those properties to be inferred
-                    from other observations. Once defined, the meaning of a Condition
-                    can not be changed arbitrarily - it becomes part of the API, and
-                    has the same backwards- and forwards-compatibility concerns of
-                    any other part of the API."
+                  description: |-
+                    Condition represents an observation of an object's state. Conditions are an
+                    extension mechanism intended to be used when the details of an observation
+                    are not a priori known or would not apply to all instances of a given Kind.
+
+                    Conditions should be added to explicitly convey properties that users and
+                    components care about rather than requiring those properties to be inferred
+                    from other observations. Once defined, the meaning of a Condition can not be
+                    changed arbitrarily - it becomes part of the API, and has the same
+                    backwards- and forwards-compatibility concerns of any other part of the API.
                   properties:
                     lastTransitionTime:
                       format: date-time
@@ -381,20 +417,22 @@ spec:
                     message:
                       type: string
                     reason:
-                      description: ConditionReason is intended to be a one-word, CamelCase
-                        representation of the category of cause of the current status.
-                        It is intended to be used in concise output, such as one-line
-                        kubectl get output, and in summarizing occurrences of causes.
+                      description: |-
+                        ConditionReason is intended to be a one-word, CamelCase representation of
+                        the category of cause of the current status. It is intended to be used in
+                        concise output, such as one-line kubectl get output, and in summarizing
+                        occurrences of causes.
                       type: string
                     status:
                       type: string
                     type:
-                      description: "ConditionType is the type of the condition and
-                        is typically a CamelCased word or short phrase. \n Condition
-                        types should indicate state in the \"abnormal-true\" polarity.
-                        For example, if the condition indicates when a policy is invalid,
-                        the \"is valid\" case is probably the norm, so the condition
-                        should be called \"Invalid\"."
+                      description: |-
+                        ConditionType is the type of the condition and is typically a CamelCased
+                        word or short phrase.
+
+                        Condition types should indicate state in the "abnormal-true" polarity. For
+                        example, if the condition indicates when a policy is invalid, the "is valid"
+                        case is probably the norm, so the condition should be called "Invalid".
                       type: string
                   required:
                   - status

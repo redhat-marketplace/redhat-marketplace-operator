@@ -20,12 +20,12 @@ replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
-	k8s.io/api => k8s.io/api v0.31.7
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.7
-	k8s.io/apimachinery => k8s.io/apimachinery v0.31.7
-	k8s.io/apiserver => k8s.io/apiserver v0.31.7
-	k8s.io/client-go => k8s.io/client-go v0.31.7
-	k8s.io/component-base => k8s.io/component-base v0.31.7
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.31.7
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.7
+	k8s.io/api => k8s.io/api v0.32.5
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.32.5
+	k8s.io/apimachinery => k8s.io/apimachinery v0.32.5
+	k8s.io/apiserver => k8s.io/apiserver v0.32.5
+	k8s.io/client-go => k8s.io/client-go v0.32.5
+	k8s.io/component-base => k8s.io/component-base v0.32.5
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.32.5
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.20.4
 )

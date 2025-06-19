@@ -1,5 +1,7 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/cue.mod
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.1
 
 replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
