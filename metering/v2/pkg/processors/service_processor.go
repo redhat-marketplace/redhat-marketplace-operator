@@ -95,7 +95,7 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 	for i := range list.Items {
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			sm := list.Items[i]
-			key := client.ObjectKeyFromObject(sm)
+			key := client.ObjectKeyFromObject(&sm)
 
 			serviceMonitor := monitoringv1.ServiceMonitor{}
 			err := w.kubeClient.Get(ctx, key, &serviceMonitor)
