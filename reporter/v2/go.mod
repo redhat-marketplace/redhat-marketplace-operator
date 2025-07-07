@@ -38,7 +38,7 @@ require (
 )
 
 require (
-	github.com/go-viper/mapstructure/v2 v2.2.1
+	github.com/go-viper/mapstructure/v2 v2.3.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20240410195839-0cc064c06b45
 	go.uber.org/zap v1.27.0
