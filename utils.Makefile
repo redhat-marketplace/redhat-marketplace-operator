@@ -72,7 +72,7 @@ helm:
 		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
 	}
 
-GINKGO_VERSION=v2.17.1
+GINKGO_VERSION=v2.22.0
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
