@@ -16,7 +16,7 @@ require (
 	github.com/openshift/api v0.0.0-20250618185501-1c8afbdd3f90
 	github.com/qntfy/kazaam/v4 v4.0.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 v2.0.0-00010101000000-000000000000
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210409165614-0a6355b7a700
+	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20250730210926-13a572b16a7b
 	github.com/ungerik/go-pool v0.0.0-20140720100922-d102a2c7872a
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
@@ -71,7 +71,6 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.33.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
 
 require (
@@ -135,7 +134,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.32.7 // indirect
 	k8s.io/component-base v0.32.7
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
+	k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911 // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
