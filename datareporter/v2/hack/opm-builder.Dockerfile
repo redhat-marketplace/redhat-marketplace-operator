@@ -5,7 +5,7 @@ ARG TARGETOS
 
 WORKDIR /build
 
-RUN GRPC_HEALTH_PROBE_VERSION=v0.4.37 && \
+RUN GRPC_HEALTH_PROBE_VERSION=v0.4.39 && \
     curl --retry 5 -L "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-${TARGETARCH}" -o grpc_health_probe  && \
     chmod +x ./grpc_health_probe
 

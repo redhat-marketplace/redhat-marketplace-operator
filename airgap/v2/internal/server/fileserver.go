@@ -81,7 +81,7 @@ func (fs *FileServer) UploadFile(stream fileserver.FileServer_UploadFileServer) 
 		fs.Log.Error(ErrFileInfoMissing, "file info is nil")
 		return status.Errorf(
 			codes.FailedPrecondition,
-			ErrFileInfoMissing.Error(),
+			"%s", ErrFileInfoMissing.Error(),
 		)
 	}
 
@@ -89,7 +89,7 @@ func (fs *FileServer) UploadFile(stream fileserver.FileServer_UploadFileServer) 
 		fs.Log.Error(ErrFileContentMissing, "file content is missing")
 		return status.Errorf(
 			codes.FailedPrecondition,
-			ErrFileContentMissing.Error(),
+			"%s", ErrFileContentMissing.Error(),
 		)
 	}
 
@@ -108,7 +108,7 @@ func (fs *FileServer) UploadFile(stream fileserver.FileServer_UploadFileServer) 
 	if err != nil {
 		return status.Errorf(
 			codes.Unknown,
-			fmt.Sprintf("Failed to save file in database: %v", err),
+			"%s", fmt.Sprintf("Failed to save file in database: %v", err),
 		)
 	}
 
@@ -299,7 +299,7 @@ func (fs *FileServer) DownloadFile(req *fileserver.DownloadFileRequest, stream f
 	if err != nil {
 		return status.Errorf(
 			codes.InvalidArgument,
-			fmt.Sprintf("Failed to fetch file from database due to: %v", err),
+			"%s", fmt.Sprintf("Failed to fetch file from database due to: %v", err),
 		)
 	}
 
@@ -323,7 +323,7 @@ func (fs *FileServer) DownloadFile(req *fileserver.DownloadFileRequest, stream f
 		if err != nil {
 			return status.Errorf(
 				codes.Unknown,
-				fmt.Sprintf("Error while sending response %v ", err),
+				"%s", fmt.Sprintf("Error while sending response %v ", err),
 			)
 		}
 	}

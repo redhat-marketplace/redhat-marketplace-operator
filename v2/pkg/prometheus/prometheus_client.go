@@ -155,7 +155,7 @@ func providePrometheusAPIForReporter(
 		if err != nil {
 			return nil, err
 		}
-		auth = fmt.Sprintf(string(content))
+		auth = fmt.Sprintf("%s", string(content))
 	}
 
 	if auth == "" {
@@ -181,7 +181,7 @@ func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 	if err != nil {
 		return "", err
 	}
-	token = fmt.Sprintf(string(content))
+	token = fmt.Sprintf("%s", string(content))
 	return token, nil
 }
 
@@ -190,7 +190,7 @@ func GetAuthTokenForKubeAdm() (token string, returnErr error) {
 	if err != nil {
 		return "", err
 	}
-	token = fmt.Sprintf(string(content))
+	token = fmt.Sprintf("%s", string(content))
 	return token, nil
 }
 
