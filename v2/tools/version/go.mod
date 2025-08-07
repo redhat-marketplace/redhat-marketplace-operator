@@ -1,8 +1,8 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/version
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.9
+toolchain go1.24.4
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.7 // indirect
 )
 
 replace (
@@ -20,12 +20,12 @@ replace (
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
-	k8s.io/api => k8s.io/api v0.32.5
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.32.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.32.5
-	k8s.io/apiserver => k8s.io/apiserver v0.32.5
-	k8s.io/client-go => k8s.io/client-go v0.32.5
-	k8s.io/component-base => k8s.io/component-base v0.32.5
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.32.5
+	k8s.io/api => k8s.io/api v0.32.7
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.32.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.32.7
+	k8s.io/apiserver => k8s.io/apiserver v0.32.7
+	k8s.io/client-go => k8s.io/client-go v0.32.7
+	k8s.io/component-base => k8s.io/component-base v0.32.7
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.32.7
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.20.4
 )
