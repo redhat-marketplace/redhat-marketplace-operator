@@ -17,11 +17,14 @@
 package filters
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	emperror "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/apis/apiserver"
@@ -99,6 +102,37 @@ func WithAuthenticationAndAuthorization(config *rest.Config, httpClient *http.Cl
 	return func(log logr.Logger, handler http.Handler) (http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			ctx := req.Context()
+
+			_, ok := req.Header["Authorization"]
+			if ok {
+			} else {
+
+				eventKeyBytes, err := io.ReadAll(req.Body)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Error(err, "error reading request body")
+					return
+				}
+
+				if !json.Valid(eventKeyBytes) {
+
+					w.WriteHeader(http.StatusBadRequest)
+					err = emperror.New("event is not valid json")
+					log.Error(err, "error validating event json")
+					return
+				}
+
+				var result map[string]interface{}
+				json.Unmarshal(eventKeyBytes, &result)
+
+				fmt.Printf("AAAAA\n")
+				fmt.Printf("%s\n", eventKeyBytes)
+				fmt.Printf("BBBBB\n")
+				fmt.Printf("%s\n", result["writeKey"])
+
+				// rawMessage := json.RawMessage(eventKeyBytes)
+
+			}
 
 			res, ok, err := delegatingAuthenticator.AuthenticateRequest(req)
 			if err != nil {
