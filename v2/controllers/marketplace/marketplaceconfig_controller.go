@@ -510,6 +510,7 @@ func (r *MarketplaceConfigReconciler) createOrUpdateMeterBase(request reconcile.
 		meterBase = utils.BuildMeterBaseCr(
 			request.Namespace,
 			!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer),
+			marketplaceConfig.Spec.StorageClassName,
 		)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, meterBase, r.Scheme); err != nil {

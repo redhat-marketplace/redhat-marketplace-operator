@@ -747,18 +747,18 @@ func (f *Factory) UpdateDataServiceService(s *corev1.Service) error {
 	return nil
 }
 
-func (f *Factory) NewDataServiceStatefulSet() (*appsv1.StatefulSet, error) {
+func (f *Factory) NewDataServiceStatefulSet(storageClassName *string) (*appsv1.StatefulSet, error) {
 	sts, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
 	if err != nil {
 		return nil, err
 	}
 
-	f.UpdateDataServiceStatefulSet(sts)
+	f.UpdateDataServiceStatefulSet(sts, storageClassName)
 
 	return sts, nil
 }
 
-func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
+func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet, storageClassName *string) error {
 	sts2, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
 	if err != nil {
 		return err
@@ -782,6 +782,11 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
 		}
 
 		container.Args = newArgs
+	}
+
+	for i := range sts.Spec.VolumeClaimTemplates {
+		volumeClaimTemplate := &sts.Spec.VolumeClaimTemplates[i]
+		volumeClaimTemplate.Spec.StorageClassName = storageClassName
 	}
 
 	// Inject the SubscriptionConfig overrides
