@@ -125,10 +125,6 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
       priorityClassName: system-cluster-critical
       serviceAccountName: ibm-metrics-operator-metric-state
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
       volumes:
         - name: rhm-metric-state-tls
           secret:
