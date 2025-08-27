@@ -264,6 +264,11 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 			}
 		}
 
+		// storageClassName set once, otherwise immutable
+		if meterBase.Spec.StorageClassName == nil {
+			meterBase.Spec.StorageClassName = marketplaceConfig.Spec.StorageClassName
+		}
+
 		if !reflect.DeepEqual(meterBaseCopy.Spec, meterBase.Spec) {
 			reqLogger.Info("updating meterbase")
 			return r.Client.Update(context.TODO(), meterBase)
