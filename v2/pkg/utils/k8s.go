@@ -246,7 +246,7 @@ func UpdateMeterDefinitionCatalogConfig(
 }
 
 // BuildMeterBaseCr returns a MeterBase cr with default values
-func BuildMeterBaseCr(namespace string, deployMdefCatalogServer bool) *marketplacev1alpha1.MeterBase {
+func BuildMeterBaseCr(namespace string, deployMdefCatalogServer bool, storageClassName *string) *marketplacev1alpha1.MeterBase {
 	cr := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      METERBASE_NAME,
@@ -260,6 +260,7 @@ func BuildMeterBaseCr(namespace string, deployMdefCatalogServer bool) *marketpla
 				},
 			},
 			MeterdefinitionCatalogServerConfig: NewMeterDefinitionCatalogConfig(deployMdefCatalogServer),
+			StorageClassName:                   storageClassName,
 		},
 	}
 	return cr

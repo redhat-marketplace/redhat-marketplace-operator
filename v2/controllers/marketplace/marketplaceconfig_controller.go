@@ -264,6 +264,11 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 			}
 		}
 
+		// storageClassName set once, otherwise immutable
+		if meterBase.Spec.StorageClassName == nil {
+			meterBase.Spec.StorageClassName = marketplaceConfig.Spec.StorageClassName
+		}
+
 		if !reflect.DeepEqual(meterBaseCopy.Spec, meterBase.Spec) {
 			reqLogger.Info("updating meterbase")
 			return r.Client.Update(context.TODO(), meterBase)
@@ -510,6 +515,7 @@ func (r *MarketplaceConfigReconciler) createOrUpdateMeterBase(request reconcile.
 		meterBase = utils.BuildMeterBaseCr(
 			request.Namespace,
 			!ptr.ToBool(marketplaceConfig.Spec.IsDisconnected) && ptr.ToBool(marketplaceConfig.Spec.Features.EnableMeterDefinitionCatalogServer),
+			marketplaceConfig.Spec.StorageClassName,
 		)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, meterBase, r.Scheme); err != nil {

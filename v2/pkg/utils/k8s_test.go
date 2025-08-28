@@ -212,12 +212,13 @@ var _ = Describe("Testing with Ginkgo", func() {
 	})
 })
 var (
-	namespace             = "redhat-marketplace-operator"
-	customerID     string = "example-userid"
-	testNamespace1        = "testing-namespace-1"
-	testNamespace2        = "testing-namespace-2"
-	testNamespace3        = "testing-namespace-3"
-	features              = &common.Features{
+	namespace               = "redhat-marketplace-operator"
+	customerID       string = "example-userid"
+	testNamespace1          = "testing-namespace-1"
+	testNamespace2          = "testing-namespace-2"
+	testNamespace3          = "testing-namespace-3"
+	storageClassName        = "rook-ceph"
+	features                = &common.Features{
 		Deployment:                         ptr.Bool(true),
 		EnableMeterDefinitionCatalogServer: ptr.Bool(true),
 	}
@@ -233,7 +234,7 @@ var (
 
 func setup() client.Client {
 	marketplaceconfig.Spec.Features = features
-	meterbase = BuildMeterBaseCr(testNamespace1, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer)
+	meterbase = BuildMeterBaseCr(testNamespace1, *marketplaceconfig.Spec.Features.EnableMeterDefinitionCatalogServer, &storageClassName)
 	defaultFeatures := []string{"meterbase"}
 	viper.Set("features", defaultFeatures)
 	testNs1.ObjectMeta.Name = testNamespace1

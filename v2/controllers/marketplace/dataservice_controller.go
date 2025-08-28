@@ -17,12 +17,14 @@ package marketplace
 import (
 	"context"
 
+	emperrors "emperror.dev/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -82,10 +84,12 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-data-service-mtls,resources=secrets,verbs=patch;update;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-data-service,resources=services,verbs=patch;update;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=persistentvolumeclaims,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=patch;update;delete,resourceNames=rhm-data-service
 // +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=patch;update;delete,resourceNames=rhm-data-service
+// +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -143,8 +147,12 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService StatefulSet */
+		storageClassName, err := r.getStorageClassName(ctx, meterBase)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
-			return r.Factory.NewDataServiceStatefulSet()
+			return r.Factory.NewDataServiceStatefulSet(storageClassName)
 		}); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -170,9 +178,9 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService StatefulSet*/
-		statefulSet, err := r.Factory.NewDataServiceStatefulSet()
+		statefulSet, err := r.Factory.NewDataServiceStatefulSet(nil)
 		if err != nil {
-			reqLogger.Error(err, "data service route error")
+			reqLogger.Error(err, "data service statefulset error")
 			return reconcile.Result{}, err
 		}
 
@@ -207,4 +215,49 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 	}
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
+}
+
+// Find the appropriate storageClassName to use for the StatefulSet VolumeClaimTemplate
+// Check existing immutable value
+// Check Spec
+// Check existing PVC
+// Check defaultStorgeClass
+func (r *DataServiceReconciler) getStorageClassName(ctx context.Context, meterBase *marketplacev1alpha1.MeterBase) (*string, error) {
+	// Existing
+	statefulSet := &appsv1.StatefulSet{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: "rhm-data-service", Namespace: meterBase.Namespace}, statefulSet)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	} else {
+		for i := range statefulSet.Spec.VolumeClaimTemplates {
+			volumeClaimTemplate := &statefulSet.Spec.VolumeClaimTemplates[i]
+			return volumeClaimTemplate.Spec.StorageClassName, nil
+		}
+	}
+	// StorageClassName from MeterBase Spec
+	if meterBase.Spec.StorageClassName != nil {
+		return meterBase.Spec.StorageClassName, nil
+	}
+	// StorageClassName from pre-created PersistentVolumeClaim rhm-data-service-rhm-data-service-0
+	persistentVolumeClaim := &corev1.PersistentVolumeClaim{}
+	err = r.Client.Get(ctx, types.NamespacedName{Name: "rhm-data-service-rhm-data-service-0", Namespace: meterBase.Namespace}, persistentVolumeClaim)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	} else if persistentVolumeClaim.Spec.StorageClassName != nil {
+		return persistentVolumeClaim.Spec.StorageClassName, nil
+	}
+	// StorageClassName from the default StorageClass
+	defaultStorageClass, err := utils.GetDefaultStorageClass(r.Client)
+	if err != nil {
+		switch {
+		case emperrors.Is(err, operrors.DefaultStorageClassNotFound):
+			return nil, nil
+		case emperrors.Is(err, operrors.MultipleDefaultStorageClassFound):
+			return nil, nil
+		default:
+			return nil, err
+		}
+	} else {
+		return &defaultStorageClass, nil
+	}
 }
