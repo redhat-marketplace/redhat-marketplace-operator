@@ -4,7 +4,7 @@ space := $(subst ,, )
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
-VERSION ?= $(shell $(SVU) next --prefix "")
+
 TAG ?= $(VERSION)
 export VERSION
 export TAG
@@ -19,6 +19,8 @@ ARCH ?= amd64
 IMAGE_PUSH ?= true
 DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+SVU=$(PROJECT_DIR)/bin/svu
+VERSION ?= $(shell $(SVU) next --prefix "")
 DOCKERBUILDXCACHE ?=
 
 KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.17
