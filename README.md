@@ -79,6 +79,16 @@ The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to
 
 Choose one of the following options to provision storage for the ibm-metrics-operator data-service
 
+The precedence for determining the storageClassName is as follows:
+- If the data-service StatefulSet already exists, the reconciler will use the existing immutable value
+- If the PersistentVolumeClaims are already created, the reconciler will use the PersistentVolumeClaim storageClassName
+- If MarketplaceConfig sets the `spec.storageClassName` at creation, the reconciler will use the MarketplaceConfig value (via MeterBase)
+- If a defaultStorageClass is available, the reconciler will use the defaultStorageClass storageClassName
+
+#### MarketplaceConfig spec.storageClassName
+The StorageClass may be manually specified by setting the `spec.storageClassName` on the `markeplaceconfig`, either when the `markeplaceconfig` is created, or before setting `spec.license.accept=true`. The `spec.storageClassName` is an immutable field, as the data-service `spec.volumeClaimTemplates.[].storageClassName` is also immutable.
+
+---
 #### Dynamic provisioning using a default StorageClass
    - A StorageClass is defined with a `metadata.annotations: storageclass.kubernetes.io/is-default-class: "true"`
    - PersistentVolumes will be provisioned automatically for the generated PersistentVolumeClaims
