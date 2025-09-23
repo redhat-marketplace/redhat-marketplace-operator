@@ -32,7 +32,7 @@ spec:
                 values:
                 - linux
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
+          requiredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
                 labelSelector:
                   matchExpressions:
@@ -86,6 +86,11 @@ spec:
             initialDelaySeconds: 360
             periodSeconds: 5
             timeoutSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 9001
+            initialDelaySeconds: 15
+            periodSeconds: 10
           ports:
             - containerPort: 9001
               name: db

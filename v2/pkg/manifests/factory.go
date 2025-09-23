@@ -29,6 +29,7 @@ import (
 	"github.com/gotidy/ptr"
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
+	policyv1 "github.com/openshift/api/policy/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -65,10 +66,11 @@ const (
 
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
-	DataServiceStatefulSet = "dataservice/statefulset.yaml"
-	DataServiceService     = "dataservice/service.yaml"
-	DataServiceRoute       = "dataservice/route.yaml"
-	DataServiceTLSSecret   = "dataservice/secret.yaml"
+	DataServiceStatefulSet         = "dataservice/statefulset.yaml"
+	DataServiceService             = "dataservice/service.yaml"
+	DataServiceRoute               = "dataservice/route.yaml"
+	DataServiceTLSSecret           = "dataservice/secret.yaml"
+	DataServicePodDisruptionBudget = "dataservice/pdb.yaml"
 
 	// ibm-metrics-operator olm manifests
 	MOServiceMonitorMetricsReaderSecret = "ibm-metrics-operator/servicemonitor-metrics-reader-secret.yaml"
@@ -601,6 +603,28 @@ func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
 	return nil
 }
 
+func (f *Factory) NewPodDisruptionBudget(manifest io.Reader) (*policyv1.Route, error) {
+	p, err := NewPodDisruptionBudget(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.GetNamespace() == "" {
+		p.SetNamespace(f.namespace)
+	}
+
+	return p, nil
+}
+
+func (f *Factory) UpdatePodDisruptionBudget(manifest io.Reader, p *policyv1.PodDisruptionBudget) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(p)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (f *Factory) NewMeterDefinition(
 	manifest io.Reader,
 ) (*marketplacev1beta1.MeterDefinition, error) {
@@ -808,6 +832,14 @@ func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
 	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
 }
 
+func (f *Factory) NewDataServicePodDisruptionBudget() (*policyv1.PodDisruptionBudget, error) {
+	return f.NewPodDisruptionBudget(MustAssetReader(DataServicePodDisruptionBudget))
+}
+
+func (f *Factory) UpdateDataServicePodDisruptionBudget(p *policyv1.PodDisruptionBudget) error {
+	return f.UpdatePodDisruptionBudget(MustAssetReader(DataServicePodDisruptionBudget), p)
+}
+
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := NewServiceMonitor(manifest)
 	if err != nil {
@@ -905,6 +937,15 @@ func NewRoute(manifest io.Reader) (*routev1.Route, error) {
 		return nil, err
 	}
 	return &r, nil
+}
+
+func NewPodDisruptionBudget(manifest io.Reader) (*policyv1.Route, error) {
+	p := policyv1.PodDisruptionBudget{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&p)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
 }
 
 func NewImageStream(manifest io.Reader) (*osimagev1.ImageStream, error) {

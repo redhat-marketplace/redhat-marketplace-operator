@@ -139,6 +139,13 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 			return reconcile.Result{}, err
 		}
 
+		/* DataService PodDisruptionBudget */
+		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.Factory.NewDataServicePodDisruptionBudget()
+		}); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		/* DataService Service */
 		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
 			return r.Factory.NewDataServiceService()
@@ -210,6 +217,18 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 
 		if err = r.Client.Delete(ctx, secret); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete Secret error: ")
+			return reconcile.Result{}, err
+		}
+
+		/* DataService PodDisruptionBudget */
+		pdb, err := r.Factory.NewDataServicePodDisruptionBudget()
+		if err != nil {
+			reqLogger.Error(err, "data service poddisruptionbudget error")
+			return reconcile.Result{}, err
+		}
+
+		if err := r.Client.Delete(ctx, pdb); err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "Delete PodDisruptionBudget error: ")
 			return reconcile.Result{}, err
 		}
 	}
