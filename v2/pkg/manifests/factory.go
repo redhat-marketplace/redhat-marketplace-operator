@@ -29,7 +29,6 @@ import (
 	"github.com/gotidy/ptr"
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
-	policyv1 "github.com/openshift/api/policy/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -41,6 +40,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -603,7 +603,7 @@ func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
 	return nil
 }
 
-func (f *Factory) NewPodDisruptionBudget(manifest io.Reader) (*policyv1.Route, error) {
+func (f *Factory) NewPodDisruptionBudget(manifest io.Reader) (*policyv1.PodDisruptionBudget, error) {
 	p, err := NewPodDisruptionBudget(manifest)
 	if err != nil {
 		return nil, err
@@ -939,7 +939,7 @@ func NewRoute(manifest io.Reader) (*routev1.Route, error) {
 	return &r, nil
 }
 
-func NewPodDisruptionBudget(manifest io.Reader) (*policyv1.Route, error) {
+func NewPodDisruptionBudget(manifest io.Reader) (*policyv1.PodDisruptionBudget, error) {
 	p := policyv1.PodDisruptionBudget{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&p)
 	if err != nil {
