@@ -613,6 +613,9 @@ func (f *Factory) NewPodDisruptionBudget(manifest io.Reader) (*policyv1.PodDisru
 		p.SetNamespace(f.namespace)
 	}
 
+	minAvailable := intstr.FromInt32(int32(f.operatorConfig.DataServiceReplicas)/2 + 1)
+	p.Spec.MinAvailable = &minAvailable
+
 	return p, nil
 }
 
@@ -621,6 +624,9 @@ func (f *Factory) UpdatePodDisruptionBudget(manifest io.Reader, p *policyv1.PodD
 	if err != nil {
 		return err
 	}
+
+	minAvailable := intstr.FromInt32(int32(f.operatorConfig.DataServiceReplicas)/2 + 1)
+	p.Spec.MinAvailable = &minAvailable
 
 	return nil
 }
