@@ -40,6 +40,13 @@ spec:
                   values:
                     - rhm-data-service
             topologyKey: kubernetes.io/hostname
+          - labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - rhm-data-service
+            topologyKey: topology.kubernetes.io/zone
       terminationGracePeriodSeconds: 45
       securityContext: 
         runAsNonRoot: true
