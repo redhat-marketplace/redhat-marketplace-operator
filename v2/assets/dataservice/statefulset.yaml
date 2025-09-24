@@ -33,17 +33,13 @@ spec:
                 - linux
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - rhm-data-service
-                namespaces:
-                  - redhat-marketplace
-                topologyKey: kubernetes.io/hostname
-              weight: 100
+          - labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - rhm-data-service
+            topologyKey: kubernetes.io/hostname
       terminationGracePeriodSeconds: 45
       securityContext: 
         runAsNonRoot: true
