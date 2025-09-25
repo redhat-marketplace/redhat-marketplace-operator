@@ -72,7 +72,8 @@ spec:
                 memory: 4Gi
             volumeMounts:
             - name: tmp
-              mountPath: /tmp
+              mountPath: "/tmp"
           volumes:
           - name: tmp
-            emptyDir: {}
+            emptyDir:
+              sizeLimit: 256Mi
