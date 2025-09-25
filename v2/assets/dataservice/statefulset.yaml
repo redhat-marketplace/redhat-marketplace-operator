@@ -202,19 +202,15 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
           readinessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 8004
-              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 8004
-              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
@@ -267,19 +263,15 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
           readinessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 8008
-              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 8008
-              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
