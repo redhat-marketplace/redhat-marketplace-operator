@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/go-toolset:1.24.4
+FROM registry.access.redhat.com/ubi9/go-toolset:1.24.6
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
