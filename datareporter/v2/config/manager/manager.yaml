@@ -77,7 +77,7 @@ spec:
             drop:
               - "ALL"
           privileged: false
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
         env:
         - name: POD_NAMESPACE
@@ -114,5 +114,12 @@ spec:
           - containerPort: 8443
             protocol: TCP
             name: https
+        volumeMounts:
+        - name: tmp
+          mountPath: "/tmp"
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 256Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
