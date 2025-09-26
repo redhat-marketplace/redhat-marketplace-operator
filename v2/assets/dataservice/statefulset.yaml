@@ -47,6 +47,23 @@ spec:
                   values:
                     - rhm-data-service
             topologyKey: topology.kubernetes.io/zone
+        topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - rhm-data-service
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - rhm-data-service
       terminationGracePeriodSeconds: 45
       securityContext: 
         runAsNonRoot: true
