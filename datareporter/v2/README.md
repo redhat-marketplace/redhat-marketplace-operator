@@ -20,6 +20,14 @@ The IBM Data Reporter Operator deploys a service that provides an endpoint to wh
 
 - The operator runs under Red Hat restricted SCC
 
+## Kyverno Policies
+
+The IBM Data Reporter Operator makes a best effort to comply with the Kyverno policies defined by [IBM MAS](https://github.com/ibm-mas/kyverno-policies)
+
+Exceptions:
+- IBM Data Reporter Operator is not replicated
+  - Service uptime is not considered critial, and can be rescheduled
+
 ## Resources Required
 
 - The operator requires at least 85 Mi memory.
