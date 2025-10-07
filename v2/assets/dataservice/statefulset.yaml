@@ -40,13 +40,6 @@ spec:
                   values:
                     - rhm-data-service
             topologyKey: kubernetes.io/hostname
-          - labelSelector:
-              matchExpressions:
-                - key: app
-                  operator: In
-                  values:
-                    - rhm-data-service
-            topologyKey: topology.kubernetes.io/zone
       topologySpreadConstraints:
       - maxSkew: 1
         whenUnsatisfiable: ScheduleAnyway
