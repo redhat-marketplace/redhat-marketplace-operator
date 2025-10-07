@@ -87,6 +87,11 @@ The IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims to
   - Block storage from IBM Spectrum Virtualize, FlashSystem or DS8K
 - Portworx Storage, version 2.5.5 or above
 - Amazon Elastic File Storage
+- Azure Disk Storage (disk.csi.azure.com)
+
+#### Known Problematic Storage Providers
+
+- Azure File Storage (file.csi.azure.com)
 
 ### Access Modes required
 
@@ -142,6 +147,16 @@ spec:
     namespace: ibm-software-central
     name: rhm-data-service-rhm-data-service-0
 ```
+
+### Kyverno Policies
+
+The IBM Metrics Operator makes a best effort to comply with the Kyverno policies defined by [IBM MAS](https://github.com/ibm-mas/kyverno-policies)
+
+Exceptions:
+- IBM Metrics Operator is not replicated
+  - Service uptime is not considered critial, and can be rescheduled
+- metric-state is not replicated
+  - Service uptime is not considered critial, and can be rescheduled
 
 ### Installation
 1. Create or get your [pull secret](https://swc.saas.ibm.com/en-us/documentation/clusters#get-pull-secret).
