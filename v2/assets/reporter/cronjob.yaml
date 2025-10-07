@@ -61,5 +61,19 @@ spec:
                 drop:
                 - ALL
               privileged: false
-              readOnlyRootFilesystem: false
+              readOnlyRootFilesystem: true
               runAsNonRoot: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 1
+                memory: 4Gi
+            volumeMounts:
+            - name: tmp
+              mountPath: "/tmp"
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 256Mi

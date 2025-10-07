@@ -32,6 +32,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -77,6 +78,10 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&routev1.Route{},
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner()),
+			builder.WithPredicates(namespacePredicate)).
+		Watches(
+			&policyv1.PodDisruptionBudget{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &marketplacev1alpha1.MeterBase{}, handler.OnlyControllerOwner()),
 			builder.WithPredicates(namespacePredicate)).Complete(r)
 }
 
@@ -90,6 +95,7 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=patch;update;delete,resourceNames=rhm-data-service
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups="policy",namespace=system,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -136,6 +142,13 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 			}
 		} else if err != nil {
 			reqLogger.Error(err, "Get Secret error: ")
+			return reconcile.Result{}, err
+		}
+
+		/* DataService PodDisruptionBudget */
+		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
+			return r.Factory.NewDataServicePodDisruptionBudget()
+		}); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -210,6 +223,18 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 
 		if err = r.Client.Delete(ctx, secret); err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete Secret error: ")
+			return reconcile.Result{}, err
+		}
+
+		/* DataService PodDisruptionBudget */
+		pdb, err := r.Factory.NewDataServicePodDisruptionBudget()
+		if err != nil {
+			reqLogger.Error(err, "data service poddisruptionbudget error")
+			return reconcile.Result{}, err
+		}
+
+		if err := r.Client.Delete(ctx, pdb); err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "Delete PodDisruptionBudget error: ")
 			return reconcile.Result{}, err
 		}
 	}
