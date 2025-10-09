@@ -821,8 +821,8 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet, storageC
 
 	if sts.Spec.Template.Spec.Affinity != nil {
 		if sts.Spec.Template.Spec.Affinity.PodAntiAffinity != nil {
-			for i := range sts.Spec.Template.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-				sts.Spec.Template.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i].Namespaces = []string{f.namespace}
+			for i := range sts.Spec.Template.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+				sts.Spec.Template.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm.Namespaces = []string{f.namespace}
 			}
 		}
 	}
