@@ -819,6 +819,14 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet, storageC
 		volumeClaimTemplate.Spec.StorageClassName = storageClassName
 	}
 
+	if sts.Spec.Template.Spec.Affinity != nil {
+		if sts.Spec.Template.Spec.Affinity.PodAntiAffinity != nil {
+			for i := range sts.Spec.Template.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
+				sts.Spec.Template.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i].Namespaces = []string{f.namespace}
+			}
+		}
+	}
+
 	// Inject the SubscriptionConfig overrides
 	if err := injectSubscriptionConfig(&sts.Spec.Template.Spec, f.operatorConfig.Infrastructure.SubscriptionConfig()); err != nil {
 		return fmt.Errorf("failed to inject subscription config - name=%s - %v", sts.Name, err)
