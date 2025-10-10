@@ -32,14 +32,25 @@ spec:
                 values:
                 - linux
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-                - key: app
-                  operator: In
-                  values:
-                    - rhm-data-service
-            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - rhm-data-service
+                topologyKey: kubernetes.io/zone
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - rhm-data-service
+                topologyKey: kubernetes.io/hostname
       topologySpreadConstraints:
       - maxSkew: 1
         whenUnsatisfiable: ScheduleAnyway
