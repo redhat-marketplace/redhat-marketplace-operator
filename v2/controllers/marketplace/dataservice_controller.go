@@ -21,20 +21,21 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	routev1 "github.com/openshift/api/route/v1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -85,6 +86,7 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(namespacePredicate)).Complete(r)
 }
 
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=system,resourceNames=rhm-data-service-mtls,resources=secrets,verbs=patch;update;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create
@@ -170,6 +172,57 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 			return reconcile.Result{}, err
 		}
 
+		// Patch out bad affinity rules from 2.21.0
+		sts := &appsv1.StatefulSet{}
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DATA_SERVICE_NAME, Namespace: meterBase.Namespace}, sts); err != nil {
+				return err
+			}
+			if sts.Spec.Template.Spec.Affinity != nil {
+				if sts.Spec.Template.Spec.Affinity.PodAntiAffinity != nil {
+					if len(sts.Spec.Template.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution) != 0 {
+						sts.Spec.Template.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = []corev1.PodAffinityTerm{}
+						if err := r.Client.Update(context.TODO(), sts); err != nil {
+							return err
+						}
+						return nil
+					}
+				}
+			}
+			return nil
+		}); err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
+		// StatefulSet may not update Pending Pods, force pod delete if it's stuck Pending / Unschedulable
+		// https://github.com/kubernetes/kubernetes/issues/120123
+		podList := &corev1.PodList{}
+		if err := r.Client.List(context.TODO(),
+			podList,
+			&client.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set(map[string]string{"app": utils.DATA_SERVICE_NAME}))},
+		); err != nil {
+			return reconcile.Result{}, err
+		}
+		for _, pod := range podList.Items {
+			if pod.Spec.Affinity != nil {
+				if pod.Spec.Affinity.PodAntiAffinity != nil {
+					if len(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution) != 0 {
+						if pod.Status.Phase == corev1.PodPending {
+							for _, condition := range pod.Status.Conditions {
+								if condition.Type == corev1.PodScheduled &&
+									condition.Reason == corev1.PodReasonUnschedulable &&
+									condition.Status == corev1.ConditionFalse {
+									if err := r.Client.Delete(context.TODO(), &pod); err != nil && !errors.IsNotFound(err) {
+										return reconcile.Result{}, err
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		/* DataService Route */
 		if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
 			return r.Factory.NewDataServiceRoute()
@@ -250,7 +303,7 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 func (r *DataServiceReconciler) getStorageClassName(ctx context.Context, meterBase *marketplacev1alpha1.MeterBase) (*string, error) {
 	// Existing
 	statefulSet := &appsv1.StatefulSet{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: "rhm-data-service", Namespace: meterBase.Namespace}, statefulSet)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: utils.DATA_SERVICE_NAME, Namespace: meterBase.Namespace}, statefulSet)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	} else {
