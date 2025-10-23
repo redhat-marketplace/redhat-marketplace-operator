@@ -41,7 +41,7 @@ spec:
                       operator: In
                       values:
                         - rhm-data-service
-                topologyKey: kubernetes.io/zone
+                topologyKey: topology.kubernetes.io/zone
             - weight: 50
               podAffinityTerm:
                 labelSelector:
