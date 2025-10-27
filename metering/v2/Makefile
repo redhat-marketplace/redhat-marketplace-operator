@@ -65,6 +65,7 @@ security-scan: install-twistlock-tool
 .PHONY: oscap-scan
 oscap-scan:
 	docker pull ${IMAGE}
+	sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
 	oscap-docker image ${IMAGE} xccdf eval \
 	--fetch-remote-resources \
 	--report report.html \
