@@ -70,5 +70,5 @@ security-scan: install-twistlock-tool
 
 .PHONY: oscap-scan
 oscap-scan:
-	oscap-podman $shell(docker inspect --format='{{.Id}}' ${IMAGE}) \
+	oscap-docker $shell(docker inspect --format='{{.Id}}' ${IMAGE}) \
 	xccdf eval --fetch-remote-resources --report report.html --results results.xml --profile stig /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
