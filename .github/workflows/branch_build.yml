@@ -19,17 +19,6 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Install OpenSCAP
-      run: |-
-        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
-        # https://github.com/OpenSCAP/openscap/issues/2193
-        # https://launchpad.net/ubuntu/+source/curl
-        sudo snap install curl
-        sudo apt update
-        sudo add-apt-repository universe -y
-        sudo apt update
-        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc ssg-base ssg-debderived ssg-debian ssg-nondebian ssg-applications
-        oscap-docker -h
     - name: Checkout code
       uses: actions/checkout@v3
       with:
@@ -151,6 +140,16 @@ jobs:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
+    - name: Install OpenSCAP
+      run: |-
+        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
+        # https://github.com/OpenSCAP/openscap/issues/2193
+        # https://launchpad.net/ubuntu/+source/curl
+        sudo snap install curl
+        sudo apt update
+        sudo add-apt-repository universe -y
+        sudo apt update
+        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc ssg-base ssg-debderived ssg-debian ssg-nondebian ssg-applications
     - id: version
       name: Get Version
       run: |-
@@ -214,7 +213,6 @@ jobs:
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
-        oscap-docker -h
         LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" make ${{ matrix.project }}/oscap-scan
     strategy:
       matrix:
