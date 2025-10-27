@@ -374,3 +374,7 @@ security-scan: install-twistlock-tool
 	--user $(TWISTLOCK_CREDENTIALS) \
 	--control-group eal_eal-006818 \
 	${IMAGE}
+
+oscap-scan:
+	oscap-podman $shell(docker inspect --format='{{.Id}}' ${IMAGE}) \
+	xccdf eval --fetch-remote-resources --report report.html --results results.xml --profile stig /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml

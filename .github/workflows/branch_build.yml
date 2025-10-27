@@ -19,6 +19,16 @@ jobs:
       run:
         shell: bash
     steps:
+    - name: Install OpenSCAP
+      run: |-
+        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
+        # https://github.com/OpenSCAP/openscap/issues/2193
+        # https://launchpad.net/ubuntu/+source/curl
+        sudo snap install curl
+        sudo apt update
+        sudo add-apt-repository universe -y
+        sudo apt update
+        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc ssg-base ssg-debderived ssg-debian ssg-nondebian ssg-applications
     - name: Checkout code
       uses: actions/checkout@v3
       with:
@@ -44,7 +54,7 @@ jobs:
         make source-envtest
     - name: Report Outdated Modules
       run: |-
-        make go-mod-outdated-all    
+        make go-mod-outdated-all
     - name: WhiteSource Unified Agent Scan
       env:
         WS_APIKEY: ${{secrets.WS_APIKEY}}
@@ -200,11 +210,10 @@ jobs:
     - id: oscap
       name: OpenSCAP Scan
       run: |-
-        sudo apt update
-        sudo add-apt-repository universe -y
-        sudo apt update
-        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc ssg-base ssg-debderived ssg-debian ssg-nondebian ssg-applications
-        oscap --version
+        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
+        # https://github.com/OpenSCAP/openscap/issues/2193
+        # https://launchpad.net/ubuntu/+source/curl
+        LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" make oscap-scan
     strategy:
       matrix:
         project:
