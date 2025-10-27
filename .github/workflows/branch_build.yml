@@ -197,6 +197,14 @@ jobs:
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         IMAGE_PUSH: "true"
+    - id: oscap
+      name: OpenSCAP Scan
+      run: |-
+        sudo apt update
+        sudo add-apt-repository universe -y
+        sudo apt update
+        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc ssg-base ssg-debderived ssg-debian ssg-nondebian ssg-applications
+        oscap --version
     strategy:
       matrix:
         project:
