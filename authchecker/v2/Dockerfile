@@ -59,8 +59,7 @@ WORKDIR /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 # apply image hardening
-COPY --chown=${USER_UID}:0 v2/hack/docker/bin/remediate.sh /usr/local/bin/remediate.sh
-USER root
+COPY v2/hack/docker/bin/remediate.sh /usr/local/bin/remediate.sh
 RUN /usr/local/bin/remediate.sh
 
 USER ${USER_UID}
