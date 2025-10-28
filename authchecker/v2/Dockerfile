@@ -14,7 +14,7 @@ ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
 
-RUN dnf install -y findutils
+RUN dnf install -y findutils crypto-policies-scripts
 
 RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
