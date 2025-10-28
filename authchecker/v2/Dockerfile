@@ -14,6 +14,8 @@ ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
 
+RUN dnf install -y findutils
+
 RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
