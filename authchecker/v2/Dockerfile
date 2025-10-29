@@ -14,8 +14,6 @@ ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
 
-RUN dnf install -y findutils crypto-policies-scripts
-
 RUN --mount=type=bind,source=.,target=/src \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
@@ -32,6 +30,8 @@ ARG exec
 ARG bin
 ARG app_version
 ARG quay_expiration
+
+RUN dnf install -y findutils crypto-policies-scripts
 
 LABEL name="Red Hat Marketplace ${name}" \
   maintainer="rhmoper@us.ibm.com" \
