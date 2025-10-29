@@ -31,7 +31,7 @@ ARG bin
 ARG app_version
 ARG quay_expiration
 
-RUN dnf install -y findutils crypto-policies-scripts
+RUN microdnf install -y findutils crypto-policies-scripts
 
 LABEL name="Red Hat Marketplace ${name}" \
   maintainer="rhmoper@us.ibm.com" \
