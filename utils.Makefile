@@ -25,6 +25,8 @@ DOCKERBUILDXCACHE ?=
 
 KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.17
 
+STIG_PROFILE ?= /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+
 clean-bin:
 	rm -rf $(PROJECT_DIR)/bin
 
@@ -298,3 +300,12 @@ endef
 
 install-twistlock-tool:
 	$(call install-twistlock-tool)
+
+# func(image)
+define oscap-scan-image
+docker pull $(1)
+sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
+oscap-docker image $(1) xccdf eval \
+--fetch-remote-resources \
+--profile stig $(STIG_PROFILE)
+endef

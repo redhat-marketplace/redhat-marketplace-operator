@@ -47,9 +47,7 @@ ENV USER_UID=1001 \
 
 # install operator binary
 COPY v2/hack/docker/bin/entrypoint /usr/local/bin/entrypoint
-COPY v2/hack/docker/bin/user_setup /usr/local/bin/user_setup
 COPY v2/LICENSE v2/_licenses/* /licenses/
-RUN  /usr/local/bin/user_setup
 
 COPY --from=builder /opt/app-root/src/go/bin/${bin} /usr/local/bin/${bin}
 
