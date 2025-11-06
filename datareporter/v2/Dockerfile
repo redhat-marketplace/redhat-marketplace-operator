@@ -20,7 +20,7 @@ RUN --mount=type=bind,source=.,target=/src \
     cd ${path} && \
     go build -o /opt/app-root/src/go/bin/${bin} ${exec}
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM ${REGISTRY}/ubi-minimal:ubi9
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
