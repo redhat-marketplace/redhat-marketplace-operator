@@ -38,6 +38,8 @@ jobs:
     - id: build-ubi-minimal
       name: Build images
       run: |-
+        # Ubuntu 24 ships an outdated ssg
+        # https://launchpad.net/ubuntu/noble/+source/scap-security-guide
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
@@ -46,7 +48,7 @@ jobs:
         sudo add-apt-repository universe -y
         sudo apt update
         sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc
-        # snap curl does not have write permission?
+        # snap curl does not have write permission? use wget
         # find latest breaks due to rate-limiting
         # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
         # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')

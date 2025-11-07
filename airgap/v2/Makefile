@@ -89,3 +89,7 @@ security-scan: install-twistlock-tool
 	--user $(TWISTLOCK_CREDENTIALS) \
 	--control-group eal_eal-006818 \
 	${IMAGE}
+
+.PHONY: oscap-scan
+oscap-scan:
+	$(call oscap-scan-image,$(IMAGE))
