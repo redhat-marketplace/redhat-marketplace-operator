@@ -44,7 +44,7 @@ jobs:
         make source-envtest
     - name: Report Outdated Modules
       run: |-
-        make go-mod-outdated-all    
+        make go-mod-outdated-all
     - name: WhiteSource Unified Agent Scan
       env:
         WS_APIKEY: ${{secrets.WS_APIKEY}}
@@ -140,6 +140,25 @@ jobs:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
+    - name: Install OpenSCAP
+      run: |-
+        # Ubuntu 24 ships an outdated ssg
+        # https://launchpad.net/ubuntu/noble/+source/scap-security-guide
+        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
+        # https://github.com/OpenSCAP/openscap/issues/2193
+        # https://launchpad.net/ubuntu/+source/curl
+        sudo snap install curl
+        sudo apt update
+        sudo add-apt-repository universe -y
+        sudo apt update
+        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc
+        # snap curl does not have write permission? use wget
+        # find latest breaks due to rate-limiting
+        # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
+        # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')
+        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.78/scap-security-guide-0.1.78.tar.gz
+        mkdir -p /tmp/scap-security-guide
+        tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
     - id: version
       name: Get Version
       run: |-
@@ -197,6 +216,13 @@ jobs:
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         IMAGE_PUSH: "true"
+    - id: oscap
+      name: OpenSCAP Scan
+      run: |-
+        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
+        # https://github.com/OpenSCAP/openscap/issues/2193
+        # https://launchpad.net/ubuntu/+source/curl
+        STIG_PROFILE="/tmp/scap-security-guide/ssg-rhel9-ds.xml" make ${{ matrix.project }}/oscap-scan || true
     strategy:
       matrix:
         project:

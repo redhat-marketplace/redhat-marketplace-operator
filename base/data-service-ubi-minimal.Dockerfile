@@ -2,7 +2,7 @@ ARG REGISTRY=quay.io/rh-marketplace
 
 FROM ${REGISTRY}/data-service-base:ubi9 as dqlite-lib-builder
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM ${REGISTRY}/ubi-minimal:ubi9
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS

@@ -35,9 +35,34 @@ jobs:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
-    - id: build-data-service
+    - id: build-ubi-minimal
       name: Build images
-      run: make base/data-service
+      run: |-
+        # Ubuntu 24 ships an outdated ssg
+        # https://launchpad.net/ubuntu/noble/+source/scap-security-guide
+        # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
+        # https://github.com/OpenSCAP/openscap/issues/2193
+        # https://launchpad.net/ubuntu/+source/curl
+        sudo snap install curl
+        sudo apt update
+        sudo add-apt-repository universe -y
+        sudo apt update
+        sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc
+        # snap curl does not have write permission? use wget
+        # find latest breaks due to rate-limiting
+        # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
+        # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')
+        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.78/scap-security-guide-0.1.78.tar.gz
+        mkdir -p /tmp/scap-security-guide
+        tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
+        docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
+        sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
+        oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
+        --fetch-remote-resources \
+        --results /tmp/results.xml \
+        --profile stig /tmp/scap-security-guide/ssg-rhel9-ds.xml || true
+        oscap xccdf generate fix --fix-type bash --output base/remediate.sh --result-id xccdf_org.open-scap_testresult_xccdf_org.ssgproject.content_profile_stig /tmp/results.xml
+        make base/ubi-minimal
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         PUSH: "true"
@@ -45,6 +70,13 @@ jobs:
     - id: build-data-service-ubi-minimal
       name: Build images
       run: make base/data-service-ubi-minimal
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "true"
+        IMAGE_PUSH: "true"
+    - id: build-data-service
+      name: Build images
+      run: make base/data-service
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         PUSH: "true"
