@@ -12,7 +12,7 @@ export TAG
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
 GO_VERSION ?= 1.24
-ENVTEST_K8S_VERSION ?= 1.30.x
+ENVTEST_K8S_VERSION ?= 1.33.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -23,7 +23,7 @@ SVU=$(PROJECT_DIR)/bin/svu
 VERSION ?= $(shell $(SVU) next --prefix "")
 DOCKERBUILDXCACHE ?=
 
-KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.17
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.20
 
 STIG_PROFILE ?= /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 
@@ -34,12 +34,12 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.16.5
+CONTROLLER_GEN_VERSION=v0.18.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
 
-CODEGEN_VERSION=kubernetes-1.31.7
+CODEGEN_VERSION=kubernetes-1.33.6
 
 CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
@@ -53,12 +53,12 @@ code-generator:
 		git clone -b tags/$(CODEGEN_VERSION) git@github.com:kubernetes/code-generator $(GOPATH)/k8s.io/code-generator ;\
 	}
 
-KUSTOMIZE_VERSION=v5.0.3
+KUSTOMIZE_VERSION=v5.8.0
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
 
-OMT_VERSION=v0.2.2
+OMT_VERSION=v0.10.0
 OMT=$(PROJECT_DIR)/bin/operator-manifest-tools
 omt:
 	$(call go-get-tool,$(OMT),github.com/operator-framework/operator-manifest-tools@$(OMT_VERSION),$(OMT_VERSION))
@@ -67,16 +67,16 @@ export KUSTOMIZE
 
 OPENAPI_GEN=$(PROJECT_DIR)/bin/openapi-gen
 openapi-gen:
-	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09,690f563)
+	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@9bd5c66d9911c53f5aedb8595fde9c229ca56703,9bd5c66)
 
-HELM_VERSION=v3.8.2
+HELM_VERSION=v3.19.2
 HELM=$(PROJECT_DIR)/bin/helm
 helm:
 	@[ -f $(HELM)-$(HELM_VERSION) ] || { \
 		HELM_INSTALL_DIR=$$(dirname $(HELM)) $(PROJECT_DIR)/hack/get_helm.sh --version $(HELM_VERSION) && touch $(HELM)-$(HELM_VERSION) ;\
 	}
 
-GINKGO_VERSION=v2.22.0
+GINKGO_VERSION=v2.72.0
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION),$(GINKGO_VERSION))
@@ -99,13 +99,13 @@ YQ=$(PROJECT_DIR)/bin/yq
 yq:
 	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION),$(YQ_VERSION))
 
-OPERATOR_SDK_VERSION=v1.28.1
+OPERATOR_SDK_VERSION=v1.42.0
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
 	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION),operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK),$(OPERATOR_SDK_VERSION))
 
-OPM_VERSION=v1.43.1
+OPM_VERSION=v1.61.0
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
