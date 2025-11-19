@@ -85,7 +85,7 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 				}
 
 				w.log.Error(err, "error processing")
-				err := w.queue.AddIfNotPresent(obj)
+				err := w.queue.Add(obj)
 				if err != nil {
 					w.log.Error(err, "error adding if not present")
 				}

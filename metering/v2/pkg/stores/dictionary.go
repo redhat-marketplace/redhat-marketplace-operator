@@ -242,7 +242,7 @@ func (def *MeterDefinitionDictionary) GetByKey(key string) (item interface{}, ex
 }
 
 func (def *MeterDefinitionDictionary) AddIfNotPresent(obj interface{}) error {
-	return def.delta.AddIfNotPresent(obj)
+	return def.delta.Add(obj)
 }
 
 func (def *MeterDefinitionDictionary) Close() {
