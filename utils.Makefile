@@ -58,7 +58,8 @@ KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
 
-OMT_VERSION=v0.10.0
+# Newer OMT has auth resolve problem
+OMT_VERSION=v0.2.2
 OMT=$(PROJECT_DIR)/bin/operator-manifest-tools
 omt:
 	$(call go-get-tool,$(OMT),github.com/operator-framework/operator-manifest-tools@$(OMT_VERSION),$(OMT_VERSION))
