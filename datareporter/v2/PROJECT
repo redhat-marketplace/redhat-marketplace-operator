@@ -1,4 +1,3 @@
-componentConfig: true
 domain: redhat.com
 layout:
 - go.kubebuilder.io/v4
