@@ -21,7 +21,7 @@ require (
 	github.com/imdario/mergo v1.0.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/gomega v1.38.2
 	github.com/openshift/api v0.0.0-20250618185501-1c8afbdd3f90
 	github.com/operator-framework/api v0.18.0
 	github.com/pkg/errors v0.9.1
@@ -83,7 +83,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/google/pprof v0.0.0-20251114195745-4902fdda35c8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/openshift/library-go v0.0.0-20250402180609-ce2ba53fb2a4 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
@@ -136,7 +136,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/ginkgo/v2 v2.22.0
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
