@@ -145,7 +145,7 @@ buf:
 
 ENVTEST=$(PROJECT_DIR)/bin/setup-envtest
 envtest:
-	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@c7e1dc9b5302d649d5531e19168dd7ea0013736d)
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21)
 
 .PHONY: source-envtest
 source-envtest:
