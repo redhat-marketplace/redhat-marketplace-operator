@@ -118,6 +118,7 @@ spec:
   - email: rhmoper@us.ibm.com
     name: RHM Operator Team
   maturity: stable
+  minKubeVersion: 1.25
   provider:
     name: Red Hat Marketplace
   version: 0.0.0
