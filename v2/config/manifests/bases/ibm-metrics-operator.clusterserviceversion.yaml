@@ -11,7 +11,7 @@ metadata:
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: ibm-software-central
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
-    operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
   labels:
@@ -25,48 +25,44 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
-        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
+    - description: |-
+        MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+        By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       displayName: Marketplace Config
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+    - description: |-
+        MeterBase is the resource that sets up Metering for Red Hat Marketplace.
         This is an internal resource not meant to be modified directly.
       displayName: Meter Base
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay
-        for use billing.
+    - description: |-
+        MeterDefinition defines the meter workloads used to enable pay for
+        use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
       version: v1beta1
-    - description: MeterDefinition defines the meter workloads used to enable pay
-        for use billing.
+    - description: |-
+        MeterDefinition defines the meter workloads used to enable pay for
+        use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
       version: v1alpha1
   description: "The IBM Metrics Operator provides workload metering and reporting
-    for IBM and Red Hat Marketplace customers.\n### **Important Note**\nA set of instructions
-    for onboarding is provided here. For more detailed onboarding instructions or
-    information about what is installed please visit [marketplace.redhat.com](https://marketplace.redhat.com).\n\n###
-    **Upgrade Notice**\n\nThe Red Hat Marketplace Operator metering and deployment
-    functionalities have been separated into two operators.\n  - The metering functionality
-    is included in this IBM Metrics Operator\n    - Admin level functionality and
-    permissions are removed from the IBM Metrics Operator\n    - ClusterServiceVersion/ibm-metrics-operator\n
-    \ - The deployment functionality remains as part of the Red Hat Marketplace Deployment
-    Operator by IBM\n    - The Red Hat Marketplace Deployment Operator prerequisites
-    the IBM Metrics Operator\n    - Some admin level RBAC permissions are required
-    for deployment functionality\n    - ClusterServiceVersion/redhat-marketplace-operator\n\nFull
-    registration and visibility of usage metrics on [https://marketplace.redhat.com](https://marketplace.redhat.com)
-    requires both IBM Metrics Operator and Red Hat Marketplace Deployment Operator.\n\n###
-    Upgrade Policy\n\nThe operator releases adhere to semantic versioning and provides
-    a seamless upgrade path for minor and patch releases within the current stable
-    channel.\n\n### Prerequisites\n1. Installations are required to [enable monitoring
-    for user-defined projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
+    for IBM Software Central and Red Hat Marketplace customers.\n### **Important Note**\nA
+    set of instructions for onboarding is provided here. For more detailed onboarding
+    instructions or information about what is installed please visit [swc.saas.ibm.com](https://swc.saas.ibm.com).\n\nUsage
+    metrics may be monitored through [https://swc.saas.ibm.com](https://swc.saas.ibm.com)
+    with only IBM Metrics Operator and a Red Hat Marketplace account.\n\n### Upgrade
+    Policy\n\nThe operator releases adhere to semantic versioning and provides a seamless
+    upgrade path for minor and patch releases within the current stable channel.\n\n###
+    Prerequisites\n1. Installations are required to [enable monitoring for user-defined
+    projects](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)
     as the Prometheus provider.\n2. Edit the cluster-monitoring-config ConfigMap object:\n\n
     \  ```sh\n   $ oc -n openshift-monitoring edit configmap cluster-monitoring-config\n
     \   ```\n\n3. Add enableUserWorkload: true under data/config.yaml:\n  \n    ```sh\n
@@ -88,29 +84,31 @@ spec:
     |\n| --------- | ----------- | ----------- | --------- | ----- |\n| **[Openshift
     User Workload Monitoring](https://docs.openshift.com/container-platform/latest/monitoring/enabling-monitoring-for-user-defined-projects.html)**
     |          1  |     0.1       | 2x40        |   2    |\n\nMultiple nodes are required
-    to provide pod scheduling for high availability for Red Hat Marketplace Data Service
-    and Prometheus.\n\nThe IBM Metrics Operator automatically creates 3 x 1Gi PersistentVolumeClaims
-    to store reports as part of the data service, with _ReadWriteOnce_ access mode.
-    Te PersistentVolumeClaims are automatically created by the ibm-metrics-operator
-    after creating a `redhat-marketplace-pull-secret` and accepting the license in
-    `marketplaceconfig`.\n\n| NAME                                | CAPACITY | ACCESS
-    MODES |\n| ----------------------------------- | -------- | ------------ |\n|
-    rhm-data-service-rhm-data-service-0 | 1Gi | RWO |\n| rhm-data-service-rhm-data-service-1
+    to provide pod scheduling for high availability for IBM Metrics Operator Data
+    Service and Prometheus.\n\nThe IBM Metrics Operator automatically creates 3 x
+    1Gi PersistentVolumeClaims to store reports as part of the data service, with
+    _ReadWriteOnce_ access mode. Te PersistentVolumeClaims are automatically created
+    by the ibm-metrics-operator after creating a `redhat-marketplace-pull-secret`
+    and accepting the license in `marketplaceconfig`.\n\n| NAME                                |
+    CAPACITY | ACCESS MODES |\n| ----------------------------------- | -------- |
+    ------------ |\n| rhm-data-service-rhm-data-service-0 | 1Gi | RWO |\n| rhm-data-service-rhm-data-service-1
     | 1Gi | RWO |\n| rhm-data-service-rhm-data-service-2 | 1Gi | RWO |\n\n### Supported
     Storage Providers\n\n- OpenShift Container Storage / OpenShift Data Foundation
     version 4.x, from version 4.2 or higher\n- IBM Cloud Block storage and IBM Cloud
     File storage\n- IBM Storage Suite for IBM Cloud Paks:\n  - File storage from IBM
     Spectrum Fusion/Scale \n  - Block storage from IBM Spectrum Virtualize, FlashSystem
-    or DS8K\n- Portworx Storage, version 2.5.5 or above\n- Amazon Elastic File Storage\n\n###
-    Access Modes required\n\n - ReadWriteOnce (RWO)\n\n### Provisioning Options supported\n\nChoose
-    one of the following options to provision storage for the ibm-metrics-operator
-    data-service\n\n#### Dynamic provisioning using a default StorageClass\n   - A
-    StorageClass is defined with a `metadata.annotations: storageclass.kubernetes.io/is-default-class:
-    \"true\"`\n   - PersistentVolumes will be provisioned automatically for the generated
-    PersistentVolumeClaims\n--- \n#### Manually create each PersistentVolumeClaim
-    with a specific StorageClass\n   - Must be performed before creating a `redhat-marketplace-pull-secret`
-    or accepting the license in `marketplaceconfig`. Otherwise, the automatically
-    generated PersistentVolumeClaims are immutable.\n```\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n
+    or DS8K\n- Portworx Storage, version 2.5.5 or above\n- Amazon Elastic File Storage\n-
+    Azure Disk Storage (disk.csi.azure.com)\n\n#### Known Problematic Storage Providers\n\n-
+    Azure File Storage (file.csi.azure.com)\n\n### Access Modes required\n\n - ReadWriteOnce
+    (RWO)\n\n### Provisioning Options supported\n\nChoose one of the following options
+    to provision storage for the ibm-metrics-operator data-service\n\n#### Dynamic
+    provisioning using a default StorageClass\n   - A StorageClass is defined with
+    a `metadata.annotations: storageclass.kubernetes.io/is-default-class: \"true\"`\n
+    \  - PersistentVolumes will be provisioned automatically for the generated PersistentVolumeClaims\n---
+    \n#### Manually create each PersistentVolumeClaim with a specific StorageClass\n
+    \  - Must be performed before creating a `redhat-marketplace-pull-secret` or accepting
+    the license in `marketplaceconfig`. Otherwise, the automatically generated PersistentVolumeClaims
+    are immutable.\n```\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n
     \ labels:\n    app: rhm-data-service\n  name: rhm-data-service-rhm-data-service-0\n
     \ namespace: ibm-software-central\nspec:\n  storageClassName: rook-cephfs\n  accessModes:\n
     \ - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi\n```\n---\n####
@@ -122,63 +120,72 @@ spec:
     \ capacity:\n    storage: 1Gi\n  accessModes:\n    - ReadWriteOnce\n  persistentVolumeReclaimPolicy:
     Delete\n  storageClassName: rook-cephfs\n  volumeMode: Filesystem\n  claimRef:\n
     \   kind: PersistentVolumeClaim\n    namespace: ibm-software-central\n    name:
-    rhm-data-service-rhm-data-service-0\n```\n\n### Installation\n1. Create or get
-    your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).\n2.
+    rhm-data-service-rhm-data-service-0\n```\n\n### Kyverno Policies\n\nThe IBM Metrics
+    Operator makes a best effort to comply with the Kyverno policies defined by [IBM
+    MAS](https://github.com/ibm-mas/kyverno-policies)\n\nExceptions:\n- IBM Metrics
+    Operator is not replicated\n  - Service uptime is not considered critial, and
+    can be rescheduled\n- metric-state is not replicated\n  - Service uptime is not
+    considered critial, and can be rescheduled\n\n### Installation\n1. Create or get
+    your [pull secret](https://swc.saas.ibm.com/en-us/documentation/clusters#get-pull-secret).\n2.
     Install the IBM Metrics Operator\n3. Create a Kubernetes secret in the installed
     namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET`
-    with the value of the Red hat Marketplace Pull Secret.\n    ```sh\n    # Replace
-    ${PULL_SECRET} with your secret from Red Hat Marketplace\n    oc create secret
-    generic redhat-marketplace-pull-secret -n  redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}\n
-    \   ```\n4. Use of the Red Hat Marketplace platform is governed by the:\n\n    [IBM
-    Cloud Services Agreement](https://www.ibm.com/support/customer/csol/terms/?id=Z126-6304_WS&_ga=2.116312197.2046730452.1684328846-812467790.1684328846)
+    with the value of the pull secret.\n    ```sh\n    # Replace ${PULL_SECRET} with
+    your pull secret\n    oc create secret generic redhat-marketplace-pull-secret
+    -n ibm-software-central --from-literal=PULL_SECRET=${PULL_SECRET}\n    ```\n4.
+    Use of the platform is governed by the:\n\n    [IBM Cloud Services Agreement](https://www.ibm.com/support/customer/csol/terms/?id=Z126-6304_WS&_ga=2.116312197.2046730452.1684328846-812467790.1684328846)
     (or other base agreement between you and IBM such as a [Passport Advantage Agreement](https://www.ibm.com/software/passportadvantage/pa_agreements.html?_ga=2.116312197.2046730452.1684328846-812467790.1684328846))
     and the [Service Description for the Red Hat Marketplace](https://www.ibm.com/support/customer/csol/terms/?id=i126-8719&_ga=2.83289621.2046730452.1684328846-812467790.1684328846).\n
     \   \n5. Update MarketplaceConfig to accept the license.\n    ```\n    oc patch
-    marketplaceconfig marketplaceconfig -n redhat-marketplace --type='merge' -p '{\"spec\":
-    {\"license\": {\"accept\": true}}}'\n    ```\n6. Install the Red Hat Marketplace
-    pull secret as a global pull secret on the cluster.\n\n    These steps require
-    `oc`, `jq`, and `base64` to be available on your machine.\n\n    ```sh\n    #
-    Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.\n
-    \   # Store it in a file called entitledregistryconfigjson.\n    oc create secret
-    docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com
-    --docker-username \"cp\" --docker-password \"${PULL_SECRET}\" --dry-run=client
-    --output=\"jsonpath={.data.\\.dockerconfigjson}\" | base64 --decode > entitledregistryconfigjson\n
-    \   # Get the current global secrets on the cluster and store it as a file named
-    dockerconfigjson\n    oc get secret pull-secret -n openshift-config --output=\"jsonpath={.data.\\.dockerconfigjson}\"
+    marketplaceconfig marketplaceconfig -n ibm-software-central --type='merge' -p
+    '{\"spec\": {\"license\": {\"accept\": true}}}'\n    ```\n6. Install the pull
+    secret as a global pull secret on the cluster.\n\n    These steps require `oc`,
+    `jq`, and `base64` to be available on your machine.\n\n    ```sh\n    # Create
+    the docker pull secret file using your pull secret.\n    # Store it in a file
+    called entitledregistryconfigjson.\n    oc create secret docker-registry entitled-registry
+    --docker-server=registry.marketplace.redhat.com --docker-username \"cp\" --docker-password
+    \"${PULL_SECRET}\" --dry-run=client --output=\"jsonpath={.data.\\.dockerconfigjson}\"
+    | base64 --decode > entitledregistryconfigjson\n    # Get the current global secrets
+    on the cluster and store it as a file named dockerconfigjson\n    oc get secret
+    pull-secret -n openshift-config --output=\"jsonpath={.data.\\.dockerconfigjson}\"
     | base64 --decode > dockerconfigjson\n    # Merge the two dockerconfigs together
     into a file called dockerconfigjson-merged.\n    jq -s '.[0] * .[1]' dockerconfigjson
     entitledregistryconfigjson > dockerconfigjson-merged\n    # Set the cluster's
     dockerconfig file to the new merged version.\n    oc set data secret/pull-secret
-    -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged\n    ```\n\n###
-    Why is a global pull secret required?\nIn order to successfully install the Red
-    Hat Marketplace products, you will need to make the pull secret available across
-    the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret
-    as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
+    -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged\n    ```\n
+    \ 7. (Optional) Your IBM product may have installed IBM Metrics Operator using
+    an `ibm-entitlement-key` for authentication to IBM Software Central. To authorize
+    the automatic creation of an IBM Software Central account for the IBM account
+    owning the `ibm-entitlement-key`\n      ```\n      oc patch marketplaceconfig
+    marketplaceconfig -n ibm-software-central --type='merge' -p '{\"spec\": {\"authorizeAccountCreation\":
+    true}}'\n      ```\n\n### Why is a global pull secret required?\nIn order to successfully
+    install the products hosted by the container image registry, you will need to
+    make the pull secret available across the cluster. This can be achieved by applying
+    the pull as a [global pull secret](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
     For alternative approaches, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/latest/openshift_images/managing_images/using-image-pull-secrets.html).\n\n\n###
     SecurityContextConstraints requirements\n\nThe Operators and their components
     support running under the OpenShift Container Platform default restricted and
     restricted-v2 security context constraints.\n\n### Installation Namespace and
     ClusterRoleBinding requirements\n\nThe IBM Metrics Operator components require
     specific ClusterRoleBindings.\n- The metric-state component requires a ClusterRoleBinding
-    for the the `view` ClusterRole. \n- The reporter component requires a ClusterRoleBinding
-    for the the `cluster-monitoring-view` ClusterRole. \n\nDue to limitations of Operator
-    Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided automatically
-    for arbitrary installation target namespaces.\n\nA ClusterRoleBinding is included
-    for installation to the default namespace of `redhat-marketplace`, and namespaces
-    `openshift-redhat-marketplace`, `ibm-common-services`.\n\nTo update the ClusterRoleBindings
-    for installation to an alternate namespace\n```\noc patch clusterrolebinding ibm-metrics-operator-metric-state-view-binding
-    --type='json' -p='[{\"op\": \"add\", \"path\": \"/subjects/1\", \"value\": {\"kind\":
-    \"ServiceAccount\", \"name\": \"ibm-metrics-operator-metric-state\",\"namespace\":
-    \"NAMESPACE\" }}]'\n\noc patch clusterrolebinding ibm-metrics-operator-reporter-cluster-monitoring-binding
-    --type='json' -p='[{\"op\": \"add\", \"path\": \"/subjects/1\", \"value\": {\"kind\":
-    \"ServiceAccount\", \"name\": \"ibm-metrics-operator-reporter\",\"namespace\":
-    \"NAMESPACE\" }}]'\n```\n\n### Metric State scoping requirements\nThe metric-state
-    Deployment obtains `get/list/watch` access to metered resources via the `view`
-    ClusterRole. For operators deployed using Operator Lifecycle Manager (OLM), permissions
-    are added to `clusterrole/view` dynamically via a generated and annotated `-view`
-    ClusterRole. If you wish to meter an operator, and its Custom Resource Definitions
-    (CRDs) are not deployed through OLM, one of two options are required\n1. Add the
-    following label to a clusterrole that has get/list/watch access to your CRD: `rbac.authorization.k8s.io/aggregate-to-view:
+    for the the `view` ClusterRole.\n  - Ability to read non-sensitive CustomResources.
+    \n  - The `view` ClusterRole dynamically adds new CustomResourceDefinitions.\n-
+    The operator & reporter component requires a ClusterRoleBinding for the the `cluster-monitoring-view`
+    ClusterRole.\n  - Ability to view Prometheus metrics. \n  - The underlying ClusterRole
+    RBAC often updated between OpenShift versions.\n\nDue to limitations of Operator
+    Lifecycle Manager (OLM), this ClusterRoleBinding can not be provided dynamically
+    for arbitrary installation target namespaces.\n\nA static ClusterRoleBinding is
+    included for installation to the default namespace of `ibm-software-central`,
+    and namespaces `openshift-redhat-marketplace`,  `redhat-marketplace`, `ibm-common-services`.\n\nTo
+    create the ClusterRoleBindings for installation to an alternate namespace\n```\noc
+    project INSTALL-NAMESPACE\noc adm policy add-cluster-role-to-user view -z ibm-metrics-operator-metric-state\noc
+    adm policy add-cluster-role-to-user cluster-monitoring-view -z ibm-metrics-operator-controller-manager,ibm-metrics-operator-reporter\n```\n\n###
+    Metric State scoping requirements\nThe metric-state Deployment obtains `get/list/watch`
+    access to metered resources via the `view` ClusterRole. For operators deployed
+    using Operator Lifecycle Manager (OLM), permissions are added to `clusterrole/view`
+    dynamically via a generated and annotated `-view` ClusterRole. If you wish to
+    meter an operator, and its Custom Resource Definitions (CRDs) are not deployed
+    through OLM, one of two options are required\n1. Add the following label to a
+    clusterrole that has get/list/watch access to your CRD: `rbac.authorization.k8s.io/aggregate-to-view:
     \"true\"`, thereby dynamically adding it to `clusterrole/view`\n2. Create a ClusterRole
     that has get/list/watch access to your CRD, and create a ClusterRoleBinding for
     the metric-state ServiceAccount\n\nAttempting to meter a resource with a MeterDefinition
@@ -187,9 +194,10 @@ spec:
     `rhm-data-service-rhm-data-service-N`. \n- In connected environments, MeterReport
     data upload attempts occur hourly, and are then removed from data-service. There
     is a low risk of losing much unreported data.\n- In an airgap environment, MeterReport
-    data must be pulled from data-service and uploaded manually using `datactl`. To
-    prevent data loss in a disaster scenario, the data-service volumes should be considered
-    in a recovery plan.\n\n### Subscription Config\n\nIt is possible to [configure](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md)
+    data must be pulled from data-service and uploaded manually using [datactl](https://github.com/redhat-marketplace/datactl/).
+    To prevent data loss in a disaster scenario, the data-service volumes should be
+    considered in a recovery plan.\n\n### Subscription Config\n\nIt is possible to
+    [configure](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md)
     how OLM deploys an Operator via the `config` field in the [Subscription](https://github.com/operator-framework/olm-book/blob/master/docs/subscriptions.md)
     object.\n\nThe IBM Metrics Operator will also read the `config` and append it
     to the operands. The primary use case is to control scheduling using [Tolerations](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/)
@@ -212,11 +220,11 @@ spec:
     \                     |configmaps             |get;list;watch                            |\n|
     \                     |services               |get;list;watch                            |\n|
     \                     |**clusterrole/view**   |                                          |\n\n\n###
-    Documentation\nYou can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)\n\n###
-    Getting help\nIf you encounter any issues while using Red Hat Marketplace operator,
-    you can create an issue on our [Github\nrepo](https://github.com/redhat-marketplace/redhat-marketplace-operator)
+    Documentation\nYou can find our documentation [here.](https://swc.saas.ibm.com/en-us/documentation/)\n\n###
+    Getting help\nIf you encounter any issues while using the operators, you can create
+    an issue on our [Github\nrepo](https://github.com/redhat-marketplace/redhat-marketplace-operator)
     for bugs, enhancements, or other requests. You can also visit our main page and\nreview
-    our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).\n\n###
+    our [support](https://swc.saas.ibm.com/en-us/support) and [documentation](https://swc.saas.ibm.com/en-us/documentation/).\n\n###
     Readme\nYou can find our readme [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/README.md)\n\n###
     License information\nYou can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)\n"
   displayName: IBM Metrics Operator

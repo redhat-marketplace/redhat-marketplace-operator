@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: meterdefinitions.marketplace.redhat.com
 spec:
   group: marketplace.redhat.com
@@ -17,18 +17,24 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: MeterDefinition defines the meter workloads used to enable pay
-          for use billing.
+        description: |-
+          MeterDefinition defines the meter workloads used to enable pay for
+          use billing.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -36,8 +42,9 @@ spec:
             description: MeterDefinitionSpec defines the desired metering spec
             properties:
               installedBy:
-                description: InstalledBy is a reference to the CSV that install the
-                  meter definition. This is used to determine an operator group.
+                description: |-
+                  InstalledBy is a reference to the CSV that install the meter
+                  definition. This is used to determine an operator group.
                 properties:
                   groupVersionKind:
                     description: GroupVersionKind of the resource
@@ -53,10 +60,14 @@ spec:
                     - kind
                     type: object
                   name:
-                    description: Name of the resource Required
+                    description: |-
+                      Name of the resource
+                      Required
                     type: string
                   namespace:
-                    description: Namespace of the resource Required
+                    description: |-
+                      Namespace of the resource
+                      Required
                     type: string
                   uid:
                     description: Namespace of the resource
@@ -88,31 +99,32 @@ spec:
                   type: string
                 type: array
               workloadVertexLabelSelectors:
-                description: VertexFilters are used when Namespace is selected. Can
-                  be omitted if you select OperatorGroup
+                description: |-
+                  VertexFilters are used when Namespace is selected. Can be omitted
+                  if you select OperatorGroup
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
                       The requirements are ANDed.
                     items:
-                      description: A label selector requirement is a selector that
-                        contains values, a key, and an operator that relates the key
-                        and values.
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
                       properties:
                         key:
                           description: key is the label key that the selector applies
                             to.
                           type: string
                         operator:
-                          description: operator represents a key's relationship to
-                            a set of values. Valid operators are In, NotIn, Exists
-                            and DoesNotExist.
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
                           type: string
                         values:
-                          description: values is an array of string values. If the
-                            operator is In or NotIn, the values array must be non-empty.
-                            If the operator is Exists or DoesNotExist, the values
-                            array must be empty. This array is replaced during a strategic
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
                             merge patch.
                           items:
                             type: string
@@ -127,17 +139,17 @@ spec:
                   matchLabels:
                     additionalProperties:
                       type: string
-                    description: matchLabels is a map of {key,value} pairs. A single
-                      {key,value} in the matchLabels map is equivalent to an element
-                      of matchExpressions, whose key field is "key", the operator
-                      is "In", and the values array contains only "value". The requirements
-                      are ANDed.
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
               workloadVertexType:
-                description: WorkloadVertexType is the top most object of a workload.
-                  It allows you to identify the upper bounds of your workloads.
+                description: |-
+                  WorkloadVertexType is the top most object of a workload. It allows
+                  you to identify the upper bounds of your workloads.
                 enum:
                 - Namespace
                 - OperatorGroup
@@ -155,25 +167,25 @@ spec:
                           description: matchExpressions is a list of label selector
                             requirements. The requirements are ANDed.
                           items:
-                            description: A label selector requirement is a selector
-                              that contains values, a key, and an operator that relates
-                              the key and values.
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
                             properties:
                               key:
                                 description: key is the label key that the selector
                                   applies to.
                                 type: string
                               operator:
-                                description: operator represents a key's relationship
-                                  to a set of values. Valid operators are In, NotIn,
-                                  Exists and DoesNotExist.
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
                                 type: string
                               values:
-                                description: values is an array of string values.
-                                  If the operator is In or NotIn, the values array
-                                  must be non-empty. If the operator is Exists or
-                                  DoesNotExist, the values array must be empty. This
-                                  array is replaced during a strategic merge patch.
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
                                 items:
                                   type: string
                                 type: array
@@ -187,11 +199,10 @@ spec:
                         matchLabels:
                           additionalProperties:
                             type: string
-                          description: matchLabels is a map of {key,value} pairs.
-                            A single {key,value} in the matchLabels map is equivalent
-                            to an element of matchExpressions, whose key field is
-                            "key", the operator is "In", and the values array contains
-                            only "value". The requirements are ANDed.
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
                           type: object
                       type: object
                       x-kubernetes-map-type: atomic
@@ -203,25 +214,25 @@ spec:
                           description: matchExpressions is a list of label selector
                             requirements. The requirements are ANDed.
                           items:
-                            description: A label selector requirement is a selector
-                              that contains values, a key, and an operator that relates
-                              the key and values.
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
                             properties:
                               key:
                                 description: key is the label key that the selector
                                   applies to.
                                 type: string
                               operator:
-                                description: operator represents a key's relationship
-                                  to a set of values. Valid operators are In, NotIn,
-                                  Exists and DoesNotExist.
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
                                 type: string
                               values:
-                                description: values is an array of string values.
-                                  If the operator is In or NotIn, the values array
-                                  must be non-empty. If the operator is Exists or
-                                  DoesNotExist, the values array must be empty. This
-                                  array is replaced during a strategic merge patch.
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
                                 items:
                                   type: string
                                 type: array
@@ -235,11 +246,10 @@ spec:
                         matchLabels:
                           additionalProperties:
                             type: string
-                          description: matchLabels is a map of {key,value} pairs.
-                            A single {key,value} in the matchLabels map is equivalent
-                            to an element of matchExpressions, whose key field is
-                            "key", the operator is "In", and the values array contains
-                            only "value". The requirements are ANDed.
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
                           type: object
                       type: object
                       x-kubernetes-map-type: atomic
@@ -274,9 +284,9 @@ spec:
                         definition.
                       type: string
                     ownerCRD:
-                      description: OwnerCRD is the name of the GVK to look for as
-                        the owner of all the meterable assets. If omitted, the labels
-                        and annotations are used instead.
+                      description: |-
+                        OwnerCRD is the name of the GVK to look for as the owner of all the
+                        meterable assets. If omitted, the labels and annotations are used instead.
                       properties:
                         apiVersion:
                           description: APIVersion of the CRD
@@ -289,14 +299,16 @@ spec:
                       - kind
                       type: object
                     type:
-                      description: WorkloadType identifies the type of workload to
-                        look for. This can be pod or service right now.
+                      description: |-
+                        WorkloadType identifies the type of workload to look for. This can be
+                        pod or service right now.
                       enum:
                       - Pod
                       - Service
                       - PersistentVolumeClaim
                       type: string
                   required:
+                  - metricLabels
                   - name
                   - type
                   type: object
@@ -313,16 +325,16 @@ spec:
                 description: Conditions represent the latest available observations
                   of an object's state
                 items:
-                  description: "Condition represents an observation of an object's
-                    state. Conditions are an extension mechanism intended to be used
-                    when the details of an observation are not a priori known or would
-                    not apply to all instances of a given Kind. \n Conditions should
-                    be added to explicitly convey properties that users and components
-                    care about rather than requiring those properties to be inferred
-                    from other observations. Once defined, the meaning of a Condition
-                    can not be changed arbitrarily - it becomes part of the API, and
-                    has the same backwards- and forwards-compatibility concerns of
-                    any other part of the API."
+                  description: |-
+                    Condition represents an observation of an object's state. Conditions are an
+                    extension mechanism intended to be used when the details of an observation
+                    are not a priori known or would not apply to all instances of a given Kind.
+
+                    Conditions should be added to explicitly convey properties that users and
+                    components care about rather than requiring those properties to be inferred
+                    from other observations. Once defined, the meaning of a Condition can not be
+                    changed arbitrarily - it becomes part of the API, and has the same
+                    backwards- and forwards-compatibility concerns of any other part of the API.
                   properties:
                     lastTransitionTime:
                       format: date-time
@@ -330,20 +342,22 @@ spec:
                     message:
                       type: string
                     reason:
-                      description: ConditionReason is intended to be a one-word, CamelCase
-                        representation of the category of cause of the current status.
-                        It is intended to be used in concise output, such as one-line
-                        kubectl get output, and in summarizing occurrences of causes.
+                      description: |-
+                        ConditionReason is intended to be a one-word, CamelCase representation of
+                        the category of cause of the current status. It is intended to be used in
+                        concise output, such as one-line kubectl get output, and in summarizing
+                        occurrences of causes.
                       type: string
                     status:
                       type: string
                     type:
-                      description: "ConditionType is the type of the condition and
-                        is typically a CamelCased word or short phrase. \n Condition
-                        types should indicate state in the \"abnormal-true\" polarity.
-                        For example, if the condition indicates when a policy is invalid,
-                        the \"is valid\" case is probably the norm, so the condition
-                        should be called \"Invalid\"."
+                      description: |-
+                        ConditionType is the type of the condition and is typically a CamelCased
+                        word or short phrase.
+
+                        Condition types should indicate state in the "abnormal-true" polarity. For
+                        example, if the condition indicates when a policy is invalid, the "is valid"
+                        case is probably the norm, so the condition should be called "Invalid".
                       type: string
                   required:
                   - status
@@ -354,10 +368,10 @@ spec:
                 description: Results is a list of Results that get returned from a
                   query to prometheus
                 items:
-                  description: Result is a result of a query defined on the meterdefinition.
-                    This will generate data for the previous hour on whichever workload
-                    you specify. This will allow you to check whether a query is working
-                    as intended.
+                  description: |-
+                    Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload you specify.
+                    This will allow you to check whether a query is working as intended.
                   properties:
                     metricName:
                       description: MetricName is the identifier that you will use
@@ -389,8 +403,9 @@ spec:
                   type: object
                 type: array
               workloadResource:
-                description: WorkloadResources is the list of resources discovered
-                  by this meter definition
+                description: |-
+                  WorkloadResources is the list of resources discovered by
+                  this meter definition
                 items:
                   description: WorkloadResource represents the resources associated
                     to a workload
@@ -409,10 +424,14 @@ spec:
                       - kind
                       type: object
                     name:
-                      description: Name of the resource Required
+                      description: |-
+                        Name of the resource
+                        Required
                       type: string
                     namespace:
-                      description: Namespace of the resource Required
+                      description: |-
+                        Namespace of the resource
+                        Required
                       type: string
                     referencedWorkloadName:
                       description: ReferencedWorkloadName is the name of the workload
@@ -434,18 +453,24 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: MeterDefinition defines the meter workloads used to enable pay
-          for use billing.
+        description: |-
+          MeterDefinition defines the meter workloads used to enable pay for
+          use billing.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -456,8 +481,9 @@ spec:
                 description: Group defines the operator group of the meter
                 type: string
               installedBy:
-                description: InstalledBy is a reference to the CSV that install the
-                  meter definition. This is used to determine an operator group.
+                description: |-
+                  InstalledBy is a reference to the CSV that install the meter
+                  definition. This is used to determine an operator group.
                 properties:
                   groupVersionKind:
                     description: GroupVersionKind of the resource
@@ -473,10 +499,14 @@ spec:
                     - kind
                     type: object
                   name:
-                    description: Name of the resource Required
+                    description: |-
+                      Name of the resource
+                      Required
                     type: string
                   namespace:
-                    description: Namespace of the resource Required
+                    description: |-
+                      Namespace of the resource
+                      Required
                     type: string
                   uid:
                     description: Namespace of the resource
@@ -503,9 +533,9 @@ spec:
                       - group
                       type: string
                     dateLabelOverride:
-                      description: DateLabelOverride provides a means of overriding
-                        the date returned for the metric using a label. This is to
-                        handle cases where the metric is a constant that is calculated.
+                      description: |-
+                        DateLabelOverride provides a means of overriding the date returned for the metric using a label.
+                        This is to handle cases where the metric is a constant that is calculated.
                       type: string
                     description:
                       description: Description is the overview of what the metric
@@ -519,7 +549,8 @@ spec:
                       type: array
                       x-kubernetes-list-type: set
                     label:
-                      description: Label is the usage metrics key field on the report.
+                      description: |-
+                        Label is the usage metrics key field on the report.
                         Defaults to the metricId field if not provided
                       type: string
                     metricId:
@@ -546,13 +577,14 @@ spec:
                       description: Query to use for prometheus to find the metrics
                       type: string
                     unit:
-                      description: Unit is the unit of the metrics. Defaults to the
-                        metricId field if not provided
+                      description: |-
+                        Unit is the unit of the metrics.
+                        Defaults to the metricId field if not provided
                       type: string
                     valueLabelOverride:
-                      description: ValueLabelOverride provides a means of overriding
-                        the value returned for the metric using a label. This is to
-                        handle cases where the metric is a constant that is calculated.
+                      description: |-
+                        ValueLabelOverride provides a means of overriding the value returned for the metric using a label.
+                        This is to handle cases where the metric is a constant that is calculated.
                       type: string
                     without:
                       description: Labels to filter out automatically.
@@ -561,8 +593,9 @@ spec:
                       type: array
                       x-kubernetes-list-type: set
                     workloadType:
-                      description: WorkloadType identifies the type of workload to
-                        look for. This can be pod or service right now.
+                      description: |-
+                        WorkloadType identifies the type of workload to look for. This can be
+                        pod or service right now.
                       enum:
                       - Pod
                       - Service
@@ -576,9 +609,10 @@ spec:
                   type: object
                 type: array
               resourceFilters:
-                description: ResourceFilters provide filters that will be used to
-                  find the workload objects. This is to find the exact resources the
-                  query is interested in. At least one must be provided.
+                description: |-
+                  ResourceFilters provide filters that will be used to find the workload objects.
+                  This is to find the exact resources the query is interested in. At least one must
+                  be provided.
                 items:
                   properties:
                     annotation:
@@ -593,8 +627,8 @@ spec:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
-                                description: A label selector requirement is a selector
-                                  that contains values, a key, and an operator that
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
                                   relates the key and values.
                                 properties:
                                   key:
@@ -602,17 +636,16 @@ spec:
                                       applies to.
                                     type: string
                                   operator:
-                                    description: operator represents a key's relationship
-                                      to a set of values. Valid operators are In,
-                                      NotIn, Exists and DoesNotExist.
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
                                     type: string
                                   values:
-                                    description: values is an array of string values.
-                                      If the operator is In or NotIn, the values array
-                                      must be non-empty. If the operator is Exists
-                                      or DoesNotExist, the values array must be empty.
-                                      This array is replaced during a strategic merge
-                                      patch.
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
                                     items:
                                       type: string
                                     type: array
@@ -626,11 +659,10 @@ spec:
                             matchLabels:
                               additionalProperties:
                                 type: string
-                              description: matchLabels is a map of {key,value} pairs.
-                                A single {key,value} in the matchLabels map is equivalent
-                                to an element of matchExpressions, whose key field
-                                is "key", the operator is "In", and the values array
-                                contains only "value". The requirements are ANDed.
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
                               type: object
                           type: object
                           x-kubernetes-map-type: atomic
@@ -647,8 +679,8 @@ spec:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
-                                description: A label selector requirement is a selector
-                                  that contains values, a key, and an operator that
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
                                   relates the key and values.
                                 properties:
                                   key:
@@ -656,17 +688,16 @@ spec:
                                       applies to.
                                     type: string
                                   operator:
-                                    description: operator represents a key's relationship
-                                      to a set of values. Valid operators are In,
-                                      NotIn, Exists and DoesNotExist.
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
                                     type: string
                                   values:
-                                    description: values is an array of string values.
-                                      If the operator is In or NotIn, the values array
-                                      must be non-empty. If the operator is Exists
-                                      or DoesNotExist, the values array must be empty.
-                                      This array is replaced during a strategic merge
-                                      patch.
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
                                     items:
                                       type: string
                                     type: array
@@ -680,19 +711,18 @@ spec:
                             matchLabels:
                               additionalProperties:
                                 type: string
-                              description: matchLabels is a map of {key,value} pairs.
-                                A single {key,value} in the matchLabels map is equivalent
-                                to an element of matchExpressions, whose key field
-                                is "key", the operator is "In", and the values array
-                                contains only "value". The requirements are ANDed.
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
                               type: object
                           type: object
                           x-kubernetes-map-type: atomic
                       type: object
                     namespace:
-                      description: Namespace is the filter to control which namespaces
-                        to look for your resources. Default is always Operator Group
-                        (supported by OLM)
+                      description: |-
+                        Namespace is the filter to control which namespaces to look for your resources.
+                        Default is always Operator Group (supported by OLM)
                       properties:
                         labelSelector:
                           description: LabelSelector are used to filter to the correct
@@ -702,8 +732,8 @@ spec:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
-                                description: A label selector requirement is a selector
-                                  that contains values, a key, and an operator that
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
                                   relates the key and values.
                                 properties:
                                   key:
@@ -711,17 +741,16 @@ spec:
                                       applies to.
                                     type: string
                                   operator:
-                                    description: operator represents a key's relationship
-                                      to a set of values. Valid operators are In,
-                                      NotIn, Exists and DoesNotExist.
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
                                     type: string
                                   values:
-                                    description: values is an array of string values.
-                                      If the operator is In or NotIn, the values array
-                                      must be non-empty. If the operator is Exists
-                                      or DoesNotExist, the values array must be empty.
-                                      This array is replaced during a strategic merge
-                                      patch.
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
                                     items:
                                       type: string
                                     type: array
@@ -735,11 +764,10 @@ spec:
                             matchLabels:
                               additionalProperties:
                                 type: string
-                              description: matchLabels is a map of {key,value} pairs.
-                                A single {key,value} in the matchLabels map is equivalent
-                                to an element of matchExpressions, whose key field
-                                is "key", the operator is "In", and the values array
-                                contains only "value". The requirements are ANDed.
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
                               type: object
                           type: object
                           x-kubernetes-map-type: atomic
@@ -764,8 +792,9 @@ spec:
                       - kind
                       type: object
                     workloadType:
-                      description: WorkloadType identifies the type of workload to
-                        look for. This can be pod or service right now.
+                      description: |-
+                        WorkloadType identifies the type of workload to look for. This can be
+                        pod or service right now.
                       enum:
                       - Pod
                       - Service
@@ -789,16 +818,16 @@ spec:
                 description: Conditions represent the latest available observations
                   of an object's state
                 items:
-                  description: "Condition represents an observation of an object's
-                    state. Conditions are an extension mechanism intended to be used
-                    when the details of an observation are not a priori known or would
-                    not apply to all instances of a given Kind. \n Conditions should
-                    be added to explicitly convey properties that users and components
-                    care about rather than requiring those properties to be inferred
-                    from other observations. Once defined, the meaning of a Condition
-                    can not be changed arbitrarily - it becomes part of the API, and
-                    has the same backwards- and forwards-compatibility concerns of
-                    any other part of the API."
+                  description: |-
+                    Condition represents an observation of an object's state. Conditions are an
+                    extension mechanism intended to be used when the details of an observation
+                    are not a priori known or would not apply to all instances of a given Kind.
+
+                    Conditions should be added to explicitly convey properties that users and
+                    components care about rather than requiring those properties to be inferred
+                    from other observations. Once defined, the meaning of a Condition can not be
+                    changed arbitrarily - it becomes part of the API, and has the same
+                    backwards- and forwards-compatibility concerns of any other part of the API.
                   properties:
                     lastTransitionTime:
                       format: date-time
@@ -806,20 +835,22 @@ spec:
                     message:
                       type: string
                     reason:
-                      description: ConditionReason is intended to be a one-word, CamelCase
-                        representation of the category of cause of the current status.
-                        It is intended to be used in concise output, such as one-line
-                        kubectl get output, and in summarizing occurrences of causes.
+                      description: |-
+                        ConditionReason is intended to be a one-word, CamelCase representation of
+                        the category of cause of the current status. It is intended to be used in
+                        concise output, such as one-line kubectl get output, and in summarizing
+                        occurrences of causes.
                       type: string
                     status:
                       type: string
                     type:
-                      description: "ConditionType is the type of the condition and
-                        is typically a CamelCased word or short phrase. \n Condition
-                        types should indicate state in the \"abnormal-true\" polarity.
-                        For example, if the condition indicates when a policy is invalid,
-                        the \"is valid\" case is probably the norm, so the condition
-                        should be called \"Invalid\"."
+                      description: |-
+                        ConditionType is the type of the condition and is typically a CamelCased
+                        word or short phrase.
+
+                        Condition types should indicate state in the "abnormal-true" polarity. For
+                        example, if the condition indicates when a policy is invalid, the "is valid"
+                        case is probably the norm, so the condition should be called "Invalid".
                       type: string
                   required:
                   - status
@@ -830,10 +861,10 @@ spec:
                 description: Results is a list of Results that get returned from a
                   query to prometheus
                 items:
-                  description: Result is a result of a query defined on the meterdefinition.
-                    This will generate data for the previous hour on whichever workload
-                    you specify. This will allow you to check whether a query is working
-                    as intended.
+                  description: |-
+                    Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload you specify.
+                    This will allow you to check whether a query is working as intended.
                   properties:
                     metricName:
                       description: MetricName is the identifier that you will use
@@ -865,8 +896,9 @@ spec:
                   type: object
                 type: array
               workloadResource:
-                description: WorkloadResources is the list of resources discovered
-                  by this meter definition
+                description: |-
+                  WorkloadResources is the list of resources discovered by
+                  this meter definition
                 items:
                   description: WorkloadResource represents the resources associated
                     to a workload
@@ -885,10 +917,14 @@ spec:
                       - kind
                       type: object
                     name:
-                      description: Name of the resource Required
+                      description: |-
+                        Name of the resource
+                        Required
                       type: string
                     namespace:
-                      description: Namespace of the resource Required
+                      description: |-
+                        Namespace of the resource
+                        Required
                       type: string
                     referencedWorkloadName:
                       description: ReferencedWorkloadName is the name of the workload
