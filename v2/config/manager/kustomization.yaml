@@ -54,13 +54,3 @@ replacements:
       name: controller-manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-commonAnnotations:
-  authcheckImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:0.0.1
-  dqLiteImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-data-service:0.0.1
-  metricStateImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:0.0.1
-  operatorImage: 'public-image-registry.apps-crc.testing/symposium/ibm-metrics-operator:'
-  rbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.20
-  reporterImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:0.0.1
-images:
-- name: ibm-metrics-operator
-  newName: public-image-registry.apps-crc.testing/symposium/ibm-metrics-operator
