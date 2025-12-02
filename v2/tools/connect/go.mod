@@ -10,12 +10,12 @@ require (
 	github.com/chromedp/chromedp v0.9.3
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
-	github.com/onsi/gomega v1.25.0 // indirect
+	github.com/onsi/gomega v1.38.2 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.7.0
 	github.com/thediveo/enumflag v0.10.1
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 )
 
 require (
@@ -28,7 +28,8 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/net v0.39.0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
+	golang.org/x/net v0.47.0 // indirect
 )
 
 replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.5.0

@@ -26,7 +26,7 @@ import (
 	writerv1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/writer/v1"
 	writerv2 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/writer/v2"
 	writerv3 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/writer/v3"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1alpha1"
 )
 
 func ProvideWriter(

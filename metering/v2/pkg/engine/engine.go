@@ -25,7 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/stores"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
+	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"

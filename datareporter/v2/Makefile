@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.12-v4.19
+OPENSHIFT_VERSIONS ?= v4.12-v4.20
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -124,18 +124,18 @@ build:
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(call docker-templated-build,$(IMAGE),DataReporter,./datareporter/v2/,./,ibm-data-reporter-operator,../..)
+	$(call docker-templated-build,$(IMAGE),DataReporter,./datareporter/v2/,./cmd,ibm-data-reporter-operator,../..)
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

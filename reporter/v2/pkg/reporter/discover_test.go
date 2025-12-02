@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/common/model"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/common"
 	"k8s.io/apimachinery/pkg/types"
 )
 

@@ -30,7 +30,7 @@ import (
 	"github.com/meirf/gopart"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1beta1"
 )
 
 // RoundTripFunc is a type that represents a round trip function call for std http lib

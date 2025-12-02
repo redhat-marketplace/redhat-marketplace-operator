@@ -23,7 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,7 +242,7 @@ func (def *MeterDefinitionDictionary) GetByKey(key string) (item interface{}, ex
 }
 
 func (def *MeterDefinitionDictionary) AddIfNotPresent(obj interface{}) error {
-	return def.delta.AddIfNotPresent(obj)
+	return def.delta.Add(obj)
 }
 
 func (def *MeterDefinitionDictionary) Close() {

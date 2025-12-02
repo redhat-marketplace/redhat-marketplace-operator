@@ -27,7 +27,7 @@ import (
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/datareporter/v2/pkg/datafilter"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/scheme"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/generated/clientset/versioned/scheme"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"

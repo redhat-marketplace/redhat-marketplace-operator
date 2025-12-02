@@ -17,7 +17,7 @@ package metrics
 import (
 	"strings"
 
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1beta1"
 	kbsm "k8s.io/kube-state-metrics/v2/pkg/metric"
 	kbsmg "k8s.io/kube-state-metrics/v2/pkg/metric_generator"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

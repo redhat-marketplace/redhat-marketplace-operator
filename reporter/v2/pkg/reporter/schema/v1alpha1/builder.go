@@ -21,7 +21,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/cespare/xxhash"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
-	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/common"
 )
 
 type MarketplaceReportDataBuilder struct {

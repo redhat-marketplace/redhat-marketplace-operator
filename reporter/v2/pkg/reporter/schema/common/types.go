@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/common"
 )
 
 type ReportSliceKey uuid.UUID

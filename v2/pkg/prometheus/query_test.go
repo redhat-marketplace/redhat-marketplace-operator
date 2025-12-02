@@ -23,8 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1beta1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_query"
 )
 

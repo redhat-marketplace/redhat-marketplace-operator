@@ -26,7 +26,7 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
