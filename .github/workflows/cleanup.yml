@@ -15,4 +15,5 @@ jobs:
       - name: Cleanup
         run: |-
           docker system prune -af
+          docker image prune -af
           sudo rm -rf /tmp/*
