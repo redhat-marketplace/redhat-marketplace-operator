@@ -19,6 +19,10 @@ jobs:
       run:
         shell: bash
     steps:
+    - name: Cleanup
+      run: |-
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        df -h
     - name: Checkout code
       uses: actions/checkout@v6
       with:
@@ -132,8 +136,8 @@ jobs:
         restore-keys: ${{ runner.os }}-go-
     - name: Cleanup
       run: |-
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
         df -h
-        sudo find / -xdev -type f -size +500M -exec du -h {} + | sort -rh 
     - name: Install Kubebuilder Assets
       run: |-
         make envtest
@@ -163,6 +167,7 @@ jobs:
         wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.78/scap-security-guide-0.1.78.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
+        rm -rf /tmp/scap-security-guide.tar.gz
     - id: version
       name: Get Version
       run: |-
