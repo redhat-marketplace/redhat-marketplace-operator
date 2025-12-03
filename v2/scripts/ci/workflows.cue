@@ -212,7 +212,7 @@ release: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			steps: [{
 				name: "Checkout code"
-				uses: "actions/checkout@v3"
+				uses: "actions/checkout@v6"
 			}, {
 				name: "Unshallow" // required for the changelog to work correctly.
 				run:  "git fetch --prune --unshallow"
@@ -228,7 +228,7 @@ release: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			steps: [{
 				name: "Check out the repo"
-				uses: "actions/checkout@v3"
+				uses: "actions/checkout@v6"
 			}, {
 				name: "Set version environment"
 				run: """
@@ -307,7 +307,7 @@ _#cancelPreviousRun: _#step & {
 
 _#installGo: _#step & {
 	name: "Install Go"
-	uses: "actions/setup-go@v4"
+	uses: "actions/checkout@v6"
 	with: {
 		"go-version": "${{ matrix.go-version }}"
 		cache: false
@@ -316,7 +316,7 @@ _#installGo: _#step & {
 
 _#checkoutCode: _#step & {
 	name: "Checkout code"
-	uses: "actions/checkout@v3"
+	uses: "actions/checkout@v6"
 }
 
 _#cacheGoModules: _#step & {
