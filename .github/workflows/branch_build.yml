@@ -133,8 +133,7 @@ jobs:
     - name: Cleanup
       run: |-
         df -h
-        docker images
-        docker system prune -a -f     
+        sudo find / -xdev -type f -size +500M -exec du -h {} + | sort -rh 
     - name: Install Kubebuilder Assets
       run: |-
         make envtest
