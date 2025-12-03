@@ -133,6 +133,7 @@ jobs:
     - name: Cleanup
       run: |-
         df -h
+        docker images
         docker system prune -a -f     
     - name: Install Kubebuilder Assets
       run: |-
