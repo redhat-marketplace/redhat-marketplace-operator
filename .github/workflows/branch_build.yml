@@ -130,6 +130,10 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
         restore-keys: ${{ runner.os }}-go-
+    - name: Cleanup
+      run: |-
+        df -h
+        docker system prune -a -f     
     - name: Install Kubebuilder Assets
       run: |-
         make envtest
