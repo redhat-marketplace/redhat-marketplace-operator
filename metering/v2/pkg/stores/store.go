@@ -312,7 +312,7 @@ func (s *MeterDefinitionStore) List() []interface{} {
 }
 
 func (s *MeterDefinitionStore) AddIfNotPresent(obj interface{}) error {
-	return s.delta.AddIfNotPresent(obj)
+	return s.delta.Add(obj)
 }
 
 func (s *MeterDefinitionStore) Close() {

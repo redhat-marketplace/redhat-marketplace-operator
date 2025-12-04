@@ -1,7 +1,7 @@
 # Current Operator version
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
-OPENSHIFT_VERSIONS ?= v4.12-v4.19
+OPENSHIFT_VERSIONS ?= v4.12-v4.20
 CHANNELS ?= beta,stable
 DEFAULT_CHANNEL ?= stable
 
@@ -92,11 +92,11 @@ test-ci-int:  ## test-ci-int runs all tests for CI builds
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -o bin/manager cmd/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go
+	go run ./cmd/main.go
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
@@ -138,12 +138,12 @@ generate-api: code-generator
 	API_TEMP_DIR=$$(mktemp -d) ;\
 	$(CODEGEN_PKG)/generate-groups.sh \
 		"defaulter,client,lister" \
-    github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated \
-    github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis \
+    github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/generated \
+    github.com/redhat-marketplace/redhat-marketplace-operator/v2/api \
     "marketplace:v1alpha1,v1beta1" \
     --output-base $$API_TEMP_DIR \
     --go-header-file hack/boilerplate.go.txt ; \
-	cp -r "$$API_TEMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated" "apis/marketplace" ;\
+	cp -r "$$API_TEMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/generated" "api/marketplace" ;\
 	}
 
 QUAY_EXPIRATION?=never
@@ -169,7 +169,7 @@ build:
 
 # Build the docker image
 docker-build:
-	$(call docker-templated-build,$(IMAGE),"IBM Metrics Operator",./v2/,./,redhat-marketplace-operator,..)
+	$(call docker-templated-build,$(IMAGE),"IBM Metrics Operator",./v2/cmd,./,redhat-marketplace-operator,..)
 
 # Push the docker image
 docker-push:
@@ -349,7 +349,7 @@ PIDs ?=
 
 wait-and-publish:
 	cd tools/connect ; \
-	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
+	go run cmd/main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
 
 # Pin images in bundle
 .PHONY: bundle-pin-images

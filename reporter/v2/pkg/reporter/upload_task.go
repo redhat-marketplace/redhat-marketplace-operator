@@ -26,7 +26,7 @@ import (
 	dataservicev1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/dataservice/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/dataservice"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/uploaders"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1alpha1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -20,14 +20,7 @@ rules:
   resources:
   - configmaps
   - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
+  - services
   verbs:
   - get
   - list
@@ -38,14 +31,6 @@ rules:
   - nodes/metrics
   verbs:
   - get
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - apps
   resources:
@@ -66,18 +51,6 @@ rules:
   - marketplace.redhat.com
   resources:
   - meterdefinitions
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterdefinitions
   - meterdefinitions/status
   verbs:
   - create
@@ -87,15 +60,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterdefinitions/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -139,12 +103,6 @@ metadata:
 rules:
 - apiGroups:
   - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
-- apiGroups:
-  - ""
   resourceNames:
   - kubelet-serving-ca-bundle
   - serving-certs-ca-bundle
@@ -158,7 +116,6 @@ rules:
   - ""
   resources:
   - configmaps
-  - secrets
   - services
   verbs:
   - create
@@ -171,15 +128,6 @@ rules:
   - ""
   resources:
   - namespaces
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - persistentvolumeclaims
   verbs:
   - get
@@ -241,15 +189,6 @@ rules:
   - update
 - apiGroups:
   - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
   resourceNames:
   - kube-state-metrics
   - rhm-metric-state-service
@@ -271,15 +210,6 @@ rules:
   - update
 - apiGroups:
   - apps
-  resources:
-  - deployments
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apps
   resourceNames:
   - rhm-metric-state
   resources:
@@ -292,8 +222,9 @@ rules:
   - apps
   resources:
   - deployments
-  - deployments/finalizers
+  - statefulsets
   verbs:
+  - create
   - get
   - list
   - watch
@@ -324,17 +255,9 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - deployments/finalizers
   - replicasets
   verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - statefulsets
-  verbs:
-  - create
   - get
   - list
   - watch
@@ -392,6 +315,7 @@ rules:
   - marketplaceconfigs
   - marketplaceconfigs/finalizers
   - marketplaceconfigs/status
+  - meterreports
   verbs:
   - create
   - delete
@@ -408,6 +332,8 @@ rules:
   - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - marketplace.redhat.com
@@ -422,29 +348,8 @@ rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
-  - meterbases
   - meterbases/finalizers
   - meterbases/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterreports
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterreports
   - meterreports/finalizers
   - meterreports/status
   verbs:
@@ -463,6 +368,15 @@ rules:
   - delete
 - apiGroups:
   - monitoring.coreos.com
+  resources:
+  - prometheuses
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
   resourceNames:
   - rhm-marketplaceconfig-meterbase
   resources:
@@ -471,16 +385,6 @@ rules:
   - delete
   - patch
   - update
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - prometheuses
-  - servicemonitors
-  verbs:
-  - create
-  - get
-  - list
-  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -510,17 +414,22 @@ rules:
   - operators.coreos.com
   resources:
   - clusterserviceversions
+  - subscriptions
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - operators.coreos.com
+  - policy
   resources:
-  - subscriptions
+  - poddisruptionbudgets
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - route.openshift.io

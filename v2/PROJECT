@@ -1,6 +1,6 @@
 domain: redhat.com
 projectName: ibm-metrics-operator
-layout: go.kubebuilder.io/v3
+layout: go.kubebuilder.io/v4
 multigroup: true
 repo: github.com/redhat-marketplace/redhat-marketplace-operator/v2
 resources:
@@ -14,7 +14,7 @@ resources:
   group: marketplace
   kind: MarketplaceConfig
   # TODO(user): Update the package path for your API if the below value is incorrect.
-  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1
+  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1beta1
@@ -26,7 +26,7 @@ resources:
   group: marketplace
   kind: MeterBase
   # TODO(user): Update the package path for your API if the below value is incorrect.
-  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1
+  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1beta1
@@ -38,7 +38,7 @@ resources:
   group: marketplace
   kind: MeterDefinition
   # TODO(user): Update the package path for your API if the below value is incorrect.
-  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1
+  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1beta1
@@ -50,7 +50,7 @@ resources:
   group: marketplace
   kind: MeterDefinition
   # TODO(user): Update the package path for your API if the below value is incorrect.
-  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1
+  path: github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1beta1
   version: v1beta1
   webhooks:
     # TODO(user): Uncomment the below line if this resource's webhook implements a conversion webhook, else delete it.

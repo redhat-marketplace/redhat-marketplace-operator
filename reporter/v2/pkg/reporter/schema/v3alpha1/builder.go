@@ -24,7 +24,7 @@ import (
 	"github.com/cespare/xxhash"
 	mapstructure "github.com/go-viper/mapstructure/v2"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/common"
-	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/common"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 

@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"emperror.dev/errors"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/marketplace/v1beta1"
 	"k8s.io/client-go/tools/cache"
 )
 

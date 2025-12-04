@@ -12,9 +12,9 @@ build:
         paths:
         - go.mod
         - go.sum
-        - main.go
-        - apis/**
-        - controllers/**
+        - cmd/main.go
+        - api/**
+        - internal/controller/**
         - pkg/**
         - assets/**
         - Dockerfile

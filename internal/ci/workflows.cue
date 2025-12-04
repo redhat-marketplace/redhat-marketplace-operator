@@ -728,7 +728,7 @@ _#cancelPreviousRun: _#step & {
 
 _#installGo: _#step & {
 	name: "Install Go"
-	uses: "actions/setup-go@v4"
+	uses: "actions/checkout@v6"
 	with: {
 		"go-version": _#goVersion
 		cache: false
@@ -737,7 +737,7 @@ _#installGo: _#step & {
 
 _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
-	uses: "docker/setup-buildx-action@v2"
+	uses: "docker/setup-buildx-action@v3"
 	id:   "buildx"
 	with: {
 		"config": ".github/buildkitd.toml"
@@ -753,16 +753,16 @@ _#hasWriteAccess: _#step & {
 
 _#setupQemu: _#step & {
 	name: "Set up QEMU"
-	uses: "docker/setup-qemu-action@v2"
+	uses: "docker/setup-qemu-action@v3"
 	with: {
-		image:     "tonistiigi/binfmt:qemu-v6.1.0"
+		image:     "tonistiigi/binfmt:latest"
 		platforms: "all"
 	}
 }
 
 _#checkoutCode: _#step & {
 	name: "Checkout code"
-	uses: "actions/checkout@v3"
+	uses: "actions/checkout@v6"
 }
 
 _#cacheGoModules: _#step & {
@@ -1201,7 +1201,7 @@ _#registryLoginStep: {
 	}
 	res: _#step & {
 		name: "Login to Docker Hub"
-		uses: "docker/login-action@v2"
+		uses: "docker/login-action@v3"
 		with: {
 			registry: "\(#args.registry)"
 			username: "\(#args.user)"
