@@ -17,7 +17,6 @@ package manifests
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -644,13 +643,6 @@ func (f *Factory) NewMeterDefinition(
 	}
 
 	return m, nil
-}
-
-func (f *Factory) generateHtpasswdSecret(s *v1.Secret, password string) {
-	h := sha1.New()
-	h.Write([]byte(password))
-	s.Data["auth"] = []byte("internal:{SHA}" + base64.StdEncoding.EncodeToString(h.Sum(nil)))
-	s.Namespace = f.namespace
 }
 
 func (f *Factory) UserWorkloadMonitoringMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
