@@ -11,11 +11,11 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.38.2 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.7.0
 	github.com/thediveo/enumflag v0.10.1
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 )
 
 require (
