@@ -1,0 +1,19 @@
+# Cleanup docker images and tmp
+name: Cleanup
+on:
+  workflow_dispatch: {}
+  schedule:
+  - cron: 0 0 1 * *
+jobs:
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Cleanup
+        run: |-
+          docker system prune -af
+          docker image prune -af
+          sudo rm -rf /tmp/*
