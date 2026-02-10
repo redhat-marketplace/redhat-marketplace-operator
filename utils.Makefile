@@ -23,7 +23,7 @@ SVU=$(PROJECT_DIR)/bin/svu
 VERSION ?= $(shell $(SVU) next --prefix "")
 DOCKERBUILDXCACHE ?=
 
-KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.20
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.21
 
 STIG_PROFILE ?= /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 
