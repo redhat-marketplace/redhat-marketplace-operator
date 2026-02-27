@@ -438,17 +438,9 @@ rules:
   - routes/custom-host
   verbs:
   - create
+  - delete
   - get
   - list
-  - watch
-- apiGroups:
-  - route.openshift.io
-  resourceNames:
-  - rhm-data-service
-  resources:
-  - routes
-  - routes/custom-host
-  verbs:
-  - delete
   - patch
   - update
+  - watch

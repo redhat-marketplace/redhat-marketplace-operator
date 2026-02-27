@@ -20,6 +20,7 @@ import (
 	emperrors "emperror.dev/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"dario.cat/mergo"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -39,6 +40,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -95,8 +97,7 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=persistentvolumeclaims,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=patch;update;delete,resourceNames=rhm-data-service
-// +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes;routes/custom-host,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes;routes/custom-host,verbs=patch;update;delete,resourceNames=rhm-data-service
+//+kubebuilder:rbac:groups=route.openshift.io,namespace=system,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="policy",namespace=system,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 
@@ -225,15 +226,13 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 		}
 
 		/* DataService Route */
-
-		// default route
 		route, err := r.Factory.NewDataServiceRoute()
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		createRoute := true
 
 		// if user wants to delete or provide a custom route
+		createRoute := true
 		if meterBase.Spec.DataService != nil {
 			if meterBase.Spec.DataService.Route.Spec != nil {
 				route.Spec = *meterBase.Spec.DataService.Route.Spec
@@ -241,11 +240,17 @@ func (r *DataServiceReconciler) Reconcile(ctx context.Context, request reconcile
 			createRoute = !ptr.ToBool(meterBase.Spec.DataService.Route.Disabled)
 		}
 
+		// Create the Route
 		if createRoute {
-			if err := r.Factory.CreateOrUpdate(r.Client, meterBase, func() (client.Object, error) {
-				return route, nil
+			newRoute := route.DeepCopy()
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, newRoute, func() error {
+					controllerutil.SetControllerReference(meterBase, newRoute, r.Scheme)
+					return mergo.Merge(newRoute, route, mergo.WithOverride)
+				})
+				return err
 			}); err != nil {
-				return reconcile.Result{}, err
+				return ctrl.Result{}, err
 			}
 		} else {
 			if err := r.deleteDefaultDataServiceRoute(ctx); err != nil {
