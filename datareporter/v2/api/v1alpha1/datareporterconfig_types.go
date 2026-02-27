@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	routev1 "github.com/openshift/api/route/v1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,24 @@ type DataReporterConfigSpec struct {
 	// false: enters the event into the EventEngine accumulator and generates 1 report with N events.
 	// The handler will return a 200 OK for DataService delivery as long as the event json is valid.
 	ConfirmDelivery *bool `json:"confirmDelivery,omitempty"`
+	//Route configures the ibm-data-reporter Route
+	// +optional
+	Route *Route `json:"route,omitempty"`
+}
+
+// Route enablement and configures an optional custom Route Spec
+// +kubebuilder:object:generate:=true
+type Route struct {
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Route Spec"
+	// +optional
+	Spec *routev1.RouteSpec `json:"spec,omitempty"`
+
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Disable the ibm-data-reporter route"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
 }
 
 // UserConfig defines additional metadata added to a specified users report.

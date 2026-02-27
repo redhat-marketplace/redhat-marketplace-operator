@@ -269,6 +269,11 @@ func (r *MarketplaceConfigReconciler) handleMeterDefinitionCatalogServerConfigs(
 			meterBase.Spec.StorageClassName = marketplaceConfig.Spec.StorageClassName
 		}
 
+		// DataService Route
+		meterBase.Spec.DataService = marketplaceConfig.Spec.DataService
+
+		//TODO: strategy for deleting DataService Route if it is cleared
+
 		if !reflect.DeepEqual(meterBaseCopy.Spec, meterBase.Spec) {
 			reqLogger.Info("updating meterbase")
 			return r.Client.Update(context.TODO(), meterBase)

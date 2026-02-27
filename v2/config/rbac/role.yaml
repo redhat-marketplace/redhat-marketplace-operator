@@ -435,6 +435,7 @@ rules:
   - route.openshift.io
   resources:
   - routes
+  - routes/custom-host
   verbs:
   - create
   - get
@@ -446,6 +447,7 @@ rules:
   - rhm-data-service
   resources:
   - routes
+  - routes/custom-host
   verbs:
   - delete
   - patch
