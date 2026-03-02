@@ -72,7 +72,7 @@ type DataReporterConfigReconciler struct {
 //+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=datareporterconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=datareporterconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch
-//+kubebuilder:rbac:groups=route.openshift.io,namespace=system,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.openshift.io,namespace=system,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch
@@ -208,17 +208,32 @@ func (r *DataReporterConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 			},
 		},
 	}
+	createRoute := true
+
+	// if user wants to delete or provide a custom route
+	if dataReporterConfig.Spec.Route != nil {
+		if dataReporterConfig.Spec.Route.Spec != nil {
+			route.Spec = *dataReporterConfig.Spec.Route.Spec
+		}
+		createRoute = !ptr.ToBool(dataReporterConfig.Spec.Route.Disabled)
+	}
 
 	// Create the Route
-	newRoute := route
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, &newRoute, func() error {
-			controllerutil.SetControllerReference(dataReporterConfig, &newRoute, r.Scheme)
-			return mergo.Merge(&newRoute, &route, mergo.WithOverride)
-		})
-		return err
-	}); err != nil {
-		return ctrl.Result{}, err
+	if createRoute {
+		newRoute := route
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, &newRoute, func() error {
+				controllerutil.SetControllerReference(dataReporterConfig, &newRoute, r.Scheme)
+				return mergo.Merge(&newRoute, &route, mergo.WithOverride)
+			})
+			return err
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.Client.Delete(context.TODO(), &route); err != nil && !k8serrors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
 	}
 
 	r.Log.Info("building datafilters")
