@@ -130,6 +130,12 @@ type MeterBaseSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +optional
 	StorageClassName *string `json:"storageClassName,omitempty" protobuf:"bytes,5,opt,name=storageClassName"`
+
+	// dataService configures objects of the data-service
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="DataService"
+	// +optional
+	DataService *common.DataService `json:"dataService,omitempty"`
 }
 
 func (m *MeterBaseSpec) IsDataServiceEnabled() bool {

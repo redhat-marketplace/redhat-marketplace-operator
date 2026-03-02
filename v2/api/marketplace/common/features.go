@@ -14,6 +14,10 @@
 
 package common
 
+import (
+	routev1 "github.com/openshift/api/route/v1"
+)
+
 // Feature represents a list of features that can be enabled or disabled.
 // +kubebuilder:object:generate:=true
 type Features struct {
@@ -68,4 +72,28 @@ type MeterDefinitionCatalogServerConfig struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +optional
 	DeployMeterDefinitionCatalogServer bool `json:"deployMeterDefinitionCatalogServer"`
+}
+
+// DataService configures components of the data-service
+// +kubebuilder:object:generate:=true
+type DataService struct {
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Route"
+	// +optional
+	Route *Route `json:"route,omitempty"`
+}
+
+// Route enablement and configures an optional custom Route Spec
+// +kubebuilder:object:generate:=true
+type Route struct {
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Route Spec"
+	// +optional
+	Spec *routev1.RouteSpec `json:"spec,omitempty"`
+
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Disable the data-service route"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
 }
