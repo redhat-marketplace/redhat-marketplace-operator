@@ -727,7 +727,11 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(instance *marketplacev
 			}
 		} else {
 			// Delete catalog source, if it contains our label
-			if err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc); err != nil {
+			if err := r.Client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc); err != nil && !k8serrors.IsNotFound(err) {
+				// Could not get catalog source
+				reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+				return err
+			} else if err == nil {
 				if catalogSrc.Labels[utils.OperatorTag] == utils.OperatorTagValue {
 					if err := r.Client.Delete(context.TODO(), catalogSrc); err != nil {
 						reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
