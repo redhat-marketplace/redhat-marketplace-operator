@@ -38,6 +38,10 @@ func NewDataReporterHandler(eventEngine *events.EventEngine, eventConfig *events
 		EventHandler(eventEngine, eventConfig, dataFilters, w, r)
 	})
 
+	router.HandleFunc("/v1/batch", func(w http.ResponseWriter, r *http.Request) {
+		EventHandler(eventEngine, eventConfig, dataFilters, w, r)
+	})
+
 	router.HandleFunc("/v1/status", func(w http.ResponseWriter, r *http.Request) {
 		StatusHandler(w, r)
 	})
