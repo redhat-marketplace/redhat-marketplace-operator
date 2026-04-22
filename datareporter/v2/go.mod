@@ -13,7 +13,7 @@ require (
 	github.com/ohler55/ojg v1.21.0
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186
+	github.com/openshift/api v0.0.0-20260420151639-34e60874783e
 	github.com/qntfy/kazaam/v4 v4.0.1
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 v2.0.0-00010101000000-000000000000
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20250730210926-13a572b16a7b
@@ -104,7 +104,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/swag v0.26.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gotidy/ptr v1.4.0

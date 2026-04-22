@@ -22,7 +22,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186
+	github.com/openshift/api v0.0.0-20260420151639-34e60874783e
 	github.com/operator-framework/api v0.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
@@ -53,7 +53,7 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20251124143314-e2c1901af873
+	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20260407000409-c5ffc7afc457
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.87.0
 )
@@ -87,7 +87,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/openshift/library-go v0.0.0-20251119174848-88c26bf0df68 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
-	github.com/prometheus/prometheus v0.311.2 // indirect
+	github.com/prometheus/prometheus v0.307.3 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -124,7 +124,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/swag v0.26.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect

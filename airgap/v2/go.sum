@@ -456,12 +456,16 @@ github.com/openshift/api v0.0.0-20250618185501-1c8afbdd3f90 h1:cXl1mEpDxAuC9hRFE
 github.com/openshift/api v0.0.0-20250618185501-1c8afbdd3f90/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
 github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186 h1:1IBqLfnTwrsauWPpvw4Wz7w57jAhHfUOHSGpKhXRNBg=
 github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186/go.mod h1:ZYAxo9t1AALeEotN07tNzIvqqqWSxcZIqMUKnY/xCeQ=
+github.com/openshift/api v0.0.0-20260420151639-34e60874783e h1:ENxXUo0uksvseiBAoOcL9wdEWtueEpu84RE8Hm0q3uY=
+github.com/openshift/api v0.0.0-20260420151639-34e60874783e/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
 github.com/openshift/cluster-monitoring-operator v0.1.1-0.20250611143155-e4ecf3131005 h1:nJZHxNquhZRPajDjgZO0A95vsIgIpHbxmzZS7jHmHS4=
 github.com/openshift/cluster-monitoring-operator v0.1.1-0.20250611143155-e4ecf3131005/go.mod h1:cGEkBStuxE6e4O8hznqmatp/zk1QCG0SYaTjiq7aAiA=
 github.com/openshift/cluster-monitoring-operator v0.1.1-0.20251105083458-870b44fc269a h1:fEXN8PiFZRHdFfgVlsaaf0BDhnwJASZglBZkp+pzAOg=
 github.com/openshift/cluster-monitoring-operator v0.1.1-0.20251105083458-870b44fc269a/go.mod h1:EX/R+mhhMgQYsQG5ZFPfuwokILeJYkD0ziKKsyTvte0=
 github.com/openshift/cluster-monitoring-operator v0.1.1-0.20251124143314-e2c1901af873 h1:/72cHbiMXUQXEj5XZWDi/CQsl8IS4F4yms4fdPpDh3s=
 github.com/openshift/cluster-monitoring-operator v0.1.1-0.20251124143314-e2c1901af873/go.mod h1:bupO0ZHwQCc7gbvuhZJVbPUt4SybJkTYzS7Sh+6k7GE=
+github.com/openshift/cluster-monitoring-operator v0.1.1-0.20260407000409-c5ffc7afc457 h1:KCSHYmoLqoDEFIBbZnp6ybLAQFGHiy7DZNDpXc8qXt4=
+github.com/openshift/cluster-monitoring-operator v0.1.1-0.20260407000409-c5ffc7afc457/go.mod h1:SeKcXKQbcW6r8ItPvoPLexGcinhR9aDemCNQllbeGrw=
 github.com/pelletier/go-toml/v2 v2.0.8 h1:0ctb6s9mE31h0/lhu+J6OPmVeDxJn+kYnJc2jZR9tGQ=
 github.com/pelletier/go-toml/v2 v2.0.8/go.mod h1:vuYfssBdrU2XDZ9bYydBu6t+6a6PYNcZljzZR9VXg+4=
 github.com/peterh/liner v1.2.2/go.mod h1:xFwJyiKIXJZUKItq5dGHZSTBRAuG/CpeNpWLyiNRNwI=
@@ -515,6 +519,8 @@ github.com/prometheus/procfs v0.20.0 h1:AA7aCvjxwAquZAlonN7888f2u4IN8WVeFgBi4k82
 github.com/prometheus/procfs v0.20.0/go.mod h1:o9EMBZGRyvDrSPH1RqdxhojkuXstoe4UlK79eF5TGGo=
 github.com/prometheus/procfs v0.20.1 h1:XwbrGOIplXW/AU3YhIhLODXMJYyC1isLFfYCsTEycfc=
 github.com/prometheus/procfs v0.20.1/go.mod h1:o9EMBZGRyvDrSPH1RqdxhojkuXstoe4UlK79eF5TGGo=
+github.com/prometheus/prometheus v0.307.3 h1:zGIN3EpiKacbMatcUL2i6wC26eRWXdoXfNPjoBc2l34=
+github.com/prometheus/prometheus v0.307.3/go.mod h1:sPbNW+KTS7WmzFIafC3Inzb6oZVaGLnSvwqTdz2jxRQ=
 github.com/prometheus/prometheus v0.311.2 h1:6fBxp93y08GAZGNT1o3bIhgV/AMYvBFfU+ltDNEsHg8=
 github.com/prometheus/prometheus v0.311.2/go.mod h1:gjsCxTKtHO1Q8T9333u1s+lUR1OjPyM7ruuGH8RvVyo=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
@@ -1463,6 +1469,7 @@ sigs.k8s.io/controller-runtime v0.21.0 h1:CYfjpEuicjUecRk+KAeyYh+ouUBn4llGyDYytI
 sigs.k8s.io/controller-runtime v0.21.0/go.mod h1:OSg14+F65eWqIu4DceX7k/+QRAbTTvxeQSNSOQpukWM=
 sigs.k8s.io/controller-runtime v0.22.5 h1:v3nfSUMowX/2WMp27J9slwGFyAt7IV0YwBxAkrUr0GE=
 sigs.k8s.io/controller-runtime v0.22.5/go.mod h1:pc5SoYWnWI6I+cBHYYdZ7B6YHZVY5xNfll88JB+vniI=
+sigs.k8s.io/controller-runtime v0.23.3 h1:VjB/vhoPoA9l1kEKZHBMnQF33tdCLQKJtydy4iqwZ80=
 sigs.k8s.io/controller-runtime v0.23.3/go.mod h1:B6COOxKptp+YaUT5q4l6LqUJTRpizbgf9KSRNdQGns0=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=

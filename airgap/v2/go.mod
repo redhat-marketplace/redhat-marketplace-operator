@@ -111,8 +111,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
-	github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186 // indirect
-	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20251124143314-e2c1901af873 // indirect
+	github.com/openshift/api v0.0.0-20260420151639-34e60874783e // indirect
+	github.com/openshift/cluster-monitoring-operator v0.1.1-0.20260407000409-c5ffc7afc457 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus-operator/prometheus-operator v0.87.0 // indirect
@@ -121,7 +121,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
-	github.com/prometheus/prometheus v0.311.2 // indirect
+	github.com/prometheus/prometheus v0.307.3 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect

@@ -15,7 +15,7 @@ require (
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186
+	github.com/openshift/api v0.0.0-20260420151639-34e60874783e
 	github.com/operator-framework/api v0.18.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.87.0
 	github.com/prometheus/client_golang v1.23.2
@@ -76,7 +76,6 @@ require (
 	github.com/go-openapi/swag/typeutils v0.26.0 // indirect
 	github.com/go-openapi/swag/yamlutils v0.26.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect

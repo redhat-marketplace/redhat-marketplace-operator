@@ -10,7 +10,7 @@ require (
 	github.com/google/wire v0.5.0
 	github.com/gotidy/ptr v1.4.0
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20260225172252-64dddb8f3186
+	github.com/openshift/api v0.0.0-20260420151639-34e60874783e
 	github.com/operator-framework/api v0.18.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.87.0
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.87.0
@@ -103,7 +103,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/swag v0.26.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
