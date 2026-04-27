@@ -194,6 +194,7 @@ spec:
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
+            - --proxy-endpoints-port=8005
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-1
@@ -233,15 +234,20 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
           readinessProbe:
-            tcpSocket:
-              port: 8004
+            tcpSocket: {}
+            httpGet:
+              path: /healthz
+              port: 8005
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            tcpSocket:
-              port: 8004
+            tcpSocket: {}
+            httpGet:
+              path: /healthz
+              port: 8005
+              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
@@ -255,6 +261,7 @@ spec:
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
+            - --proxy-endpoints-port=8009
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-2
@@ -294,15 +301,21 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
           readinessProbe:
-            tcpSocket:
-              port: 8008
+            tcpSocket: {}
+            httpGet:
+              path: /healthz
+              port: 8009
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            tcpSocket:
-              port: 8008
+            tcpSocket: {}
+            httpGet:
+              path: /healthz
+              port: 8009
+              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
