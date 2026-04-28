@@ -12,10 +12,12 @@ spec:
       port: 8004
       protocol: TCP
       targetPort: 8004
+      appProtocol: kubernetes.io/h2c
     - name: grpc-web
       port: 8008
       protocol: TCP
       targetPort: 8008
+      appProtocol: kubernetes.io/h2c
     - name: db
       port: 9001
       protocol: TCP
