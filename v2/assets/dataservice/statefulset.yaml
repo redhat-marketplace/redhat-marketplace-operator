@@ -238,6 +238,7 @@ spec:
             httpGet:
               path: /healthz
               port: 8005
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
