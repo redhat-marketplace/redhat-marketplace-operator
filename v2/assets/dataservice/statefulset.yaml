@@ -234,7 +234,7 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
           readinessProbe:
-            tcpSocket: {}
+            tcpSocket: null
             httpGet:
               path: /healthz
               port: 8005
@@ -243,7 +243,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            tcpSocket: {}
+            tcpSocket: null
             httpGet:
               path: /healthz
               port: 8005
@@ -301,7 +301,7 @@ spec:
               name: rhm-data-service-mtls
               readOnly: false
           readinessProbe:
-            tcpSocket: {}
+            tcpSocket: null
             httpGet:
               path: /healthz
               port: 8009
@@ -311,7 +311,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            tcpSocket: {}
+            tcpSocket: null
             httpGet:
               path: /healthz
               port: 8009
