@@ -1,0 +1,27 @@
+all: false
+dir: mocks
+filename: mocks.go
+force-file-write: true
+formatter: goimports
+formatter-options:
+  goimports:
+    all-errors: false
+    comments: true
+    format-only: true
+    fragment: false
+    local-prefix: ""
+    tab-indent: true
+    tab-width: 8
+generate: true
+include-auto-generated: false
+log-level: info
+structname: '{{.InterfaceName}}'
+pkgname: mocks
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  sigs.k8s.io/controller-runtime/pkg/client:
+    config:
+      all: true
