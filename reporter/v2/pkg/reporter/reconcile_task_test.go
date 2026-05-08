@@ -54,7 +54,8 @@ var _ = Describe("reconcile_task", func() {
 				UploaderTargets: uploaders.UploaderTargets{
 					&uploaders.NoOpUploader{},
 				},
-				IsDisconnected: false,
+				IsDisconnected:    false,
+				MaxUploadAttempts: ptr.Int(720),
 			},
 			eb,
 			Namespace(ns),

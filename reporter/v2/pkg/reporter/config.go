@@ -73,6 +73,10 @@ func (c *Config) SetDefaults() error {
 		c.Retry = ptr.Int(5)
 	}
 
+	if c.MaxUploadAttempts == nil {
+		c.MaxUploadAttempts = ptr.Int(720)
+	}
+
 	if c.UploaderTargets == nil {
 		c.UploaderTargets = uploaders.UploaderTargets{&dataservice.DataService{}}
 	}
