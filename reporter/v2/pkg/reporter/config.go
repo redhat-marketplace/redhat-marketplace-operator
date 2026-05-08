@@ -35,6 +35,7 @@ type Config struct {
 	MetricsPerFile       *int
 	MaxRoutines          *int
 	Retry                *int
+	MaxUploadAttempts    *int
 	CaFile               string
 	TokenFile            string
 	DataServiceTokenFile string
@@ -70,6 +71,10 @@ func (c *Config) SetDefaults() error {
 
 	if c.Retry == nil {
 		c.Retry = ptr.Int(5)
+	}
+
+	if c.MaxUploadAttempts == nil {
+		c.MaxUploadAttempts = ptr.Int(720)
 	}
 
 	if c.UploaderTargets == nil {
