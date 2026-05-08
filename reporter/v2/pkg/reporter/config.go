@@ -35,6 +35,7 @@ type Config struct {
 	MetricsPerFile       *int
 	MaxRoutines          *int
 	Retry                *int
+	MaxUploadAttempts    *int
 	CaFile               string
 	TokenFile            string
 	DataServiceTokenFile string

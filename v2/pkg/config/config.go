@@ -115,7 +115,7 @@ type MeterBaseValues struct {
 // ReportConfig stores some changeable information for creating a report
 type ReportControllerConfig struct {
 	RetryTime             time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
-	RetryLimit            *int32        `env:"REPORT_RETRY_LIMIT"`
+	RetryLimit            *int32        `env:"REPORT_RETRY_LIMIT" envDefault:"0"`
 	PollTime              time.Duration `env:"REPORT_POLL_TIME_DURATION" envDefault:"1h"`
 	UploadTargetsOverride []string      `env:"UPLOADTARGETSOVERRIDE" envSeparator:","`
 	ReporterSchema        string        `env:"REPORTERSCHEMA"`

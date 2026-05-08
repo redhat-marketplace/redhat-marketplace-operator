@@ -36,6 +36,7 @@ var reporterSchema string
 var uploadTargets []string
 var local, upload bool
 var retry int
+var maxUploadAttempts int
 
 var ReportCmd = &cobra.Command{
 	Use:   "report",
@@ -69,6 +70,7 @@ var ReportCmd = &cobra.Command{
 		cfg := &reporter.Config{
 			OutputDirectory:      tmpDir,
 			Retry:                ptr.Int(retry),
+			MaxUploadAttempts:    ptr.Int(retry),
 			CaFile:               cafile,
 			TokenFile:            tokenFile,
 			DataServiceTokenFile: dataServiceTokenFile,
@@ -118,6 +120,7 @@ func init() {
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReportCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReportCmd.Flags().IntVar(&retry, "retry", 24, "number of retries")
+	ReportCmd.Flags().IntVar(&maxUploadAttempts, "maxUploadAttempts", 720, "maximum upload attempts per report")
 	ReportCmd.Flags().StringVar(&reporterSchema, "reporterSchema", "v1alpha1", "reporter version schema to write")
 	ReportCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 }
