@@ -54,7 +54,8 @@ var _ = Describe("reconcile_task", func() {
 				UploaderTargets: uploaders.UploaderTargets{
 					&uploaders.NoOpUploader{},
 				},
-				IsDisconnected: false,
+				IsDisconnected:    false,
+				MaxUploadAttempts: ptr.Int(720),
 			},
 			eb,
 			Namespace(ns),
@@ -201,7 +202,7 @@ var _ = Describe("reconcile_task", func() {
 			Expect(reason).To(Equal(SkipDisconnected))
 
 			sut.Config.IsDisconnected = false
-			report.Status.RetryUpload = 24
+			report.Status.RetryUpload = 720
 
 			reason, ok = sut.CanRunUploadReportTask(nil, report)
 			Expect(ok).To(BeFalse())

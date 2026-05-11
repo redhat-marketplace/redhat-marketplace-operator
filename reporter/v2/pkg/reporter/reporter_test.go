@@ -69,9 +69,10 @@ var _ = Describe("Reporter", func() {
 		Expect(err).To(Succeed())
 
 		cfg = &Config{
-			OutputDirectory: dir,
-			MetricsPerFile:  ptr.Int(20),
-			ReporterSchema:  "v1alpha1",
+			OutputDirectory:   dir,
+			MetricsPerFile:    ptr.Int(20),
+			ReporterSchema:    "v1alpha1",
+			MaxUploadAttempts: ptr.Int(720),
 		}
 
 		cfg.SetDefaults()

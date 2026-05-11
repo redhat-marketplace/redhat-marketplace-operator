@@ -151,14 +151,14 @@ func (r *UploadTask) RunGeneric(ctx context.Context) error {
 				}
 			}
 
-			if uploadAttemptsInt >= maxUploadAttempts {
+			if uploadAttemptsInt >= *r.config.MaxUploadAttempts {
 				continue
 			}
 
 			statuses := r.uploadFile(ctx, file)
 			success, _ := findStatus(statuses)
 
-			if !success && uploadAttemptsInt < maxUploadAttempts {
+			if !success && uploadAttemptsInt < *r.config.MaxUploadAttempts {
 				logger.Info("failed to complete upload without an issue, will not delete the file", "attempts", uploadAttemptsInt)
 				uploadAttemptsInt = uploadAttemptsInt + 1
 				file.Metadata[uploadAttempts] = fmt.Sprintf("%d", uploadAttemptsInt)

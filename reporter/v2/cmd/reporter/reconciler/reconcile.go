@@ -41,6 +41,7 @@ var isDisconnected string
 var uploadTargets []string
 var local, upload bool
 var retry int
+var maxUploadAttempts int
 var minVersion string
 var cipherSuites []string
 
@@ -87,6 +88,7 @@ var ReconcileCmd = &cobra.Command{
 		cfg := &reporter.Config{
 			OutputDirectory:      tmpDir,
 			Retry:                ptr.Int(retry),
+			MaxUploadAttempts:    ptr.Int(retry),
 			CaFile:               cafile,
 			TokenFile:            tokenFile,
 			DataServiceTokenFile: dataServiceTokenFile,
@@ -151,6 +153,7 @@ func init() {
 	ReconcileCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReconcileCmd.Flags().StringVar(&isDisconnected, "isDisconnected", os.Getenv("IS_DISCONNECTED"), "is the reporter running in a disconnected environment")
 	ReconcileCmd.Flags().IntVar(&retry, "retry", 24, "number of retries")
+	ReconcileCmd.Flags().IntVar(&maxUploadAttempts, "maxUploadAttempts", 720, "maximum upload attempts per report")
 	ReconcileCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", os.Getenv("POD_NAMESPACE"), "namespace where the rhm operator is deployed")
 
 	ReconcileCmd.Flags().StringVar(&prometheusService, "prometheus-service", "rhm-prometheus-meterbase", "token file for the data service")
