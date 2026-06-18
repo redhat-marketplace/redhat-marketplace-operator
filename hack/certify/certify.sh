@@ -122,20 +122,12 @@ oc delete secret kubeconfig --ignore-not-found
 oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 
 # Import redhat catalogs
-oc import-image certified-operator-index:v4.19 \
+oc import-image certified-operator-index:v4.22 \
   --request-timeout=5m \
-  --from=registry.redhat.io/redhat/certified-operator-index:v4.19 \
+  --from=registry.redhat.io/redhat/certified-operator-index:v4.22 \
   --reference-policy local \
   --scheduled \
   --confirm
-
-oc import-image redhat-marketplace-index \
-  --request-timeout=5m \
-  --from=registry.redhat.io/redhat/redhat-marketplace-index \
-  --reference-policy local \
-  --scheduled \
-  --confirm \
-  --all
 
 CWD=$(pwd)
 TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'cptmpdir')
