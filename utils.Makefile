@@ -11,8 +11,8 @@ export TAG
 
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
-GO_VERSION ?= 1.25
-ENVTEST_K8S_VERSION ?= 1.33.x
+GO_VERSION ?= 1.26
+ENVTEST_K8S_VERSION ?= 1.36.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
 ARCH ?= amd64
@@ -146,7 +146,7 @@ buf:
 
 ENVTEST=$(PROJECT_DIR)/bin/setup-envtest
 envtest:
-	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21)
+	$(shell GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.24)
 
 .PHONY: source-envtest
 source-envtest:
