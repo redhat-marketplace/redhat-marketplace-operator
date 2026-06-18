@@ -2,8 +2,6 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connec
 
 go 1.26.3
 
-toolchain go1.26.3
-
 require (
 	emperror.dev/errors v0.8.1
 	github.com/chromedp/cdproto v0.0.0-20231101223124-24f5925b5980
