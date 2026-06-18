@@ -1,8 +1,8 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connect
 
-go 1.25.0
+go 1.26.3
 
-toolchain go1.25.5
+toolchain go1.26.3
 
 require (
 	emperror.dev/errors v0.8.1
