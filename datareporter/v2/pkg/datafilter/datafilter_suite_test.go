@@ -19,6 +19,7 @@ import (
 	"crypto/x509/pkix"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -183,7 +184,7 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(context.TODO(), &tlsConfigSecret)
 	Expect(err).ToNot(HaveOccurred())
 
-})
+}, NodeTimeout(time.Duration.Seconds(20)))
 
 var _ = AfterSuite(func() {
 	var err error
