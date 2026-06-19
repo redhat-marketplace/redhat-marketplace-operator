@@ -225,6 +225,19 @@ func (def *MeterDefinitionDictionary) ListKeys() []string {
 	return def.cache.ListKeys()
 }
 
+// LastStoreSyncResourceVersion returns the latest resource version that the store has seen.
+// This is used to determine the latest resource version the store has seen from objects
+// observed being written to the store.
+func (def *MeterDefinitionDictionary) LastStoreSyncResourceVersion() string {
+	return def.cache.LastStoreSyncResourceVersion()
+}
+
+// Bookmark observes a new resource version passed into it and
+// will be used to get the latest resource version of the store.
+func (def *MeterDefinitionDictionary) Bookmark(rv string) {
+	def.cache.Bookmark(rv)
+}
+
 // Get returns the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Get(obj interface{}) (item interface{}, exists bool, err error) {
 	def.RLock()
@@ -292,6 +305,24 @@ func (def *MeterDefinitionDictionary) Replace(in []interface{}, str string) erro
 // additional behavior (e.g., DeltaFIFO).
 func (def *MeterDefinitionDictionary) Resync() error {
 	return nil
+}
+
+// HasSyncedChecker is done once the first batch of keys have all been
+// popped.  The first batch of keys are those of the first Replace
+// operation if that happened before any Add, AddIfNotPresent,
+// Update, or Delete; otherwise the first batch is empty.
+func (def *MeterDefinitionDictionary) HasSyncedChecker() cache.DoneChecker {
+	return def.delta.HasSyncedChecker()
+}
+
+// Name implements [DoneChecker.Name]
+func (def *MeterDefinitionDictionary) Name() string {
+	return def.delta.Name()
+}
+
+// Done implements [DoneChecker.Done]
+func (def *MeterDefinitionDictionary) Done() <-chan struct{} {
+	return def.delta.Done()
 }
 
 func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}) (*MeterDefinitionExtended, error) {
