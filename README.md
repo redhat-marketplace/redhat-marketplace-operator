@@ -215,4 +215,3 @@ This is a high level visual representation of how the operators interact with Pr
 [IBM Software Central](https://swc.saas.ibm.com/en-us/documentation)
 
 [Wiki](https://github.com/redhat-marketplace/redhat-marketplace-operator/wiki/Home)
- 
