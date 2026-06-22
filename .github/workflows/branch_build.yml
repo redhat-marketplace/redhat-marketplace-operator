@@ -34,7 +34,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: "1.25"
+        go-version: "1.26"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -78,7 +78,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: "1.25"
+        go-version: "1.26"
         cache: false
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -116,7 +116,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: "1.25"
+        go-version: "1.26"
         cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -270,7 +270,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: "1.25"
+        go-version: "1.26"
         cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3

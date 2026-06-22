@@ -452,6 +452,37 @@ func (s *MeterDefinitionStore) SyncByIndex(indexName, indexedValue string) error
 	return nil
 }
 
+// HasSyncedChecker is done once the first batch of keys have all been
+// popped.  The first batch of keys are those of the first Replace
+// operation if that happened before any Add, AddIfNotPresent,
+// Update, or Delete; otherwise the first batch is empty.
+func (s *MeterDefinitionStore) HasSyncedChecker() cache.DoneChecker {
+	return s.delta.HasSyncedChecker()
+}
+
+// Name implements [DoneChecker.Name]
+func (s *MeterDefinitionStore) Name() string {
+	return s.delta.Name()
+}
+
+// Done implements [DoneChecker.Done]
+func (s *MeterDefinitionStore) Done() <-chan struct{} {
+	return s.delta.Done()
+}
+
+// LastStoreSyncResourceVersion returns the latest resource version that the store has seen.
+// This is used to determine the latest resource version the store has seen from objects
+// observed being written to the store.
+func (s *MeterDefinitionStore) LastStoreSyncResourceVersion() string {
+	return s.dictionary.LastStoreSyncResourceVersion()
+}
+
+// Bookmark observes a new resource version passed into it and
+// will be used to get the latest resource version of the store.
+func (s *MeterDefinitionStore) Bookmark(rv string) {
+	s.dictionary.Bookmark(rv)
+}
+
 func newStoreObject(obj interface{}) (*pkgtypes.MeterDefinitionEnhancedObject, error) {
 	if v, ok := obj.(*pkgtypes.MeterDefinitionEnhancedObject); ok {
 		return v, nil
