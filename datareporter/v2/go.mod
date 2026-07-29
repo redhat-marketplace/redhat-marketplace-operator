@@ -60,7 +60,6 @@ require (
 	github.com/qntfy/jsonparser v1.0.2 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 v2.0.0-20240410195839-0cc064c06b45 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
