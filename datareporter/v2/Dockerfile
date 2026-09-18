@@ -14,7 +14,7 @@ ENV GOFLAGS="-buildvcs=false"
 
 WORKDIR /src
 
-RUN --mount=type=bind,source=.,target=/src \
+RUN --mount=type=bind,source=.,target=/src,z \
     --mount=type=cache,id=go-build,uid=1001,gid=0,target=/root/.cache/go-build \
     --mount=type=cache,id=mod,uid=1001,gid=0,target=/opt/app-root/src/go/pkg/mod \
     cd ${path} && \
