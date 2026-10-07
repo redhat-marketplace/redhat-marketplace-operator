@@ -166,7 +166,7 @@ jobs:
       run: .github/workflows/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus
         }}'
     - name: Post comment
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: imagestatus
         recreate: "true"

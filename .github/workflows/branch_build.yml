@@ -28,7 +28,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Cancel Previous Run
-      uses: styfle/cancel-workflow-action@0.11.0
+      uses: styfle/cancel-workflow-action@0.13.1
       with:
         access_token: ${{ github.token }}
     - name: Install Go
@@ -387,7 +387,7 @@ jobs:
         echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
@@ -417,11 +417,11 @@ jobs:
         echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: release-datareporter-bundle-${{ steps.bundle.outputs.tag }}
         path: datareporter/v2/bundle
-    - uses: marocchino/sticky-pull-request-comment@v2
+    - uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: devindex
         recreate: "true"
@@ -451,7 +451,7 @@ jobs:
             publisher: ''
             sourceType: grpc
           ```
-    - uses: marocchino/sticky-pull-request-comment@v2
+    - uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: devindex
         recreate: "true"
