@@ -14,7 +14,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     defaults:
       run:
         shell: bash
@@ -37,7 +37,7 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -68,7 +68,7 @@ jobs:
         fi
   matrix-test:
     name: Matrix Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     defaults:
       run:
         shell: bash
@@ -81,7 +81,7 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -102,7 +102,7 @@ jobs:
         - datareporter
   images:
     name: Build Images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       GO_VERSION: "1.25"
     defaults:
@@ -119,17 +119,17 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
         config: .github/buildkitd.toml
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -143,7 +143,7 @@ jobs:
         make envtest
         make source-envtest
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
@@ -151,7 +151,7 @@ jobs:
     - name: Install OpenSCAP
       run: |-
         # Ubuntu 24 ships an outdated ssg
-        # https://launchpad.net/ubuntu/noble/+source/scap-security-guide
+        # https://launchpad.net/ubuntu/resolute/+source/scap-security-guide
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
@@ -254,7 +254,7 @@ jobs:
     - test
     - matrix-test
     - images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       isDev: ${{ steps.bundle.outputs.isDev }}
       version: ${{ steps.bundle.outputs.version }}
@@ -273,17 +273,17 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
         config: .github/buildkitd.toml
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -293,19 +293,19 @@ jobs:
         make envtest
         make source-envtest
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: registry.redhat.io
         username: ${{secrets['REDHAT_IO_USER']}}
