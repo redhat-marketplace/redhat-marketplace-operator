@@ -23,7 +23,7 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     env:
       ARCHS: "amd64"
     strategy:
@@ -39,7 +39,7 @@ jobs:
       uses: actions/checkout@v6
 
     - name: Install deps
-      run: sudo apt-get install dqlite
+      run: sudo add-apt-repository universe -y && sudo apt-get install libdqlite-dev -y
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
