@@ -104,7 +104,7 @@ jobs:
     name: Build Images
     runs-on: ubuntu-26.04
     env:
-      GO_VERSION: "1.25"
+      GO_VERSION: "1.26"
     defaults:
       run:
         shell: bash
@@ -150,7 +150,7 @@ jobs:
         password: ${{secrets['quayPassword']}}
     - name: Install OpenSCAP
       run: |-
-        # Ubuntu 24 ships an outdated ssg
+        # Ubuntu 26 ships an outdated ssg
         # https://launchpad.net/ubuntu/resolute/+source/scap-security-guide
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
@@ -164,7 +164,7 @@ jobs:
         # find latest breaks due to rate-limiting
         # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
         # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')
-        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.78/scap-security-guide-0.1.78.tar.gz
+        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.82.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
         rm -rf /tmp/scap-security-guide.tar.gz
