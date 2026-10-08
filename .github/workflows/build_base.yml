@@ -52,7 +52,7 @@ jobs:
         # find latest breaks due to rate-limiting
         # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
         # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')
-        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.78.tar.gz
+        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.82.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
         docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
