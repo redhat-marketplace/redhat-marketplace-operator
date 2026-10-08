@@ -160,6 +160,14 @@ jobs:
         sudo add-apt-repository universe -y
         sudo apt update
         sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc
+        # Ubuntu 26 python-3.14 PEP: 706 Filter for tarfile.extractall
+        # Breaks with oscap-docker
+        # Use python-3.13 for oscap-docker 
+        sudo apt install software-properties-common gpg -y
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt install python3.13 python3.13-venv python3.13-dev
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 1
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 2
         # snap curl does not have write permission? use wget
         # find latest breaks due to rate-limiting
         # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
