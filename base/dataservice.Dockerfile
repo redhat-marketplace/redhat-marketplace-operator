@@ -5,7 +5,8 @@ ARG TARGETOS
 ENV TZ=America/New_York
 ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
 ARG GRPC_HEALTH_VERSION=v0.4.57
-ARG DQLITE_VERSION=v1.18.7
+# Newer dqlite requires sqlite 3.37.0 for SQLITE_OPEN_EXRESCODE
+ARG DQLITE_VERSION=v1.18.2
 ARG LIBUV_VERSION=v1.53.0
 ARG quay_expiration=7d
 
