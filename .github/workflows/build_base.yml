@@ -7,9 +7,9 @@ on:
 jobs:
   base:
     name: Build Base
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
-      GO_VERSION: "1.25"
+      GO_VERSION: "1.26"
       IMAGE_REGISTRY: quay.io/rh-marketplace
     defaults:
       run:
@@ -23,14 +23,14 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
-        config: .github/buildkitd.toml
+        buildkitd-config: .github/buildkitd.toml
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
@@ -38,8 +38,8 @@ jobs:
     - id: build-ubi-minimal
       name: Build images
       run: |-
-        # Ubuntu 24 ships an outdated ssg
-        # https://launchpad.net/ubuntu/noble/+source/scap-security-guide
+        # Ubuntu 26 ships an outdated ssg
+        # https://launchpad.net/ubuntu/resolute/+source/scap-security-guide
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
@@ -48,20 +48,30 @@ jobs:
         sudo add-apt-repository universe -y
         sudo apt update
         sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc
+        # Ubuntu 26 python-3.14 PEP: 706 Filter for tarfile.extractall
+        # Breaks with oscap-docker
+        # Use python-3.13 for oscap-docker 
+        sudo apt install software-properties-common gpg -y
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt install python3.13 python3.13-venv python3.13-dev
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 1
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 2
         # snap curl does not have write permission? use wget
         # find latest breaks due to rate-limiting
         # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
         # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')
-        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.78/scap-security-guide-0.1.78.tar.gz
+        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.82.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
         docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
+        sudo update-alternatives --set python3 /usr/bin/python3.13
         sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
         oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
         --fetch-remote-resources \
         --results /tmp/results.xml \
         --profile stig /tmp/scap-security-guide/ssg-rhel9-ds.xml || true
         oscap xccdf generate fix --fix-type bash --output base/remediate.sh --result-id xccdf_org.open-scap_testresult_xccdf_org.ssgproject.content_profile_stig /tmp/results.xml
+        sudo update-alternatives --set python3 /usr/bin/python3.14
         make base/ubi-minimal
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache

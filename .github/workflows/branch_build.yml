@@ -14,7 +14,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     defaults:
       run:
         shell: bash
@@ -28,7 +28,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Cancel Previous Run
-      uses: styfle/cancel-workflow-action@0.11.0
+      uses: styfle/cancel-workflow-action@0.13.1
       with:
         access_token: ${{ github.token }}
     - name: Install Go
@@ -37,7 +37,7 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -68,7 +68,7 @@ jobs:
         fi
   matrix-test:
     name: Matrix Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     defaults:
       run:
         shell: bash
@@ -81,7 +81,7 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -102,9 +102,9 @@ jobs:
         - datareporter
   images:
     name: Build Images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
-      GO_VERSION: "1.25"
+      GO_VERSION: "1.26"
     defaults:
       run:
         shell: bash
@@ -119,17 +119,17 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
-        config: .github/buildkitd.toml
+        buildkitd-config: .github/buildkitd.toml
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -143,15 +143,15 @@ jobs:
         make envtest
         make source-envtest
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
     - name: Install OpenSCAP
       run: |-
-        # Ubuntu 24 ships an outdated ssg
-        # https://launchpad.net/ubuntu/noble/+source/scap-security-guide
+        # Ubuntu 26 ships an outdated ssg
+        # https://launchpad.net/ubuntu/resolute/+source/scap-security-guide
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
@@ -160,11 +160,19 @@ jobs:
         sudo add-apt-repository universe -y
         sudo apt update
         sudo apt-get install -y openscap-scanner openscap-utils openscap-common openscap-doc
+        # Ubuntu 26 python-3.14 PEP: 706 Filter for tarfile.extractall
+        # Breaks with oscap-docker
+        # Use python-3.13 for oscap-docker 
+        sudo apt install software-properties-common gpg -y
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt install python3.13 python3.13-venv python3.13-dev
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 1
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 2
         # snap curl does not have write permission? use wget
         # find latest breaks due to rate-limiting
         # wget -O /tmp/scap-security-guide.tar.gz $(curl -v -sL https://api.github.com/repos/ComplianceAsCode/content/releases/latest| \
         # jq -r '.assets[] | select(.name? | match("scap-security-guide-.*.tar.gz$")) | .browser_download_url')
-        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.78/scap-security-guide-0.1.78.tar.gz
+        wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.82.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
         rm -rf /tmp/scap-security-guide.tar.gz
@@ -231,7 +239,12 @@ jobs:
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
+        # Ubuntu 26 python-3.14 PEP: 706 Filter for tarfile.extractall
+        # Breaks with oscap
+        # Use python-3.13 for oscap
+        sudo update-alternatives --set python3 /usr/bin/python3.13
         STIG_PROFILE="/tmp/scap-security-guide/ssg-rhel9-ds.xml" make ${{ matrix.project }}/oscap-scan || true
+        sudo update-alternatives --set python3 /usr/bin/python3.14
     strategy:
       matrix:
         project:
@@ -254,7 +267,7 @@ jobs:
     - test
     - matrix-test
     - images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       isDev: ${{ steps.bundle.outputs.isDev }}
       version: ${{ steps.bundle.outputs.version }}
@@ -273,17 +286,17 @@ jobs:
         go-version: "1.26"
         cache: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - id: buildx
       name: Set up docker buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
-        config: .github/buildkitd.toml
+        buildkitd-config: .github/buildkitd.toml
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ github.sha }}
@@ -293,19 +306,19 @@ jobs:
         make envtest
         make source-envtest
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: registry.redhat.io
         username: ${{secrets['REDHAT_IO_USER']}}
@@ -387,7 +400,7 @@ jobs:
         echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: release-bundle-${{ steps.bundle.outputs.tag }}
         path: v2/bundle
@@ -417,11 +430,11 @@ jobs:
         echo "quay_expiration=$QUAY_EXPIRATION" >> $GITHUB_OUTPUT
       env:
         IMAGE_TAG: ${{ steps.version.outputs.tag }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: release-datareporter-bundle-${{ steps.bundle.outputs.tag }}
         path: datareporter/v2/bundle
-    - uses: marocchino/sticky-pull-request-comment@v2
+    - uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: devindex
         recreate: "true"
@@ -451,7 +464,7 @@ jobs:
             publisher: ''
             sourceType: grpc
           ```
-    - uses: marocchino/sticky-pull-request-comment@v2
+    - uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: devindex
         recreate: "true"

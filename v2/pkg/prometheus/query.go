@@ -303,7 +303,7 @@ func (p *PrometheusAPI) ReportQuery(query *PromQuery) (model.Value, v1.Warnings,
 
 	logger.Info("executing query", "query", q)
 
-	result, warnings, err := p.QueryRange(ctx, q, timeRange)
+	result, warnings, _, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -376,7 +376,7 @@ func (p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (mode
 	}
 
 	logger.Info("executing query", "query", q)
-	result, warnings, err := p.QueryRange(ctx, q, timeRange)
+	result, warnings, _, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -394,7 +394,7 @@ func (p *PrometheusAPI) MeterDefLabelValues(matches []string) (model.LabelValues
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	labelValues, warnings, err := p.LabelValues(ctx, "meter_def_name", matches, time.Now().Add(-time.Hour), time.Now())
+	labelValues, warnings, _, err := p.LabelValues(ctx, "meter_def_name", matches, time.Now().Add(-time.Hour), time.Now())
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -427,7 +427,7 @@ func (p *PrometheusAPI) QueryNamespaceLabels(query *NamespacesQuery) (model.Valu
 	logger.Info("query params", "query", q, "start", query.Start.Unix(), "end", query.End.Unix())
 
 	logger.Info("executing query", "query", q)
-	result, warnings, err := p.QueryRange(ctx, q, timeRange)
+	result, warnings, _, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
