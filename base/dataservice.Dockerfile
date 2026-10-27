@@ -14,6 +14,9 @@ USER 0
 
 # libuv-devel is only available from CRB with subscription, build it ourselves
 # dqlite not available on UBI or EPEL, build it ourselves
+# patch GPFS/Storage Scale v6.0.1 support https://github.com/canonical/dqlite/issues/917
+
+COPY uv_fs.c.patch uv_fs.c.patch
 
 RUN mkdir -p /opt/app-root/src/go/bin && \
     mkdir -p /opt/app-root/src/go/pkg && \
@@ -26,6 +29,7 @@ RUN mkdir -p /opt/app-root/src/go/bin && \
     cd libuv && sh autogen.sh && ./configure --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf libuv && \
     git clone -b $DQLITE_VERSION -v https://github.com/canonical/dqlite.git && \
+    patch dqlite/src/raft/uv_fs.c -i uv_fs.c.patch && \
     cd dqlite && autoreconf -i && ./configure --enable-build-raft --prefix=/usr --libdir=/usr/lib64 && make && make install && \
     cd .. && rm -Rf dqlite && \
     go install github.com/grpc-ecosystem/grpc-health-probe@${GRPC_HEALTH_VERSION} && \
