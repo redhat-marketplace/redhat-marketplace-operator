@@ -1,0 +1,10 @@
+--- dqlite/src/raft/uv_fs.c	2026-10-27 14:09:30.267977905 -0400
++++ dqlite/src/raft/uv_fs_patched.c	2026-10-27 14:09:11.615375833 -0400
+@@ -698,6 +698,7 @@
+ 		switch (fs_info.f_type) {
+ 			case 0x01021994: /* TMPFS_MAGIC */
+ 			case 0x2fc12fc1: /* ZFS magic */
++			case 0x47504653: /* GPFS magic */
+ 			case 0x24051905: /* UBIFS Support magic */
+ 				*size = 0;
+ 				return 0;
