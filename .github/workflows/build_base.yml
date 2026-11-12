@@ -43,7 +43,7 @@ jobs:
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
-        sudo snap install curl
+        # sudo snap install curl
         sudo apt update
         sudo add-apt-repository universe -y
         sudo apt update
@@ -65,7 +65,7 @@ jobs:
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
         docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
         sudo update-alternatives --set python3 /usr/bin/python3.13
-        sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
+        # sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
         oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
         --fetch-remote-resources \
         --results /tmp/results.xml \

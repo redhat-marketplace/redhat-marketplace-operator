@@ -8,13 +8,10 @@ ARG TARGETARCH
 ARG TARGETOS
 ARG quay_expiration=7d
 
-# microdnf can not install from url, must curl & rpm
-RUN curl -sSL -o epel-release-latest-9.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
-    rpm -i epel-release-latest-9.noarch.rpm && \
+RUN rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
     microdnf install -y libsqlite3x libuv && \
     microdnf clean all && \
-    rpm -e epel-release-9 && \
-    rm -Rf epel-release-latest-9.noarch.rpm
+    rpm -e epel-release-9
 
 # COPY dqlite from builder
 COPY --from=dqlite-lib-builder /usr/lib64/libdqlite.* /usr/lib64/
