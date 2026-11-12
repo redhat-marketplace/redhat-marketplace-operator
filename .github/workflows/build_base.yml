@@ -70,7 +70,7 @@ jobs:
         --fetch-remote-resources \
         --results /tmp/results.xml \
         --profile stig /tmp/scap-security-guide/ssg-rhel9-ds.xml || true
-        chmod a+r /tmp/results.xml
+        sudo chmod a+r /tmp/results.xml
         oscap xccdf generate fix --fix-type bash --output base/remediate.sh --result-id xccdf_org.open-scap_testresult_xccdf_org.ssgproject.content_profile_stig /tmp/results.xml
         sudo update-alternatives --set python3 /usr/bin/python3.14
         make base/ubi-minimal
