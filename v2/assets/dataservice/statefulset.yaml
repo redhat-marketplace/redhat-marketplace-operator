@@ -194,7 +194,7 @@ spec:
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
-          image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+          image: registry.redhat.io/openshift5/ose-kube-rbac-proxy-rhel9:v5.0
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-1
           ports:
@@ -255,7 +255,7 @@ spec:
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --auth-token-audiences=rhm-data-service,rhm-data-service.{{NAMESPACE}}.svc
-          image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+          image: registry.redhat.io/openshift5/ose-kube-rbac-proxy-rhel9:v5.0
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-2
           ports:

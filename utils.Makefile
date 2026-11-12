@@ -23,7 +23,7 @@ SVU=$(PROJECT_DIR)/bin/svu
 VERSION ?= $(shell $(SVU) next --prefix "")
 DOCKERBUILDXCACHE ?=
 
-KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.22
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift5/ose-kube-rbac-proxy-rhel9:v5.0
 
 STIG_PROFILE ?= /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 
@@ -34,7 +34,7 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.19.0
+CONTROLLER_GEN_VERSION=v0.21.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
