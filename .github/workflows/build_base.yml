@@ -63,13 +63,14 @@ jobs:
         wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.82.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
-        docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
+        sudo docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
         sudo update-alternatives --set python3 /usr/bin/python3.13
         # sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
-        oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
+        sudo oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
         --fetch-remote-resources \
         --results /tmp/results.xml \
         --profile stig /tmp/scap-security-guide/ssg-rhel9-ds.xml || true
+        chmod a+r /tmp/results.xml
         oscap xccdf generate fix --fix-type bash --output base/remediate.sh --result-id xccdf_org.open-scap_testresult_xccdf_org.ssgproject.content_profile_stig /tmp/results.xml
         sudo update-alternatives --set python3 /usr/bin/python3.14
         make base/ubi-minimal
