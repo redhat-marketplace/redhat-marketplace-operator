@@ -1,10 +1,10 @@
-FROM registry.access.redhat.com/ubi9/go-toolset:1.26
+FROM registry.access.redhat.com/ubi9/go-toolset:1.27
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
 ENV TZ=America/New_York
 ENV PATH=$PATH:/opt/app-root/src/go/bin CGO_ENABLED=1
-ARG GRPC_HEALTH_VERSION=v0.4.61
+ARG GRPC_HEALTH_VERSION=v0.4.62
 # Newer dqlite requires sqlite 3.37.0 for SQLITE_OPEN_EXRESCODE
 ARG DQLITE_VERSION=v1.18.2
 ARG LIBUV_VERSION=v1.53.0

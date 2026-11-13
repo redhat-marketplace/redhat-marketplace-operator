@@ -11,7 +11,7 @@ export TAG
 
 BINDIR ?= ./bin
 # GO_VERSION can be major version only, latest stable minor version will be retrieved by base.Dockerfile
-GO_VERSION ?= 1.26
+GO_VERSION ?= 1.27
 ENVTEST_K8S_VERSION ?= 1.36.x
 ARCHS ?= amd64 ppc64le s390x arm64
 BUILDX ?= true
@@ -23,7 +23,7 @@ SVU=$(PROJECT_DIR)/bin/svu
 VERSION ?= $(shell $(SVU) next --prefix "")
 DOCKERBUILDXCACHE ?=
 
-KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9:v4.22
+KUBE_RBAC_PROXY_IMAGE ?= registry.redhat.io/openshift5/ose-kube-rbac-proxy-rhel9:v5.0
 
 STIG_PROFILE ?= /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 
@@ -34,7 +34,7 @@ clean-bin:
 #
 # find or download controller-gen
 # download controller-gen if necessary
-CONTROLLER_GEN_VERSION=v0.19.0
+CONTROLLER_GEN_VERSION=v0.21.0
 CONTROLLER_GEN=$(PROJECT_DIR)/bin/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION),$(CONTROLLER_GEN_VERSION))
@@ -94,7 +94,7 @@ GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
 	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
 
-YQ_VERSION=v4.40.1
+YQ_VERSION=v4.54.3
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:

@@ -9,7 +9,7 @@ jobs:
     name: Build Base
     runs-on: ubuntu-26.04
     env:
-      GO_VERSION: "1.26"
+      GO_VERSION: "1.27"
       IMAGE_REGISTRY: quay.io/rh-marketplace
     defaults:
       run:
@@ -20,7 +20,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: "1.26"
+        go-version: "1.27"
         cache: false
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v4
@@ -43,7 +43,7 @@ jobs:
         # must use curl 8.12.0+ from snap until ubuntu ships a new version for the release
         # https://github.com/OpenSCAP/openscap/issues/2193
         # https://launchpad.net/ubuntu/+source/curl
-        sudo snap install curl
+        # sudo snap install curl
         sudo apt update
         sudo add-apt-repository universe -y
         sudo apt update
@@ -63,13 +63,14 @@ jobs:
         wget -O /tmp/scap-security-guide.tar.gz https://github.com/ComplianceAsCode/content/releases/download/v0.1.82/scap-security-guide-0.1.82.tar.gz
         mkdir -p /tmp/scap-security-guide
         tar -xvf /tmp/scap-security-guide.tar.gz -C /tmp/scap-security-guide --strip-components=1
-        docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
+        sudo docker pull registry.access.redhat.com/ubi9/ubi-minimal:latest
         sudo update-alternatives --set python3 /usr/bin/python3.13
-        sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
-        oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
+        # sudo LD_LIBRARY_PATH="/snap/curl/current/usr/local/lib:/snap/curl/current/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" \
+        sudo oscap-docker image registry.access.redhat.com/ubi9/ubi-minimal:latest xccdf eval \
         --fetch-remote-resources \
         --results /tmp/results.xml \
         --profile stig /tmp/scap-security-guide/ssg-rhel9-ds.xml || true
+        sudo chmod a+r /tmp/results.xml
         oscap xccdf generate fix --fix-type bash --output base/remediate.sh --result-id xccdf_org.open-scap_testresult_xccdf_org.ssgproject.content_profile_stig /tmp/results.xml
         sudo update-alternatives --set python3 /usr/bin/python3.14
         make base/ubi-minimal
