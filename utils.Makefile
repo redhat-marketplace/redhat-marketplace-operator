@@ -94,7 +94,7 @@ GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
 	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses@v1.6.0,v1.6.0)
 
-YQ_VERSION=v4.40.1
+YQ_VERSION=v4.54.3
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:
