@@ -124,7 +124,7 @@ oc create secret generic kubeconfig --from-file=kubeconfig=$KUBECONFIG
 # Import redhat catalogs
 oc import-image certified-operator-index:v4.22 \
   --request-timeout=5m \
-  --from=registry.redhat.io/redhat/certified-operator-index:v4.22 \
+  --from=registry.redhat.io/redhat/certified-operator-index:v5.0 \
   --reference-policy local \
   --scheduled \
   --confirm
